@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from './supabase';
 
 interface Asset {
-  id: number;
-  identificador_secao: string;
-  url_foto: string;
+  id: string;
   legenda: string;
+  url: string;
+  tipo: string;
 }
 
 interface AssetsContextType {
@@ -21,11 +22,19 @@ export function AssetsProvider({ children }: { children: React.ReactNode }) {
 
   const fetchAssets = async () => {
     try {
-      const res = await fetch('/api/assets');
-      const data: Asset[] = await res.json();
+      const { data, error } = await supabase
+        .from('banners')
+        .select('*')
+        .eq('ativo', true)
+        .order('ordem', { ascending: true });
+
+      if (error) throw error;
+
       const assetMap: Record<string, string> = {};
-      data.forEach(asset => {
-        assetMap[asset.identificador_secao] = asset.url_foto;
+      data?.forEach(asset => {
+        if (asset.tipo) {
+          assetMap[asset.tipo] = asset.url;
+        }
       });
       setAssets(assetMap);
     } catch (error) {

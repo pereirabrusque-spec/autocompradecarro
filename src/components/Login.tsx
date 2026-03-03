@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
 import { Mail, Lock, Loader2, AlertCircle } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 interface LoginProps {
   onLogin: (user: any) => void;
   onForgotPassword: () => void;
 }
+
+const MASTER_USERS = ['pereira.itapema@gmail.com', 'pereira.brusque@gmail.com'];
 
 export default function Login({ onLogin, onForgotPassword }: LoginProps) {
   const [email, setEmail] = useState('');
@@ -13,25 +16,44 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const handleGoogleLogin = async () => {
+    setIsLoading(true);
+    setError('');
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin
+        }
+      });
+      if (error) throw error;
+    } catch (err: any) {
+      setError(err.message || 'Erro ao entrar com Google');
+      setIsLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
 
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
-      const data = await res.json();
-      if (data.success) {
-        onLogin(data.user);
-      } else {
-        setError(data.message);
+
+      if (error) throw error;
+
+      if (data.user && !MASTER_USERS.includes(data.user.email || '')) {
+        await supabase.auth.signOut();
+        throw new Error('Acesso restrito a usuários master.');
       }
-    } catch (err) {
-      setError('Erro ao conectar com o servidor');
+
+      onLogin(data.user);
+    } catch (err: any) {
+      setError(err.message || 'Erro ao conectar com o servidor');
     } finally {
       setIsLoading(false);
     }
@@ -102,6 +124,25 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
             className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-accent transition-all disabled:opacity-50"
           >
             {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Entrar no Painel'}
+          </button>
+
+          <div className="relative my-8">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200"></div>
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white px-4 text-slate-400 font-bold">Ou continue com</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleGoogleLogin}
+            disabled={isLoading}
+            className="w-full py-4 bg-white border border-slate-200 text-slate-700 rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-slate-50 transition-all disabled:opacity-50"
+          >
+            <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
+            Entrar com Google
           </button>
         </form>
       </motion.div>

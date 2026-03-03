@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Car, Phone, Calendar, DollarSign, AlertCircle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2 } from 'lucide-react';
+import { Car, Phone, Calendar, DollarSign, AlertCircle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut } from 'lucide-react';
 import { useAssets } from '../lib/assetsContext';
+import { supabase } from '../lib/supabase';
 
 export default function AdminDashboard() {
   const [leads, setLeads] = useState<any[]>([]);
@@ -11,36 +12,59 @@ export default function AdminDashboard() {
   const [savingAsset, setSavingAsset] = useState<string | null>(null);
   const { refreshAssets } = useAssets();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      const [leadsRes, assetsRes] = await Promise.all([
-        fetch('/api/admin/leads'),
-        fetch('/api/assets')
-      ]);
-      const leadsData = await leadsRes.json();
-      const assetsData = await assetsRes.json();
-      setLeads(leadsData);
-      setDbAssets(assetsData);
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const { data: leadsData, error: leadsError } = await supabase
+        .from('leads_veiculos')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (leadsError) throw leadsError;
+
+      // For assets, we'll still use the local API for now or migrate if needed
+      // But the user provided SQL for site_content, so let's use that if possible
+      const { data: assetsData, error: assetsError } = await supabase
+        .from('banners')
+        .select('*')
+        .order('ordem', { ascending: true });
+
+      if (assetsError) throw assetsError;
+
+      setLeads(leadsData || []);
+      setDbAssets(assetsData || []);
+    } catch (error) {
+      console.error('Error fetching admin data:', error);
+    } finally {
       setIsLoading(false);
-    };
+    }
+  };
+
+  useEffect(() => {
     fetchData();
   }, []);
 
-  const handleUpdateAsset = async (identificador: string, url: string, legenda: string) => {
-    setSavingAsset(identificador);
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = '/';
+  };
+
+  const handleUpdateAsset = async (id: string, url: string, legenda: string, tipo: string) => {
+    setSavingAsset(id);
     try {
-      const res = await fetch('/api/admin/assets/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identificador_secao: identificador, url_foto: url, legenda })
-      });
-      if (res.ok) {
-        await refreshAssets();
-        // Update local state
-        setDbAssets(prev => prev.map(a => a.identificador_secao === identificador ? { ...a, url_foto: url, legenda } : a));
-      }
+      const { error } = await supabase
+        .from('banners')
+        .update({ url, legenda, tipo })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      await refreshAssets();
+      // Update local state
+      setDbAssets(prev => prev.map(a => a.id === id ? { ...a, url, legenda, tipo } : a));
     } catch (error) {
-      console.error(error);
+      console.error('Error updating banner:', error);
+      alert('Erro ao salvar banner.');
     } finally {
       setSavingAsset(null);
     }
@@ -70,18 +94,27 @@ export default function AdminDashboard() {
             <p className="text-slate-500">Gerencie leads e conteúdo do site.</p>
           </div>
           
-          <div className="flex bg-white p-1 rounded-2xl shadow-sm border border-slate-100">
+          <div className="flex items-center gap-4">
+            <div className="flex bg-white p-1 rounded-2xl shadow-sm border border-slate-100">
+              <button 
+                onClick={() => setActiveTab('leads')}
+                className={`px-6 py-2 rounded-xl font-bold text-sm transition-all ${activeTab === 'leads' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+              >
+                Leads ({leads.length})
+              </button>
+              <button 
+                onClick={() => setActiveTab('assets')}
+                className={`px-6 py-2 rounded-xl font-bold text-sm transition-all ${activeTab === 'assets' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+              >
+                Banners
+              </button>
+            </div>
             <button 
-              onClick={() => setActiveTab('leads')}
-              className={`px-6 py-2 rounded-xl font-bold text-sm transition-all ${activeTab === 'leads' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+              onClick={handleLogout}
+              className="p-3 bg-white border border-slate-200 text-slate-400 rounded-2xl hover:text-red-500 hover:border-red-100 transition-all"
+              title="Sair"
             >
-              Leads ({leads.length})
-            </button>
-            <button 
-              onClick={() => setActiveTab('assets')}
-              className={`px-6 py-2 rounded-xl font-bold text-sm transition-all ${activeTab === 'assets' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-            >
-              Assets do Site
+              <LogOut className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -100,22 +133,22 @@ export default function AdminDashboard() {
                     <div className="flex justify-between items-start mb-6">
                       <div>
                         <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider mb-2 ${
-                          v.type === 'Avaliação Completa' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'
+                          v.status === 'novo' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'
                         }`}>
-                          {v.type} • Score: {v.score_veiculo || 'N/A'}
+                          {v.status}
                         </span>
                         <span className="ml-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                           Recebido em: {new Date(v.created_at).toLocaleDateString('pt-BR')} às {new Date(v.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                         </span>
-                        <h2 className="font-display text-2xl font-bold">{v.brand} {v.model}</h2>
-                        <p className="text-slate-400 text-sm">{v.year} • {v.plate} • {v.mileage?.toLocaleString()} km</p>
+                        <h2 className="font-display text-2xl font-bold">{v.marca} {v.modelo}</h2>
+                        <p className="text-slate-400 text-sm">{v.ano_modelo} • {v.placa} • {v.mileage?.toLocaleString()} km</p>
                       </div>
                       <div className="text-right">
                         <p className="text-xs font-bold text-slate-400 uppercase mb-1">Valor Desejado</p>
                         <p className="text-2xl font-bold text-accent">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v.desired_price)}
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v.preco_cliente)}
                         </p>
-                        <p className="text-xs text-slate-400">Quitação Est.: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v.valor_quitacao_estimado)}</p>
+                        <p className="text-xs text-slate-400">FIPE: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v.valor_fipe)}</p>
                       </div>
                     </div>
 
@@ -125,24 +158,15 @@ export default function AdminDashboard() {
                           <Phone className="w-4 h-4" />
                           <span className="text-xs font-bold uppercase">Contato</span>
                         </div>
-                        <p className="font-bold text-sm">{v.owner_name}</p>
-                        <p className="text-xs text-slate-500">{v.owner_phone}</p>
+                        <p className="font-bold text-sm">{v.cliente_nome}</p>
+                        <p className="text-xs text-slate-500">{v.telefone}</p>
                       </div>
-                      <div className="p-4 bg-slate-50 rounded-2xl">
-                        <div className="flex items-center gap-2 text-slate-400 mb-1">
-                          <DollarSign className="w-4 h-4" />
-                          <span className="text-xs font-bold uppercase">Financeiro</span>
-                        </div>
-                        <p className="font-bold text-sm">{v.bank}</p>
-                        <p className="text-xs text-slate-500">{v.installments_paid}/{v.installments_paid + v.installments_remaining} parcelas</p>
-                      </div>
-                      <div className="p-4 bg-slate-50 rounded-2xl">
+                      <div className="p-4 bg-slate-50 rounded-2xl md:col-span-2">
                         <div className="flex items-center gap-2 text-slate-400 mb-1">
                           <AlertCircle className="w-4 h-4" />
-                          <span className="text-xs font-bold uppercase">Situação</span>
+                          <span className="text-xs font-bold uppercase">Observações</span>
                         </div>
-                        <p className="font-bold text-sm">{getSituationLabel(v.situation)}</p>
-                        <p className="text-xs text-slate-500">{v.is_crashed ? 'Com Sinistro' : 'Sem Sinistro'}</p>
+                        <p className="text-xs text-slate-500 line-clamp-2">{v.observacoes}</p>
                       </div>
                     </div>
                   </div>
@@ -178,16 +202,24 @@ export default function AdminDashboard() {
               >
                 <div className="relative h-48 bg-slate-100">
                   <img 
-                    src={asset.url_foto} 
+                    src={asset.url} 
                     alt={asset.legenda} 
                     className="w-full h-full object-cover"
                     referrerPolicy="no-referrer"
                   />
                   <div className="absolute top-4 left-4 bg-black/80 text-white text-[10px] font-black px-3 py-1 rounded-full tracking-widest uppercase">
-                    {asset.identificador_secao}
+                    {asset.tipo}
                   </div>
                 </div>
                 <div className="p-6 flex flex-col gap-4 flex-1">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Identificador (Tipo)</label>
+                    <input 
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-accent/20"
+                      value={asset.tipo}
+                      onChange={(e) => setDbAssets(prev => prev.map(a => a.id === asset.id ? { ...a, tipo: e.target.value } : a))}
+                    />
+                  </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Legenda</label>
                     <input 
@@ -200,16 +232,16 @@ export default function AdminDashboard() {
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">URL da Imagem (Supabase/Unsplash)</label>
                     <input 
                       className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono outline-none focus:ring-2 focus:ring-accent/20"
-                      value={asset.url_foto}
-                      onChange={(e) => setDbAssets(prev => prev.map(a => a.id === asset.id ? { ...a, url_foto: e.target.value } : a))}
+                      value={asset.url}
+                      onChange={(e) => setDbAssets(prev => prev.map(a => a.id === asset.id ? { ...a, url: e.target.value } : a))}
                     />
                   </div>
                   <button 
-                    onClick={() => handleUpdateAsset(asset.identificador_secao, asset.url_foto, asset.legenda)}
-                    disabled={savingAsset === asset.identificador_secao}
+                    onClick={() => handleUpdateAsset(asset.id, asset.url, asset.legenda, asset.tipo)}
+                    disabled={savingAsset === asset.id}
                     className="mt-auto w-full py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-accent transition-all disabled:opacity-50"
                   >
-                    {savingAsset === asset.identificador_secao ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                    {savingAsset === asset.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                     Salvar Alterações
                   </button>
                 </div>

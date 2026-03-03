@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, ChevronRight, ChevronLeft, CheckCircle2, Loader2, Camera, AlertTriangle } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 export default function SellModal() {
   const [isOpen, setIsOpen] = useState(false);
@@ -81,21 +82,33 @@ export default function SellModal() {
   const handleSubmit = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/vehicles', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-      if (res.ok) {
-        setIsSuccess(true);
-        setTimeout(() => {
-          setIsOpen(false);
-          setStep(1);
-          setIsSuccess(false);
-        }, 3000);
-      }
+      const { error } = await supabase.from('leads_veiculos').insert([{
+        cliente_nome: formData.owner_name,
+        telefone: formData.owner_phone,
+        marca: formData.brand,
+        modelo: formData.model,
+        ano_modelo: formData.year,
+        cor: formData.color,
+        mileage: parseInt(formData.mileage) || 0,
+        placa: formData.plate,
+        renavam: formData.renavam,
+        valor_fipe: formData.fipe_price,
+        preco_cliente: parseFloat(formData.desired_price) || 0,
+        status: 'novo',
+        observacoes: `Situação: ${formData.situation}. Acessórios: ${[formData.has_ac ? 'Ar' : '', formData.has_steering ? 'Direção' : '', formData.has_leather ? 'Couro' : ''].filter(Boolean).join(', ')}`
+      }]);
+
+      if (error) throw error;
+
+      setIsSuccess(true);
+      setTimeout(() => {
+        setIsOpen(false);
+        setStep(1);
+        setIsSuccess(false);
+      }, 3000);
     } catch (error) {
       console.error(error);
+      alert('Erro ao enviar proposta. Tente novamente.');
     } finally {
       setIsLoading(false);
     }

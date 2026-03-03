@@ -5,6 +5,7 @@ import {
   Camera, FileText, AlertCircle, ShieldCheck, Info, Bike, Truck,
   Check, X
 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 export default function SellCar() {
   const [brands, setBrands] = useState<any[]>([]);
@@ -153,17 +154,42 @@ export default function SellCar() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const res = await fetch('/api/vehicles', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, fipePrice })
-      });
-      if (res.ok) {
-        setIsSuccess(true);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
+      // Prepare problems array
+      const problems = [];
+      if (formData.hasDelayedFinancing) problems.push('Financiamento Atrasado');
+      if (formData.hasBuscaApreensao) problems.push('Busca e Apreensão');
+      if (formData.hasDelayedIpva) problems.push('IPVA/Multas Atrasados');
+      if (formData.hasRenajud) problems.push('Renajud / Bloqueio Judicial');
+      if (formData.hasBlownEngine) problems.push('Motor Fundido / Batendo');
+      if (formData.hasGearboxIssue) problems.push('Câmbio com Defeito');
+      if (formData.hasCrashDamage) problems.push('Batido / Avariado');
+      if (formData.hasSinistradoLeilao) problems.push('Sinistrado / Leilão');
+
+      const { error } = await supabase.from('leads_veiculos').insert([{
+        cliente_nome: formData.ownerName,
+        telefone: formData.ownerPhone,
+        email: formData.ownerEmail,
+        marca: formData.brandId,
+        modelo: formData.modelId,
+        ano_modelo: formData.yearId,
+        cor: formData.color,
+        mileage: parseInt(formData.mileage) || 0,
+        placa: formData.plate,
+        renavam: formData.renavam,
+        valor_fipe: parseFloat(fipePrice.replace(/[^\d,]/g, '').replace(',', '.')) || 0,
+        preco_cliente: parseFloat(formData.desiredPrice.replace(/[^\d,]/g, '').replace(',', '.')) || 0,
+        status: 'novo',
+        observacoes: `Localização: ${formData.ownerLocation}. Danos: ${formData.damageType}. Acessórios: ${Object.entries(formData.accessories).filter(([_, v]) => v).map(([k]) => k).join(', ')}`,
+        problemas: problems
+      }]);
+
+      if (error) throw error;
+
+      setIsSuccess(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
       console.error(error);
+      alert('Erro ao enviar avaliação. Tente novamente.');
     } finally {
       setIsSubmitting(false);
     }

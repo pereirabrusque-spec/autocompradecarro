@@ -26,6 +26,30 @@ const testimonials = [
     location: 'Belo Horizonte/MG',
     text: 'Vendi minha moto com motor fundido. Não achei que conseguiria algo por ela, mas me pagaram super bem.',
     avatar: 'https://i.pravatar.cc/150?u=mariana'
+  },
+  {
+    name: 'Fernando Silva',
+    location: 'Recife/PE',
+    text: 'Tinha um caminhão parado no pátio dando prejuízo. Eles vieram com o guincho, levaram e pagaram à vista.',
+    avatar: 'https://i.pravatar.cc/150?u=fernando'
+  },
+  {
+    name: 'Juliana Lima',
+    location: 'Salvador/BA',
+    text: 'Meu carro tinha bloqueio judicial (Renajud). A equipe jurídica deles é fantástica, resolveram tudo sem dor de cabeça.',
+    avatar: 'https://i.pravatar.cc/150?u=juliana'
+  },
+  {
+    name: 'Ricardo Gomes',
+    location: 'Porto Alegre/RS',
+    text: 'Compraram minha frota de veículos com problemas mecânicos. Negociação transparente e pagamento rápido.',
+    avatar: 'https://i.pravatar.cc/150?u=ricardo'
+  },
+  {
+    name: 'Beatriz Rocha',
+    location: 'Fortaleza/CE',
+    text: 'Renegociaram minha dívida com o banco e compraram meu carro. Fiquei livre do problema e com dinheiro no bolso.',
+    avatar: 'https://i.pravatar.cc/150?u=beatriz'
   }
 ];
 

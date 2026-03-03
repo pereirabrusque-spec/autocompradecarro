@@ -1,5 +1,5 @@
 import React from 'react';
-import { CarFront, LayoutDashboard } from 'lucide-react';
+import { CarFront, LayoutDashboard, Phone } from 'lucide-react';
 
 export default function Navbar() {
   return (
@@ -14,6 +14,10 @@ export default function Navbar() {
           <div className="hidden md:flex items-center gap-8">
             <a href="/" className="text-sm font-bold text-slate-900 hover:text-accent transition-colors">Home</a>
             <a href="/vender" className="text-sm font-bold text-slate-900 hover:text-accent transition-colors">Avaliar Carro</a>
+            <a href="https://wa.me/5511999999999" target="_blank" className="px-6 py-2 bg-green-500 text-white rounded-xl text-sm font-bold hover:bg-green-600 transition-all flex items-center gap-2">
+              <Phone className="w-4 h-4" />
+              WhatsApp
+            </a>
             <a href="/admin" className="flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors">
               <LayoutDashboard className="w-4 h-4" />
               Admin
