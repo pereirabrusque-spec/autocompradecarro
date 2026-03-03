@@ -45,22 +45,31 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
       if (error) throw error;
 
       if (data.user) {
+        // Check if user is admin
         const { data: adminData, error: adminError } = await supabase
           .from('admin_users')
           .select('email')
           .eq('email', data.user.email)
           .single();
 
-        if (adminError || !adminData) {
-          await supabase.auth.signOut();
-          throw new Error('Acesso restrito a usuários master.');
+        if (adminData) {
+          // Is admin, proceed to admin panel
+          onLogin(data.user);
+        } else {
+          // Not admin, redirect to home (or user dashboard if it existed)
+          // For now, we just sign them out of the "admin" context or show a message
+          // But the requirement says "If not enters normal without admin in panel"
+          // This implies they should be logged in but not see admin panel.
+          // Since this component is likely guarding /admin, we should probably deny access or redirect.
+          
+          // However, the prompt says: "WHEN SYSTEM VERIFIES THAT EMAIL IS ADMIN ENTERS ADMIN SYSTEM. IF NOT ENTERS NORMAL WITHOUT ADMIN IN PANEL"
+          // This suggests a single login point. If admin -> /admin. If not -> / (Home).
+          
+          window.location.href = '/';
         }
       }
-
-      onLogin(data.user);
     } catch (err: any) {
       setError(err.message || 'Erro ao conectar com o servidor');
-    } finally {
       setIsLoading(false);
     }
   };

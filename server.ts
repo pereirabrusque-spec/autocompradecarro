@@ -111,6 +111,13 @@ async function startServer() {
       legenda TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS settings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      key TEXT UNIQUE,
+      value TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   // Initial assets if empty
@@ -305,6 +312,26 @@ async function startServer() {
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: 'Erro ao atualizar asset' });
+    }
+  });
+
+  app.get('/api/admin/settings', (req, res) => {
+    const settings = db.prepare('SELECT * FROM settings').all();
+    res.json(settings);
+  });
+
+  app.post('/api/admin/settings', (req, res) => {
+    const { key, value } = req.body;
+    try {
+      const stmt = db.prepare(`
+        INSERT INTO settings (key, value) 
+        VALUES (?, ?) 
+        ON CONFLICT(key) DO UPDATE SET value = ?
+      `);
+      stmt.run(key, value, value);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Erro ao salvar configuração' });
     }
   });
 

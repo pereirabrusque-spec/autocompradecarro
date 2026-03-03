@@ -1,7 +1,19 @@
 import React from 'react';
-import { CarFront } from 'lucide-react';
+import { CarFront, Instagram, Facebook } from 'lucide-react';
+import { useAssets } from '../lib/assetsContext';
 
 export default function Footer() {
+  const { settings, banners } = useAssets();
+  
+  const footerText = settings['FOOTER_TEXT'] || 'Compramos seu carro com a melhor avaliação do mercado. Pagamento rápido e seguro.';
+  const footerCopyright = settings['FOOTER_COPYRIGHT'] || '© 2026 AutoCompra. Todos os direitos reservados.';
+  const contactEmail = settings['CONTACT_EMAIL'] || 'contato@autocompra.com.br';
+  const contactPhone = settings['CONTACT_PHONE'] || '(11) 99999-9999';
+  const socialInstagram = settings['SOCIAL_INSTAGRAM'];
+  const socialFacebook = settings['SOCIAL_FACEBOOK'];
+
+  const partners = banners.filter(b => b.tipo.startsWith('partner_'));
+
   return (
     <footer className="bg-[#0b1b2b] text-white py-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -12,7 +24,7 @@ export default function Footer() {
               <span className="font-display text-2xl font-bold tracking-tight">AutoCompra</span>
             </div>
             <p className="text-slate-400 leading-relaxed">
-              Compramos seu carro com a melhor avaliação do mercado. Pagamento rápido e seguro.
+              {footerText}
             </p>
           </div>
           
@@ -20,6 +32,7 @@ export default function Footer() {
             <h4 className="font-bold text-lg mb-6 text-white">Links Rápidos</h4>
             <ul className="space-y-4 text-slate-400">
               <li><a href="/" className="hover:text-white transition-colors">Home</a></li>
+              <li><a href="/vender" className="hover:text-white transition-colors">Vender Meu Carro</a></li>
               <li><a href="/admin" className="hover:text-white transition-colors">Área Administrativa</a></li>
             </ul>
           </div>
@@ -27,22 +40,38 @@ export default function Footer() {
           <div>
             <h4 className="font-bold text-lg mb-6 text-white">Contato</h4>
             <ul className="space-y-4 text-slate-400">
-              <li>contato@autocompra.com.br</li>
-              <li>(11) 99999-9999</li>
-              <li>São Paulo, SP</li>
+              <li>{contactEmail}</li>
+              <li>{contactPhone}</li>
             </ul>
+            <div className="flex gap-4 mt-6">
+              {socialInstagram && (
+                <a href={socialInstagram} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white transition-colors">
+                  <Instagram className="w-6 h-6" />
+                </a>
+              )}
+              {socialFacebook && (
+                <a href={socialFacebook} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white transition-colors">
+                  <Facebook className="w-6 h-6" />
+                </a>
+              )}
+            </div>
           </div>
           
           <div>
-            <h4 className="font-bold text-lg mb-6 text-white">Social & Parceiros</h4>
-            <div className="flex gap-4">
-              {/* Social icons could go here */}
+            <h4 className="font-bold text-lg mb-6 text-white">Parceiros</h4>
+            <div className="grid grid-cols-3 gap-4">
+              {partners.map(partner => (
+                <div key={partner.id} className="bg-white/10 p-2 rounded-lg flex items-center justify-center h-16 w-16" title={partner.legenda}>
+                  <img src={partner.url} alt={partner.legenda} className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
+                </div>
+              ))}
+              {partners.length === 0 && <p className="text-slate-500 text-sm col-span-3">Nenhum parceiro cadastrado.</p>}
             </div>
           </div>
         </div>
         
         <div className="pt-12 border-t border-white/10 text-center text-slate-500 text-sm">
-          <p>© 2026 AutoCompra. Todos os direitos reservados.</p>
+          <p>{footerCopyright}</p>
         </div>
       </div>
     </footer>

@@ -4,8 +4,6 @@ import { MessageSquare, Send, X, Bot, User, Loader2, Camera, Paperclip, FileText
 import { GoogleGenAI } from '@google/genai';
 import Markdown from 'react-markdown';
 
-const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '' });
-
 interface Message {
   role: 'user' | 'bot';
   text: string;
@@ -22,6 +20,27 @@ export default function ChatAssistant() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [apiKey, setApiKey] = useState<string>(import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '');
+
+  useEffect(() => {
+    // Fetch API key from settings if available
+    const fetchSettings = async () => {
+      try {
+        const res = await fetch('/api/admin/settings');
+        if (res.ok) {
+          const data = await res.json();
+          const aiKeySetting = data.find((s: any) => s.key === 'GEMINI_API_KEY');
+          if (aiKeySetting && aiKeySetting.value) {
+            setApiKey(aiKeySetting.value);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching settings:', error);
+      }
+    };
+    fetchSettings();
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -64,6 +83,7 @@ export default function ChatAssistant() {
         });
       }
 
+      const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model: 'gemini-3.1-pro-preview',
         contents: [

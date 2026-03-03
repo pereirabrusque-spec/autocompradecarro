@@ -1,15 +1,22 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from './supabase';
 
-interface Asset {
+export interface Asset {
   id: string;
   legenda: string;
   url: string;
   tipo: string;
+  button_text?: string;
+  button_link?: string;
+  title?: string;
+  subtitle?: string;
+  badge_text?: string;
 }
 
 interface AssetsContextType {
   assets: Record<string, string>;
+  banners: Asset[];
+  settings: Record<string, string>;
   isLoading: boolean;
   refreshAssets: () => Promise<void>;
 }
@@ -18,6 +25,8 @@ const AssetsContext = createContext<AssetsContextType | undefined>(undefined);
 
 export function AssetsProvider({ children }: { children: React.ReactNode }) {
   const [assets, setAssets] = useState<Record<string, string>>({});
+  const [banners, setBanners] = useState<Asset[]>([]);
+  const [settings, setSettings] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchAssets = async () => {
@@ -37,6 +46,21 @@ export function AssetsProvider({ children }: { children: React.ReactNode }) {
         }
       });
       setAssets(assetMap);
+      setBanners(data || []);
+
+      // Fetch settings
+      const { data: settingsData, error: settingsError } = await supabase
+        .from('settings')
+        .select('*');
+      
+      if (!settingsError && settingsData) {
+        const settingsMap: Record<string, string> = {};
+        settingsData.forEach(s => {
+          settingsMap[s.key] = s.value;
+        });
+        setSettings(settingsMap);
+      }
+
     } catch (error) {
       console.error('Error fetching assets:', error);
     } finally {
@@ -49,7 +73,7 @@ export function AssetsProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AssetsContext.Provider value={{ assets, isLoading, refreshAssets: fetchAssets }}>
+    <AssetsContext.Provider value={{ assets, banners, settings, isLoading, refreshAssets: fetchAssets }}>
       {children}
     </AssetsContext.Provider>
   );

@@ -43,6 +43,8 @@ export default function SellCar() {
     installmentValue: '',
     installmentsPaid: '',
     installmentsRemaining: '',
+    situacaoFinanceira: '',
+    entrada: '',
     
     // Problems
     hasDelayedFinancing: false,
@@ -140,19 +142,17 @@ export default function SellCar() {
 
   const calculateProgress = () => {
     let score = 0;
-    const total = 12;
+    const total = 10;
     
     if (formData.brandId) score++;
     if (formData.modelId) score++;
     if (formData.yearId) score++;
-    if (formData.plate) score++;
     if (formData.ownerName) score++;
     if (formData.ownerPhone) score++;
     if (formData.ownerEmail) score++;
     if (formData.mileage) score++;
     if (formData.color) score++;
     if (formData.desiredPrice) score++;
-    if (formData.renavam) score++;
     
     // CRLV photo would be the last 15%
     return Math.min(Math.round((score / total) * 85), 85);
@@ -198,12 +198,14 @@ export default function SellCar() {
         ano_modelo: formData.yearName || formData.yearId,
         cor: formData.color,
         mileage: parseInt(formData.mileage) || 0,
-        placa: formData.plate,
-        renavam: formData.renavam,
+        placa: '',
+        renavam: '',
         valor_fipe: parseFloat(fipePrice.replace(/[^\d,]/g, '').replace(',', '.')) || 0,
         preco_cliente: parseFloat(formData.desiredPrice.replace(/[^\d,]/g, '').replace(',', '.')) || 0,
         status: 'novo',
         observacoes: `Localização: ${formData.ownerLocation}. Danos: ${formData.damageType}. Acessórios: ${Object.entries(formData.accessories).filter(([_, v]) => v).map(([k]) => k).join(', ')}`,
+        entrada: parseFloat(formData.entrada.replace(/[^\d,]/g, '').replace(',', '.')) || 0,
+        situacao_financeira: formData.situacaoFinanceira,
         problemas: problems
       }]);
 
@@ -500,26 +502,6 @@ export default function SellCar() {
               Detalhes Básicos
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-400 ml-1">Placa *</label>
-                <input 
-                  required
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
-                  placeholder="ABC1D23"
-                  value={formData.plate}
-                  onChange={e => setFormData({...formData, plate: e.target.value})}
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-400 ml-1">Renavam *</label>
-                <input 
-                  required
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
-                  placeholder="00000000000"
-                  value={formData.renavam}
-                  onChange={e => setFormData({...formData, renavam: e.target.value})}
-                />
-              </div>
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-400 ml-1">Cor *</label>
                 <input 

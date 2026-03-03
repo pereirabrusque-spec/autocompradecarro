@@ -1,23 +1,52 @@
-import React from 'react';
-import { motion } from 'motion/react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { ArrowRight } from 'lucide-react';
 import { useAssets } from '../lib/assetsContext';
 
 export default function Hero() {
-  const { assets } = useAssets();
-  const bgImage = assets['hero_bg'] || "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&q=80&w=1920";
+  const { banners, settings } = useAssets();
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  
+  // Get all hero banners (keys starting with 'hero_bg')
+  const heroBanners = banners
+    .filter(b => b.tipo.startsWith('hero_bg'))
+    .sort((a, b) => a.ordem - b.ordem);
+    
+  // Fallback if no assets found
+  const hasBanners = heroBanners.length > 0;
+  const currentBanner = hasBanners ? heroBanners[currentImageIndex] : null;
+  const fallbackImage = "https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?auto=format&fit=crop&q=80&w=1920";
+
+  useEffect(() => {
+    if (heroBanners.length <= 1) return;
+    
+    const timerDuration = parseInt(settings['HERO_TIMER'] || '5000', 10);
+    
+    const interval = setInterval(() => {
+      setCurrentImageIndex(prev => (prev + 1) % heroBanners.length);
+    }, timerDuration);
+    
+    return () => clearInterval(interval);
+  }, [heroBanners.length, settings]);
 
   return (
     <section className="relative min-h-screen flex items-center pt-20 overflow-hidden bg-black">
-      {/* Background Image */}
+      {/* Background Image Carousel */}
       <div className="absolute inset-0 z-0">
-        <img 
-          src={bgImage} 
-          alt="Car in desert" 
-          className="w-full h-full object-cover opacity-60"
-          referrerPolicy="no-referrer"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
+        <AnimatePresence mode='wait'>
+          <motion.img 
+            key={currentImageIndex}
+            src={currentBanner ? currentBanner.url : fallbackImage} 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.6 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1 }}
+            alt={currentBanner?.legenda || "Hero Background"} 
+            className="absolute inset-0 w-full h-full object-cover"
+            referrerPolicy="no-referrer"
+          />
+        </AnimatePresence>
+        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent z-10" />
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
@@ -28,25 +57,26 @@ export default function Hero() {
           className="max-w-4xl"
         >
           <span className="inline-block px-4 py-1.5 mb-8 text-sm font-black tracking-widest text-white uppercase bg-red-600 rounded-lg">
-            RESOLUÇÃO IMEDIATA
+            {currentBanner?.badge_text || 'SOLUÇÃO IMEDIATA'}
           </span>
           
-          <h1 className="font-display text-6xl md:text-9xl font-black mb-8 leading-[0.9] tracking-tighter">
-            <span className="text-red-600">Transforme</span> <span className="text-green-500">seu</span><br />
-            <span className="text-white">problema</span> <span className="text-red-600">em</span><br />
-            <span className="text-green-500">dinheiro</span> <span className="text-white">vivo</span><br />
-            <span className="text-red-600">agora.</span>
-          </h1>
+          <h1 
+            className="font-display text-6xl md:text-9xl font-black mb-8 leading-[0.9] tracking-tighter"
+            dangerouslySetInnerHTML={{ __html: currentBanner?.title || `<span class="text-red-600">Transforme</span> <span class="text-green-500">seu</span><br />
+            <span class="text-white">problema</span> <span class="text-red-600">em</span><br />
+            <span class="text-green-500">dinheiro</span> <span class="text-white">vivo</span><br />
+            <span class="text-red-600">agora.</span>` }}
+          />
 
           <p className="text-xl md:text-2xl text-white/90 mb-12 max-w-2xl font-medium leading-relaxed">
-            Especialistas em veículos com dívidas, financiamento atrasado, motor estourado ou batidos. Assumimos a burocracia e limpamos seu nome.
+            {currentBanner?.subtitle || currentBanner?.legenda || 'Especialistas em veículos com dívidas, financiamento atrasado, motor estourado ou batidos. Assumimos a burocracia e limpamos seu nome.'}
           </p>
 
           <button 
-            onClick={() => window.location.href = '/vender'}
+            onClick={() => window.location.href = currentBanner?.button_link || '/vender'}
             className="btn-orange text-xl py-6 px-12 group"
           >
-            QUERO MINHA PROPOSTA AGORA
+            {currentBanner?.button_text || 'QUERO MINHA PROPOSTA AGORA'}
             <ArrowRight className="w-6 h-6 group-hover:translate-x-2 transition-transform" />
           </button>
         </motion.div>
