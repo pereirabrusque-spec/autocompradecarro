@@ -23,8 +23,6 @@ import ResetPassword from './components/ResetPassword';
 import SellCar from './components/SellCar';
 import { supabase } from './lib/supabase';
 
-const MASTER_USERS = ['pereira.itapema@gmail.com', 'pereira.brusque@gmail.com'];
-
 export default function App() {
   const [view, setView] = useState<'home' | 'admin' | 'login' | 'forgot-password' | 'reset-password' | 'sell'>('home');
   const [user, setUser] = useState<any>(null);
@@ -46,26 +44,37 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (isAuthLoading) return;
+    const checkAdminAccess = async () => {
+      if (isAuthLoading) return;
 
-    // Check URL to determine view
-    const path = window.location.pathname;
-    if (path === '/admin') {
-      if (!user) {
-        setView('login');
-      } else if (!MASTER_USERS.includes(user.email || '')) {
-        supabase.auth.signOut();
-        setView('login');
+      const path = window.location.pathname;
+      if (path === '/admin') {
+        if (!user) {
+          setView('login');
+        } else {
+          const { data, error } = await supabase
+            .from('admin_users')
+            .select('email')
+            .eq('email', user.email)
+            .single();
+
+          if (error || !data) {
+            await supabase.auth.signOut();
+            setView('login');
+          } else {
+            setView('admin');
+          }
+        }
+      } else if (path === '/reset-password') {
+        setView('reset-password');
+      } else if (path === '/vender') {
+        setView('sell');
       } else {
-        setView('admin');
+        setView('home');
       }
-    } else if (path === '/reset-password') {
-      setView('reset-password');
-    } else if (path === '/vender') {
-      setView('sell');
-    } else {
-      setView('home');
-    }
+    };
+
+    checkAdminAccess();
   }, [user, isAuthLoading]);
 
   const handleLogin = (userData: any) => {

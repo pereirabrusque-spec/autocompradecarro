@@ -8,8 +8,6 @@ interface LoginProps {
   onForgotPassword: () => void;
 }
 
-const MASTER_USERS = ['pereira.itapema@gmail.com', 'pereira.brusque@gmail.com'];
-
 export default function Login({ onLogin, onForgotPassword }: LoginProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -46,9 +44,17 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
 
       if (error) throw error;
 
-      if (data.user && !MASTER_USERS.includes(data.user.email || '')) {
-        await supabase.auth.signOut();
-        throw new Error('Acesso restrito a usuários master.');
+      if (data.user) {
+        const { data: adminData, error: adminError } = await supabase
+          .from('admin_users')
+          .select('email')
+          .eq('email', data.user.email)
+          .single();
+
+        if (adminError || !adminData) {
+          await supabase.auth.signOut();
+          throw new Error('Acesso restrito a usuários master.');
+        }
       }
 
       onLogin(data.user);
