@@ -1,0 +1,56 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+  --color-primary: #001a33;
+  --color-accent: #ff4d00;
+  --color-success: #00c853;
+}
+
+@layer base {
+  body {
+    @apply bg-[#f8f9fa] text-slate-900 font-sans;
+  }
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.btn-orange {
+  @apply bg-[#ff4d00] text-white font-bold py-4 px-8 rounded-xl flex items-center justify-center gap-2 hover:bg-[#e64500] transition-all shadow-lg shadow-orange-500/20;
+}
+
+.card-shadow {
+  @apply shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100;
+}
+
+.glass {
+  @apply bg-white/90 backdrop-blur-md border-b border-slate-200;
+}
+
+.markdown-body {
+  @apply text-sm leading-relaxed;
+}
+
+.markdown-body p {
+  @apply mb-2 last:mb-0;
+}
+
+.markdown-body ul, .markdown-body ol {
+  @apply ml-4 mb-2 list-disc;
+}
+
+.markdown-body li {
+  @apply mb-1;
+}
+
+.markdown-body strong {
+  @apply font-bold text-slate-900;
+}

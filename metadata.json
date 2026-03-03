@@ -1,0 +1,5 @@
+{
+  "name": "AutoCompra",
+  "description": "Transforme seu problema em dinheiro vivo agora. Especialistas em veículos com dívidas, financiamento atrasado ou problemas mecânicos.",
+  "requestFramePermissions": ["camera"]
+}
