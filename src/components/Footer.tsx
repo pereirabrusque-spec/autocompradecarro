@@ -1,5 +1,5 @@
 import React from 'react';
-import { CarFront, Instagram, Facebook } from 'lucide-react';
+import { CarFront, Instagram, Facebook, MessageCircle } from 'lucide-react';
 import { useAssets } from '../lib/assetsContext';
 
 export default function Footer() {
@@ -12,10 +12,26 @@ export default function Footer() {
   const socialInstagram = settings['SOCIAL_INSTAGRAM'];
   const socialFacebook = settings['SOCIAL_FACEBOOK'];
 
+  const specialistEnabled = settings['SPECIALIST_BUTTON_ENABLED'] === 'true';
+  const specialistText = settings['SPECIALIST_BUTTON_TEXT'] || 'Falar com Especialista';
+  const specialistLink = settings['SPECIALIST_BUTTON_LINK'] || '#';
+
   const partners = banners.filter(b => b.tipo.startsWith('partner_'));
 
   return (
-    <footer className="bg-[#0b1b2b] text-white py-20">
+    <footer className="bg-[#0b1b2b] text-white py-20 relative">
+      {specialistEnabled && (
+        <a 
+          href={specialistLink} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="fixed bottom-8 left-8 z-50 bg-green-600 text-white px-6 py-4 rounded-full shadow-2xl flex items-center gap-3 hover:bg-green-700 transition-all hover:scale-105 group"
+        >
+          <MessageCircle className="w-6 h-6" />
+          <span className="font-bold text-sm uppercase tracking-wide">{specialistText}</span>
+        </a>
+      )}
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-20">
           <div className="col-span-1 md:col-span-1">

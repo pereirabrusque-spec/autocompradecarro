@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Car, Phone, Calendar, DollarSign, AlertCircle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload } from 'lucide-react';
+import { Car, Phone, Calendar, DollarSign, AlertCircle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw } from 'lucide-react';
 import { useAssets } from '../lib/assetsContext';
 import { supabase } from '../lib/supabase';
+import { defaultCards } from '../lib/seedData';
 
 export default function AdminDashboard() {
   const [leads, setLeads] = useState<any[]>([]);
@@ -12,10 +13,14 @@ export default function AdminDashboard() {
   const [savingAsset, setSavingAsset] = useState<string | null>(null);
   const [deletingAsset, setDeletingAsset] = useState<string | null>(null);
   const [uploadingAsset, setUploadingAsset] = useState<string | null>(null);
+  const [seedingCards, setSeedingCards] = useState(false);
   const [aiApiKey, setAiApiKey] = useState('');
   const [whatsappNumber, setWhatsappNumber] = useState('');
   const [whatsappButtonText, setWhatsappButtonText] = useState('WhatsApp');
   const [whatsappEnabled, setWhatsappEnabled] = useState(false);
+  const [specialistEnabled, setSpecialistEnabled] = useState(false);
+  const [specialistText, setSpecialistText] = useState('');
+  const [specialistLink, setSpecialistLink] = useState('');
   const [heroTimer, setHeroTimer] = useState('5000');
   const [footerText, setFooterText] = useState('');
   const [footerCopyright, setFooterCopyright] = useState('');
@@ -70,6 +75,15 @@ export default function AdminDashboard() {
         if (waEnabledSetting) {
           setWhatsappEnabled(waEnabledSetting.value === 'true');
         }
+
+        const specialistEnabledSetting = settingsData.find((s: any) => s.key === 'SPECIALIST_BUTTON_ENABLED');
+        if (specialistEnabledSetting) setSpecialistEnabled(specialistEnabledSetting.value === 'true');
+
+        const specialistTextSetting = settingsData.find((s: any) => s.key === 'SPECIALIST_BUTTON_TEXT');
+        if (specialistTextSetting) setSpecialistText(specialistTextSetting.value);
+
+        const specialistLinkSetting = settingsData.find((s: any) => s.key === 'SPECIALIST_BUTTON_LINK');
+        if (specialistLinkSetting) setSpecialistLink(specialistLinkSetting.value);
 
         const heroTimerSetting = settingsData.find((s: any) => s.key === 'HERO_TIMER');
         if (heroTimerSetting) setHeroTimer(heroTimerSetting.value);
@@ -251,6 +265,23 @@ export default function AdminDashboard() {
         body: JSON.stringify({ key: 'WHATSAPP_ENABLED', value: whatsappEnabled ? 'true' : 'false' })
       });
 
+      // Save Specialist Button Settings
+      await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'SPECIALIST_BUTTON_ENABLED', value: specialistEnabled ? 'true' : 'false' })
+      });
+      await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'SPECIALIST_BUTTON_TEXT', value: specialistText })
+      });
+      await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'SPECIALIST_BUTTON_LINK', value: specialistLink })
+      });
+
       // Save Hero Timer
       await fetch('/api/admin/settings', {
         method: 'POST',
@@ -296,6 +327,36 @@ export default function AdminDashboard() {
       future_payoff: 'Futura Quitação'
     };
     return labels[s] || s;
+  };
+
+  const handleSeedCards = async () => {
+    if (!confirm('Isso irá restaurar os cards padrão. Deseja continuar?')) return;
+    setSeedingCards(true);
+    try {
+      // Check if cards exist
+      const { data: existing } = await supabase.from('banners').select('id').ilike('tipo', 'card_%');
+      
+      if (existing && existing.length > 0) {
+        // Optional: Delete existing or just upsert. Let's upsert.
+        // Actually, user might want to reset.
+      }
+
+      for (const card of defaultCards) {
+        const { error } = await supabase
+          .from('banners')
+          .upsert(card, { onConflict: 'tipo' });
+        
+        if (error) throw error;
+      }
+      
+      await fetchData();
+      alert('Cards restaurados com sucesso!');
+    } catch (error) {
+      console.error('Error seeding cards:', error);
+      alert('Erro ao restaurar cards.');
+    } finally {
+      setSeedingCards(false);
+    }
   };
 
   if (isLoading) return <div className="p-20 text-center">Carregando painel...</div>;
@@ -615,13 +676,23 @@ export default function AdminDashboard() {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold">Fotos do Site (Cards)</h2>
-              <button 
-                onClick={() => handleCreateAsset('card_img')}
-                className="px-6 py-3 bg-accent text-white rounded-xl font-bold flex items-center gap-2 hover:bg-orange-600 transition-all"
-              >
-                <Plus className="w-5 h-5" />
-                Nova Foto
-              </button>
+              <div className="flex gap-2">
+                <button 
+                  onClick={handleSeedCards}
+                  disabled={seedingCards}
+                  className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-200 transition-all disabled:opacity-50"
+                >
+                  {seedingCards ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />}
+                  Restaurar Padrões
+                </button>
+                <button 
+                  onClick={() => handleCreateAsset('card_img')}
+                  className="px-6 py-3 bg-accent text-white rounded-xl font-bold flex items-center gap-2 hover:bg-orange-600 transition-all"
+                >
+                  <Plus className="w-5 h-5" />
+                  Nova Foto
+                </button>
+              </div>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -877,6 +948,51 @@ export default function AdminDashboard() {
                       onChange={e => setWhatsappButtonText(e.target.value)}
                       disabled={!whatsappEnabled}
                     />
+                  </div>
+                </div>
+
+                <div className="pt-6 border-t border-slate-100 mt-6">
+                  <h3 className="text-lg font-bold mb-4">Botão "Falar com Especialista" (Final)</h3>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                      <div>
+                        <p className="font-bold text-slate-900">Habilitar Botão Especialista</p>
+                        <p className="text-xs text-slate-500">Mostra um botão de destaque no final da página.</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          className="sr-only peer"
+                          checked={specialistEnabled}
+                          onChange={(e) => setSpecialistEnabled(e.target.checked)}
+                        />
+                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                      </label>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-slate-700">Texto do Botão</label>
+                      <input 
+                        type="text"
+                        className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20 disabled:opacity-50"
+                        placeholder="Ex: Falar com Especialista Agora"
+                        value={specialistText}
+                        onChange={e => setSpecialistText(e.target.value)}
+                        disabled={!specialistEnabled}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-slate-700">Link de Destino (WhatsApp ou URL)</label>
+                      <input 
+                        type="text"
+                        className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20 disabled:opacity-50"
+                        placeholder="Ex: https://wa.me/5511999999999"
+                        value={specialistLink}
+                        onChange={e => setSpecialistLink(e.target.value)}
+                        disabled={!specialistEnabled}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
