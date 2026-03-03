@@ -28,6 +28,9 @@ export default function AdminDashboard() {
   const [contactPhone, setContactPhone] = useState('');
   const [socialInstagram, setSocialInstagram] = useState('');
   const [socialFacebook, setSocialFacebook] = useState('');
+  const [socialYoutube, setSocialYoutube] = useState('');
+  const [socialTiktok, setSocialTiktok] = useState('');
+  const [socialLinkedin, setSocialLinkedin] = useState('');
   const [savingSettings, setSavingSettings] = useState(false);
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const { refreshAssets } = useAssets();
@@ -105,6 +108,15 @@ export default function AdminDashboard() {
 
         const socialFacebookSetting = settingsData.find((s: any) => s.key === 'SOCIAL_FACEBOOK');
         if (socialFacebookSetting) setSocialFacebook(socialFacebookSetting.value);
+
+        const socialYoutubeSetting = settingsData.find((s: any) => s.key === 'SOCIAL_YOUTUBE');
+        if (socialYoutubeSetting) setSocialYoutube(socialYoutubeSetting.value);
+
+        const socialTiktokSetting = settingsData.find((s: any) => s.key === 'SOCIAL_TIKTOK');
+        if (socialTiktokSetting) setSocialTiktok(socialTiktokSetting.value);
+
+        const socialLinkedinSetting = settingsData.find((s: any) => s.key === 'SOCIAL_LINKEDIN');
+        if (socialLinkedinSetting) setSocialLinkedin(socialLinkedinSetting.value);
       }
     } catch (error) {
       console.error('Error fetching admin data:', error);
@@ -297,6 +309,9 @@ export default function AdminDashboard() {
         { key: 'CONTACT_PHONE', value: contactPhone },
         { key: 'SOCIAL_INSTAGRAM', value: socialInstagram },
         { key: 'SOCIAL_FACEBOOK', value: socialFacebook },
+        { key: 'SOCIAL_YOUTUBE', value: socialYoutube },
+        { key: 'SOCIAL_TIKTOK', value: socialTiktok },
+        { key: 'SOCIAL_LINKEDIN', value: socialLinkedin },
       ];
 
       for (const setting of settingsToSave) {
@@ -747,8 +762,35 @@ export default function AdminDashboard() {
                         onChange={(e) => setDbAssets(prev => prev.map(a => a.id === asset.id ? { ...a, legenda: e.target.value } : a))}
                       />
                     </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Badge (Etiqueta)</label>
+                      <input 
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none"
+                        value={asset.badge_text || ''}
+                        placeholder="Ex: CARRO"
+                        onChange={(e) => setDbAssets(prev => prev.map(a => a.id === asset.id ? { ...a, badge_text: e.target.value } : a))}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Texto do Botão</label>
+                      <input 
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none"
+                        value={asset.button_text || ''}
+                        placeholder="Ex: TRANSFORME SEU PREJUÍZO..."
+                        onChange={(e) => setDbAssets(prev => prev.map(a => a.id === asset.id ? { ...a, button_text: e.target.value } : a))}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Link do Botão</label>
+                      <input 
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none"
+                        value={asset.button_link || ''}
+                        placeholder="Ex: /vender"
+                        onChange={(e) => setDbAssets(prev => prev.map(a => a.id === asset.id ? { ...a, button_link: e.target.value } : a))}
+                      />
+                    </div>
                     <button 
-                      onClick={() => handleUpdateAsset(asset.id, asset.url, asset.legenda, asset.tipo)}
+                      onClick={() => handleUpdateAsset(asset.id, asset.url, asset.legenda, asset.tipo, asset.button_text, asset.button_link, asset.title, asset.subtitle, asset.badge_text)}
                       disabled={savingAsset === asset.id}
                       className="mt-auto w-full py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-accent transition-all disabled:opacity-50"
                     >
@@ -795,6 +837,30 @@ export default function AdminDashboard() {
                     className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                     value={socialFacebook}
                     onChange={e => setSocialFacebook(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-slate-700">Link YouTube</label>
+                  <input 
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                    value={socialYoutube}
+                    onChange={e => setSocialYoutube(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-slate-700">Link TikTok</label>
+                  <input 
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                    value={socialTiktok}
+                    onChange={e => setSocialTiktok(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-slate-700">Link LinkedIn</label>
+                  <input 
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                    value={socialLinkedin}
+                    onChange={e => setSocialLinkedin(e.target.value)}
                   />
                 </div>
                 <div className="space-y-2 md:col-span-2">

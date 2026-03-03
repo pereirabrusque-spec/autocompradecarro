@@ -1,5 +1,5 @@
 import React from 'react';
-import { CarFront, Instagram, Facebook, MessageCircle } from 'lucide-react';
+import { CarFront, Instagram, Facebook, MessageCircle, Youtube, Linkedin, Video } from 'lucide-react';
 import { useAssets } from '../lib/assetsContext';
 
 export default function Footer() {
@@ -11,6 +11,9 @@ export default function Footer() {
   const contactPhone = settings['CONTACT_PHONE'] || '(11) 99999-9999';
   const socialInstagram = settings['SOCIAL_INSTAGRAM'];
   const socialFacebook = settings['SOCIAL_FACEBOOK'];
+  const socialYoutube = settings['SOCIAL_YOUTUBE'];
+  const socialTiktok = settings['SOCIAL_TIKTOK'];
+  const socialLinkedin = settings['SOCIAL_LINKEDIN'];
 
   const specialistEnabled = settings['SPECIALIST_BUTTON_ENABLED'] === 'true';
   const specialistText = settings['SPECIALIST_BUTTON_TEXT'] || 'Falar com Especialista';
@@ -59,7 +62,7 @@ export default function Footer() {
               <li>{contactEmail}</li>
               <li>{contactPhone}</li>
             </ul>
-            <div className="flex gap-4 mt-6">
+            <div className="flex gap-4 mt-6 flex-wrap">
               {socialInstagram && (
                 <a href={socialInstagram} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white transition-colors">
                   <Instagram className="w-6 h-6" />
@@ -68,6 +71,21 @@ export default function Footer() {
               {socialFacebook && (
                 <a href={socialFacebook} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white transition-colors">
                   <Facebook className="w-6 h-6" />
+                </a>
+              )}
+              {socialYoutube && (
+                <a href={socialYoutube} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white transition-colors">
+                  <Youtube className="w-6 h-6" />
+                </a>
+              )}
+              {socialTiktok && (
+                <a href={socialTiktok} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white transition-colors">
+                  <Video className="w-6 h-6" />
+                </a>
+              )}
+              {socialLinkedin && (
+                <a href={socialLinkedin} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white transition-colors">
+                  <Linkedin className="w-6 h-6" />
                 </a>
               )}
             </div>
