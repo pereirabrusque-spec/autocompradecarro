@@ -158,7 +158,7 @@ export default function CarGrid() {
               </div>
               <div className="p-6 flex flex-col flex-1">
                 <div 
-                  onClick={() => window.dispatchEvent(new CustomEvent('openSellModal'))}
+                  onClick={() => window.location.href = '/vender'}
                   className={`mt-auto ${v.color} text-white p-6 rounded-2xl text-center font-black text-sm leading-tight min-h-[80px] flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity`}
                 >
                   {v.message.toUpperCase()}

@@ -43,7 +43,7 @@ export default function Hero() {
           </p>
 
           <button 
-            onClick={() => window.dispatchEvent(new CustomEvent('openSellModal'))}
+            onClick={() => window.location.href = '/vender'}
             className="btn-orange text-xl py-6 px-12 group"
           >
             QUERO MINHA PROPOSTA AGORA

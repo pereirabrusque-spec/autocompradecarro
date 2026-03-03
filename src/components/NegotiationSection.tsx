@@ -25,7 +25,7 @@ export default function NegotiationSection() {
           
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <button 
-              onClick={() => window.dispatchEvent(new CustomEvent('openSellModal'))}
+              onClick={() => window.location.href = '/vender'}
               className="w-full sm:w-auto px-10 py-5 bg-green-500 text-white rounded-xl font-bold text-lg hover:bg-green-600 transition-all shadow-lg shadow-green-500/20"
             >
               Quero Renegociar Minha Dívida

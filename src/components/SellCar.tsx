@@ -15,12 +15,16 @@ export default function SellCar() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [photos, setPhotos] = useState<File[]>([]);
   
   const [formData, setFormData] = useState({
     vehicleType: 'Carros',
     brandId: '',
+    brandName: '',
     modelId: '',
+    modelName: '',
     yearId: '',
+    yearName: '',
     plate: '',
     renavam: '',
     color: '',
@@ -74,7 +78,9 @@ export default function SellCar() {
     desiredPrice: '',
     ownerName: '',
     ownerPhone: '',
+    ownerPhoneConfirm: '',
     ownerEmail: '',
+    ownerEmailConfirm: '',
     ownerLocation: ''
   });
 
@@ -90,7 +96,8 @@ export default function SellCar() {
   };
 
   const handleBrandChange = async (brandId: string) => {
-    setFormData(prev => ({ ...prev, brandId, modelId: '', yearId: '' }));
+    const brandName = brands.find(b => b.codigo === brandId)?.nome || '';
+    setFormData(prev => ({ ...prev, brandId, brandName, modelId: '', modelName: '', yearId: '', yearName: '' }));
     setModels([]);
     setYears([]);
     setFipePrice('');
@@ -103,7 +110,8 @@ export default function SellCar() {
   };
 
   const handleModelChange = async (modelId: string) => {
-    setFormData(prev => ({ ...prev, modelId, yearId: '' }));
+    const modelName = models.find(m => m.codigo.toString() === modelId)?.nome || '';
+    setFormData(prev => ({ ...prev, modelId, modelName, yearId: '', yearName: '' }));
     setYears([]);
     setFipePrice('');
     if (!modelId) return;
@@ -114,13 +122,13 @@ export default function SellCar() {
     setYears(data);
   };
 
-  const handleSearchFipe = async () => {
-    if (!formData.brandId || !formData.modelId || !formData.yearId) return;
+  const handleSearchFipe = async (yearId: string) => {
+    if (!formData.brandId || !formData.modelId || !yearId) return;
     
     setIsLoading(true);
     try {
       const type = formData.vehicleType.toLowerCase();
-      const res = await fetch(`/api/fipe/price/${formData.brandId}/${formData.modelId}/${formData.yearId}?type=${type}`);
+      const res = await fetch(`/api/fipe/price/${formData.brandId}/${formData.modelId}/${yearId}?type=${type}`);
       const data = await res.json();
       setFipePrice(data.Valor);
     } catch (error) {
@@ -152,6 +160,22 @@ export default function SellCar() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (photos.length < 5) {
+      alert('Por favor, adicione pelo menos 5 fotos do veículo.');
+      return;
+    }
+
+    if (formData.ownerEmail !== formData.ownerEmailConfirm) {
+      alert('Os e-mails informados não conferem.');
+      return;
+    }
+
+    if (formData.ownerPhone !== formData.ownerPhoneConfirm) {
+      alert('Os números de WhatsApp informados não conferem.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       // Prepare problems array
@@ -169,9 +193,9 @@ export default function SellCar() {
         cliente_nome: formData.ownerName,
         telefone: formData.ownerPhone,
         email: formData.ownerEmail,
-        marca: formData.brandId,
-        modelo: formData.modelId,
-        ano_modelo: formData.yearId,
+        marca: formData.brandName || formData.brandId,
+        modelo: formData.modelName || formData.modelId,
+        ano_modelo: formData.yearName || formData.yearId,
         cor: formData.color,
         mileage: parseInt(formData.mileage) || 0,
         placa: formData.plate,
@@ -298,23 +322,20 @@ export default function SellCar() {
                   disabled={!formData.modelId}
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20 disabled:opacity-50"
                   value={formData.yearId}
-                  onChange={e => setFormData({...formData, yearId: e.target.value})}
+                  onChange={e => {
+                    const yearId = e.target.value;
+                    const yearName = years.find(y => y.codigo === yearId)?.nome || '';
+                    setFormData(prev => ({...prev, yearId, yearName}));
+                    if (yearId) {
+                      handleSearchFipe(yearId);
+                    }
+                  }}
                 >
                   <option value="">Selecione</option>
                   {years.map(y => <option key={y.codigo} value={y.codigo}>{y.nome}</option>)}
                 </select>
               </div>
             </div>
-
-            <button 
-              type="button"
-              onClick={handleSearchFipe}
-              disabled={!formData.yearId || isLoading}
-              className="flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-accent transition-colors"
-            >
-              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-              Consultar Valor
-            </button>
 
             {fipePrice && (
               <motion.div 
@@ -349,17 +370,45 @@ export default function SellCar() {
           <div className="bg-white rounded-[32px] border border-slate-200 p-8 shadow-sm">
             <div className="flex items-center gap-3 mb-4">
               <Camera className="w-6 h-6 text-slate-400" />
-              <h3 className="text-xl font-bold">Fotos do Veículo</h3>
+              <h3 className="text-xl font-bold">Fotos do Veículo (Mínimo 5)</h3>
             </div>
             <p className="text-sm text-slate-400 mb-8">Adicione até 10 fotos do seu veículo (frente, traseira, laterais, interior e avarias se houver).</p>
             
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              <div className="aspect-square border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-2 hover:border-accent transition-colors cursor-pointer group">
-                <Camera className="w-6 h-6 text-slate-300 group-hover:text-accent transition-colors" />
-                <span className="text-[10px] font-bold text-slate-400 uppercase">Adicionar Foto</span>
-              </div>
+              {photos.map((photo, index) => (
+                <div key={index} className="relative aspect-square rounded-2xl overflow-hidden border border-slate-200">
+                  <img src={URL.createObjectURL(photo)} alt={`Foto ${index + 1}`} className="w-full h-full object-cover" />
+                  <button 
+                    type="button"
+                    onClick={() => setPhotos(photos.filter((_, i) => i !== index))}
+                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+              {photos.length < 10 && (
+                <label className="aspect-square border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-2 hover:border-accent transition-colors cursor-pointer group relative">
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    multiple 
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    onChange={(e) => {
+                      if (e.target.files) {
+                        const newPhotos = Array.from(e.target.files);
+                        setPhotos(prev => [...prev, ...newPhotos].slice(0, 10));
+                      }
+                    }}
+                  />
+                  <Camera className="w-6 h-6 text-slate-300 group-hover:text-accent transition-colors" />
+                  <span className="text-[10px] font-bold text-slate-400 uppercase text-center px-2">Adicionar Foto</span>
+                </label>
+              )}
               <div className="col-span-full text-right">
-                <span className="text-[10px] font-bold text-slate-300 uppercase">0/10 fotos adicionadas</span>
+                <span className={`text-[10px] font-bold uppercase ${photos.length >= 5 ? 'text-green-500' : 'text-red-500'}`}>
+                  {photos.length}/10 fotos adicionadas (Mínimo 5)
+                </span>
               </div>
             </div>
           </div>
@@ -397,8 +446,9 @@ export default function SellCar() {
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-400 ml-1">Marca</label>
+                <label className="text-xs font-bold text-slate-400 ml-1">Marca *</label>
                 <select 
+                  required
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                   value={formData.brandId}
                   onChange={e => handleBrandChange(e.target.value)}
@@ -408,8 +458,9 @@ export default function SellCar() {
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-400 ml-1">Modelo</label>
+                <label className="text-xs font-bold text-slate-400 ml-1">Modelo *</label>
                 <select 
+                  required
                   disabled={!formData.brandId}
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none disabled:opacity-50"
                   value={formData.modelId}
@@ -420,12 +471,20 @@ export default function SellCar() {
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-400 ml-1">Ano</label>
+                <label className="text-xs font-bold text-slate-400 ml-1">Ano *</label>
                 <select 
+                  required
                   disabled={!formData.modelId}
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none disabled:opacity-50"
                   value={formData.yearId}
-                  onChange={e => setFormData({...formData, yearId: e.target.value})}
+                  onChange={e => {
+                    const yearId = e.target.value;
+                    const yearName = years.find(y => y.codigo === yearId)?.nome || '';
+                    setFormData(prev => ({...prev, yearId, yearName}));
+                    if (yearId) {
+                      handleSearchFipe(yearId);
+                    }
+                  }}
                 >
                   <option value="">Selecione</option>
                   {years.map(y => <option key={y.codigo} value={y.codigo}>{y.nome}</option>)}
@@ -442,8 +501,9 @@ export default function SellCar() {
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-400 ml-1">Placa</label>
+                <label className="text-xs font-bold text-slate-400 ml-1">Placa *</label>
                 <input 
+                  required
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                   placeholder="ABC1D23"
                   value={formData.plate}
@@ -451,8 +511,9 @@ export default function SellCar() {
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-400 ml-1">Renavam</label>
+                <label className="text-xs font-bold text-slate-400 ml-1">Renavam *</label>
                 <input 
+                  required
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                   placeholder="00000000000"
                   value={formData.renavam}
@@ -460,8 +521,9 @@ export default function SellCar() {
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-400 ml-1">Cor</label>
+                <label className="text-xs font-bold text-slate-400 ml-1">Cor *</label>
                 <input 
+                  required
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                   placeholder="Ex: Prata"
                   value={formData.color}
@@ -469,8 +531,9 @@ export default function SellCar() {
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-400 ml-1">Quilometragem</label>
+                <label className="text-xs font-bold text-slate-400 ml-1">Quilometragem *</label>
                 <input 
+                  required
                   type="number"
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                   placeholder="Ex: 85000"
@@ -649,10 +712,11 @@ export default function SellCar() {
             </h3>
             <div className="space-y-4">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-400 ml-1">Quanto você quer no carro?</label>
+                <label className="text-xs font-bold text-slate-400 ml-1">Quanto você quer no carro? *</label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">R$</span>
                   <input 
+                    required
                     className="w-full p-4 pl-12 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-xl text-slate-900"
                     placeholder="0,00"
                     value={formData.desiredPrice}
@@ -672,8 +736,9 @@ export default function SellCar() {
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-1 md:col-span-2">
-                <label className="text-xs font-bold text-slate-400 ml-1">Nome Completo</label>
+                <label className="text-xs font-bold text-slate-400 ml-1">Nome Completo *</label>
                 <input 
+                  required
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                   placeholder="Seu nome aqui"
                   value={formData.ownerName}
@@ -681,8 +746,9 @@ export default function SellCar() {
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-400 ml-1">Telefone / WhatsApp</label>
+                <label className="text-xs font-bold text-slate-400 ml-1">Telefone / WhatsApp *</label>
                 <input 
+                  required
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                   placeholder="(11) 99999-9999"
                   value={formData.ownerPhone}
@@ -690,8 +756,19 @@ export default function SellCar() {
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-400 ml-1">Email</label>
+                <label className="text-xs font-bold text-slate-400 ml-1">Confirmar Telefone / WhatsApp *</label>
                 <input 
+                  required
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                  placeholder="(11) 99999-9999"
+                  value={formData.ownerPhoneConfirm}
+                  onChange={e => setFormData({...formData, ownerPhoneConfirm: e.target.value})}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-400 ml-1">Email *</label>
+                <input 
+                  required
                   type="email"
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                   placeholder="seu@email.com"
@@ -699,9 +776,21 @@ export default function SellCar() {
                   onChange={e => setFormData({...formData, ownerEmail: e.target.value})}
                 />
               </div>
-              <div className="space-y-1 md:col-span-2">
-                <label className="text-xs font-bold text-slate-400 ml-1">Cidade / Estado</label>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-400 ml-1">Confirmar Email *</label>
                 <input 
+                  required
+                  type="email"
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                  placeholder="seu@email.com"
+                  value={formData.ownerEmailConfirm}
+                  onChange={e => setFormData({...formData, ownerEmailConfirm: e.target.value})}
+                />
+              </div>
+              <div className="space-y-1 md:col-span-2">
+                <label className="text-xs font-bold text-slate-400 ml-1">Cidade / Estado *</label>
+                <input 
+                  required
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                   placeholder="Ex: São Paulo - SP"
                   value={formData.ownerLocation}

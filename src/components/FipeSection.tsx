@@ -18,7 +18,7 @@ export default function FipeSection() {
         </p>
         
         <button 
-          onClick={() => window.dispatchEvent(new CustomEvent('openSellModal'))}
+          onClick={() => window.location.href = '/vender'}
           className="px-12 py-6 bg-blue-500 text-white rounded-xl font-black text-xl hover:bg-blue-600 transition-all shadow-2xl shadow-blue-500/40"
         >
           Simular Tabela FIPE Agora
