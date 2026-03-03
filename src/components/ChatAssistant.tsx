@@ -21,7 +21,8 @@ export default function ChatAssistant() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [apiKey, setApiKey] = useState<string>(import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '');
+  const [apiKey, setApiKey] = useState<string>('');
+  const [chatEnabled, setChatEnabled] = useState(true);
 
   useEffect(() => {
     // Fetch API key from settings if available
@@ -32,7 +33,18 @@ export default function ChatAssistant() {
           const data = await res.json();
           const aiKeySetting = data.find((s: any) => s.key === 'GEMINI_API_KEY');
           if (aiKeySetting && aiKeySetting.value) {
-            setApiKey(aiKeySetting.value);
+            // Handle multiple keys (one per line)
+            const keys = aiKeySetting.value.split('\n').map((k: string) => k.trim()).filter((k: string) => k.length > 0);
+            if (keys.length > 0) {
+              // Pick a random key
+              const randomKey = keys[Math.floor(Math.random() * keys.length)];
+              setApiKey(randomKey);
+            }
+          }
+
+          const chatEnabledSetting = data.find((s: any) => s.key === 'CHAT_ENABLED');
+          if (chatEnabledSetting) {
+            setChatEnabled(chatEnabledSetting.value === 'true');
           }
         }
       } catch (error) {
@@ -47,6 +59,8 @@ export default function ChatAssistant() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  if (!chatEnabled) return null;
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

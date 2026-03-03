@@ -31,6 +31,7 @@ export default function AdminDashboard() {
   const [socialYoutube, setSocialYoutube] = useState('');
   const [socialTiktok, setSocialTiktok] = useState('');
   const [socialLinkedin, setSocialLinkedin] = useState('');
+  const [chatEnabled, setChatEnabled] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const { refreshAssets } = useAssets();
@@ -64,6 +65,11 @@ export default function AdminDashboard() {
           setAiApiKey(aiKeySetting.value);
         }
         
+        const chatEnabledSetting = settingsData.find((s: any) => s.key === 'CHAT_ENABLED');
+        if (chatEnabledSetting) {
+          setChatEnabled(chatEnabledSetting.value === 'true');
+        }
+
         const waNumberSetting = settingsData.find((s: any) => s.key === 'WHATSAPP_NUMBER');
         if (waNumberSetting) {
           setWhatsappNumber(waNumberSetting.value);
@@ -254,6 +260,13 @@ export default function AdminDashboard() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: 'GEMINI_API_KEY', value: aiApiKey })
+      });
+
+      // Save Chat Enabled
+      await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'CHAT_ENABLED', value: chatEnabled ? 'true' : 'false' })
       });
 
       // Save WhatsApp Number
@@ -959,16 +972,31 @@ export default function AdminDashboard() {
             <h2 className="text-2xl font-bold mb-6">Configurações do Sistema</h2>
             
             <div className="space-y-6">
+              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                <div>
+                  <p className="font-bold text-slate-900">Habilitar Chat Inteligente</p>
+                  <p className="text-xs text-slate-500">Ativa o assistente virtual no site.</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    className="sr-only peer"
+                    checked={chatEnabled}
+                    onChange={(e) => setChatEnabled(e.target.checked)}
+                  />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                </label>
+              </div>
+
               <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-700">Chave da API de IA (Gemini)</label>
-                <input 
-                  type="password"
-                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20"
-                  placeholder="AIzaSy..."
+                <label className="text-sm font-bold text-slate-700">Chaves da API de IA (Gemini)</label>
+                <textarea 
+                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20 h-32 font-mono text-xs"
+                  placeholder="AIzaSy... (uma por linha)"
                   value={aiApiKey}
                   onChange={e => setAiApiKey(e.target.value)}
                 />
-                <p className="text-xs text-slate-500">Esta chave será usada pelo assistente virtual no chat.</p>
+                <p className="text-xs text-slate-500">Insira múltiplas chaves (uma por linha) para balanceamento de carga e evitar limites de uso.</p>
               </div>
 
               <div className="pt-6 border-t border-slate-100">
