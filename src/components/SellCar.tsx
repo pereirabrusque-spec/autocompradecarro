@@ -613,6 +613,15 @@ export default function SellCar() {
                   onChange={e => setFormData({...formData, installmentsRemaining: e.target.value})}
                 />
               </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-400 ml-1">Valor de Entrada (Quanto deu?)</label>
+                <input 
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                  placeholder="R$ 0,00"
+                  value={formData.entrada}
+                  onChange={e => setFormData({...formData, entrada: e.target.value})}
+                />
+              </div>
             </div>
           </div>
 

@@ -10,6 +10,12 @@ interface Message {
   image?: string;
 }
 
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
 export default function ChatAssistant() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -23,30 +29,42 @@ export default function ChatAssistant() {
 
   const [apiKey, setApiKey] = useState<string>('');
   const [chatEnabled, setChatEnabled] = useState(true);
+  const [systemPrompt, setSystemPrompt] = useState('');
+  const [contextData, setContextData] = useState({ banks: [], repairCosts: [], fipeRules: [] });
 
   useEffect(() => {
-    // Fetch API key from settings if available
+    // Fetch API key and settings
     const fetchSettings = async () => {
       try {
-        const res = await fetch('/api/admin/settings');
-        if (res.ok) {
-          const data = await res.json();
-          const aiKeySetting = data.find((s: any) => s.key === 'GEMINI_API_KEY');
+        const { data: settingsData, error: settingsError } = await supabase.from('settings').select('*');
+        
+        if (!settingsError && settingsData) {
+          const aiKeySetting = settingsData.find((s: any) => s.key === 'GEMINI_API_KEY');
           if (aiKeySetting && aiKeySetting.value) {
-            // Handle multiple keys (one per line)
             const keys = aiKeySetting.value.split('\n').map((k: string) => k.trim()).filter((k: string) => k.length > 0);
             if (keys.length > 0) {
-              // Pick a random key
               const randomKey = keys[Math.floor(Math.random() * keys.length)];
               setApiKey(randomKey);
             }
           }
 
-          const chatEnabledSetting = data.find((s: any) => s.key === 'CHAT_ENABLED');
+          const chatEnabledSetting = settingsData.find((s: any) => s.key === 'CHAT_ENABLED');
           if (chatEnabledSetting) {
             setChatEnabled(chatEnabledSetting.value === 'true');
           }
+
+          const promptSetting = settingsData.find((s: any) => s.key === 'AI_SYSTEM_PROMPT');
+          if (promptSetting) {
+            setSystemPrompt(promptSetting.value);
+          }
         }
+
+        // Fetch Banks, Repair Costs, and FIPE Rules
+        const { data: banks } = await supabase.from('banks').select('*');
+        const { data: repairCosts } = await supabase.from('repair_costs').select('*');
+        const { data: fipeRules } = await supabase.from('fipe_rules').select('*');
+        setContextData({ banks: banks || [], repairCosts: repairCosts || [], fipeRules: fipeRules || [] });
+
       } catch (error) {
         console.error('Error fetching settings:', error);
       }
@@ -98,72 +116,113 @@ export default function ChatAssistant() {
       }
 
       const ai = new GoogleGenAI({ apiKey });
+      
+      // Construct the prompt with dynamic data
+      const banksContext = contextData.banks.map((b: any) => `- ${b.name}: ${b.discount_percentage}% desconto`).join('\n');
+      const repairContext = contextData.repairCosts.map((r: any) => `- ${r.part_name}: R$ ${r.cost}`).join('\n');
+      const fipeContext = contextData.fipeRules.map((f: any) => `- ${f.condition_name}: -${f.discount_percentage}% sobre FIPE`).join('\n');
+      
+      const finalSystemPrompt = systemPrompt 
+        ? `${systemPrompt}\n\n### DADOS DE MERCADO ATUALIZADOS:\n**REGRAS DE DESCONTO FIPE:**\n${fipeContext}\n\n**BANCOS E DESCONTOS:**\n${banksContext}\n\n**CUSTOS DE REPARO:**\n${repairContext}`
+        : `Você é o **AVALIADOR SÊNIOR DE VEÍCULOS** da plataforma "LOJA ONLINE - SOLUÇÕES AUTOMOTIVAS".
+        Sua função não é apenas coletar dados, mas **ANALISAR DOCUMENTOS E FOTOS** e **GERAR UMA PROPOSTA COMERCIAL IMEDIATA** baseada em regras rígidas.
+
+        ### 1. CAPACIDADE DE VISÃO (OCR E ANÁLISE)
+        - **Se o usuário enviar foto de documento (CRLV/CNH):** Extraia IMEDIATAMENTE: Placa, Renavam, Nome do Proprietário, Ano, Modelo e Cor. Confirme esses dados com o usuário.
+        - **Se o usuário enviar foto do veículo:** Analise o estado de conservação. Identifique avarias visíveis (batidas, arranhões, peças faltando) e reduza a avaliação conforme a gravidade.
+
+        ### 2. REGRAS DE NEGÓCIO E CÁLCULO DE PROPOSTA (Mentalidade de Comprador)
+        Use estas regras para gerar a proposta final. Não pergunte "quanto você quer" sem antes ter uma base.
+
+        **CENÁRIO A: FINANCIAMENTO ATRASADO (Pessoa Física)**
+        - **Regra:** O objetivo é assumir a dívida para limpar o nome do cliente.
+        - **Cálculo:**
+          1. Estime o valor de mercado (FIPE - 20% margem revenda).
+          2. Subtraia a Dívida Total (Parcelas Atrasadas + Quitação ou Saldo Devedor).
+          3. Subtraia Avarias/Multas.
+        - **Resultado:**
+          - Se (Mercado > Dívida): Ofereça a diferença como "TROCO" (Dinheiro na mão).
+          - Se (Mercado <= Dívida): A proposta é "ASSUNÇÃO DE DÍVIDA SEM CUSTO" (Zero a receber, mas nome limpo).
+          - Se (Dívida for muito maior que o carro): Cobre uma "TAXA ADMINISTRATIVA" de R$ 2.000 a R$ 5.000 para assumir o problema.
+
+        **CENÁRIO B: VEÍCULO DE COOPERATIVA / EMPRESA**
+        - **Regra:** Não quitamos. Apenas resolvemos a posse.
+        - **Proposta Única:** Cobramos taxa de R$ 5.000,00 (parcelado) para retirar o veículo e blindar o patrimônio do cliente contra busca e apreensão imediata.
+
+        **CENÁRIO C: CARRO QUITADO COM PROBLEMA (Batido/Motor)**
+        - **Regra:** Compra para reforma ou peças.
+        - **Proposta:** 30% a 50% da Tabela FIPE, dependendo do estado visualizado nas fotos.
+
+        ### 3. FLUXO DE ATENDIMENTO (Seja direto e autoritário, mas educado)
+        1. **Boas-vindas:** Já peça o Modelo e Ano (se não tiver).
+        2. **Análise:** Peça detalhes do problema (Dívida? Mecânica?).
+        3. **Documentação:** Peça foto do CRLV ou Placa/Renavam para consulta (simulada).
+        4. **Visual:** Peça fotos do carro (frente, traseira, laterais, interior).
+        5. **Financeiro:** Pergunte: Banco? Valor parcela? Quantas pagas? Quantas faltam? **Quanto deu de entrada?**
+        6. **PROPOSTA FINAL:** Com base nos dados, apresente a proposta formal.
+
+        ### 4. FORMATO DA PROPOSTA (Apresente isso ao usuário no final)
+        "
+        📋 **PROPOSTA OFICIAL AUTOCOMPRA**
+        
+        **Veículo:** [Modelo/Ano]
+        **Análise:** [Resumo do estado/dívida]
+        
+        **OFERTA:**
+        [Descreva a oferta aqui: Ex: Pagamos R$ 15.000,00 à vista / Assumimos a dívida integralmente / Assumimos mediante taxa de R$ X]
+        
+        **Condição:** Pagamento em até 24h após vistoria presencial e cartório.
+        "
+
+        ### 5. SAÍDA DE DADOS (JSON Oculto)
+        Sempre que tiver dados suficientes (ou no final da proposta), gere este bloco JSON para o sistema registrar o lead:
+        \`\`\`json
+        {
+          "owner_name": "...",
+          "owner_phone": "...",
+          "brand": "...",
+          "model": "...",
+          "year": 2020,
+          "plate": "...",
+          "renavam": "...",
+          "mileage": 0,
+          "bank": "...",
+          "installment_value": 0,
+          "installments_paid": 0,
+          "installments_remaining": 0,
+          "down_payment": 0,
+          "desired_price": 0,
+          "fipe_price": 0,
+          "situation": "Financiado/Batido/Normal",
+          "proposal_value": "Valor da Proposta Gerada",
+          "proposal_type": "Compra/Assunção/Cobrança",
+          "score_veiculo": 0-100
+        }
+        \`\`\`
+        
+        ### DADOS DE MERCADO ATUALIZADOS:
+        **REGRAS DE DESCONTO FIPE:**
+        ${fipeContext}
+
+        **BANCOS E DESCONTOS:**
+        ${banksContext}
+
+        **CUSTOS DE REPARO:**
+        ${repairContext}`;
+
       const response = await ai.models.generateContent({
         model: 'gemini-3.1-pro-preview',
         contents: [
           {
             role: 'user',
             parts: [
-              { text: `Você é o motor de inteligência da plataforma "LOJA ONLINE - SOLUÇÕES AUTOMOTIVAS". 
-              Seu objetivo é converter proprietários de veículos com problemas (Renajud, financiamento atrasado, motor estourado, batidos) em leads qualificados.
-              
-              DIRETRIZES DE NEGÓCIO:
-              1. VEÍCULOS DE COOPERATIVA/EMPRESA: Não assumimos para quitação direta. Oferta Única: Serviço de "Limpa Nome" (R$ 5 mil) mediante entrega do veículo.
-              2. VEÍCULOS FINANCIADOS (PF): Foco total na compra. Proposta: Assumimos a dívida + taxa de serviço de R$ 5 mil para quitação em até 18 meses.
-              3. ESTADO: Aceitamos qualquer estado (Batido, Motor Estourado, Sinistro).
-              
-              FLUXO SEQUENCIAL (Solicite UM POR UM):
-              1. Identificação: Ano, Modelo, Placa, Renavam e KM.
-              2. Detalhes: Ar, Vidro, Couro, Teto Solar, Sinistro (Sim/Não).
-              3. Financeiro: Banco? Valor parcela? Quantas pagas? Quantas faltam?
-              4. Valores: Preço desejado, Preço que acha que vale, Preço FIPE.
-              5. Mídia: Fotos do veículo e foto nítida do CRLV.
-              
-              VISION OCR:
-              Se o usuário enviar uma foto de CRLV, extraia Placa e Renavam. Valide se o nome no documento coincide com o Banco informado.
-              
-              PERSONA: Profissional, futurista, direto, resolutivo. "Nós assumimos o problema e limpamos seu nome".
-              
-              FINALIZAÇÃO:
-              Quando coletar TODOS os dados (incluindo fotos/CRLV), você deve gerar um bloco JSON formatado exatamente assim no final da sua resposta:
-              \`\`\`json
-              {
-                "owner_name": "...",
-                "owner_phone": "...",
-                "brand": "...",
-                "model": "...",
-                "year": 2020,
-                "plate": "...",
-                "renavam": "...",
-                "mileage": 50000,
-                "bank": "...",
-                "installment_value": 1200,
-                "installments_paid": 12,
-                "installments_remaining": 36,
-                "desired_price": 45000,
-                "fipe_price": 50000,
-                "situation": "...",
-                "has_ac": true,
-                "has_leather": false,
-                "has_sunroof": false,
-                "is_crashed": false,
-                "status_lead": "Novo",
-                "score_veiculo": 85,
-                "valor_quitacao_estimado": 35000
-              }
-              \`\`\`
-              
-              HISTÓRICO DE MENSAGENS:
-              ${messages.map(m => `${m.role.toUpperCase()}: ${m.text}`).join('\n')}
-              
-              ENTRADA ATUAL DO USUÁRIO:
-              ${userText}` },
+              { text: `${finalSystemPrompt}\n\nHISTÓRICO:\n${messages.map(m => `${m.role.toUpperCase()}: ${m.text}`).join('\n')}\n\nENTRADA ATUAL:\n${userText}` },
               ...(userImage ? [{ inlineData: { data: userImage.split(',')[1], mimeType: 'image/jpeg' } }] : [])
             ]
           }
         ],
         config: {
-          systemInstruction: "Você é um especialista em recuperação de crédito. Siga o fluxo sequencial rigorosamente. Se o cliente divagar, retorne ao fluxo. Nunca divague."
+          temperature: 0.4,
         }
       });
 

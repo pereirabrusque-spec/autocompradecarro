@@ -9,12 +9,22 @@ export default function AdminDashboard() {
   const [leads, setLeads] = useState<any[]>([]);
   const [dbAssets, setDbAssets] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'leads' | 'hero' | 'assets' | 'footer' | 'settings'>('leads');
+  const [activeTab, setActiveTab] = useState<'leads' | 'hero' | 'assets' | 'footer' | 'settings' | 'ai'>('leads');
   const [savingAsset, setSavingAsset] = useState<string | null>(null);
   const [deletingAsset, setDeletingAsset] = useState<string | null>(null);
   const [uploadingAsset, setUploadingAsset] = useState<string | null>(null);
   const [seedingCards, setSeedingCards] = useState(false);
   const [aiApiKey, setAiApiKey] = useState('');
+  const [aiSystemPrompt, setAiSystemPrompt] = useState('');
+  const [banks, setBanks] = useState<any[]>([]);
+  const [repairCosts, setRepairCosts] = useState<any[]>([]);
+  const [fipeRules, setFipeRules] = useState<any[]>([]);
+  const [newBankName, setNewBankName] = useState('');
+  const [newBankDiscount, setNewBankDiscount] = useState('');
+  const [newRepairName, setNewRepairName] = useState('');
+  const [newRepairCost, setNewRepairCost] = useState('');
+  const [newFipeRuleName, setNewFipeRuleName] = useState('');
+  const [newFipeRuleDiscount, setNewFipeRuleDiscount] = useState('');
   const [whatsappNumber, setWhatsappNumber] = useState('');
   const [whatsappButtonText, setWhatsappButtonText] = useState('WhatsApp');
   const [whatsappEnabled, setWhatsappEnabled] = useState(false);
@@ -53,16 +63,28 @@ export default function AdminDashboard() {
 
       if (assetsError) throw assetsError;
 
+      const { data: banksData } = await supabase.from('banks').select('*').order('name');
+      const { data: repairData } = await supabase.from('repair_costs').select('*').order('part_name');
+      const { data: fipeData } = await supabase.from('fipe_rules').select('*').order('condition_name');
+
       setLeads(leadsData || []);
       setDbAssets(assetsData || []);
+      setBanks(banksData || []);
+      setRepairCosts(repairData || []);
+      setFipeRules(fipeData || []);
 
-      // Fetch settings from local API
-      const settingsRes = await fetch('/api/admin/settings');
-      if (settingsRes.ok) {
-        const settingsData = await settingsRes.json();
+      // Fetch settings from Supabase
+      const { data: settingsData, error: settingsError } = await supabase.from('settings').select('*');
+      
+      if (!settingsError && settingsData) {
         const aiKeySetting = settingsData.find((s: any) => s.key === 'GEMINI_API_KEY');
         if (aiKeySetting) {
           setAiApiKey(aiKeySetting.value);
+        }
+
+        const aiPromptSetting = settingsData.find((s: any) => s.key === 'AI_SYSTEM_PROMPT');
+        if (aiPromptSetting) {
+          setAiSystemPrompt(aiPromptSetting.value);
         }
         
         const chatEnabledSetting = settingsData.find((s: any) => s.key === 'CHAT_ENABLED');
@@ -255,67 +277,16 @@ export default function AdminDashboard() {
   const handleSaveSettings = async () => {
     setSavingSettings(true);
     try {
-      // Save Gemini Key
-      await fetch('/api/admin/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'GEMINI_API_KEY', value: aiApiKey })
-      });
-
-      // Save Chat Enabled
-      await fetch('/api/admin/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'CHAT_ENABLED', value: chatEnabled ? 'true' : 'false' })
-      });
-
-      // Save WhatsApp Number
-      await fetch('/api/admin/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'WHATSAPP_NUMBER', value: whatsappNumber })
-      });
-
-      // Save WhatsApp Button Text
-      await fetch('/api/admin/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'WHATSAPP_BUTTON_TEXT', value: whatsappButtonText })
-      });
-
-      // Save WhatsApp Enabled
-      await fetch('/api/admin/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'WHATSAPP_ENABLED', value: whatsappEnabled ? 'true' : 'false' })
-      });
-
-      // Save Specialist Button Settings
-      await fetch('/api/admin/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'SPECIALIST_BUTTON_ENABLED', value: specialistEnabled ? 'true' : 'false' })
-      });
-      await fetch('/api/admin/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'SPECIALIST_BUTTON_TEXT', value: specialistText })
-      });
-      await fetch('/api/admin/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'SPECIALIST_BUTTON_LINK', value: specialistLink })
-      });
-
-      // Save Hero Timer
-      await fetch('/api/admin/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'HERO_TIMER', value: heroTimer })
-      });
-
-      // Save Footer & Contact Settings
       const settingsToSave = [
+        { key: 'GEMINI_API_KEY', value: aiApiKey },
+        { key: 'CHAT_ENABLED', value: chatEnabled ? 'true' : 'false' },
+        { key: 'WHATSAPP_NUMBER', value: whatsappNumber },
+        { key: 'WHATSAPP_BUTTON_TEXT', value: whatsappButtonText },
+        { key: 'WHATSAPP_ENABLED', value: whatsappEnabled ? 'true' : 'false' },
+        { key: 'SPECIALIST_BUTTON_ENABLED', value: specialistEnabled ? 'true' : 'false' },
+        { key: 'SPECIALIST_BUTTON_TEXT', value: specialistText },
+        { key: 'SPECIALIST_BUTTON_LINK', value: specialistLink },
+        { key: 'HERO_TIMER', value: heroTimer },
         { key: 'FOOTER_TEXT', value: footerText },
         { key: 'FOOTER_COPYRIGHT', value: footerCopyright },
         { key: 'CONTACT_EMAIL', value: contactEmail },
@@ -327,13 +298,11 @@ export default function AdminDashboard() {
         { key: 'SOCIAL_LINKEDIN', value: socialLinkedin },
       ];
 
-      for (const setting of settingsToSave) {
-        await fetch('/api/admin/settings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(setting)
-        });
-      }
+      const { error } = await supabase
+        .from('settings')
+        .upsert(settingsToSave, { onConflict: 'key' });
+
+      if (error) throw error;
 
       alert('Configurações salvas com sucesso!');
     } catch (error) {
@@ -429,6 +398,12 @@ export default function AdminDashboard() {
                 className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'settings' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
               >
                 Configurações
+              </button>
+              <button 
+                onClick={() => setActiveTab('ai')}
+                className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'ai' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+              >
+                Inteligência Artificial (Regras)
               </button>
             </div>
             <button 
@@ -1099,6 +1074,212 @@ export default function AdminDashboard() {
                 {savingSettings ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                 Salvar Configurações
               </button>
+            </div>
+          </div>
+        ) : activeTab === 'ai' ? (
+          <div className="space-y-8">
+            <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm">
+              <h2 className="text-2xl font-bold mb-6">Regras de Negócio da IA</h2>
+              
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-slate-700">Prompt do Sistema (Cérebro da IA)</label>
+                  <textarea 
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20 h-96 font-mono text-xs"
+                    value={aiSystemPrompt}
+                    onChange={e => setAiSystemPrompt(e.target.value)}
+                    placeholder="Defina aqui as regras que a IA deve seguir..."
+                  />
+                  <p className="text-xs text-slate-500">Este texto define como a IA se comporta. Use-o para ajustar as regras de negociação.</p>
+                </div>
+                <button 
+                  onClick={async () => {
+                    setSavingSettings(true);
+                    const { error } = await supabase
+                      .from('settings')
+                      .upsert({ key: 'AI_SYSTEM_PROMPT', value: aiSystemPrompt }, { onConflict: 'key' });
+                    
+                    if (!error) {
+                      alert('Regras da IA salvas com sucesso!');
+                    } else {
+                      alert('Erro ao salvar regras.');
+                    }
+                    setSavingSettings(false);
+                  }}
+                  disabled={savingSettings}
+                  className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-accent transition-all disabled:opacity-50 flex items-center gap-2"
+                >
+                  {savingSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  Salvar Regras
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Regras FIPE */}
+              <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm md:col-span-2">
+                <h3 className="text-xl font-bold mb-4">Regras de Desconto FIPE</h3>
+                <div className="flex gap-2 mb-4">
+                  <input 
+                    className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                    placeholder="Condição (ex: Financiado)"
+                    value={newFipeRuleName}
+                    onChange={e => setNewFipeRuleName(e.target.value)}
+                  />
+                  <input 
+                    className="w-24 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                    placeholder="% Desc."
+                    type="number"
+                    value={newFipeRuleDiscount}
+                    onChange={e => setNewFipeRuleDiscount(e.target.value)}
+                  />
+                  <button 
+                    onClick={async () => {
+                      if (!newFipeRuleName || !newFipeRuleDiscount) return;
+                      const { error } = await supabase.from('fipe_rules').insert([{ condition_name: newFipeRuleName, discount_percentage: parseFloat(newFipeRuleDiscount) }]);
+                      if (!error) {
+                        setNewFipeRuleName('');
+                        setNewFipeRuleDiscount('');
+                        fetchData(); // Refresh
+                      }
+                    }}
+                    className="p-3 bg-accent text-white rounded-xl hover:bg-orange-600"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-60 overflow-y-auto">
+                  {fipeRules.map(rule => (
+                    <div key={rule.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="font-bold text-sm">{rule.condition_name}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-mono bg-blue-100 text-blue-700 px-2 py-1 rounded-lg">-{rule.discount_percentage}%</span>
+                        <button 
+                          onClick={async () => {
+                            if (confirm('Excluir regra?')) {
+                              await supabase.from('fipe_rules').delete().eq('id', rule.id);
+                              fetchData();
+                            }
+                          }}
+                          className="text-red-400 hover:text-red-600"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Bancos */}
+              <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm">
+                <h3 className="text-xl font-bold mb-4">Bancos & Descontos</h3>
+                <div className="flex gap-2 mb-4">
+                  <input 
+                    className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                    placeholder="Nome do Banco"
+                    value={newBankName}
+                    onChange={e => setNewBankName(e.target.value)}
+                  />
+                  <input 
+                    className="w-24 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                    placeholder="% Desc."
+                    type="number"
+                    value={newBankDiscount}
+                    onChange={e => setNewBankDiscount(e.target.value)}
+                  />
+                  <button 
+                    onClick={async () => {
+                      if (!newBankName || !newBankDiscount) return;
+                      const { error } = await supabase.from('banks').insert([{ name: newBankName, discount_percentage: parseFloat(newBankDiscount) }]);
+                      if (!error) {
+                        setNewBankName('');
+                        setNewBankDiscount('');
+                        fetchData(); // Refresh
+                      }
+                    }}
+                    className="p-3 bg-accent text-white rounded-xl hover:bg-orange-600"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {banks.map(bank => (
+                    <div key={bank.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="font-bold text-sm">{bank.name}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-mono bg-green-100 text-green-700 px-2 py-1 rounded-lg">-{bank.discount_percentage}%</span>
+                        <button 
+                          onClick={async () => {
+                            if (confirm('Excluir banco?')) {
+                              await supabase.from('banks').delete().eq('id', bank.id);
+                              fetchData();
+                            }
+                          }}
+                          className="text-red-400 hover:text-red-600"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Custos de Reparo */}
+              <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm">
+                <h3 className="text-xl font-bold mb-4">Custos de Reparo (Peças)</h3>
+                <div className="flex gap-2 mb-4">
+                  <input 
+                    className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                    placeholder="Item (ex: Porta)"
+                    value={newRepairName}
+                    onChange={e => setNewRepairName(e.target.value)}
+                  />
+                  <input 
+                    className="w-24 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                    placeholder="R$ Custo"
+                    type="number"
+                    value={newRepairCost}
+                    onChange={e => setNewRepairCost(e.target.value)}
+                  />
+                  <button 
+                    onClick={async () => {
+                      if (!newRepairName || !newRepairCost) return;
+                      const { error } = await supabase.from('repair_costs').insert([{ part_name: newRepairName, cost: parseFloat(newRepairCost) }]);
+                      if (!error) {
+                        setNewRepairName('');
+                        setNewRepairCost('');
+                        fetchData(); // Refresh
+                      }
+                    }}
+                    className="p-3 bg-accent text-white rounded-xl hover:bg-orange-600"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {repairCosts.map(item => (
+                    <div key={item.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="font-bold text-sm">{item.part_name}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-mono bg-red-100 text-red-700 px-2 py-1 rounded-lg">R$ {item.cost}</span>
+                        <button 
+                          onClick={async () => {
+                            if (confirm('Excluir item?')) {
+                              await supabase.from('repair_costs').delete().eq('id', item.id);
+                              fetchData();
+                            }
+                          }}
+                          className="text-red-400 hover:text-red-600"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         ) : null}

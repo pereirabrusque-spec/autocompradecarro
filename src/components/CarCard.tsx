@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Fuel, Gauge, Settings2, Heart, X, CheckCircle2, Loader2 } from 'lucide-react';
 import { Car } from '../types';
+import { supabase } from '../lib/supabase';
 
 interface CarCardProps {
   car: Car;
@@ -17,16 +18,19 @@ export default function CarCard({ car }: CarCardProps) {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const res = await fetch('/api/leads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          car_id: car.id,
-          car_model: `${car.brand} ${car.model}`,
-          ...formData
-        })
-      });
-      if (res.ok) {
+      const { error } = await supabase.from('leads_veiculos').insert([{
+        cliente_nome: formData.name,
+        email: formData.email,
+        telefone: formData.phone,
+        marca: car.brand,
+        modelo: car.model,
+        ano_modelo: car.year,
+        preco_cliente: car.price,
+        status: 'novo',
+        observacoes: `Interesse no veículo ID: ${car.id}`
+      }]);
+
+      if (!error) {
         setIsSuccess(true);
         setTimeout(() => {
           setIsModalOpen(false);
