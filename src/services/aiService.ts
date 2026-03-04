@@ -1,0 +1,151 @@
+import { GoogleGenAI } from "@google/genai";
+import { supabase } from "../lib/supabase";
+
+export type AIProvider = 'gemini' | 'openai' | 'grok';
+
+export interface AIResponse {
+  text: string;
+  provider: AIProvider;
+  model: string;
+}
+
+export class AIService {
+  private static async getActiveKeys(): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('api_keys')
+      .select('*')
+      .eq('status', 'ok')
+      .order('last_used', { ascending: true }); // Use least recently used for load balancing
+
+    if (error) {
+      console.error('Error fetching API keys:', error);
+      return [];
+    }
+    return data || [];
+  }
+
+  private static async updateKeyStatus(id: string, status: 'ok' | 'no_credit' | 'disconnected', errorCount: number = 0) {
+    await supabase
+      .from('api_keys')
+      .update({ 
+        status, 
+        error_count: errorCount,
+        last_used: new Date().toISOString()
+      })
+      .eq('id', id);
+  }
+
+  static async generateContent(prompt: string, systemInstruction: string): Promise<AIResponse> {
+    const keys = await this.getActiveKeys();
+    
+    if (keys.length === 0) {
+      throw new Error('Nenhuma chave de API configurada ou ativa.');
+    }
+
+    // Try each key until one works
+    for (const apiKey of keys) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+        if (apiKey.provider === 'gemini') {
+          const ai = new GoogleGenAI({ apiKey: apiKey.key });
+          const response = await ai.models.generateContent({
+            model: "gemini-1.5-flash",
+            contents: `${systemInstruction}\n\n${prompt}`,
+          });
+
+          clearTimeout(timeoutId);
+          
+          if (response.text) {
+            await this.updateKeyStatus(apiKey.id, 'ok', 0);
+            return {
+              text: response.text,
+              provider: 'gemini',
+              model: 'gemini-1.5-flash'
+            };
+          }
+        } else if (apiKey.provider === 'openai') {
+          const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiKey.key}`
+            },
+            body: JSON.stringify({
+              model: 'gpt-4o',
+              messages: [
+                { role: 'system', content: systemInstruction },
+                { role: 'user', content: prompt }
+              ],
+              temperature: 0.4
+            }),
+            signal: controller.signal
+          });
+
+          clearTimeout(timeoutId);
+          
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error?.message || 'OpenAI API Error');
+          }
+
+          const data = await response.json();
+          await this.updateKeyStatus(apiKey.id, 'ok', 0);
+          return {
+            text: data.choices[0].message.content,
+            provider: 'openai',
+            model: 'gpt-4o'
+          };
+        } else if (apiKey.provider === 'grok') {
+          const response = await fetch('https://api.x.ai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiKey.key}`
+            },
+            body: JSON.stringify({
+              model: 'grok-beta',
+              messages: [
+                { role: 'system', content: systemInstruction },
+                { role: 'user', content: prompt }
+              ],
+              temperature: 0.4
+            }),
+            signal: controller.signal
+          });
+
+          clearTimeout(timeoutId);
+          
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error?.message || 'Grok API Error');
+          }
+
+          const data = await response.json();
+          await this.updateKeyStatus(apiKey.id, 'ok', 0);
+          return {
+            text: data.choices[0].message.content,
+            provider: 'grok',
+            model: 'grok-beta'
+          };
+        }
+
+      } catch (error: any) {
+        console.error(`Error with ${apiKey.provider} key ${apiKey.id}:`, error);
+        
+        let newStatus: 'ok' | 'no_credit' | 'disconnected' = 'disconnected';
+        if (error.message?.includes('credit') || error.message?.includes('quota')) {
+          newStatus = 'no_credit';
+        }
+        
+        await this.updateKeyStatus(apiKey.id, newStatus, (apiKey.error_count || 0) + 1);
+        
+        // Continue to next key
+        continue;
+      }
+    }
+
+    throw new Error('Todas as chaves de API falharam.');
+  }
+}

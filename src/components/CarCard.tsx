@@ -3,16 +3,20 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Fuel, Gauge, Settings2, Heart, X, CheckCircle2, Loader2 } from 'lucide-react';
 import { Car } from '../types';
 import { supabase } from '../lib/supabase';
+import { useAssets } from '../lib/assetsContext';
 
 interface CarCardProps {
   car: Car;
 }
 
 export default function CarCard({ car }: CarCardProps) {
+  const { settings } = useAssets();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [formData, setFormData] = useState({ name: '', email: '', phone: '' });
+
+  const buttonText = settings['CAR_CARD_BUTTON_TEXT'] || 'Tenho Interesse';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,9 +104,9 @@ export default function CarCard({ car }: CarCardProps) {
 
           <button 
             onClick={() => setIsModalOpen(true)}
-            className="w-full py-3 bg-slate-900 text-white rounded-2xl font-bold text-sm hover:bg-accent transition-colors"
+            className="w-full py-3 bg-accent text-white rounded-2xl font-bold text-sm hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/10"
           >
-            Tenho Interesse
+            {buttonText}
           </button>
         </div>
       </motion.div>

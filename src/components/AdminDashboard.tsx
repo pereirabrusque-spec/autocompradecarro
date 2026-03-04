@@ -9,12 +9,15 @@ export default function AdminDashboard() {
   const [leads, setLeads] = useState<any[]>([]);
   const [dbAssets, setDbAssets] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'leads' | 'hero' | 'assets' | 'footer' | 'settings' | 'ai'>('leads');
+  const [activeTab, setActiveTab] = useState<'leads' | 'hero' | 'assets' | 'footer' | 'settings' | 'ai' | 'apis'>('leads');
   const [savingAsset, setSavingAsset] = useState<string | null>(null);
   const [deletingAsset, setDeletingAsset] = useState<string | null>(null);
   const [uploadingAsset, setUploadingAsset] = useState<string | null>(null);
   const [seedingCards, setSeedingCards] = useState(false);
   const [aiApiKey, setAiApiKey] = useState('');
+  const [apiKeys, setApiKeys] = useState<any[]>([]);
+  const [newApiKey, setNewApiKey] = useState('');
+  const [newApiProvider, setNewApiProvider] = useState<'gemini' | 'openai' | 'grok'>('gemini');
   const [aiSystemPrompt, setAiSystemPrompt] = useState('');
   const [banks, setBanks] = useState<any[]>([]);
   const [repairCosts, setRepairCosts] = useState<any[]>([]);
@@ -25,12 +28,22 @@ export default function AdminDashboard() {
   const [newRepairCost, setNewRepairCost] = useState('');
   const [newFipeRuleName, setNewFipeRuleName] = useState('');
   const [newFipeRuleDiscount, setNewFipeRuleDiscount] = useState('');
+  
+  const [editingFipeRule, setEditingFipeRule] = useState<string | null>(null);
+  const [editingBank, setEditingBank] = useState<string | null>(null);
+  const [editingRepairCost, setEditingRepairCost] = useState<string | null>(null);
   const [whatsappNumber, setWhatsappNumber] = useState('');
   const [whatsappButtonText, setWhatsappButtonText] = useState('WhatsApp');
   const [whatsappEnabled, setWhatsappEnabled] = useState(false);
+  const [tawkToEnabled, setTawkToEnabled] = useState(false);
+  const [tawkToPropertyId, setTawkToPropertyId] = useState('');
+  const [tawkToWidgetId, setTawkToWidgetId] = useState('');
   const [specialistEnabled, setSpecialistEnabled] = useState(false);
   const [specialistText, setSpecialistText] = useState('');
   const [specialistLink, setSpecialistLink] = useState('');
+  const [specialistAction, setSpecialistAction] = useState<'whatsapp' | 'chat'>('chat');
+  const [carCardButtonText, setCarCardButtonText] = useState('Tenho Interesse');
+  const [primaryContactMethod, setPrimaryContactMethod] = useState<'chat' | 'tawkto' | 'whatsapp' | 'none'>('chat');
   const [heroTimer, setHeroTimer] = useState('5000');
   const [footerText, setFooterText] = useState('');
   const [footerCopyright, setFooterCopyright] = useState('');
@@ -66,12 +79,14 @@ export default function AdminDashboard() {
       const { data: banksData } = await supabase.from('banks').select('*').order('name');
       const { data: repairData } = await supabase.from('repair_costs').select('*').order('part_name');
       const { data: fipeData } = await supabase.from('fipe_rules').select('*').order('condition_name');
+      const { data: apiKeysData } = await supabase.from('api_keys').select('*').order('created_at', { ascending: false });
 
       setLeads(leadsData || []);
       setDbAssets(assetsData || []);
       setBanks(banksData || []);
       setRepairCosts(repairData || []);
       setFipeRules(fipeData || []);
+      setApiKeys(apiKeysData || []);
 
       // Fetch settings from Supabase
       const { data: settingsData, error: settingsError } = await supabase.from('settings').select('*');
@@ -107,6 +122,15 @@ export default function AdminDashboard() {
           setWhatsappEnabled(waEnabledSetting.value === 'true');
         }
 
+        const tawkEnabledSetting = settingsData.find((s: any) => s.key === 'TAWKTO_ENABLED');
+        if (tawkEnabledSetting) setTawkToEnabled(tawkEnabledSetting.value === 'true');
+
+        const tawkPropertySetting = settingsData.find((s: any) => s.key === 'TAWKTO_PROPERTY_ID');
+        if (tawkPropertySetting) setTawkToPropertyId(tawkPropertySetting.value);
+
+        const tawkWidgetSetting = settingsData.find((s: any) => s.key === 'TAWKTO_WIDGET_ID');
+        if (tawkWidgetSetting) setTawkToWidgetId(tawkWidgetSetting.value);
+
         const specialistEnabledSetting = settingsData.find((s: any) => s.key === 'SPECIALIST_BUTTON_ENABLED');
         if (specialistEnabledSetting) setSpecialistEnabled(specialistEnabledSetting.value === 'true');
 
@@ -115,6 +139,15 @@ export default function AdminDashboard() {
 
         const specialistLinkSetting = settingsData.find((s: any) => s.key === 'SPECIALIST_BUTTON_LINK');
         if (specialistLinkSetting) setSpecialistLink(specialistLinkSetting.value);
+
+        const specialistActionSetting = settingsData.find((s: any) => s.key === 'SPECIALIST_BUTTON_ACTION');
+        if (specialistActionSetting) setSpecialistAction(specialistActionSetting.value as 'whatsapp' | 'chat');
+
+        const carCardButtonTextSetting = settingsData.find((s: any) => s.key === 'CAR_CARD_BUTTON_TEXT');
+        if (carCardButtonTextSetting) setCarCardButtonText(carCardButtonTextSetting.value);
+
+        const primaryContactSetting = settingsData.find((s: any) => s.key === 'PRIMARY_CONTACT_METHOD');
+        if (primaryContactSetting) setPrimaryContactMethod(primaryContactSetting.value as any);
 
         const heroTimerSetting = settingsData.find((s: any) => s.key === 'HERO_TIMER');
         if (heroTimerSetting) setHeroTimer(heroTimerSetting.value);
@@ -167,14 +200,15 @@ export default function AdminDashboard() {
     try {
       const { error } = await supabase
         .from('banners')
-        .update({ url, legenda, tipo, button_text, button_link, title, subtitle, badge_text })
+        .update({ url, legenda, tipo, button_text, button_link, title, subtitle, badge_text, ativo: true })
         .eq('id', id);
 
       if (error) throw error;
 
       await refreshAssets();
       // Update local state
-      setDbAssets(prev => prev.map(a => a.id === id ? { ...a, url, legenda, tipo, button_text, button_link, title, subtitle, badge_text } : a));
+      setDbAssets(prev => prev.map(a => a.id === id ? { ...a, url, legenda, tipo, button_text, button_link, title, subtitle, badge_text, ativo: true } : a));
+      alert('Alteração salva com sucesso!');
     } catch (error) {
       console.error('Error updating banner:', error);
       alert('Erro ao salvar banner.');
@@ -259,11 +293,23 @@ export default function AdminDashboard() {
         .getPublicUrl(filePath);
 
       // Update local state so user sees it immediately
+      // Update local state and then save to DB
       setDbAssets(prev => prev.map(a => a.id === id ? { ...a, url: publicUrl } : a));
       
-      // We don't auto-save to DB here, user still needs to click "Salvar Alterações"
-      // Or we could auto-save. Let's auto-save for better UX.
-      await handleUpdateAsset(id, publicUrl, dbAssets.find(a => a.id === id)?.legenda || '', dbAssets.find(a => a.id === id)?.tipo || '', dbAssets.find(a => a.id === id)?.button_text, dbAssets.find(a => a.id === id)?.button_link, dbAssets.find(a => a.id === id)?.title, dbAssets.find(a => a.id === id)?.subtitle, dbAssets.find(a => a.id === id)?.badge_text);
+      const currentAsset = dbAssets.find(a => a.id === id);
+      if (currentAsset) {
+        await handleUpdateAsset(
+          id, 
+          publicUrl, 
+          currentAsset.legenda, 
+          currentAsset.tipo, 
+          currentAsset.button_text, 
+          currentAsset.button_link, 
+          currentAsset.title, 
+          currentAsset.subtitle, 
+          currentAsset.badge_text
+        );
+      }
 
     } catch (error) {
       console.error('Error uploading file:', error);
@@ -283,9 +329,15 @@ export default function AdminDashboard() {
         { key: 'WHATSAPP_NUMBER', value: whatsappNumber },
         { key: 'WHATSAPP_BUTTON_TEXT', value: whatsappButtonText },
         { key: 'WHATSAPP_ENABLED', value: whatsappEnabled ? 'true' : 'false' },
+        { key: 'TAWKTO_ENABLED', value: tawkToEnabled ? 'true' : 'false' },
+        { key: 'TAWKTO_PROPERTY_ID', value: tawkToPropertyId },
+        { key: 'TAWKTO_WIDGET_ID', value: tawkToWidgetId },
         { key: 'SPECIALIST_BUTTON_ENABLED', value: specialistEnabled ? 'true' : 'false' },
         { key: 'SPECIALIST_BUTTON_TEXT', value: specialistText },
         { key: 'SPECIALIST_BUTTON_LINK', value: specialistLink },
+        { key: 'SPECIALIST_BUTTON_ACTION', value: specialistAction },
+        { key: 'CAR_CARD_BUTTON_TEXT', value: carCardButtonText },
+        { key: 'PRIMARY_CONTACT_METHOD', value: primaryContactMethod },
         { key: 'HERO_TIMER', value: heroTimer },
         { key: 'FOOTER_TEXT', value: footerText },
         { key: 'FOOTER_COPYRIGHT', value: footerCopyright },
@@ -404,6 +456,12 @@ export default function AdminDashboard() {
                 className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'ai' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
               >
                 Inteligência Artificial (Regras)
+              </button>
+              <button 
+                onClick={() => setActiveTab('apis')}
+                className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'apis' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+              >
+                APIs & Chaves
               </button>
             </div>
             <button 
@@ -760,6 +818,22 @@ export default function AdminDashboard() {
                       />
                     </div>
                     <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Título (HTML permitido)</label>
+                      <input 
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none"
+                        value={asset.title || ''}
+                        onChange={(e) => setDbAssets(prev => prev.map(a => a.id === asset.id ? { ...a, title: e.target.value } : a))}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Subtítulo</label>
+                      <textarea 
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none h-20"
+                        value={asset.subtitle || ''}
+                        onChange={(e) => setDbAssets(prev => prev.map(a => a.id === asset.id ? { ...a, subtitle: e.target.value } : a))}
+                      />
+                    </div>
+                    <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Texto do Botão</label>
                       <input 
                         className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none"
@@ -788,6 +862,103 @@ export default function AdminDashboard() {
                   </div>
                 </motion.div>
               ))}
+            </div>
+          </div>
+        ) : activeTab === 'apis' ? (
+          <div className="space-y-8">
+            <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm">
+              <h2 className="text-2xl font-bold mb-6">Gerenciamento de APIs & Chaves</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-6">
+                  <h3 className="text-lg font-bold">Adicionar Nova Chave</h3>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-slate-700">Provedor</label>
+                      <select 
+                        className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                        value={newApiProvider}
+                        onChange={e => setNewApiProvider(e.target.value as any)}
+                      >
+                        <option value="gemini">Google Gemini</option>
+                        <option value="openai">OpenAI (GPT-4)</option>
+                        <option value="grok">xAI Grok</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-slate-700">Chave da API</label>
+                      <input 
+                        type="password"
+                        className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                        placeholder="sk-..."
+                        value={newApiKey}
+                        onChange={e => setNewApiKey(e.target.value)}
+                      />
+                    </div>
+                    <button 
+                      onClick={async () => {
+                        if (!newApiKey) return;
+                        const { error } = await supabase.from('api_keys').insert([{ provider: newApiProvider, key: newApiKey, status: 'ok' }]);
+                        if (!error) {
+                          setNewApiKey('');
+                          fetchData();
+                        }
+                      }}
+                      className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-accent transition-all"
+                    >
+                      Adicionar Chave
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <h3 className="text-lg font-bold">Chaves Ativas</h3>
+                  <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+                    {apiKeys.map(key => (
+                      <div key={key.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col gap-3">
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-black uppercase tracking-widest text-slate-400">{key.provider}</span>
+                            <div className={`w-2 h-2 rounded-full ${
+                              key.status === 'ok' ? 'bg-emerald-500' : 
+                              key.status === 'no_credit' ? 'bg-amber-500' : 'bg-red-500'
+                            }`} />
+                          </div>
+                          <button 
+                            onClick={async () => {
+                              if (confirm('Remover chave?')) {
+                                await supabase.from('api_keys').delete().eq('id', key.id);
+                                fetchData();
+                              }
+                            }}
+                            className="text-red-400 hover:text-red-600"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <code className="text-xs font-mono text-slate-500">
+                            {key.key.substring(0, 8)}...{key.key.substring(key.key.length - 4)}
+                          </code>
+                          <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-lg ${
+                            key.status === 'ok' ? 'bg-emerald-100 text-emerald-700' : 
+                            key.status === 'no_credit' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                          }`}>
+                            {key.status === 'ok' ? 'Verde OK' : 
+                             key.status === 'no_credit' ? 'Amarelo Sem Crédito' : 'Vermelho Erro'}
+                          </span>
+                        </div>
+                        {key.last_used && (
+                          <p className="text-[10px] text-slate-400">Último uso: {new Date(key.last_used).toLocaleString()}</p>
+                        )}
+                      </div>
+                    ))}
+                    {apiKeys.length === 0 && (
+                      <p className="text-center text-slate-400 py-8 text-sm">Nenhuma chave configurada.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         ) : activeTab === 'footer' ? (
@@ -878,6 +1049,99 @@ export default function AdminDashboard() {
               </button>
             </div>
 
+            <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm mb-8">
+              <h3 className="text-xl font-bold mb-4">Configuração dos Cards de Veículos</h3>
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <label className="text-sm font-bold text-slate-700">Texto do Botão Laranja nos Cards</label>
+                  <input 
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20"
+                    value={carCardButtonText}
+                    onChange={e => setCarCardButtonText(e.target.value)}
+                    placeholder="Ex: Tenho Interesse"
+                  />
+                </div>
+                <button 
+                  onClick={handleSaveSettings}
+                  disabled={savingSettings}
+                  className="mt-5 px-6 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-accent transition-all disabled:opacity-50"
+                >
+                  {savingSettings ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Salvar Texto'}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold">Gatilhos de Venda (Cards com Foto)</h2>
+              <button 
+                onClick={() => handleCreateAsset('trigger')}
+                className="px-6 py-3 bg-accent text-white rounded-xl font-bold flex items-center gap-2 hover:bg-orange-600 transition-all"
+              >
+                <Plus className="w-5 h-5" />
+                Novo Gatilho
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {dbAssets.filter(a => a.tipo.startsWith('trigger')).map((asset) => (
+                <motion.div
+                  key={asset.id}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden flex flex-col"
+                >
+                  <div className="relative h-48 bg-slate-100 group">
+                    <img 
+                      src={asset.url} 
+                      alt={asset.legenda} 
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <label className="cursor-pointer p-3 bg-white text-slate-900 rounded-full hover:bg-slate-100 transition-colors">
+                        <Upload className="w-5 h-5" />
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          className="hidden" 
+                          onChange={(e) => handleFileUpload(e, asset.id)}
+                          disabled={uploadingAsset === asset.id}
+                        />
+                      </label>
+                    </div>
+                    <button 
+                      onClick={() => handleDeleteAsset(asset.id)}
+                      className="absolute top-4 right-4 p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="p-6 flex flex-col gap-4 flex-1">
+                    <input 
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none"
+                      value={asset.title || ''}
+                      placeholder="Título do Gatilho"
+                      onChange={(e) => setDbAssets(prev => prev.map(a => a.id === asset.id ? { ...a, title: e.target.value } : a))}
+                    />
+                    <textarea 
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none h-24"
+                      value={asset.subtitle || ''}
+                      placeholder="Descrição do Gatilho"
+                      onChange={(e) => setDbAssets(prev => prev.map(a => a.id === asset.id ? { ...a, subtitle: e.target.value } : a))}
+                    />
+                    <button 
+                      onClick={() => handleUpdateAsset(asset.id, asset.url, asset.legenda, asset.tipo, asset.button_text, asset.button_link, asset.title, asset.subtitle, asset.badge_text)}
+                      disabled={savingAsset === asset.id}
+                      className="mt-auto w-full py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-accent transition-all disabled:opacity-50"
+                    >
+                      {savingAsset === asset.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                      Salvar
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold">Parceiros (Logos)</h2>
               <button 
@@ -943,80 +1207,146 @@ export default function AdminDashboard() {
             </div>
           </div>
         ) : activeTab === 'settings' ? (
-          <div className="max-w-2xl bg-white rounded-[32px] border border-slate-100 shadow-sm p-8">
-            <h2 className="text-2xl font-bold mb-6">Configurações do Sistema</h2>
-            
-            <div className="space-y-6">
-              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
-                <div>
-                  <p className="font-bold text-slate-900">Habilitar Chat Inteligente</p>
-                  <p className="text-xs text-slate-500">Ativa o assistente virtual no site.</p>
+          <div className="max-w-2xl space-y-8 pb-20">
+            <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm p-8">
+              <h2 className="text-2xl font-bold mb-6">Canal de Atendimento Principal</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                {[
+                  { id: 'chat', label: 'Chat da IA', desc: 'Assistente virtual inteligente' },
+                  { id: 'tawkto', label: 'Tawk.to', desc: 'Chat ao vivo externo' },
+                  { id: 'whatsapp', label: 'WhatsApp', desc: 'Direto para o seu número' },
+                  { id: 'none', label: 'Nenhum', desc: 'Desativa canais flutuantes' }
+                ].map(method => (
+                  <button
+                    key={method.id}
+                    onClick={() => setPrimaryContactMethod(method.id as any)}
+                    className={`p-4 rounded-2xl border-2 text-left transition-all ${primaryContactMethod === method.id ? 'border-accent bg-accent/5' : 'border-slate-100 hover:border-slate-200'}`}
+                  >
+                    <p className={`font-bold ${primaryContactMethod === method.id ? 'text-accent' : 'text-slate-900'}`}>{method.label}</p>
+                    <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-1">{method.desc}</p>
+                  </button>
+                ))}
+              </div>
+
+              <h2 className="text-2xl font-bold mb-6">Configurações do Sistema</h2>
+              
+              <div className="space-y-6">
+                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                  <div>
+                    <p className="font-bold text-slate-900">Habilitar Chat Inteligente</p>
+                    <p className="text-xs text-slate-500">Ativa o assistente virtual no site.</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer"
+                      checked={chatEnabled}
+                      onChange={(e) => setChatEnabled(e.target.checked)}
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                  </label>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    className="sr-only peer"
-                    checked={chatEnabled}
-                    onChange={(e) => setChatEnabled(e.target.checked)}
+
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-slate-700">Chaves da API de IA (Gemini)</label>
+                  <textarea 
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20 h-32 font-mono text-xs"
+                    placeholder="AIzaSy... (uma por linha)"
+                    value={aiApiKey}
+                    onChange={e => setAiApiKey(e.target.value)}
                   />
-                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
-                </label>
-              </div>
+                  <p className="text-xs text-slate-500">Insira múltiplas chaves (uma por linha) para balanceamento de carga e evitar limites de uso.</p>
+                </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-700">Chaves da API de IA (Gemini)</label>
-                <textarea 
-                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20 h-32 font-mono text-xs"
-                  placeholder="AIzaSy... (uma por linha)"
-                  value={aiApiKey}
-                  onChange={e => setAiApiKey(e.target.value)}
-                />
-                <p className="text-xs text-slate-500">Insira múltiplas chaves (uma por linha) para balanceamento de carga e evitar limites de uso.</p>
-              </div>
-
-              <div className="pt-6 border-t border-slate-100">
-                <h3 className="text-lg font-bold mb-4">Configurações de Contato</h3>
-                
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
-                    <div>
-                      <p className="font-bold text-slate-900">Habilitar Botão do WhatsApp</p>
-                      <p className="text-xs text-slate-500">Mostra o botão flutuante do WhatsApp no site.</p>
+                <div className="pt-6 border-t border-slate-100">
+                  <h3 className="text-lg font-bold mb-4">Configurações de Contato</h3>
+                  
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                      <div>
+                        <p className="font-bold text-slate-900">Habilitar Botão do WhatsApp</p>
+                        <p className="text-xs text-slate-500">Mostra o botão flutuante do WhatsApp no site.</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          className="sr-only peer"
+                          checked={whatsappEnabled}
+                          onChange={(e) => setWhatsappEnabled(e.target.checked)}
+                        />
+                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                      </label>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-slate-700">Número do WhatsApp</label>
                       <input 
-                        type="checkbox" 
-                        className="sr-only peer"
-                        checked={whatsappEnabled}
-                        onChange={(e) => setWhatsappEnabled(e.target.checked)}
+                        type="text"
+                        className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20 disabled:opacity-50"
+                        placeholder="Ex: 5511999999999"
+                        value={whatsappNumber}
+                        onChange={e => setWhatsappNumber(e.target.value.replace(/\D/g, ''))}
+                        disabled={!whatsappEnabled}
                       />
-                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
-                    </label>
-                  </div>
+                      <p className="text-xs text-slate-500">Apenas números, com código do país (55) e DDD. Ex: 5511988887777</p>
+                    </div>
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-slate-700">Número do WhatsApp</label>
-                    <input 
-                      type="text"
-                      className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20 disabled:opacity-50"
-                      placeholder="Ex: 5511999999999"
-                      value={whatsappNumber}
-                      onChange={e => setWhatsappNumber(e.target.value.replace(/\D/g, ''))}
-                      disabled={!whatsappEnabled}
-                    />
-                    <p className="text-xs text-slate-500">Apenas números, com código do país (55) e DDD. Ex: 5511988887777</p>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-slate-700">Texto do Botão</label>
+                      <input 
+                        type="text"
+                        className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20 disabled:opacity-50"
+                        placeholder="Ex: Falar com Especialista"
+                        value={whatsappButtonText}
+                        onChange={e => setWhatsappButtonText(e.target.value)}
+                        disabled={!whatsappEnabled}
+                      />
+                    </div>
                   </div>
+                </div>
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-slate-700">Texto do Botão</label>
-                    <input 
-                      type="text"
-                      className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20 disabled:opacity-50"
-                      placeholder="Ex: Falar com Especialista"
-                      value={whatsappButtonText}
-                      onChange={e => setWhatsappButtonText(e.target.value)}
-                      disabled={!whatsappEnabled}
-                    />
+                <div className="pt-6 border-t border-slate-100 mt-6">
+                  <h3 className="text-lg font-bold mb-4">Tawk.to (Chat ao Vivo)</h3>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                      <div>
+                        <p className="font-bold text-slate-900">Habilitar Tawk.to</p>
+                        <p className="text-xs text-slate-500">Mostra o widget de chat do Tawk.to no site.</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          className="sr-only peer"
+                          checked={tawkToEnabled}
+                          onChange={(e) => setTawkToEnabled(e.target.checked)}
+                        />
+                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                      </label>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-slate-700">Property ID</label>
+                      <input 
+                        type="text"
+                        className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20 disabled:opacity-50"
+                        placeholder="Ex: 65e8a... (Encontrado no painel do Tawk.to)"
+                        value={tawkToPropertyId}
+                        onChange={e => setTawkToPropertyId(e.target.value)}
+                        disabled={!tawkToEnabled}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-slate-700">Widget ID</label>
+                      <input 
+                        type="text"
+                        className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20 disabled:opacity-50"
+                        placeholder="Ex: 1ho... (Geralmente 'default' ou um ID específico)"
+                        value={tawkToWidgetId}
+                        onChange={e => setTawkToWidgetId(e.target.value)}
+                        disabled={!tawkToEnabled}
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -1069,7 +1399,7 @@ export default function AdminDashboard() {
               <button 
                 onClick={handleSaveSettings}
                 disabled={savingSettings}
-                className="w-full py-4 bg-accent text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-orange-600 transition-all disabled:opacity-50"
+                className="w-full py-4 bg-accent text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-orange-600 transition-all disabled:opacity-50 mt-8"
               >
                 {savingSettings ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                 Salvar Configurações
@@ -1150,22 +1480,55 @@ export default function AdminDashboard() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-60 overflow-y-auto">
                   {fipeRules.map(rule => (
-                    <div key={rule.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
-                      <span className="font-bold text-sm">{rule.condition_name}</span>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs font-mono bg-blue-100 text-blue-700 px-2 py-1 rounded-lg">-{rule.discount_percentage}%</span>
-                        <button 
-                          onClick={async () => {
-                            if (confirm('Excluir regra?')) {
-                              await supabase.from('fipe_rules').delete().eq('id', rule.id);
-                              fetchData();
-                            }
-                          }}
-                          className="text-red-400 hover:text-red-600"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                    <div key={rule.id} className="flex flex-col p-3 bg-slate-50 rounded-xl border border-slate-100 gap-2">
+                      {editingFipeRule === rule.id ? (
+                        <>
+                          <input 
+                            className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs"
+                            value={rule.condition_name}
+                            onChange={e => setFipeRules(prev => prev.map(r => r.id === rule.id ? { ...r, condition_name: e.target.value } : r))}
+                          />
+                          <input 
+                            className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs"
+                            type="number"
+                            value={rule.discount_percentage}
+                            onChange={e => setFipeRules(prev => prev.map(r => r.id === rule.id ? { ...r, discount_percentage: parseFloat(e.target.value) } : r))}
+                          />
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={async () => {
+                                const { error } = await supabase.from('fipe_rules').update({ condition_name: rule.condition_name, discount_percentage: rule.discount_percentage }).eq('id', rule.id);
+                                if (!error) setEditingFipeRule(null);
+                              }}
+                              className="flex-1 py-1 bg-slate-900 text-white rounded-lg text-[10px] font-bold"
+                            >
+                              Salvar
+                            </button>
+                            <button onClick={() => setEditingFipeRule(null)} className="flex-1 py-1 bg-slate-200 text-slate-600 rounded-lg text-[10px] font-bold">Cancelar</button>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-sm">{rule.condition_name}</span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs font-mono bg-blue-100 text-blue-700 px-2 py-1 rounded-lg">-{rule.discount_percentage}%</span>
+                            <div className="flex gap-1">
+                              <button onClick={() => setEditingFipeRule(rule.id)} className="text-slate-400 hover:text-slate-600"><Save className="w-4 h-4" /></button>
+                              <button 
+                                onClick={async () => {
+                                  if (confirm('Excluir regra?')) {
+                                    await supabase.from('fipe_rules').delete().eq('id', rule.id);
+                                    fetchData();
+                                  }
+                                }}
+                                className="text-red-400 hover:text-red-600"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1205,22 +1568,55 @@ export default function AdminDashboard() {
                 </div>
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   {banks.map(bank => (
-                    <div key={bank.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
-                      <span className="font-bold text-sm">{bank.name}</span>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs font-mono bg-green-100 text-green-700 px-2 py-1 rounded-lg">-{bank.discount_percentage}%</span>
-                        <button 
-                          onClick={async () => {
-                            if (confirm('Excluir banco?')) {
-                              await supabase.from('banks').delete().eq('id', bank.id);
-                              fetchData();
-                            }
-                          }}
-                          className="text-red-400 hover:text-red-600"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                    <div key={bank.id} className="flex flex-col p-3 bg-slate-50 rounded-xl border border-slate-100 gap-2">
+                      {editingBank === bank.id ? (
+                        <>
+                          <input 
+                            className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs"
+                            value={bank.name}
+                            onChange={e => setBanks(prev => prev.map(b => b.id === bank.id ? { ...b, name: e.target.value } : b))}
+                          />
+                          <input 
+                            className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs"
+                            type="number"
+                            value={bank.payoff_discount_percentage}
+                            onChange={e => setBanks(prev => prev.map(b => b.id === bank.id ? { ...b, payoff_discount_percentage: parseFloat(e.target.value) } : b))}
+                          />
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={async () => {
+                                const { error } = await supabase.from('banks').update({ name: bank.name, payoff_discount_percentage: bank.payoff_discount_percentage }).eq('id', bank.id);
+                                if (!error) setEditingBank(null);
+                              }}
+                              className="flex-1 py-1 bg-slate-900 text-white rounded-lg text-[10px] font-bold"
+                            >
+                              Salvar
+                            </button>
+                            <button onClick={() => setEditingBank(null)} className="flex-1 py-1 bg-slate-200 text-slate-600 rounded-lg text-[10px] font-bold">Cancelar</button>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-sm">{bank.name}</span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs font-mono bg-green-100 text-green-700 px-2 py-1 rounded-lg">-{bank.payoff_discount_percentage}%</span>
+                            <div className="flex gap-1">
+                              <button onClick={() => setEditingBank(bank.id)} className="text-slate-400 hover:text-slate-600"><Save className="w-4 h-4" /></button>
+                              <button 
+                                onClick={async () => {
+                                  if (confirm('Excluir banco?')) {
+                                    await supabase.from('banks').delete().eq('id', bank.id);
+                                    fetchData();
+                                  }
+                                }}
+                                className="text-red-400 hover:text-red-600"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1260,22 +1656,55 @@ export default function AdminDashboard() {
                 </div>
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   {repairCosts.map(item => (
-                    <div key={item.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
-                      <span className="font-bold text-sm">{item.part_name}</span>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs font-mono bg-red-100 text-red-700 px-2 py-1 rounded-lg">R$ {item.cost}</span>
-                        <button 
-                          onClick={async () => {
-                            if (confirm('Excluir item?')) {
-                              await supabase.from('repair_costs').delete().eq('id', item.id);
-                              fetchData();
-                            }
-                          }}
-                          className="text-red-400 hover:text-red-600"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                    <div key={item.id} className="flex flex-col p-3 bg-slate-50 rounded-xl border border-slate-100 gap-2">
+                      {editingRepairCost === item.id ? (
+                        <>
+                          <input 
+                            className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs"
+                            value={item.part_name}
+                            onChange={e => setRepairCosts(prev => prev.map(r => r.id === item.id ? { ...r, part_name: e.target.value } : r))}
+                          />
+                          <input 
+                            className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs"
+                            type="number"
+                            value={item.cost_value}
+                            onChange={e => setRepairCosts(prev => prev.map(r => r.id === item.id ? { ...r, cost_value: parseFloat(e.target.value) } : r))}
+                          />
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={async () => {
+                                const { error } = await supabase.from('repair_costs').update({ part_name: item.part_name, cost_value: item.cost_value }).eq('id', item.id);
+                                if (!error) setEditingRepairCost(null);
+                              }}
+                              className="flex-1 py-1 bg-slate-900 text-white rounded-lg text-[10px] font-bold"
+                            >
+                              Salvar
+                            </button>
+                            <button onClick={() => setEditingRepairCost(null)} className="flex-1 py-1 bg-slate-200 text-slate-600 rounded-lg text-[10px] font-bold">Cancelar</button>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-sm">{item.part_name}</span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs font-mono bg-red-100 text-red-700 px-2 py-1 rounded-lg">R$ {item.cost_value}</span>
+                            <div className="flex gap-1">
+                              <button onClick={() => setEditingRepairCost(item.id)} className="text-slate-400 hover:text-slate-600"><Save className="w-4 h-4" /></button>
+                              <button 
+                                onClick={async () => {
+                                  if (confirm('Excluir item?')) {
+                                    await supabase.from('repair_costs').delete().eq('id', item.id);
+                                    fetchData();
+                                  }
+                                }}
+                                className="text-red-400 hover:text-red-600"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

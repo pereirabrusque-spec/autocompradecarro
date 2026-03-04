@@ -18,6 +18,14 @@ export default function Footer() {
   const specialistEnabled = settings['SPECIALIST_BUTTON_ENABLED'] === 'true';
   const specialistText = settings['SPECIALIST_BUTTON_TEXT'] || 'Falar com Especialista';
   const specialistLink = settings['SPECIALIST_BUTTON_LINK'] || '#';
+  const specialistAction = settings['SPECIALIST_BUTTON_ACTION'] || 'whatsapp';
+
+  const handleSpecialistClick = (e: React.MouseEvent) => {
+    if (specialistAction === 'chat') {
+      e.preventDefault();
+      window.dispatchEvent(new CustomEvent('open-chat'));
+    }
+  };
 
   const partners = banners.filter(b => b.tipo.startsWith('partner_'));
 
@@ -25,9 +33,10 @@ export default function Footer() {
     <footer className="bg-[#0b1b2b] text-white py-20 relative">
       {specialistEnabled && (
         <a 
-          href={specialistLink} 
-          target="_blank" 
-          rel="noopener noreferrer"
+          href={specialistAction === 'whatsapp' ? specialistLink : '#'} 
+          target={specialistAction === 'whatsapp' ? "_blank" : undefined} 
+          rel={specialistAction === 'whatsapp' ? "noopener noreferrer" : undefined}
+          onClick={handleSpecialistClick}
           className="fixed bottom-8 left-8 z-50 bg-green-600 text-white px-6 py-4 rounded-full shadow-2xl flex items-center gap-3 hover:bg-green-700 transition-all hover:scale-105 group"
         >
           <MessageCircle className="w-6 h-6" />

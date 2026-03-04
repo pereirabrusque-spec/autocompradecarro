@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
 import { Mail, Loader2, AlertCircle, CheckCircle, ArrowLeft } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 interface ForgotPasswordProps {
   onBack: () => void;
@@ -18,16 +19,14 @@ export default function ForgotPassword({ onBack }: ForgotPasswordProps) {
     setError('');
 
     try {
-      const res = await fetch('/api/auth/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
       });
-      const data = await res.json();
-      if (data.success) {
-        setIsSuccess(true);
+      
+      if (error) {
+        setError(error.message);
       } else {
-        setError(data.message);
+        setIsSuccess(true);
       }
     } catch (err) {
       setError('Erro ao conectar com o servidor');

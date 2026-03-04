@@ -34,6 +34,7 @@ export default function SellModal() {
     has_leather: false,
     fipe_price: 0,
     desired_price: '',
+    entrada: '',
     situation: 'normal',
     media_urls: []
   });
@@ -94,6 +95,7 @@ export default function SellModal() {
         renavam: formData.renavam,
         valor_fipe: formData.fipe_price,
         preco_cliente: parseFloat(formData.desired_price) || 0,
+        entrada: parseFloat(formData.entrada) || 0,
         status: 'novo',
         observacoes: `Situação: ${formData.situation}. Acessórios: ${[formData.has_ac ? 'Ar' : '', formData.has_steering ? 'Direção' : '', formData.has_leather ? 'Couro' : ''].filter(Boolean).join(', ')}`
       }]);
@@ -327,15 +329,27 @@ export default function SellModal() {
                           />
                         </div>
                       </div>
-                      <div className="space-y-1">
-                        <label className="text-xs font-bold text-slate-400 uppercase ml-1">Valor que você deseja receber (R$)</label>
-                        <input 
-                          type="number"
-                          className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-accent"
-                          placeholder="Ex: 45000"
-                          value={formData.desired_price}
-                          onChange={e => setFormData({...formData, desired_price: e.target.value})}
-                        />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-xs font-bold text-slate-400 uppercase ml-1">Valor que você deseja receber (R$)</label>
+                          <input 
+                            type="number"
+                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-accent"
+                            placeholder="Ex: 45000"
+                            value={formData.desired_price}
+                            onChange={e => setFormData({...formData, desired_price: e.target.value})}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-bold text-slate-400 uppercase ml-1">Valor de Entrada (R$)</label>
+                          <input 
+                            type="number"
+                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-blue-600"
+                            placeholder="Ex: 10000"
+                            value={formData.entrada}
+                            onChange={e => setFormData({...formData, entrada: e.target.value})}
+                          />
+                        </div>
                       </div>
                       <div className="p-6 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center gap-2 hover:border-accent transition-colors cursor-pointer group">
                         <Camera className="w-8 h-8 text-slate-300 group-hover:text-accent transition-colors" />

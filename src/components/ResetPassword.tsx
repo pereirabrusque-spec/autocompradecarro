@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Lock, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 export default function ResetPassword() {
   const [password, setPassword] = useState('');
@@ -8,13 +9,17 @@ export default function ResetPassword() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
-  const [token, setToken] = useState('');
 
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const t = urlParams.get('token');
-    if (t) setToken(t);
-    else setError('Token de redefinição ausente');
+    // Supabase handles the token automatically via hash parameters
+    // We just need to listen for the auth state change
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        // User is ready to reset password
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -28,16 +33,12 @@ export default function ResetPassword() {
     setError('');
 
     try {
-      const res = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, newPassword: password })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setIsSuccess(true);
+      const { error } = await supabase.auth.updateUser({ password: password });
+      
+      if (error) {
+        setError(error.message);
       } else {
-        setError(data.message);
+        setIsSuccess(true);
       }
     } catch (err) {
       setError('Erro ao conectar com o servidor');
@@ -114,7 +115,7 @@ export default function ResetPassword() {
 
               <button
                 type="submit"
-                disabled={isLoading || !token}
+                disabled={isLoading}
                 className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-accent transition-all disabled:opacity-50"
               >
                 {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Redefinir Senha'}

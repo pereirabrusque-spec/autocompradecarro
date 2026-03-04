@@ -3,6 +3,9 @@ import { motion, AnimatePresence } from 'motion/react';
 import { MessageSquare, Send, X, Bot, User, Loader2, Camera, Paperclip, FileText } from 'lucide-react';
 import { GoogleGenAI } from '@google/genai';
 import Markdown from 'react-markdown';
+import { supabase } from '../lib/supabase';
+import { AIService } from '../services/aiService';
+import { useAssets } from '../lib/assetsContext';
 
 interface Message {
   role: 'user' | 'bot';
@@ -10,13 +13,8 @@ interface Message {
   image?: string;
 }
 
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
 export default function ChatAssistant() {
+  const { settings } = useAssets();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     { role: 'bot', text: 'Olá! Sou o especialista sênior da **LOJA ONLINE - SOLUÇÕES AUTOMOTIVAS**. \n\nNós assumimos o problema e limpamos seu nome. \n\nPara começarmos a análise do seu veículo, por favor, informe o **Ano e Modelo** do carro.' }
@@ -28,49 +26,37 @@ export default function ChatAssistant() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [apiKey, setApiKey] = useState<string>('');
-  const [chatEnabled, setChatEnabled] = useState(true);
-  const [systemPrompt, setSystemPrompt] = useState('');
+  const chatEnabled = settings['CHAT_ENABLED'] !== 'false';
+  const systemPrompt = settings['AI_SYSTEM_PROMPT'] || '';
   const [contextData, setContextData] = useState({ banks: [], repairCosts: [], fipeRules: [] });
 
   useEffect(() => {
-    // Fetch API key and settings
-    const fetchSettings = async () => {
-      try {
-        const { data: settingsData, error: settingsError } = await supabase.from('settings').select('*');
-        
-        if (!settingsError && settingsData) {
-          const aiKeySetting = settingsData.find((s: any) => s.key === 'GEMINI_API_KEY');
-          if (aiKeySetting && aiKeySetting.value) {
-            const keys = aiKeySetting.value.split('\n').map((k: string) => k.trim()).filter((k: string) => k.length > 0);
-            if (keys.length > 0) {
-              const randomKey = keys[Math.floor(Math.random() * keys.length)];
-              setApiKey(randomKey);
-            }
-          }
+    const handleOpenChat = () => setIsOpen(true);
+    window.addEventListener('open-chat', handleOpenChat);
 
-          const chatEnabledSetting = settingsData.find((s: any) => s.key === 'CHAT_ENABLED');
-          if (chatEnabledSetting) {
-            setChatEnabled(chatEnabledSetting.value === 'true');
-          }
-
-          const promptSetting = settingsData.find((s: any) => s.key === 'AI_SYSTEM_PROMPT');
-          if (promptSetting) {
-            setSystemPrompt(promptSetting.value);
-          }
-        }
-
-        // Fetch Banks, Repair Costs, and FIPE Rules
-        const { data: banks } = await supabase.from('banks').select('*');
-        const { data: repairCosts } = await supabase.from('repair_costs').select('*');
-        const { data: fipeRules } = await supabase.from('fipe_rules').select('*');
-        setContextData({ banks: banks || [], repairCosts: repairCosts || [], fipeRules: fipeRules || [] });
-
-      } catch (error) {
-        console.error('Error fetching settings:', error);
+    // Get API key from settings
+    const aiKeySetting = settings['GEMINI_API_KEY'];
+    if (aiKeySetting) {
+      const keys = aiKeySetting.split('\n').map((k: string) => k.trim()).filter((k: string) => k.length > 0);
+      if (keys.length > 0) {
+        const randomKey = keys[Math.floor(Math.random() * keys.length)];
+        setApiKey(randomKey);
       }
+    }
+
+    // Fetch Banks, Repair Costs, and FIPE Rules
+    const fetchData = async () => {
+      const { data: banks } = await supabase.from('banks').select('*');
+      const { data: repairCosts } = await supabase.from('repair_costs').select('*');
+      const { data: fipeRules } = await supabase.from('fipe_rules').select('*');
+      setContextData({ banks: banks || [], repairCosts: repairCosts || [], fipeRules: fipeRules || [] });
     };
-    fetchSettings();
-  }, []);
+    fetchData();
+
+    return () => {
+      window.removeEventListener('open-chat', handleOpenChat);
+    };
+  }, [settings]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -210,38 +196,43 @@ export default function ChatAssistant() {
         **CUSTOS DE REPARO:**
         ${repairContext}`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              { text: `${finalSystemPrompt}\n\nHISTÓRICO:\n${messages.map(m => `${m.role.toUpperCase()}: ${m.text}`).join('\n')}\n\nENTRADA ATUAL:\n${userText}` },
-              ...(userImage ? [{ inlineData: { data: userImage.split(',')[1], mimeType: 'image/jpeg' } }] : [])
-            ]
-          }
-        ],
-        config: {
-          temperature: 0.4,
-        }
-      });
+      const prompt = `HISTÓRICO:\n${messages.map(m => `${m.role.toUpperCase()}: ${m.text}`).join('\n')}\n\nENTRADA ATUAL:\n${userText}`;
+      const aiResponse = await AIService.generateContent(prompt, finalSystemPrompt);
 
-      const botText = response.text || 'Entendido. Por favor, continue com as informações solicitadas.';
+      const botText = aiResponse.text || 'Entendido. Por favor, continue com as informações solicitadas.';
       
       // Check if botText contains a JSON block for lead submission
       const jsonMatch = botText.match(/```json\n([\s\S]*?)\n```/);
       if (jsonMatch) {
         try {
           const leadData = JSON.parse(jsonMatch[1]);
-          await fetch('/api/leads', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(leadData)
-          });
+          const { error } = await supabase.from('leads_veiculos').insert([{
+            cliente_nome: leadData.owner_name,
+            telefone: leadData.owner_phone,
+            marca: leadData.brand,
+            modelo: leadData.model,
+            ano_modelo: leadData.year,
+            placa: leadData.plate,
+            renavam: leadData.renavam,
+            quilometragem: leadData.mileage,
+            banco_financiador: leadData.bank,
+            valor_parcela: leadData.installment_value,
+            parcelas_pagas: leadData.installments_paid,
+            parcelas_restantes: leadData.installments_remaining,
+            preco_cliente: leadData.desired_price,
+            valor_fipe: leadData.fipe_price,
+            situacao_financeira: leadData.situation,
+            status: leadData.status_lead || 'novo',
+            origem: 'chat',
+            observacoes: `Score: ${leadData.score_veiculo} | Quitação Est.: ${leadData.valor_quitacao_estimado}`
+          }]);
+          
+          if (error) throw error;
+          
           setMessages(prev => [...prev, { role: 'bot', text: '✅ **Dados enviados com sucesso!** Nossa equipe de especialistas entrará em contato em breve para finalizar a proposta.' }]);
           return;
         } catch (e) {
-          console.error('Failed to parse lead JSON:', e);
+          console.error('Failed to parse or save lead JSON:', e);
         }
       }
 

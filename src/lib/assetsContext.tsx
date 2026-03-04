@@ -11,6 +11,7 @@ export interface Asset {
   title?: string;
   subtitle?: string;
   badge_text?: string;
+  ordem: number;
 }
 
 interface AssetsContextType {

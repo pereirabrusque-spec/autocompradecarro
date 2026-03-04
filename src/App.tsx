@@ -4,12 +4,13 @@
  */
 
 import { useState, useEffect } from 'react';
-import { AssetsProvider } from './lib/assetsContext';
+import { AssetsProvider, useAssets } from './lib/assetsContext';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import CarGrid from './components/CarGrid';
 import CreditAnalysis from './components/CreditAnalysis';
 import NegotiationSection from './components/NegotiationSection';
+import TriggersSection from './components/TriggersSection';
 import Testimonials from './components/Testimonials';
 import FipeSection from './components/FipeSection';
 import FeaturesSection from './components/FeaturesSection';
@@ -21,12 +22,18 @@ import Login from './components/Login';
 import ForgotPassword from './components/ForgotPassword';
 import ResetPassword from './components/ResetPassword';
 import SellCar from './components/SellCar';
+import TawkTo from './components/TawkTo';
+import WhatsAppButton from './components/WhatsAppButton';
 import { supabase } from './lib/supabase';
 
-export default function App() {
+function AppContent() {
   const [view, setView] = useState<'home' | 'admin' | 'login' | 'forgot-password' | 'reset-password' | 'sell'>('home');
   const [user, setUser] = useState<any>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const { settings } = useAssets();
+
+  const primaryContact = settings['PRIMARY_CONTACT_METHOD'] || 'chat';
+  const specialistAction = settings['SPECIALIST_BUTTON_ACTION'] || 'chat';
 
   useEffect(() => {
     // Check current session
@@ -109,6 +116,7 @@ export default function App() {
             <CreditAnalysis />
             <CarGrid />
             <NegotiationSection />
+            <TriggersSection />
             <Testimonials />
             <FipeSection />
             <FeaturesSection />
@@ -118,16 +126,27 @@ export default function App() {
   };
 
   return (
+    <div className="min-h-screen flex flex-col">
+      <Navbar />
+      <main className="flex-grow">
+        {renderContent()}
+      </main>
+      <Footer />
+      
+      {/* Contact Widgets based on Primary Method */}
+      {(primaryContact === 'chat' || specialistAction === 'chat') && <ChatAssistant />}
+      {(primaryContact === 'whatsapp' || specialistAction === 'whatsapp') && <WhatsAppButton />}
+      {primaryContact === 'tawkto' && <TawkTo />}
+      
+      <SellModal />
+    </div>
+  );
+}
+
+export default function App() {
+  return (
     <AssetsProvider>
-      <div className="min-h-screen flex flex-col">
-        <Navbar />
-        <main className="flex-grow">
-          {renderContent()}
-        </main>
-        <Footer />
-        <ChatAssistant />
-        <SellModal />
-      </div>
+      <AppContent />
     </AssetsProvider>
   );
 }

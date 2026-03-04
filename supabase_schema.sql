@@ -16,11 +16,23 @@ CREATE TABLE IF NOT EXISTS public.banners (
     url TEXT NOT NULL,
     legenda TEXT, -- Alt text or title
     ordem INTEGER DEFAULT 0,
+    ativo BOOLEAN DEFAULT true,
     button_text TEXT,
     button_link TEXT,
     title TEXT, -- HTML allowed for Hero
     subtitle TEXT,
     badge_text TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 8. API Keys Table (Multi-provider AI)
+CREATE TABLE IF NOT EXISTS public.api_keys (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    provider TEXT NOT NULL, -- 'gemini', 'openai', 'grok'
+    key TEXT NOT NULL,
+    status TEXT DEFAULT 'ok', -- 'ok', 'no_credit', 'disconnected'
+    last_used TIMESTAMP WITH TIME ZONE,
+    error_count INTEGER DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 

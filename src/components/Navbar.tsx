@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CarFront, LayoutDashboard, Phone } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 export default function Navbar() {
   const [whatsappEnabled, setWhatsappEnabled] = useState(false);
@@ -9,9 +10,8 @@ export default function Navbar() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const res = await fetch('/api/admin/settings');
-        if (res.ok) {
-          const data = await res.json();
+        const { data, error } = await supabase.from('settings').select('*');
+        if (!error && data) {
           const waEnabledSetting = data.find((s: any) => s.key === 'WHATSAPP_ENABLED');
           const waNumberSetting = data.find((s: any) => s.key === 'WHATSAPP_NUMBER');
           const waTextSetting = data.find((s: any) => s.key === 'WHATSAPP_BUTTON_TEXT');
