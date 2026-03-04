@@ -245,11 +245,16 @@ export default function ChatAssistant() {
     }
   };
 
+  const chatHeight = settings['CHAT_HEIGHT'] || '560';
+  const chatWidth = settings['CHAT_WIDTH'] || '360';
+  const chatColor = settings['CHAT_COLOR'] || '#F27D26';
+
   return (
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-8 right-8 w-16 h-16 bg-accent text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-transform z-50 group"
+        style={{ backgroundColor: chatColor }}
+        className="fixed bottom-8 right-8 w-16 h-16 text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-transform z-50 group"
       >
         <MessageSquare className="w-7 h-7" />
         <span className="absolute right-full mr-4 px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
@@ -263,11 +268,15 @@ export default function ChatAssistant() {
             initial={{ opacity: 0, y: 100, scale: 0.8 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 100, scale: 0.8 }}
-            className="fixed bottom-8 right-8 w-[95vw] sm:w-[450px] h-[700px] bg-white rounded-[32px] shadow-2xl z-[60] flex flex-col overflow-hidden border border-slate-100"
+            style={{ 
+              height: `${chatHeight}px`, 
+              width: window.innerWidth < 640 ? '95vw' : `${chatWidth}px` 
+            }}
+            className="fixed bottom-8 right-8 bg-white rounded-[32px] shadow-2xl z-[60] flex flex-col overflow-hidden border border-slate-100"
           >
             <div className="p-6 bg-slate-900 text-white flex justify-between items-center">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-accent rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                <div style={{ backgroundColor: chatColor }} className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg">
                   <Bot className="w-7 h-7" />
                 </div>
                 <div>
@@ -278,9 +287,17 @@ export default function ChatAssistant() {
                   </div>
                 </div>
               </div>
-              <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-white/10 rounded-xl transition-colors">
-                <X className="w-6 h-6" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => setIsOpen(false)} 
+                  className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors"
+                >
+                  Fechar
+                </button>
+                <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-white/10 rounded-xl transition-colors">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
             </div>
 
             <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/30">
@@ -288,8 +305,8 @@ export default function ChatAssistant() {
                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`flex gap-3 max-w-[90%] ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${
-                      msg.role === 'user' ? 'bg-accent text-white' : 'bg-white border border-slate-100 text-slate-900'
-                    }`}>
+                      msg.role === 'user' ? '' : 'bg-white border border-slate-100 text-slate-900'
+                    }`} style={msg.role === 'user' ? { backgroundColor: chatColor, color: 'white' } : {}}>
                       {msg.role === 'user' ? <User className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
                     </div>
                     <div className="space-y-2">
@@ -300,9 +317,9 @@ export default function ChatAssistant() {
                       )}
                       <div className={`p-4 rounded-2xl text-sm leading-relaxed shadow-sm ${
                         msg.role === 'user' 
-                          ? 'bg-accent text-white rounded-tr-none' 
+                          ? 'text-white rounded-tr-none' 
                           : 'bg-white border border-slate-100 text-slate-700 rounded-tl-none'
-                      }`}>
+                      }`} style={msg.role === 'user' ? { backgroundColor: chatColor } : {}}>
                         <div className="markdown-body prose prose-sm max-w-none">
                           <Markdown>{msg.text}</Markdown>
                         </div>
@@ -318,7 +335,7 @@ export default function ChatAssistant() {
                       <Bot className="w-5 h-5 text-slate-900" />
                     </div>
                     <div className="p-4 bg-white border border-slate-100 rounded-2xl rounded-tl-none shadow-sm flex items-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin text-accent" />
+                      <Loader2 className="w-4 h-4 animate-spin" style={{ color: chatColor }} />
                       <span className="text-xs text-slate-400 font-medium">Analisando dados...</span>
                     </div>
                   </div>
@@ -364,7 +381,8 @@ export default function ChatAssistant() {
                   <button
                     onClick={handleSend}
                     disabled={(!input.trim() && !selectedImage) || isLoading}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-accent text-white rounded-xl hover:bg-blue-600 disabled:opacity-50 transition-all shadow-lg shadow-blue-500/20"
+                    style={{ backgroundColor: chatColor }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 text-white rounded-xl hover:opacity-90 disabled:opacity-50 transition-all shadow-lg"
                   >
                     <Send className="w-5 h-5" />
                   </button>

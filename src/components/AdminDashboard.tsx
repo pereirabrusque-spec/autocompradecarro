@@ -19,6 +19,7 @@ export default function AdminDashboard() {
   const [newApiKey, setNewApiKey] = useState('');
   const [newApiProvider, setNewApiProvider] = useState<'gemini' | 'openai' | 'grok'>('gemini');
   const [aiSystemPrompt, setAiSystemPrompt] = useState('');
+  const [aiMemory, setAiMemory] = useState('');
   const [banks, setBanks] = useState<any[]>([]);
   const [repairCosts, setRepairCosts] = useState<any[]>([]);
   const [fipeRules, setFipeRules] = useState<any[]>([]);
@@ -55,6 +56,9 @@ export default function AdminDashboard() {
   const [socialTiktok, setSocialTiktok] = useState('');
   const [socialLinkedin, setSocialLinkedin] = useState('');
   const [chatEnabled, setChatEnabled] = useState(true);
+  const [chatHeight, setChatHeight] = useState('560');
+  const [chatWidth, setChatWidth] = useState('360');
+  const [chatColor, setChatColor] = useState('#F27D26');
   const [savingSettings, setSavingSettings] = useState(false);
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const { refreshAssets } = useAssets();
@@ -100,6 +104,11 @@ export default function AdminDashboard() {
         const aiPromptSetting = settingsData.find((s: any) => s.key === 'AI_SYSTEM_PROMPT');
         if (aiPromptSetting) {
           setAiSystemPrompt(aiPromptSetting.value);
+        }
+        
+        const aiMemorySetting = settingsData.find((s: any) => s.key === 'AI_MEMORY');
+        if (aiMemorySetting) {
+          setAiMemory(aiMemorySetting.value);
         }
         
         const chatEnabledSetting = settingsData.find((s: any) => s.key === 'CHAT_ENABLED');
@@ -151,6 +160,15 @@ export default function AdminDashboard() {
 
         const heroTimerSetting = settingsData.find((s: any) => s.key === 'HERO_TIMER');
         if (heroTimerSetting) setHeroTimer(heroTimerSetting.value);
+
+        const chatHeightSetting = settingsData.find((s: any) => s.key === 'CHAT_HEIGHT');
+        if (chatHeightSetting) setChatHeight(chatHeightSetting.value);
+
+        const chatWidthSetting = settingsData.find((s: any) => s.key === 'CHAT_WIDTH');
+        if (chatWidthSetting) setChatWidth(chatWidthSetting.value);
+
+        const chatColorSetting = settingsData.find((s: any) => s.key === 'CHAT_COLOR');
+        if (chatColorSetting) setChatColor(chatColorSetting.value);
 
         const footerTextSetting = settingsData.find((s: any) => s.key === 'FOOTER_TEXT');
         if (footerTextSetting) setFooterText(footerTextSetting.value);
@@ -348,8 +366,13 @@ export default function AdminDashboard() {
         { key: 'SOCIAL_YOUTUBE', value: socialYoutube },
         { key: 'SOCIAL_TIKTOK', value: socialTiktok },
         { key: 'SOCIAL_LINKEDIN', value: socialLinkedin },
+        { key: 'AI_MEMORY', value: aiMemory },
+        { key: 'CHAT_HEIGHT', value: chatHeight },
+        { key: 'CHAT_WIDTH', value: chatWidth },
+        { key: 'CHAT_COLOR', value: chatColor },
       ];
 
+      console.log('settingsToSave:', settingsToSave);
       const { error } = await supabase
         .from('settings')
         .upsert(settingsToSave, { onConflict: 'key' });
@@ -902,6 +925,7 @@ export default function AdminDashboard() {
                         if (!error) {
                           setNewApiKey('');
                           fetchData();
+                          alert('Chave adicionada com sucesso!');
                         }
                       }}
                       className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-accent transition-all"
@@ -1195,7 +1219,10 @@ export default function AdminDashboard() {
                       onChange={(e) => setDbAssets(prev => prev.map(a => a.id === asset.id ? { ...a, legenda: e.target.value } : a))}
                     />
                     <button 
-                      onClick={() => handleUpdateAsset(asset.id, asset.url, asset.legenda, asset.tipo)}
+                      onClick={async () => {
+                        const { error } = await handleUpdateAsset(asset.id, asset.url, asset.legenda, asset.tipo);
+                        if (!error) alert('Salvo com sucesso!');
+                      }}
                       disabled={savingAsset === asset.id}
                       className="mt-auto w-full py-2 bg-slate-900 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1 hover:bg-accent transition-all disabled:opacity-50"
                     >
@@ -1256,6 +1283,47 @@ export default function AdminDashboard() {
                     onChange={e => setAiApiKey(e.target.value)}
                   />
                   <p className="text-xs text-slate-500">Insira múltiplas chaves (uma por linha) para balanceamento de carga e evitar limites de uso.</p>
+                </div>
+
+                <div className="pt-6 border-t border-slate-100">
+                  <h3 className="text-lg font-bold mb-4">Aparência do Chat Inteligente</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-slate-700">Altura (px)</label>
+                      <input 
+                        type="number"
+                        className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20"
+                        value={chatHeight}
+                        onChange={e => setChatHeight(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-slate-700">Largura (px)</label>
+                      <input 
+                        type="number"
+                        className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20"
+                        value={chatWidth}
+                        onChange={e => setChatWidth(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-slate-700">Cor Principal</label>
+                      <div className="flex gap-2">
+                        <input 
+                          type="color"
+                          className="w-12 h-12 p-1 bg-white border border-slate-200 rounded-xl outline-none cursor-pointer"
+                          value={chatColor}
+                          onChange={e => setChatColor(e.target.value)}
+                        />
+                        <input 
+                          type="text"
+                          className="flex-1 p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20 font-mono text-sm"
+                          value={chatColor}
+                          onChange={e => setChatColor(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="pt-6 border-t border-slate-100">
@@ -1415,12 +1483,29 @@ export default function AdminDashboard() {
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-slate-700">Prompt do Sistema (Cérebro da IA)</label>
                   <textarea 
-                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20 h-96 font-mono text-xs"
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20 h-48 font-mono text-xs"
                     value={aiSystemPrompt}
                     onChange={e => setAiSystemPrompt(e.target.value)}
                     placeholder="Defina aqui as regras que a IA deve seguir..."
                   />
-                  <p className="text-xs text-slate-500">Este texto define como a IA se comporta. Use-o para ajustar as regras de negociação.</p>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-slate-700">Memória da IA (Contexto)</label>
+                  <textarea 
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20 h-48 font-mono text-xs"
+                    value={aiMemory}
+                    onChange={e => setAiMemory(e.target.value)}
+                    placeholder="Defina aqui o contexto ou memória que a IA deve ter..."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-slate-700">Memória da IA (Contexto)</label>
+                  <textarea 
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20 h-48 font-mono text-xs"
+                    value={aiMemory}
+                    onChange={e => setAiMemory(e.target.value)}
+                    placeholder="Defina aqui o contexto ou memória que a IA deve ter..."
+                  />
                 </div>
                 <button 
                   onClick={async () => {
@@ -1498,7 +1583,10 @@ export default function AdminDashboard() {
                             <button 
                               onClick={async () => {
                                 const { error } = await supabase.from('fipe_rules').update({ condition_name: rule.condition_name, discount_percentage: rule.discount_percentage }).eq('id', rule.id);
-                                if (!error) setEditingFipeRule(null);
+                                if (!error) {
+                                  setEditingFipeRule(null);
+                                  alert('Regra salva com sucesso!');
+                                }
                               }}
                               className="flex-1 py-1 bg-slate-900 text-white rounded-lg text-[10px] font-bold"
                             >
@@ -1559,6 +1647,7 @@ export default function AdminDashboard() {
                         setNewBankName('');
                         setNewBankDiscount('');
                         fetchData(); // Refresh
+                        alert('Banco adicionado com sucesso!');
                       }
                     }}
                     className="p-3 bg-accent text-white rounded-xl hover:bg-orange-600"
@@ -1586,7 +1675,10 @@ export default function AdminDashboard() {
                             <button 
                               onClick={async () => {
                                 const { error } = await supabase.from('banks').update({ name: bank.name, payoff_discount_percentage: bank.payoff_discount_percentage }).eq('id', bank.id);
-                                if (!error) setEditingBank(null);
+                                if (!error) {
+                                  setEditingBank(null);
+                                  alert('Banco salvo com sucesso!');
+                                }
                               }}
                               className="flex-1 py-1 bg-slate-900 text-white rounded-lg text-[10px] font-bold"
                             >
@@ -1674,7 +1766,10 @@ export default function AdminDashboard() {
                             <button 
                               onClick={async () => {
                                 const { error } = await supabase.from('repair_costs').update({ part_name: item.part_name, cost_value: item.cost_value }).eq('id', item.id);
-                                if (!error) setEditingRepairCost(null);
+                                if (!error) {
+                                  setEditingRepairCost(null);
+                                  alert('Custo salvo com sucesso!');
+                                }
                               }}
                               className="flex-1 py-1 bg-slate-900 text-white rounded-lg text-[10px] font-bold"
                             >

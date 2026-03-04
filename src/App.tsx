@@ -34,6 +34,13 @@ function AppContent() {
 
   const primaryContact = settings['PRIMARY_CONTACT_METHOD'] || 'chat';
   const specialistAction = settings['SPECIALIST_BUTTON_ACTION'] || 'chat';
+  const chatEnabled = settings['CHAT_ENABLED'] === 'true';
+  const whatsappEnabled = settings['WHATSAPP_ENABLED'] === 'true';
+  const tawkToEnabled = settings['TAWKTO_ENABLED'] === 'true';
+
+  const showChat = (primaryContact === 'chat' || specialistAction === 'chat') && chatEnabled;
+  const showWhatsApp = (primaryContact === 'whatsapp' || specialistAction === 'whatsapp') && whatsappEnabled;
+  const showTawkTo = primaryContact === 'tawkto' && tawkToEnabled;
 
   useEffect(() => {
     // Check current session
@@ -134,9 +141,9 @@ function AppContent() {
       <Footer />
       
       {/* Contact Widgets based on Primary Method */}
-      {(primaryContact === 'chat' || specialistAction === 'chat') && <ChatAssistant />}
-      {(primaryContact === 'whatsapp' || specialistAction === 'whatsapp') && <WhatsAppButton />}
-      {primaryContact === 'tawkto' && <TawkTo />}
+      {showChat && <ChatAssistant />}
+      {showWhatsApp && <WhatsAppButton />}
+      {showTawkTo && <TawkTo />}
       
       <SellModal />
     </div>
