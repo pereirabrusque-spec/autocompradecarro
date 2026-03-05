@@ -938,7 +938,11 @@ export default function AdminDashboard() {
                           // 2. Then, insert the new key
                           const { error: insertError } = await supabase
                             .from('api_keys')
-                            .insert([{ provider: newApiProvider, key: newApiKey }]);
+                            .insert([{ 
+                              provider: newApiProvider, 
+                              key: newApiKey,
+                              service: newApiProvider // Added service column
+                            }]);
 
                           if (insertError) throw insertError;
 
