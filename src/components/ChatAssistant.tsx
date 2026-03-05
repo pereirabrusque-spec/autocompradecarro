@@ -160,6 +160,7 @@ export default function ChatAssistant() {
     
     setInput('');
     setSelectedImage(null);
+    setVideos([]);
     
     setMessages(prev => [...prev, { role: 'user', text: userText, image: userImage || undefined }]);
     setIsLoading(true);
@@ -444,6 +445,23 @@ export default function ChatAssistant() {
                   >
                     <X className="w-3 h-3" />
                   </button>
+                </div>
+              )}
+              {videos.length > 0 && (
+                <div className="flex gap-2">
+                  {videos.map((video, index) => (
+                    <div key={index} className="relative inline-block">
+                      <div className="w-20 h-20 bg-slate-100 rounded-xl border border-slate-200 shadow-sm flex items-center justify-center">
+                        <Video className="w-8 h-8 text-slate-400" />
+                      </div>
+                      <button 
+                        onClick={() => setVideos(prev => prev.filter((_, i) => i !== index))}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
               <div className="flex items-center gap-3">
