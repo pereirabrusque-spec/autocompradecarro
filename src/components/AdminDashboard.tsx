@@ -933,7 +933,11 @@ export default function AdminDashboard() {
                           }, { 
                             onConflict: 'provider' 
                           });
-                        if (!error) {
+                        
+                        if (error) {
+                          console.error('Supabase error details:', error);
+                          alert('Erro ao salvar: ' + error.message + ' (Detalhes: ' + JSON.stringify(error) + ')');
+                        } else {
                           setNewApiKey('');
                           fetchData();
                           alert('Chave adicionada com sucesso!');
