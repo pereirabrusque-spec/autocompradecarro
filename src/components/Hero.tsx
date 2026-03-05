@@ -55,7 +55,7 @@ export default function Hero() {
         <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent z-10" />
       </div>
 
-      <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 md:pt-40 pb-12 flex flex-col justify-center h-full min-h-0">
+      <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 md:pt-24 pb-12 flex flex-col justify-center h-full min-h-0">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center w-full">
           <motion.div
             initial={{ opacity: 0, x: -50 }}

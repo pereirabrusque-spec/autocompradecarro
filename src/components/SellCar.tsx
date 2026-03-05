@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { 
   Search, Car, Calculator, ArrowRight, Loader2, CheckCircle2, 
   Camera, FileText, AlertCircle, ShieldCheck, Info, Bike, Truck,
-  Check, X
+  Check, X, Video
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -16,6 +16,7 @@ export default function SellCar() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [photos, setPhotos] = useState<File[]>([]);
+  const [videos, setVideos] = useState<File[]>([]);
   
   const [formData, setFormData] = useState({
     vehicleType: 'Carros',
@@ -412,6 +413,56 @@ export default function SellCar() {
                   {photos.length}/10 fotos adicionadas (Mínimo 5)
                 </span>
               </div>
+            </div>
+
+            <div className="flex items-center gap-3 mt-8 mb-4">
+              <Video className="w-6 h-6 text-slate-400" />
+              <h3 className="text-xl font-bold">Vídeos do Veículo (Opcional)</h3>
+            </div>
+            <p className="text-sm text-slate-400 mb-8">Adicione até 5 vídeos do seu veículo (máximo 20 segundos cada).</p>
+            
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              {videos.map((video, index) => (
+                <div key={index} className="relative aspect-square rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 flex items-center justify-center">
+                  <Video className="w-8 h-8 text-slate-400" />
+                  <button 
+                    type="button"
+                    onClick={() => setVideos(videos.filter((_, i) => i !== index))}
+                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+              {videos.length < 5 && (
+                <label className="aspect-square border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-2 hover:border-accent transition-colors cursor-pointer group relative">
+                  <input 
+                    type="file" 
+                    accept="video/*" 
+                    multiple 
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    onChange={(e) => {
+                      if (e.target.files) {
+                        const newVideos = Array.from(e.target.files);
+                        newVideos.forEach(file => {
+                          const video = document.createElement('video');
+                          video.preload = 'metadata';
+                          video.onloadedmetadata = () => {
+                            window.URL.revokeObjectURL(video.src);
+                            if (video.duration > 20) {
+                              alert("O vídeo excede 20 segundos. Carregando apenas os primeiros 20 segundos.");
+                            }
+                          };
+                          video.src = URL.createObjectURL(file);
+                        });
+                        setVideos(prev => [...prev, ...newVideos].slice(0, 5));
+                      }
+                    }}
+                  />
+                  <Video className="w-6 h-6 text-slate-300 group-hover:text-accent transition-colors" />
+                  <span className="text-[10px] font-bold text-slate-400 uppercase text-center px-2">Adicionar Vídeo</span>
+                </label>
+              )}
             </div>
           </div>
 
