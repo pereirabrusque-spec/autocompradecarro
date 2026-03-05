@@ -1043,8 +1043,19 @@ export default function AdminDashboard() {
                                   const data = await response.json();
                                   if (response.ok) {
                                     setTestedModels(prev => ({ ...prev, [key.id]: data.models || [] }));
-                                    alert('Conexão bem sucedida! Versões detectadas.');
+                                    // Update status in Supabase
+                                    await supabase
+                                      .from('api_keys')
+                                      .update({ status: 'ok', error_count: 0 })
+                                      .eq('id', key.id);
+                                    fetchData();
+                                    alert('Conexão bem sucedida! Status atualizado para OK.');
                                   } else {
+                                    await supabase
+                                      .from('api_keys')
+                                      .update({ status: 'error' })
+                                      .eq('id', key.id);
+                                    fetchData();
                                     alert(`Erro: ${data.error || 'Chave inválida'}`);
                                   }
                                 } catch (err) {
@@ -1102,13 +1113,30 @@ export default function AdminDashboard() {
                           </div>
 
                           {testedModels[key.id] && testedModels[key.id].length > 0 && (
-                            <div className="space-y-1">
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Versões Disponíveis:</p>
+                            <div className="space-y-2">
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Versões Disponíveis (Clique para selecionar):</p>
                               <div className="flex flex-wrap gap-1">
                                 {testedModels[key.id].map(m => (
-                                  <span key={m} className="text-[9px] bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-500">
+                                  <button 
+                                    key={m} 
+                                    onClick={async () => {
+                                      const { error } = await supabase
+                                        .from('api_keys')
+                                        .update({ service: `${m}:${key.key.substring(0, 8)}` })
+                                        .eq('id', key.id);
+                                      if (!error) {
+                                        fetchData();
+                                        alert(`Modelo ${m} selecionado!`);
+                                      }
+                                    }}
+                                    className={`text-[9px] border px-1.5 py-0.5 rounded transition-all ${
+                                      key.service.startsWith(m) 
+                                        ? 'bg-slate-900 border-slate-900 text-white font-bold' 
+                                        : 'bg-white border-slate-200 text-slate-500 hover:border-slate-400'
+                                    }`}
+                                  >
                                     {m}
-                                  </span>
+                                  </button>
                                 ))}
                               </div>
                             </div>

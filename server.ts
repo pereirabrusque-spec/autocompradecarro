@@ -62,9 +62,14 @@ async function startServer() {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${trimmedKey}`);
         const data = await response.json();
         if (response.ok) {
-          // Filter to show only useful models
+          // Filter to show only useful models for chat
           const models = data.models
-            ?.filter((m: any) => m.supportedGenerationMethods.includes('generateContent'))
+            ?.filter((m: any) => 
+              m.supportedGenerationMethods.includes('generateContent') && 
+              !m.name.includes('embedding') && 
+              !m.name.includes('text-to-speech') &&
+              !m.name.includes('speech-to-text')
+            )
             .map((m: any) => m.name.replace('models/', '')) || [];
           res.json({ success: true, models });
         } else {
@@ -77,7 +82,11 @@ async function startServer() {
         const data = await response.json();
         if (response.ok) {
           const models = data.data
-            ?.filter((m: any) => m.id.includes('gpt'))
+            ?.filter((m: any) => 
+              (m.id.includes('gpt') || m.id.includes('o1') || m.id.includes('o3')) && 
+              !m.id.includes('instruct') && 
+              !m.id.includes('vision') // Prefer standard models that have vision built-in (like gpt-4o)
+            )
             .map((m: any) => m.id) || [];
           res.json({ success: true, models });
         } else {
@@ -89,7 +98,9 @@ async function startServer() {
         });
         const data = await response.json();
         if (response.ok) {
-          const models = data.data?.map((m: any) => m.id) || [];
+          const models = data.data
+            ?.filter((m: any) => m.id.includes('grok'))
+            .map((m: any) => m.id) || [];
           res.json({ success: true, models });
         } else {
           res.status(400).json({ error: data.error?.message || 'Chave Grok inválida' });

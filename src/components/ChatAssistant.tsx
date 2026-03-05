@@ -29,6 +29,7 @@ export default function ChatAssistant() {
   const [activeKey, setActiveKey] = useState<{ key: string, provider: string, model: string } | null>(null);
   const chatEnabled = settings['CHAT_ENABLED'] !== 'false';
   const systemPrompt = settings['AI_SYSTEM_PROMPT'] || '';
+  const aiMemory = settings['AI_MEMORY'] || '';
   const [contextData, setContextData] = useState({ banks: [], repairCosts: [], fipeRules: [] });
 
   useEffect(() => {
@@ -39,7 +40,7 @@ export default function ChatAssistant() {
     const fetchApiKey = async () => {
       const { data, error } = await supabase
         .from('api_keys')
-        .select('key, provider, service')
+        .select('key, provider, service, status')
         .order('created_at', { ascending: false });
       
       if (!error && data && data.length > 0) {
@@ -105,9 +106,12 @@ export default function ChatAssistant() {
       const fipeContext = contextData.fipeRules.map((f: any) => `- ${f.condition_name}: -${f.discount_percentage}% sobre FIPE`).join('\n');
       
       const finalSystemPrompt = systemPrompt 
-        ? `${systemPrompt}\n\n### DADOS DE MERCADO ATUALIZADOS:\n**REGRAS DE DESCONTO FIPE:**\n${fipeContext}\n\n**BANCOS E DESCONTOS:**\n${banksContext}\n\n**CUSTOS DE REPARO:**\n${repairContext}`
+        ? `${systemPrompt}\n\n### MEMÓRIA DE LONGO PRAZO:\n${aiMemory}\n\n### DADOS DE MERCADO ATUALIZADOS:\n**REGRAS DE DESCONTO FIPE:**\n${fipeContext}\n\n**BANCOS E DESCONTOS:**\n${banksContext}\n\n**CUSTOS DE REPARO:**\n${repairContext}`
         : `Você é o **AVALIADOR SÊNIOR DE VEÍCULOS** da plataforma "LOJA ONLINE - SOLUÇÕES AUTOMOTIVAS".
         Sua função não é apenas coletar dados, mas **ANALISAR DOCUMENTOS E FOTOS** e **GERAR UMA PROPOSTA COMERCIAL IMEDIATA** baseada em regras rígidas.
+
+        ### MEMÓRIA DE LONGO PRAZO:
+        ${aiMemory}
 
         ### 1. CAPACIDADE DE VISÃO (OCR E ANÁLISE)
         - **Se o usuário enviar foto de documento (CRLV/CNH):** Extraia IMEDIATAMENTE: Placa, Renavam, Nome do Proprietário, Ano, Modelo e Cor. Confirme esses dados com o usuário.
