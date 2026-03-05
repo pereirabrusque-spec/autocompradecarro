@@ -1,7 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { supabase } from "../lib/supabase";
 
-export type AIProvider = 'gemini' | 'openai' | 'grok';
+export type AIProvider = string;
 
 export interface AIResponse {
   text: string;
@@ -21,12 +21,13 @@ export class AIService {
       return [];
     }
 
-    // Model priority (higher is better)
+    // Model priority (higher is better) - Top 5 focused
     const modelPriority: Record<string, number> = {
-      'gemini-1.5-pro': 100,
-      'gemini-2.0-flash-exp': 95,
-      'gpt-4o': 90,
-      'grok-2': 85,
+      'gemini-1.5-pro': 100,      // #1
+      'gpt-4o': 95,               // #2
+      'gemini-2.0-flash-exp': 90, // #3
+      'grok-2': 85,               // #4
+      'gpt-4-turbo': 80,          // #5
       'gemini-1.5-flash': 50,
       'gpt-4o-mini': 40,
       'grok-beta': 30
@@ -111,7 +112,12 @@ export class AIService {
               model: modelName
             };
           }
-        } else if (apiKey.provider === 'openai') {
+        } else {
+          // OpenAI-compatible providers (OpenAI, Grok, etc.)
+          const baseUrl = apiKey.provider === 'openai' ? 'https://api.openai.com/v1' :
+                          apiKey.provider === 'grok' ? 'https://api.x.ai/v1' :
+                          `https://api.${apiKey.provider}.com/v1`;
+
           const content: any[] = [
             { type: 'text', text: prompt || 'Analise esta imagem.' }
           ];
@@ -119,7 +125,7 @@ export class AIService {
             content.push({ type: 'image_url', image_url: { url: image } });
           }
 
-          const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          const response = await fetch(`${baseUrl}/chat/completions`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -140,46 +146,14 @@ export class AIService {
           
           if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.error?.message || 'OpenAI API Error');
+            throw new Error(errorData.error?.message || `${apiKey.provider} API Error`);
           }
 
           const data = await response.json();
           await this.updateKeyStatus(apiKey.id, 'ok', 0);
           return {
             text: data.choices[0].message.content,
-            provider: 'openai',
-            model: modelName
-          };
-        } else if (apiKey.provider === 'grok') {
-          const response = await fetch('https://api.x.ai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${apiKey.key}`
-            },
-            body: JSON.stringify({
-              model: modelName,
-              messages: [
-                { role: 'system', content: systemInstruction },
-                { role: 'user', content: prompt }
-              ],
-              temperature: 0.4
-            }),
-            signal: controller.signal
-          });
-
-          clearTimeout(timeoutId);
-          
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error?.message || 'Grok API Error');
-          }
-
-          const data = await response.json();
-          await this.updateKeyStatus(apiKey.id, 'ok', 0);
-          return {
-            text: data.choices[0].message.content,
-            provider: 'grok',
+            provider: apiKey.provider,
             model: modelName
           };
         }

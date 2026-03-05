@@ -15,8 +15,12 @@ export default function AdminDashboard() {
   const [uploadingAsset, setUploadingAsset] = useState<string | null>(null);
   const [seedingCards, setSeedingCards] = useState(false);
   const [apiKeys, setApiKeys] = useState<any[]>([]);
+  const [providers, setProviders] = useState<any[]>([]);
+  const [newProviderName, setNewProviderName] = useState('');
+  const [newProviderSlug, setNewProviderSlug] = useState('');
+  const [isSavingProvider, setIsSavingProvider] = useState(false);
   const [newApiKey, setNewApiKey] = useState('');
-  const [newApiProvider, setNewApiProvider] = useState<'gemini' | 'openai' | 'grok'>('gemini');
+  const [newApiProvider, setNewApiProvider] = useState<any>('gemini');
   const [newApiModel, setNewApiModel] = useState('gemini-1.5-flash');
   const [testedModels, setTestedModels] = useState<Record<string, string[]>>({});
   const [editingApiKey, setEditingApiKey] = useState<string | null>(null);
@@ -88,6 +92,7 @@ export default function AdminDashboard() {
       const { data: repairData } = await supabase.from('repair_costs').select('*').order('part_name');
       const { data: fipeData } = await supabase.from('fipe_rules').select('*').order('condition_name');
       const { data: apiKeysData } = await supabase.from('api_keys').select('*').order('created_at', { ascending: false });
+      const { data: providersData } = await supabase.from('providers').select('*').order('name');
 
       setLeads(leadsData || []);
       setDbAssets(assetsData || []);
@@ -95,6 +100,7 @@ export default function AdminDashboard() {
       setRepairCosts(repairData || []);
       setFipeRules(fipeData || []);
       setApiKeys(apiKeysData || []);
+      setProviders(providersData || []);
 
       // Fetch settings from Supabase
       const { data: settingsData, error: settingsError } = await supabase.from('settings').select('*');
@@ -915,39 +921,41 @@ export default function AdminDashboard() {
                           else if (provider === 'grok') setNewApiModel('grok-beta');
                         }}
                       >
-                        <option value="gemini">Google Gemini</option>
-                        <option value="openai">OpenAI</option>
-                        <option value="grok">xAI Grok</option>
+                        {providers.length > 0 ? (
+                          providers.map(p => (
+                            <option key={p.id} value={p.slug}>{p.name}</option>
+                          ))
+                        ) : (
+                          <>
+                            <option value="gemini">Google Gemini</option>
+                            <option value="openai">OpenAI</option>
+                            <option value="grok">xAI Grok</option>
+                          </>
+                        )}
                       </select>
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-bold text-slate-700">Modelo Padrão</label>
-                      <select 
-                        className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none"
-                        value={newApiModel}
-                        onChange={e => setNewApiModel(e.target.value)}
-                      >
-                        {newApiProvider === 'gemini' && (
-                          <>
-                            <option value="gemini-1.5-flash">Gemini 1.5 Flash (Recomendado)</option>
-                            <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-                            <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash</option>
-                          </>
-                        )}
-                        {newApiProvider === 'openai' && (
-                          <>
-                            <option value="gpt-4o-mini">GPT-4o Mini (Econômico)</option>
-                            <option value="gpt-4o">GPT-4o (Poderoso)</option>
-                            <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                          </>
-                        )}
-                        {newApiProvider === 'grok' && (
-                          <>
-                            <option value="grok-beta">Grok Beta</option>
-                            <option value="grok-2">Grok 2</option>
-                          </>
-                        )}
-                      </select>
+                      <div className="flex gap-2">
+                        <input 
+                          type="text"
+                          className="flex-1 p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                          placeholder="Digite o modelo (ex: gpt-4o)"
+                          value={newApiModel}
+                          onChange={e => setNewApiModel(e.target.value)}
+                          list="common-models"
+                        />
+                        <datalist id="common-models">
+                          <option value="gemini-1.5-pro" />
+                          <option value="gemini-1.5-flash" />
+                          <option value="gemini-2.0-flash-exp" />
+                          <option value="gpt-4o" />
+                          <option value="gpt-4o-mini" />
+                          <option value="gpt-4-turbo" />
+                          <option value="grok-2" />
+                          <option value="grok-beta" />
+                        </datalist>
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-bold text-slate-700">Chave da API</label>
@@ -1029,6 +1037,85 @@ export default function AdminDashboard() {
                 </div>
 
                 <div className="space-y-6">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-bold">Gerenciar Provedores</h3>
+                  </div>
+                  
+                  <div className="p-5 bg-slate-50 rounded-[24px] border border-slate-200 space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase">Nome</label>
+                        <input 
+                          type="text"
+                          placeholder="Ex: Anthropic"
+                          className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none text-sm"
+                          value={newProviderName}
+                          onChange={e => {
+                            setNewProviderName(e.target.value);
+                            if (!newProviderSlug) {
+                              setNewProviderSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'));
+                            }
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase">Slug (ID)</label>
+                        <input 
+                          type="text"
+                          placeholder="ex: anthropic"
+                          className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none text-sm"
+                          value={newProviderSlug}
+                          onChange={e => setNewProviderSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
+                        />
+                      </div>
+                    </div>
+                    <button 
+                      onClick={async () => {
+                        if (!newProviderName || !newProviderSlug) return;
+                        setIsSavingProvider(true);
+                        try {
+                          const { error } = await supabase
+                            .from('providers')
+                            .upsert([{ name: newProviderName, slug: newProviderSlug }]);
+                          if (error) throw error;
+                          setNewProviderName('');
+                          setNewProviderSlug('');
+                          fetchData();
+                        } catch (err: any) {
+                          alert('Erro ao salvar provedor: ' + err.message);
+                        } finally {
+                          setIsSavingProvider(false);
+                        }
+                      }}
+                      disabled={isSavingProvider}
+                      className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all text-sm disabled:opacity-50"
+                    >
+                      {isSavingProvider ? 'Salvando...' : 'Adicionar Provedor'}
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    {providers.map(p => (
+                      <div key={p.id} className="flex justify-between items-center p-3 bg-white border border-slate-100 rounded-xl">
+                        <div>
+                          <span className="font-bold text-slate-700">{p.name}</span>
+                          <span className="ml-2 text-[10px] text-slate-400 font-mono uppercase">{p.slug}</span>
+                        </div>
+                        <button 
+                          onClick={async () => {
+                            if (confirm(`Remover provedor ${p.name}?`)) {
+                              await supabase.from('providers').delete().eq('id', p.id);
+                              fetchData();
+                            }
+                          }}
+                          className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
                   <h3 className="text-lg font-bold">Chaves Ativas</h3>
                   <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
                     {apiKeys.map(key => (
@@ -1155,28 +1242,52 @@ export default function AdminDashboard() {
                             <div className="space-y-2">
                               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Versões Disponíveis (Clique para selecionar):</p>
                               <div className="flex flex-wrap gap-1">
-                                {testedModels[key.id].map(m => (
-                                  <button 
-                                    key={m} 
-                                    onClick={async () => {
-                                      const { error } = await supabase
-                                        .from('api_keys')
-                                        .update({ service: m })
-                                        .eq('id', key.id);
-                                      if (!error) {
-                                        fetchData();
-                                        alert(`Modelo ${m} selecionado!`);
-                                      }
-                                    }}
-                                    className={`text-[9px] border px-1.5 py-0.5 rounded transition-all ${
-                                      key.service.startsWith(m) 
-                                        ? 'bg-slate-900 border-slate-900 text-white font-bold' 
-                                        : 'bg-white border-slate-200 text-slate-500 hover:border-slate-400'
-                                    }`}
-                                  >
-                                    {m}
-                                  </button>
-                                ))}
+                                {(() => {
+                                  const top5 = [
+                                    'gemini-1.5-pro', 
+                                    'gpt-4o', 
+                                    'gemini-2.0-flash-exp', 
+                                    'grok-2', 
+                                    'gpt-4-turbo',
+                                    'gemini-1.5-flash',
+                                    'gpt-4o-mini',
+                                    'grok-beta'
+                                  ];
+                                  
+                                  // Sort models: priority ones first, then others
+                                  const sortedModels = [...testedModels[key.id]].sort((a, b) => {
+                                    const indexA = top5.indexOf(a);
+                                    const indexB = top5.indexOf(b);
+                                    if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                                    if (indexA !== -1) return -1;
+                                    if (indexB !== -1) return 1;
+                                    return a.localeCompare(b);
+                                  });
+
+                                  // Take only the first 8 to keep it clean, but prioritize top 5
+                                  return sortedModels.slice(0, 10).map(m => (
+                                    <button 
+                                      key={m} 
+                                      onClick={async () => {
+                                        const { error } = await supabase
+                                          .from('api_keys')
+                                          .update({ service: m })
+                                          .eq('id', key.id);
+                                        if (!error) {
+                                          fetchData();
+                                          alert(`Modelo ${m} selecionado!`);
+                                        }
+                                      }}
+                                      className={`text-[9px] border px-1.5 py-0.5 rounded transition-all ${
+                                        key.service.startsWith(m) 
+                                          ? 'bg-slate-900 border-slate-900 text-white font-bold' 
+                                          : 'bg-white border-slate-200 text-slate-500 hover:border-slate-400'
+                                      }`}
+                                    >
+                                      {m}
+                                    </button>
+                                  ));
+                                })()}
                               </div>
                             </div>
                           )}
