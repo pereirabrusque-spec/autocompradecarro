@@ -992,6 +992,8 @@ export default function AdminDashboard() {
                         if (!showApiKeyForm) {
                           setEditingApiKey(null);
                           setNewApiKey('');
+                          setNewApiModel('gemini-1.5-flash');
+                          setNewApiProvider('gemini');
                         }
                       }}
                       className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-accent transition-all"
@@ -1013,9 +1015,6 @@ export default function AdminDashboard() {
                             onChange={e => {
                               const provider = e.target.value as any;
                               setNewApiProvider(provider);
-                              if (provider === 'gemini') setNewApiModel('gemini-1.5-flash');
-                              else if (provider === 'openai') setNewApiModel('gpt-4o-mini');
-                              else if (provider === 'grok') setNewApiModel('grok-beta');
                             }}
                           >
                             {providers.length > 0 ? (
