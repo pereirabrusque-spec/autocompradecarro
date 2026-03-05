@@ -971,12 +971,14 @@ export default function AdminDashboard() {
                                 .update({ 
                                   provider: newApiProvider, 
                                   key: newApiKey.trim(),
-                                  service: newApiModel
+                                  service: newApiModel,
+                                  status: 'ok'
                                 })
                                 .eq('id', editingApiKey);
                               if (error) throw error;
                               setEditingApiKey(null);
                             } else {
+                              // Try to insert with status, if it fails, try without (in case column is still being created)
                               const { error } = await supabase
                                 .from('api_keys')
                                 .insert([{ 
@@ -985,7 +987,18 @@ export default function AdminDashboard() {
                                   service: newApiModel,
                                   status: 'ok'
                                 }]);
-                              if (error) throw error;
+                              
+                              if (error) {
+                                console.warn('Erro ao inserir com status, tentando sem status...', error);
+                                const { error: retryError } = await supabase
+                                  .from('api_keys')
+                                  .insert([{ 
+                                    provider: newApiProvider, 
+                                    key: newApiKey.trim(),
+                                    service: newApiModel
+                                  }]);
+                                if (retryError) throw retryError;
+                              }
                             }
 
                             setNewApiKey('');
@@ -1058,14 +1071,18 @@ export default function AdminDashboard() {
                                     
                                     if (updateError) {
                                       console.error('Supabase update error:', updateError);
-                                      // Fallback: try to update without last_used if it fails
-                                      await supabase
+                                      // Fallback: try to update only status
+                                      const { error: fallbackError } = await supabase
                                         .from('api_keys')
                                         .update({ status: 'ok' })
                                         .eq('id', key.id);
                                       
-                                      await fetchData();
-                                      alert('Conexão OK! Status atualizado.');
+                                      if (fallbackError) {
+                                        alert('Erro de Banco de Dados: A coluna "status" não foi encontrada. Por favor, execute o script SQL no Supabase.');
+                                      } else {
+                                        await fetchData();
+                                        alert('Conexão OK! Status atualizado (modo simplificado).');
+                                      }
                                     } else {
                                       await fetchData();
                                       alert('Conexão bem sucedida! Status atualizado para OK.');
