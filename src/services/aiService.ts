@@ -101,98 +101,101 @@ export class AIService {
     // Try each key until one works
     for (const apiKey of keys) {
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout for vision tasks
-
         const modelName = apiKey.service || (apiKey.provider === 'gemini' ? 'gemini-1.5-flash' : 'gpt-4o-mini');
 
-        if (apiKey.provider === 'gemini') {
-          const ai = new GoogleGenAI({ apiKey: apiKey.key });
-          
-          const parts: any[] = [];
-          if (prompt) parts.push({ text: prompt });
-          if (image) {
-            parts.push({
-              inlineData: {
-                data: image.split(',')[1],
-                mimeType: 'image/jpeg'
-              }
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('TIMEOUT')), 10000); // 10s timeout
+        });
+
+        const apiCallPromise = async () => {
+          if (apiKey.provider === 'gemini') {
+            const ai = new GoogleGenAI({ apiKey: apiKey.key });
+            
+            const parts: any[] = [];
+            if (prompt) parts.push({ text: prompt });
+            if (image) {
+              parts.push({
+                inlineData: {
+                  data: image.split(',')[1],
+                  mimeType: 'image/jpeg'
+                }
+              });
+            }
+
+            const response = await ai.models.generateContent({
+              model: modelName,
+              contents: [{ role: 'user', parts }],
+              config: { systemInstruction }
             });
-          }
+            
+            if (response.text) {
+              return {
+                text: response.text,
+                provider: 'gemini',
+                model: modelName
+              };
+            }
+            throw new Error('Empty response from Gemini');
+          } else {
+            // OpenAI-compatible providers (OpenAI, Grok, etc.)
+            const baseUrl = apiKey.provider === 'openai' ? 'https://api.openai.com/v1' :
+                            apiKey.provider === 'grok' ? 'https://api.x.ai/v1' :
+                            `https://api.${apiKey.provider}.com/v1`;
 
-          const response = await ai.models.generateContent({
-            model: modelName,
-            contents: [{ role: 'user', parts }],
-            config: { systemInstruction }
-          });
+            const content: any[] = [
+              { type: 'text', text: prompt || 'Analise esta imagem.' }
+            ];
+            if (image) {
+              content.push({ type: 'image_url', image_url: { url: image } });
+            }
 
-          clearTimeout(timeoutId);
-          
-          if (response.text) {
-            await this.updateKeyStatus(apiKey.id, 'ok', 0);
+            const response = await fetch(`${baseUrl}/chat/completions`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey.key}`
+              },
+              body: JSON.stringify({
+                model: modelName,
+                messages: [
+                  { role: 'system', content: systemInstruction },
+                  { role: 'user', content }
+                ],
+                temperature: 0.4
+              })
+            });
+            
+            if (!response.ok) {
+              const errorData = await response.json().catch(() => ({}));
+              throw new Error(errorData.error?.message || `${apiKey.provider} API Error`);
+            }
+
+            const data = await response.json();
             return {
-              text: response.text,
-              provider: 'gemini',
+              text: data.choices[0].message.content,
+              provider: apiKey.provider,
               model: modelName
             };
           }
-        } else {
-          // OpenAI-compatible providers (OpenAI, Grok, etc.)
-          const baseUrl = apiKey.provider === 'openai' ? 'https://api.openai.com/v1' :
-                          apiKey.provider === 'grok' ? 'https://api.x.ai/v1' :
-                          `https://api.${apiKey.provider}.com/v1`;
+        };
 
-          const content: any[] = [
-            { type: 'text', text: prompt || 'Analise esta imagem.' }
-          ];
-          if (image) {
-            content.push({ type: 'image_url', image_url: { url: image } });
-          }
-
-          const response = await fetch(`${baseUrl}/chat/completions`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${apiKey.key}`
-            },
-            body: JSON.stringify({
-              model: modelName,
-              messages: [
-                { role: 'system', content: systemInstruction },
-                { role: 'user', content }
-              ],
-              temperature: 0.4
-            }),
-            signal: controller.signal
-          });
-
-          clearTimeout(timeoutId);
-          
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error?.message || `${apiKey.provider} API Error`);
-          }
-
-          const data = await response.json();
-          await this.updateKeyStatus(apiKey.id, 'ok', 0);
-          return {
-            text: data.choices[0].message.content,
-            provider: apiKey.provider,
-            model: modelName
-          };
-        }
+        const result = await Promise.race([apiCallPromise(), timeoutPromise]);
+        
+        await this.updateKeyStatus(apiKey.id, 'ok', 0);
+        return result as AIResponse;
 
       } catch (error: any) {
         console.error(`Error with ${apiKey.provider} key ${apiKey.id}:`, error);
         
-        if (error.name === 'AbortError') {
-          console.warn('Request timed out');
-        }
-
         let newStatus: 'ok' | 'no_credit' | 'disconnected' = 'disconnected';
         const errMsg = error.message?.toLowerCase() || '';
-        if (errMsg.includes('credit') || errMsg.includes('quota') || errMsg.includes('limit')) {
+        
+        if (errMsg.includes('credit') || errMsg.includes('quota') || errMsg.includes('limit') || errMsg.includes('429')) {
           newStatus = 'no_credit';
+        } else if (errMsg === 'timeout') {
+          console.warn(`API ${apiKey.provider} timed out after 10s. Switching to next...`);
+          // We can keep it disconnected or just count as error
+          newStatus = 'disconnected';
         }
         
         await this.updateKeyStatus(apiKey.id, newStatus, (apiKey.error_count || 0) + 1);
