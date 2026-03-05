@@ -16,7 +16,7 @@ export default function SellCar() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [errorModalOpen, setErrorModalOpen] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string[]>([]);
   const [photos, setPhotos] = useState<File[]>([]);
   const [videos, setVideos] = useState<File[]>([]);
   
@@ -162,23 +162,50 @@ export default function SellCar() {
     return Math.min(Math.round((score / total) * 85), 85);
   };
 
+  // Helper para formatar moeda
+  const formatCurrency = (value: string) => {
+    const numbers = value.replace(/\D/g, '');
+    const amount = parseFloat(numbers) / 100;
+    return amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  // Helper para formatar quilometragem
+  const formatMileage = (value: string) => {
+    const numbers = value.replace(/\D/g, '');
+    return numbers.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  };
+
+  const handleCurrencyChange = (field: string, value: string) => {
+    const formatted = formatCurrency(value);
+    setFormData(prev => ({ ...prev, [field]: formatted }));
+  };
+
+  const validateForm = () => {
+    const errors: string[] = [];
+    
+    if (!formData.brandId) errors.push("1. Tipo de Veículo (Marca)");
+    if (!formData.modelId) errors.push("1. Tipo de Veículo (Modelo)");
+    if (!formData.yearId) errors.push("1. Tipo de Veículo (Ano)");
+    if (!formData.color) errors.push("3. Detalhes Básicos (Cor)");
+    if (!formData.mileage) errors.push("3. Detalhes Básicos (Quilometragem)");
+    if (!formData.ownerName) errors.push("9. Seus Dados (Nome)");
+    if (!formData.ownerPhone) errors.push("9. Seus Dados (Telefone)");
+    if (!formData.ownerEmail) errors.push("9. Seus Dados (Email)");
+    if (!formData.ownerLocation) errors.push("9. Seus Dados (Cidade/Estado)");
+    if (!formData.desiredPrice) errors.push("8. Valor Desejado");
+    if (photos.length < 5) errors.push("Fotos do Veículo (Mínimo 5)");
+    if (formData.ownerEmail !== formData.ownerEmailConfirm) errors.push("Confirmação de Email incorreta");
+    if (formData.ownerPhone !== formData.ownerPhoneConfirm) errors.push("Confirmação de Telefone incorreta");
+
+    return errors;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (photos.length < 5) {
-      setErrorMessage('Por favor, adicione pelo menos 5 fotos do veículo.');
-      setErrorModalOpen(true);
-      return;
-    }
-
-    if (formData.ownerEmail !== formData.ownerEmailConfirm) {
-      setErrorMessage('Os e-mails informados não conferem.');
-      setErrorModalOpen(true);
-      return;
-    }
-
-    if (formData.ownerPhone !== formData.ownerPhoneConfirm) {
-      setErrorMessage('Os números de WhatsApp informados não conferem.');
+    const validationErrors = validateForm();
+    if (validationErrors.length > 0) {
+      setErrorMessage(validationErrors);
       setErrorModalOpen(true);
       return;
     }
@@ -204,14 +231,14 @@ export default function SellCar() {
         modelo: formData.modelName || formData.modelId,
         ano_modelo: formData.yearName || formData.yearId,
         cor: formData.color,
-        quilometragem: parseInt(formData.mileage) || 0,
+        quilometragem: parseInt(formData.mileage.replace(/\D/g, '')) || 0,
         placa: '',
         renavam: '',
         valor_fipe: parseFloat(fipePrice.replace(/[^\d,]/g, '').replace(',', '.')) || 0,
-        preco_cliente: parseFloat(formData.desiredPrice.replace(/[^\d,]/g, '').replace(',', '.')) || 0,
+        preco_cliente: parseFloat(formData.desiredPrice.replace(/\./g, '').replace(',', '.')) || 0,
         status: 'novo',
         observacoes: `Localização: ${formData.ownerLocation}. Danos: ${formData.damageType}. Acessórios: ${Object.entries(formData.accessories).filter(([_, v]) => v).map(([k]) => k).join(', ')}`,
-        entrada: parseFloat(formData.entrada.replace(/[^\d,]/g, '').replace(',', '.')) || 0,
+        entrada: parseFloat(formData.entrada.replace(/\./g, '').replace(',', '.')) || 0,
         situacao_financeira: formData.situacaoFinanceira,
         problemas: problems,
         notifications_enabled: formData.authorizeNotifications
@@ -223,7 +250,7 @@ export default function SellCar() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error: any) {
       console.error(error);
-      setErrorMessage(`Erro ao enviar avaliação: ${error.message || 'Tente novamente.'}`);
+      setErrorMessage([`Erro ao enviar avaliação: ${error.message || 'Tente novamente.'}`]);
       setErrorModalOpen(true);
     } finally {
       setIsSubmitting(false);
@@ -576,14 +603,13 @@ export default function SellCar() {
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-400 ml-1">Quilometragem *</label>
+                <label className="text-xs font-bold text-slate-400 ml-1">Quilometragem (km) *</label>
                 <input 
                   required
-                  type="number"
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
-                  placeholder="Ex: 85000"
+                  placeholder="Ex: 85.000"
                   value={formData.mileage}
-                  onChange={e => setFormData({...formData, mileage: e.target.value})}
+                  onChange={e => setFormData({...formData, mileage: formatMileage(e.target.value)})}
                 />
               </div>
             </div>
@@ -653,7 +679,7 @@ export default function SellCar() {
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                   placeholder="0,00"
                   value={formData.installmentValue}
-                  onChange={e => setFormData({...formData, installmentValue: e.target.value})}
+                  onChange={e => handleCurrencyChange('installmentValue', e.target.value)}
                 />
               </div>
               <div className="space-y-1">
@@ -682,7 +708,7 @@ export default function SellCar() {
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                   placeholder="R$ 0,00"
                   value={formData.entrada}
-                  onChange={e => setFormData({...formData, entrada: e.target.value})}
+                  onChange={e => handleCurrencyChange('entrada', e.target.value)}
                 />
               </div>
             </div>
@@ -774,7 +800,7 @@ export default function SellCar() {
                     className="w-full p-4 pl-12 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-xl text-slate-900"
                     placeholder="0,00"
                     value={formData.desiredPrice}
-                    onChange={e => setFormData({...formData, desiredPrice: e.target.value})}
+                    onChange={e => handleCurrencyChange('desiredPrice', e.target.value)}
                   />
                 </div>
                 <p className="text-[10px] text-slate-400 font-medium ml-1">Lembre-se: descontaremos o valor das dívidas e reparos necessários.</p>
@@ -945,9 +971,14 @@ export default function SellCar() {
               <AlertCircle className="w-8 h-8" />
             </div>
             <h3 className="text-xl font-bold text-center mb-4 text-slate-900">Atenção</h3>
-            <p className="text-slate-500 text-center mb-8">
-              {errorMessage}
-            </p>
+            <div className="text-slate-500 text-left mb-8 space-y-2">
+              <p className="font-medium text-center mb-2">Por favor, corrija os seguintes itens:</p>
+              <ul className="list-disc pl-5 space-y-1 text-sm">
+                {Array.isArray(errorMessage) ? errorMessage.map((error, index) => (
+                  <li key={index}>{error}</li>
+                )) : <li>{errorMessage}</li>}
+              </ul>
+            </div>
             <button
               onClick={() => setErrorModalOpen(false)}
               className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all"
