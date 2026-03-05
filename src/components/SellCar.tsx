@@ -229,7 +229,7 @@ export default function SellCar() {
       if (formData.hasCrashDamage) problems.push('Batido / Avariado');
       if (formData.hasSinistradoLeilao) problems.push('Sinistrado / Leilão');
 
-      const { error } = await supabase.from('leads_veiculos').insert([{
+      console.log('Enviando dados para Supabase:', {
         cliente_nome: formData.ownerName,
         telefone: formData.ownerPhone,
         email: formData.ownerEmail,
@@ -248,9 +248,35 @@ export default function SellCar() {
         situacao_financeira: formData.situacaoFinanceira,
         problemas: problems,
         notifications_enabled: formData.authorizeNotifications
-      }]);
+      });
 
-      if (error) throw error;
+      const { data: insertData, error: insertError } = await supabase.from('leads_veiculos').insert([{
+        cliente_nome: formData.ownerName,
+        telefone: formData.ownerPhone,
+        email: formData.ownerEmail,
+        marca: formData.brandName || formData.brandId,
+        modelo: formData.modelName || formData.modelId,
+        ano_modelo: formData.yearName || formData.yearId,
+        cor: formData.color,
+        quilometragem: parseInt(formData.mileage.replace(/\D/g, '')) || 0,
+        placa: '',
+        renavam: '',
+        valor_fipe: parseFloat(fipePrice.replace(/[^\d,]/g, '').replace(',', '.')) || 0,
+        preco_cliente: parseFloat(formData.desiredPrice.replace(/\./g, '').replace(',', '.')) || 0,
+        status: 'novo',
+        observacoes: `Localização: ${formData.ownerLocation}. Danos: ${formData.damageType}. Acessórios: ${Object.entries(formData.accessories).filter(([_, v]) => v).map(([k]) => k).join(', ')}`,
+        entrada: parseFloat(formData.entrada.replace(/\./g, '').replace(',', '.')) || 0,
+        situacao_financeira: formData.situacaoFinanceira,
+        problemas: problems,
+        notifications_enabled: formData.authorizeNotifications
+      }]).select();
+
+      if (insertError) {
+        console.error('Erro ao inserir lead:', insertError);
+        throw insertError;
+      }
+      
+      console.log('Lead inserido com sucesso:', insertData);
 
       setIsSuccess(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });

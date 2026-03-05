@@ -79,12 +79,19 @@ export default function AdminDashboard() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
+      console.log('Fetching leads from Supabase...');
       const { data: leadsData, error: leadsError } = await supabase
         .from('leads_veiculos')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (leadsError) throw leadsError;
+      if (leadsError) {
+        console.error('Error fetching leads:', leadsError);
+        alert(`Erro ao buscar leads: ${leadsError.message}`);
+        throw leadsError;
+      }
+
+      console.log('Leads fetched successfully:', leadsData);
 
       const { data: assetsData, error: assetsError } = await supabase
         .from('banners')
@@ -559,6 +566,15 @@ export default function AdminDashboard() {
 
         {activeTab === 'leads' ? (
           <div className="grid grid-cols-1 gap-6">
+            <div className="flex justify-end mb-4">
+              <button 
+                onClick={fetchData}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-colors"
+              >
+                <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                Atualizar Leads
+              </button>
+            </div>
             {selectedLead && (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setSelectedLead(null)}>
                 <motion.div 
@@ -669,12 +685,10 @@ export default function AdminDashboard() {
             )}
 
             {leads.map((v) => (
-              <motion.div
+              <div
                 key={v.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
                 onClick={() => setSelectedLead(v)}
-                className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow cursor-pointer group"
+                className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden hover:shadow-md transition-all cursor-pointer group animate-in fade-in slide-in-from-bottom-4 duration-500"
               >
                 <div className="p-6 flex items-center gap-6">
                   <div className="w-24 h-24 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-300">
@@ -702,7 +716,7 @@ export default function AdminDashboard() {
                     </button>
                   </div>
                 </div>
-              </motion.div>
+              </div>
             ))}
             {leads.length === 0 && (
               <div className="text-center py-20 bg-white rounded-[32px] border border-slate-100">
