@@ -183,19 +183,25 @@ export default function SellCar() {
   const validateForm = () => {
     const errors: string[] = [];
     
-    if (!formData.brandId) errors.push("1. Tipo de Veículo (Marca)");
-    if (!formData.modelId) errors.push("1. Tipo de Veículo (Modelo)");
-    if (!formData.yearId) errors.push("1. Tipo de Veículo (Ano)");
-    if (!formData.color) errors.push("3. Detalhes Básicos (Cor)");
-    if (!formData.mileage) errors.push("3. Detalhes Básicos (Quilometragem)");
-    if (!formData.ownerName) errors.push("9. Seus Dados (Nome)");
-    if (!formData.ownerPhone) errors.push("9. Seus Dados (Telefone)");
-    if (!formData.ownerEmail) errors.push("9. Seus Dados (Email)");
-    if (!formData.ownerLocation) errors.push("9. Seus Dados (Cidade/Estado)");
-    if (!formData.desiredPrice) errors.push("8. Valor Desejado");
+    if (!formData.brandId) errors.push("Tipo de Veículo (Marca)");
+    if (!formData.modelId) errors.push("Tipo de Veículo (Modelo)");
+    if (!formData.yearId) errors.push("Tipo de Veículo (Ano)");
+    if (!formData.color) errors.push("Detalhes Básicos (Cor)");
+    if (!formData.mileage) errors.push("Detalhes Básicos (Quilometragem)");
+    if (!formData.desiredPrice) errors.push("Valor Desejado");
+    if (!formData.ownerName) errors.push("Seus Dados (Nome)");
+    if (!formData.ownerPhone) errors.push("Seus Dados (Telefone)");
+    if (!formData.ownerEmail) errors.push("Seus Dados (Email)");
+    if (!formData.ownerLocation) errors.push("Seus Dados (Cidade/Estado)");
+    
     if (photos.length < 5) errors.push("Fotos do Veículo (Mínimo 5)");
-    if (formData.ownerEmail !== formData.ownerEmailConfirm) errors.push("Confirmação de Email incorreta");
-    if (formData.ownerPhone !== formData.ownerPhoneConfirm) errors.push("Confirmação de Telefone incorreta");
+    
+    if (formData.ownerEmail && formData.ownerEmailConfirm && formData.ownerEmail !== formData.ownerEmailConfirm) {
+      errors.push("Confirmação de Email não confere");
+    }
+    if (formData.ownerPhone && formData.ownerPhoneConfirm && formData.ownerPhone !== formData.ownerPhoneConfirm) {
+      errors.push("Confirmação de Telefone não confere");
+    }
 
     return errors;
   };
@@ -257,6 +263,74 @@ export default function SellCar() {
     }
   };
 
+  const resetForm = () => {
+    setFormData({
+      vehicleType: 'Carros',
+      brandId: '',
+      brandName: '',
+      modelId: '',
+      modelName: '',
+      yearId: '',
+      yearName: '',
+      plate: '',
+      renavam: '',
+      color: '',
+      mileage: '',
+      hasSinistro: false,
+      hasLeilao: false,
+      isRecuperado: false,
+      hasFurtoRoubo: false,
+      damageType: 'Nenhuma / Pequenos Riscos',
+      isFinanced: false,
+      bank: '',
+      installmentValue: '',
+      installmentsPaid: '',
+      installmentsRemaining: '',
+      situacaoFinanceira: '',
+      entrada: '',
+      hasDelayedFinancing: false,
+      hasBuscaApreensao: false,
+      hasDelayedIpva: false,
+      hasRenajud: false,
+      hasBlownEngine: false,
+      hasGearboxIssue: false,
+      hasCrashDamage: false,
+      hasSinistradoLeilao: false,
+      accessories: {
+        ac: false,
+        steering: false,
+        windows: false,
+        locks: false,
+        alarm: false,
+        multimedia: false,
+        leather: false,
+        wheels: false,
+        reverseSensor: false,
+        reverseCamera: false,
+        sunroof: false,
+        airbag: false
+      },
+      hasManualKey: false,
+      fullMaintenanceHistory: false,
+      tireCondition: 'Bom',
+      desiredPrice: '',
+      ownerName: '',
+      ownerPhone: '',
+      ownerPhoneConfirm: '',
+      ownerEmail: '',
+      ownerEmailConfirm: '',
+      ownerLocation: '',
+      authorizeNotifications: false
+    });
+    setPhotos([]);
+    setVideos([]);
+    setIsSuccess(false);
+    setFipePrice('');
+    setModels([]);
+    setYears([]);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   if (isSuccess) {
     return (
       <div className="pt-32 pb-24 bg-slate-50 min-h-screen flex items-center justify-center px-4">
@@ -268,16 +342,24 @@ export default function SellCar() {
           <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-8">
             <CheckCircle2 className="w-10 h-10" />
           </div>
-          <h2 className="text-3xl font-black mb-4">Avaliação Enviada!</h2>
+          <h2 className="text-3xl font-black mb-4">Envio com sucesso!</h2>
           <p className="text-slate-500 mb-8">
             Recebemos seus dados. Nossa equipe analisará as informações e entrará em contato via WhatsApp em até 24 horas com uma oferta real.
           </p>
-          <button 
-            onClick={() => window.location.href = '/'}
-            className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-accent transition-all"
-          >
-            Voltar para Home
-          </button>
+          <div className="space-y-4">
+            <button 
+              onClick={resetForm}
+              className="w-full py-4 bg-accent text-white rounded-2xl font-bold hover:bg-orange-600 transition-all shadow-lg shadow-accent/20"
+            >
+              Avaliar outro veículo
+            </button>
+            <button 
+              onClick={() => window.location.href = '/'}
+              className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all"
+            >
+              Voltar para Home
+            </button>
+          </div>
         </motion.div>
       </div>
     );
@@ -972,11 +1054,19 @@ export default function SellCar() {
             </div>
             <h3 className="text-xl font-bold text-center mb-4 text-slate-900">Atenção</h3>
             <div className="text-slate-500 text-left mb-8 space-y-2">
-              <p className="font-medium text-center mb-2">Por favor, corrija os seguintes itens:</p>
-              <ul className="list-disc pl-5 space-y-1 text-sm">
+              <p className="font-medium text-center mb-4">Por favor, preencha os campos obrigatórios:</p>
+              <ul className="space-y-2 text-sm">
                 {Array.isArray(errorMessage) ? errorMessage.map((error, index) => (
-                  <li key={index}>{error}</li>
-                )) : <li>{errorMessage}</li>}
+                  <li key={index} className="flex items-center gap-2 text-red-500 font-medium">
+                    <ArrowRight className="w-4 h-4 shrink-0" />
+                    {error}
+                  </li>
+                )) : (
+                  <li className="flex items-center gap-2 text-red-500 font-medium">
+                    <ArrowRight className="w-4 h-4 shrink-0" />
+                    {errorMessage}
+                  </li>
+                )}
               </ul>
             </div>
             <button
