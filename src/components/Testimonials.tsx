@@ -31,13 +31,13 @@ const testimonials = [
     name: 'Fernando Silva',
     location: 'Recife/PE',
     text: 'Tinha um caminhão parado no pátio dando prejuízo. Eles vieram com o guincho, levaram e pagaram à vista.',
-    avatar: 'https://i.pravatar.cc/150?u=fernando'
+    avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=150&h=150'
   },
   {
     name: 'Juliana Lima',
     location: 'Salvador/BA',
     text: 'Meu carro tinha bloqueio judicial (Renajud). A equipe jurídica deles é fantástica, resolveram tudo sem dor de cabeça.',
-    avatar: 'https://i.pravatar.cc/150?u=juliana'
+    avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=150&h=150'
   },
   {
     name: 'Ricardo Gomes',
@@ -49,7 +49,7 @@ const testimonials = [
     name: 'Beatriz Rocha',
     location: 'Fortaleza/CE',
     text: 'Renegociaram minha dívida com o banco e compraram meu carro. Fiquei livre do problema e com dinheiro no bolso.',
-    avatar: 'https://i.pravatar.cc/150?u=beatriz'
+    avatar: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&q=80&w=150&h=150'
   }
 ];
 
