@@ -11,53 +11,24 @@ export interface AIResponse {
 
 export class AIService {
   private static async getActiveKeys(): Promise<any[]> {
-    // Try with status first
-    let { data, error } = await supabase
+    // Tenta buscar todas as chaves, independentemente do status
+    const { data, error } = await supabase
       .from('api_keys')
-      .select('*')
-      .eq('status', 'ok');
-
-    // Fallback if status column is missing
-    if (error && error.message.includes('status')) {
-      const { data: fallbackData, error: fallbackError } = await supabase
-        .from('api_keys')
-        .select('*');
-      data = fallbackData;
-      error = fallbackError;
-    }
+      .select('*');
 
     if (error) {
       console.error('Error fetching API keys:', error);
       return [];
     }
 
-    // Model priority (higher is better) - Top 5 focused
-    const modelPriority: Record<string, number> = {
-      'gemini-1.5-pro': 100,      // #1
-      'gpt-4o': 95,               // #2
-      'gemini-2.0-flash-exp': 90, // #3
-      'grok-2': 85,               // #4
-      'gpt-4-turbo': 80,          // #5
-      'gemini-1.5-flash': 50,
-      'gpt-4o-mini': 40,
-      'grok-beta': 30
-    };
-
-    // Sort by priority first, then by last_used (load balance within same priority)
+    // Ordena: 'ok' primeiro, depois tenta as outras
     return (data || []).sort((a, b) => {
-      const modelA = a.service || '';
-      const modelB = b.service || '';
+      if (a.status === 'ok' && b.status !== 'ok') return -1;
+      if (a.status !== 'ok' && b.status === 'ok') return 1;
       
-      const priorityA = modelPriority[modelA] || 0;
-      const priorityB = modelPriority[modelB] || 0;
-
-      if (priorityA !== priorityB) {
-        return priorityB - priorityA; // Higher priority first
-      }
-
       const lastUsedA = a.last_used ? new Date(a.last_used).getTime() : 0;
       const lastUsedB = b.last_used ? new Date(b.last_used).getTime() : 0;
-      return lastUsedA - lastUsedB; // Least recently used first
+      return lastUsedA - lastUsedB;
     });
   }
 
