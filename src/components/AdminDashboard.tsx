@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Car, Phone, Calendar, DollarSign, AlertCircle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw } from 'lucide-react';
+import { Car, Phone, Calendar, DollarSign, AlertCircle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw, Pencil } from 'lucide-react';
 import { useAssets } from '../lib/assetsContext';
 import { supabase } from '../lib/supabase';
 import { defaultCards } from '../lib/seedData';
@@ -18,6 +18,9 @@ export default function AdminDashboard() {
   const [newApiKey, setNewApiKey] = useState('');
   const [newApiProvider, setNewApiProvider] = useState<'gemini' | 'openai' | 'grok'>('gemini');
   const [newApiModel, setNewApiModel] = useState('gemini-1.5-flash');
+  const [testedModels, setTestedModels] = useState<Record<string, string[]>>({});
+  const [editingApiKey, setEditingApiKey] = useState<string | null>(null);
+  const [testingKey, setTestingKey] = useState<string | null>(null);
   const [aiSystemPrompt, setAiSystemPrompt] = useState('');
   const [aiMemory, setAiMemory] = useState('');
   const [banks, setBanks] = useState<any[]>([]);
@@ -897,7 +900,7 @@ export default function AdminDashboard() {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-6">
-                  <h3 className="text-lg font-bold">Adicionar Nova Chave</h3>
+                  <h3 className="text-lg font-bold">{editingApiKey ? 'Editar Chave' : 'Adicionar Nova Chave'}</h3>
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <label className="text-sm font-bold text-slate-700">Provedor</label>
@@ -918,7 +921,7 @@ export default function AdminDashboard() {
                       </select>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-bold text-slate-700">Modelo</label>
+                      <label className="text-sm font-bold text-slate-700">Modelo Padrão</label>
                       <select 
                         className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                         value={newApiModel}
@@ -939,7 +942,10 @@ export default function AdminDashboard() {
                           </>
                         )}
                         {newApiProvider === 'grok' && (
-                          <option value="grok-beta">Grok Beta</option>
+                          <>
+                            <option value="grok-beta">Grok Beta</option>
+                            <option value="grok-2">Grok 2</option>
+                          </>
                         )}
                       </select>
                     </div>
@@ -953,102 +959,166 @@ export default function AdminDashboard() {
                         onChange={e => setNewApiKey(e.target.value)}
                       />
                     </div>
-                    <button 
-                      onClick={async () => {
-                        if (!newApiKey) return;
+                    <div className="flex gap-3">
+                      <button 
+                        onClick={async () => {
+                          if (!newApiKey) return;
 
-                        try {
-                          // Simply insert the new key without deleting existing ones
-                          const { error: insertError } = await supabase
-                            .from('api_keys')
-                            .insert([{ 
-                              provider: newApiProvider, 
-                              key: newApiKey.trim(),
-                              service: `${newApiModel}:${newApiKey.trim().substring(0, 8)}`
-                            }]);
+                          try {
+                            if (editingApiKey) {
+                              const { error } = await supabase
+                                .from('api_keys')
+                                .update({ 
+                                  provider: newApiProvider, 
+                                  key: newApiKey.trim(),
+                                  service: `${newApiModel}:${newApiKey.trim().substring(0, 8)}`
+                                })
+                                .eq('id', editingApiKey);
+                              if (error) throw error;
+                              setEditingApiKey(null);
+                            } else {
+                              const { error } = await supabase
+                                .from('api_keys')
+                                .insert([{ 
+                                  provider: newApiProvider, 
+                                  key: newApiKey.trim(),
+                                  service: `${newApiModel}:${newApiKey.trim().substring(0, 8)}`
+                                }]);
+                              if (error) throw error;
+                            }
 
-                          if (insertError) throw insertError;
-
-                          setNewApiKey('');
-                          fetchData();
-                          alert('Chave adicionada com sucesso!');
-                        } catch (err: any) {
-                          console.error('Erro ao salvar chave:', err);
-                          alert('Erro ao salvar: ' + (err.message || 'Erro desconhecido'));
-                        }
-                      }}
-                      className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-accent transition-all"
-                    >
-                      Adicionar Chave
-                    </button>
+                            setNewApiKey('');
+                            fetchData();
+                            alert(editingApiKey ? 'Chave atualizada!' : 'Chave adicionada!');
+                          } catch (err: any) {
+                            console.error('Erro ao salvar chave:', err);
+                            alert('Erro ao salvar: ' + (err.message || 'Erro desconhecido'));
+                          }
+                        }}
+                        className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-accent transition-all"
+                      >
+                        {editingApiKey ? 'Salvar Alterações' : 'Adicionar Chave'}
+                      </button>
+                      {editingApiKey && (
+                        <button 
+                          onClick={() => {
+                            setEditingApiKey(null);
+                            setNewApiKey('');
+                          }}
+                          className="px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all"
+                        >
+                          Cancelar
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
                 <div className="space-y-6">
                   <h3 className="text-lg font-bold">Chaves Ativas</h3>
-                  <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+                  <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
                     {apiKeys.map(key => (
-                      <div key={key.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col gap-3">
-                        <div className="flex justify-between items-center">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-black uppercase tracking-widest text-slate-400">{key.provider}</span>
-                            <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-mono">
-                              {key.service.split(':')[0]}
-                            </span>
-                            <div className={`w-2 h-2 rounded-full ${
-                              key.status === 'ok' ? 'bg-emerald-500' : 
-                              key.status === 'no_credit' ? 'bg-amber-500' : 'bg-red-500'
-                            }`} />
+                      <div key={key.id} className="p-5 bg-slate-50 rounded-[24px] border border-slate-200 flex flex-col gap-4">
+                        <div className="flex justify-between items-start">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-black uppercase tracking-widest text-slate-400">{key.provider}</span>
+                              <div className={`w-2 h-2 rounded-full ${
+                                key.status === 'ok' ? 'bg-emerald-500' : 
+                                key.status === 'no_credit' ? 'bg-amber-500' : 'bg-red-500'
+                              }`} />
+                            </div>
+                            <h4 className="font-bold text-slate-900">{key.service.split(':')[0]}</h4>
                           </div>
-                          <button 
-                            onClick={async () => {
-                              try {
-                                const response = await fetch('/api/test-api-key', {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ provider: key.provider, key: key.key })
-                                });
-                                const data = await response.json();
-                                if (response.ok) {
-                                  alert('Chave válida!');
-                                } else {
-                                  alert(`Erro: ${data.error || 'Chave inválida'}`);
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={async () => {
+                                setTestingKey(key.id);
+                                try {
+                                  const response = await fetch('/api/test-api-key', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ provider: key.provider, key: key.key })
+                                  });
+                                  const data = await response.json();
+                                  if (response.ok) {
+                                    setTestedModels(prev => ({ ...prev, [key.id]: data.models || [] }));
+                                    alert('Conexão bem sucedida! Versões detectadas.');
+                                  } else {
+                                    alert(`Erro: ${data.error || 'Chave inválida'}`);
+                                  }
+                                } catch (err) {
+                                  alert('Erro ao conectar com o servidor de teste.');
+                                } finally {
+                                  setTestingKey(null);
                                 }
-                              } catch (err) {
-                                alert('Erro ao conectar com o servidor de teste.');
-                              }
-                            }}
-                            className="text-blue-400 hover:text-blue-600 mr-2"
-                          >
-                            Testar
-                          </button>
-                          <button 
-                            onClick={async () => {
-                              if (confirm('Remover chave?')) {
-                                await supabase.from('api_keys').delete().eq('id', key.id);
-                                fetchData();
-                              }
-                            }}
-                            className="text-red-400 hover:text-red-600"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                              }}
+                              disabled={testingKey === key.id}
+                              className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="Testar Conexão"
+                            >
+                              {testingKey === key.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                            </button>
+                            <button 
+                              onClick={() => {
+                                setEditingApiKey(key.id);
+                                setNewApiProvider(key.provider);
+                                setNewApiKey(key.key);
+                                setNewApiModel(key.service.split(':')[0]);
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                              }}
+                              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                              title="Editar"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={async () => {
+                                if (confirm('Remover chave?')) {
+                                  await supabase.from('api_keys').delete().eq('id', key.id);
+                                  fetchData();
+                                }
+                              }}
+                              className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Excluir"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <code className="text-xs font-mono text-slate-500">
-                            {key.key.substring(0, 8)}...{key.key.substring(key.key.length - 4)}
-                          </code>
-                          <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-lg ${
-                            key.status === 'ok' ? 'bg-emerald-100 text-emerald-700' : 
-                            key.status === 'no_credit' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
-                          }`}>
-                            {key.status === 'ok' ? 'Verde OK' : 
-                             key.status === 'no_credit' ? 'Amarelo Sem Crédito' : 'Vermelho Erro'}
-                          </span>
+
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <code className="text-xs font-mono text-slate-500 bg-white px-2 py-1 rounded border border-slate-100">
+                              {key.key.substring(0, 8)}...{key.key.substring(key.key.length - 4)}
+                            </code>
+                            <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-lg ${
+                              key.status === 'ok' ? 'bg-emerald-100 text-emerald-700' : 
+                              key.status === 'no_credit' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                            }`}>
+                              {key.status === 'ok' ? 'Ativa' : 
+                               key.status === 'no_credit' ? 'Sem Crédito' : 'Erro'}
+                            </span>
+                          </div>
+
+                          {testedModels[key.id] && testedModels[key.id].length > 0 && (
+                            <div className="space-y-1">
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Versões Disponíveis:</p>
+                              <div className="flex flex-wrap gap-1">
+                                {testedModels[key.id].map(m => (
+                                  <span key={m} className="text-[9px] bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-500">
+                                    {m}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="flex justify-between items-center text-[10px] text-slate-400 pt-2 border-t border-slate-100">
+                            <span>Último uso: {key.last_used ? new Date(key.last_used).toLocaleString() : 'Nunca'}</span>
+                            <span>Erros: {key.error_count || 0}</span>
+                          </div>
                         </div>
-                        {key.last_used && (
-                          <p className="text-[10px] text-slate-400">Último uso: {new Date(key.last_used).toLocaleString()}</p>
-                        )}
                       </div>
                     ))}
                     {apiKeys.length === 0 && (

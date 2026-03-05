@@ -62,7 +62,11 @@ async function startServer() {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${trimmedKey}`);
         const data = await response.json();
         if (response.ok) {
-          res.json({ success: true });
+          // Filter to show only useful models
+          const models = data.models
+            ?.filter((m: any) => m.supportedGenerationMethods.includes('generateContent'))
+            .map((m: any) => m.name.replace('models/', '')) || [];
+          res.json({ success: true, models });
         } else {
           res.status(400).json({ error: data.error?.message || 'Chave Gemini inválida' });
         }
@@ -72,9 +76,23 @@ async function startServer() {
         });
         const data = await response.json();
         if (response.ok) {
-          res.json({ success: true });
+          const models = data.data
+            ?.filter((m: any) => m.id.includes('gpt'))
+            .map((m: any) => m.id) || [];
+          res.json({ success: true, models });
         } else {
           res.status(400).json({ error: data.error?.message || 'Chave OpenAI inválida' });
+        }
+      } else if (provider === 'grok') {
+        const response = await fetch('https://api.x.ai/v1/models', {
+          headers: { 'Authorization': `Bearer ${trimmedKey}` }
+        });
+        const data = await response.json();
+        if (response.ok) {
+          const models = data.data?.map((m: any) => m.id) || [];
+          res.json({ success: true, models });
+        } else {
+          res.status(400).json({ error: data.error?.message || 'Chave Grok inválida' });
         }
       } else {
         res.status(400).json({ error: 'Provedor não suportado para teste automático' });
