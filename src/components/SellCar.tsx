@@ -230,6 +230,46 @@ export default function SellCar() {
     if (formData.hasSinistradoLeilao) problems.push('Sinistrado / Leilão');
 
     try {
+      setIsSubmitting(true);
+      
+      // 1. Upload de Fotos e Vídeos para o Supabase Storage
+      const uploadedPhotos: string[] = [];
+      const uploadedVideos: string[] = [];
+
+      // Função auxiliar de upload
+      const uploadFile = async (file: File, folder: string) => {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+        const filePath = `${folder}/${fileName}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('veiculos')
+          .upload(filePath, file);
+
+        if (uploadError) {
+          console.error(`Erro ao fazer upload de ${file.name}:`, uploadError);
+          return null;
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('veiculos')
+          .getPublicUrl(filePath);
+          
+        return publicUrl;
+      };
+
+      // Upload Fotos
+      for (const photo of photos) {
+        const url = await uploadFile(photo, 'fotos');
+        if (url) uploadedPhotos.push(url);
+      }
+
+      // Upload Vídeos
+      for (const video of videos) {
+        const url = await uploadFile(video, 'videos');
+        if (url) uploadedVideos.push(url);
+      }
+
       console.log('Enviando dados para Supabase (via API)...');
       
       const leadPayload = {
@@ -250,7 +290,9 @@ export default function SellCar() {
         entrada: parseFloat(formData.entrada.replace(/\./g, '').replace(',', '.')) || 0,
         situacao_financeira: formData.situacaoFinanceira,
         problemas: problems,
-        notifications_enabled: formData.authorizeNotifications
+        notifications_enabled: formData.authorizeNotifications,
+        fotos: uploadedPhotos,
+        videos: uploadedVideos
       };
 
       // Tentar via API Backend (Bypass RLS)

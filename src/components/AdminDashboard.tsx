@@ -576,11 +576,9 @@ export default function AdminDashboard() {
               </button>
             </div>
             {selectedLead && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setSelectedLead(null)}>
-                <motion.div 
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="bg-white rounded-[32px] w-full max-w-4xl max-h-[90vh] overflow-y-auto p-8 shadow-2xl"
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setSelectedLead(null)}>
+                <div 
+                  className="bg-white rounded-[32px] w-full max-w-4xl max-h-[90vh] overflow-y-auto p-8 shadow-2xl animate-in zoom-in-95 duration-300"
                   onClick={e => e.stopPropagation()}
                 >
                   <div className="flex justify-between items-center mb-8">
@@ -592,6 +590,30 @@ export default function AdminDashboard() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div>
+                      {/* Galeria de Fotos e Vídeos */}
+                      {(selectedLead.fotos?.length > 0 || selectedLead.videos?.length > 0) && (
+                        <div className="mb-8">
+                          <h3 className="font-bold text-lg mb-4">Galeria do Veículo</h3>
+                          <div className="grid grid-cols-3 gap-2">
+                            {selectedLead.fotos?.map((foto: string, i: number) => (
+                              <a key={`foto-${i}`} href={foto} target="_blank" rel="noopener noreferrer" className="aspect-square rounded-xl overflow-hidden border border-slate-200 hover:opacity-80 transition-opacity">
+                                <img src={foto} alt={`Foto ${i+1}`} className="w-full h-full object-cover" />
+                              </a>
+                            ))}
+                            {selectedLead.videos?.map((video: string, i: number) => (
+                              <a key={`video-${i}`} href={video} target="_blank" rel="noopener noreferrer" className="aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-100 flex items-center justify-center hover:opacity-80 transition-opacity relative">
+                                <video src={video} className="w-full h-full object-cover opacity-50" />
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <div className="w-8 h-8 bg-white/80 rounded-full flex items-center justify-center">
+                                    <div className="w-0 h-0 border-t-4 border-t-transparent border-l-8 border-l-slate-900 border-b-4 border-b-transparent ml-1"></div>
+                                  </div>
+                                </div>
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       <h3 className="font-bold text-lg mb-4">Detalhes do Veículo</h3>
                       <div className="space-y-3 bg-slate-50 p-6 rounded-2xl">
                         <div className="flex justify-between border-b border-slate-200 pb-2">
@@ -604,7 +626,7 @@ export default function AdminDashboard() {
                         </div>
                         <div className="flex justify-between border-b border-slate-200 pb-2">
                           <span className="text-slate-500">KM</span>
-                          <span className="font-bold">{selectedLead.mileage?.toLocaleString()}</span>
+                          <span className="font-bold">{selectedLead.quilometragem?.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between border-b border-slate-200 pb-2">
                           <span className="text-slate-500">Valor FIPE</span>
@@ -645,16 +667,32 @@ export default function AdminDashboard() {
                           <span className="font-bold text-green-600 text-lg">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculateProposal(selectedLead).finalValue)}</span>
                         </div>
                         <button 
-                          onClick={() => {
+                          onClick={async () => {
                             const proposal = calculateProposal(selectedLead);
                             const message = `Olá ${selectedLead.cliente_nome}, analisamos seu ${selectedLead.marca} ${selectedLead.modelo} (${selectedLead.ano_modelo}). Com base em nossa análise, nossa proposta final é de R$ ${proposal.finalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`;
-                            const whatsappUrl = `https://wa.me/${selectedLead.telefone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
-                            window.open(whatsappUrl, '_blank');
-                            alert('Proposta enviada!');
+                            
+                            const confirmSend = window.confirm(`Deseja enviar a seguinte proposta para o cliente?\n\n"${message}"`);
+                            
+                            if (confirmSend) {
+                              try {
+                                const { error } = await supabase.from('mensagens').insert([{
+                                  lead_id: selectedLead.id,
+                                  remetente: 'admin',
+                                  conteudo: message
+                                }]);
+                                
+                                if (error) throw error;
+                                
+                                alert('Proposta enviada com sucesso! (Mensagem registrada no sistema)');
+                              } catch (err: any) {
+                                console.error(err);
+                                alert('Erro ao salvar mensagem: ' + err.message);
+                              }
+                            }
                           }}
                           className="w-full mt-6 py-3 bg-accent text-white rounded-xl font-bold hover:bg-orange-600 transition-colors"
                         >
-                          Confirmar e Enviar Proposta
+                          Confirmar e Enviar Proposta (Chat)
                         </button>
                       </div>
                     </div>
@@ -677,10 +715,20 @@ export default function AdminDashboard() {
                       <h3 className="font-bold text-lg mb-4">Observações</h3>
                       <div className="bg-slate-50 p-6 rounded-2xl">
                         <p className="text-sm text-slate-600">{selectedLead.observacoes}</p>
+                        {selectedLead.problemas && selectedLead.problemas.length > 0 && (
+                          <div className="mt-4 pt-4 border-t border-slate-200">
+                            <p className="font-bold text-xs uppercase text-slate-400 mb-2">Problemas Relatados</p>
+                            <div className="flex flex-wrap gap-2">
+                              {selectedLead.problemas.map((p: string, i: number) => (
+                                <span key={i} className="px-2 py-1 bg-red-100 text-red-600 text-xs font-bold rounded-lg">{p}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
-                </motion.div>
+                </div>
               </div>
             )}
 
