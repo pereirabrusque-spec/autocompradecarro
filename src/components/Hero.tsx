@@ -55,35 +55,35 @@ export default function Hero() {
         <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent z-10" />
       </div>
 
-      <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12 flex flex-col justify-center h-full">
+      <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col justify-center min-h-full">
         <motion.div
           initial={{ opacity: 0, x: -50 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8 }}
-          className="max-w-4xl"
+          className="max-w-4xl w-full"
         >
-          <span className="inline-block px-3 py-1 mb-4 text-[10px] md:text-xs font-black tracking-widest text-white uppercase bg-red-600 rounded-lg">
+          <span className="inline-block px-3 py-1 mb-3 text-[10px] md:text-xs font-black tracking-widest text-white uppercase bg-red-600 rounded-lg">
             {currentBanner?.badge_text || 'SOLUÇÃO IMEDIATA'}
           </span>
           
           <h1 
-            className="font-display text-4xl md:text-7xl lg:text-8xl font-black mb-4 leading-[0.9] tracking-tighter"
+            className="font-display text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-black mb-3 leading-[1.1] tracking-tighter"
             dangerouslySetInnerHTML={{ __html: currentBanner?.title || `<span class="text-red-600">Transforme</span> <span class="text-green-500">seu</span><br />
             <span class="text-white">problema</span> <span class="text-red-600">em</span><br />
             <span class="text-green-500">dinheiro</span> <span class="text-white">vivo</span><br />
             <span class="text-red-600">agora.</span>` }}
           />
 
-          <p className="text-base md:text-xl text-white/90 mb-8 max-w-2xl font-medium leading-relaxed line-clamp-3 md:line-clamp-none">
+          <p className="text-sm md:text-lg text-white/90 mb-6 max-w-2xl font-medium leading-relaxed line-clamp-2 md:line-clamp-none">
             {currentBanner?.subtitle || currentBanner?.legenda || 'Especialistas em veículos com dívidas, financiamento atrasado, motor estourado ou batidos. Assumimos a burocracia e limpamos seu nome.'}
           </p>
 
           <button 
-            onClick={() => window.location.href = currentBanner?.button_link || '/vender'}
-            className="btn-orange text-sm md:text-xl py-3 md:py-5 px-6 md:px-10 group"
+            onClick={() => window.location.href = currentBanner?.button_link || '#avaliar'}
+            className="btn-orange text-xs md:text-lg py-2.5 md:py-4 px-5 md:px-8 group inline-flex items-center gap-2"
           >
             {currentBanner?.button_text || 'QUERO MINHA PROPOSTA AGORA'}
-            <ArrowRight className="w-5 h-5 md:w-6 md:h-6 group-hover:translate-x-2 transition-transform" />
+            <ArrowRight className="w-4 h-4 md:w-5 md:h-5 group-hover:translate-x-2 transition-transform" />
           </button>
         </motion.div>
       </div>
