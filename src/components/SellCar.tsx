@@ -15,6 +15,8 @@ export default function SellCar() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [errorModalOpen, setErrorModalOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const [photos, setPhotos] = useState<File[]>([]);
   const [videos, setVideos] = useState<File[]>([]);
   
@@ -164,17 +166,20 @@ export default function SellCar() {
     e.preventDefault();
 
     if (photos.length < 5) {
-      alert('Por favor, adicione pelo menos 5 fotos do veículo.');
+      setErrorMessage('Por favor, adicione pelo menos 5 fotos do veículo.');
+      setErrorModalOpen(true);
       return;
     }
 
     if (formData.ownerEmail !== formData.ownerEmailConfirm) {
-      alert('Os e-mails informados não conferem.');
+      setErrorMessage('Os e-mails informados não conferem.');
+      setErrorModalOpen(true);
       return;
     }
 
     if (formData.ownerPhone !== formData.ownerPhoneConfirm) {
-      alert('Os números de WhatsApp informados não conferem.');
+      setErrorMessage('Os números de WhatsApp informados não conferem.');
+      setErrorModalOpen(true);
       return;
     }
 
@@ -199,7 +204,7 @@ export default function SellCar() {
         modelo: formData.modelName || formData.modelId,
         ano_modelo: formData.yearName || formData.yearId,
         cor: formData.color,
-        mileage: parseInt(formData.mileage) || 0,
+        quilometragem: parseInt(formData.mileage) || 0,
         placa: '',
         renavam: '',
         valor_fipe: parseFloat(fipePrice.replace(/[^\d,]/g, '').replace(',', '.')) || 0,
@@ -209,16 +214,17 @@ export default function SellCar() {
         entrada: parseFloat(formData.entrada.replace(/[^\d,]/g, '').replace(',', '.')) || 0,
         situacao_financeira: formData.situacaoFinanceira,
         problemas: problems,
-        autoriza_notificacoes: formData.authorizeNotifications
+        notifications_enabled: formData.authorizeNotifications
       }]);
 
       if (error) throw error;
 
       setIsSuccess(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert('Erro ao enviar avaliação. Tente novamente.');
+      setErrorMessage(`Erro ao enviar avaliação: ${error.message || 'Tente novamente.'}`);
+      setErrorModalOpen(true);
     } finally {
       setIsSubmitting(false);
     }
@@ -426,11 +432,15 @@ export default function SellCar() {
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               {videos.map((video, index) => (
                 <div key={index} className="relative aspect-square rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 flex items-center justify-center">
-                  <Video className="w-8 h-8 text-slate-400" />
+                  <video 
+                    src={URL.createObjectURL(video)} 
+                    className="w-full h-full object-cover" 
+                    controls 
+                  />
                   <button 
                     type="button"
                     onClick={() => setVideos(videos.filter((_, i) => i !== index))}
-                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors z-10"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -921,6 +931,32 @@ export default function SellCar() {
           </div>
         </form>
       </div>
+
+      {/* Error Modal */}
+      {errorModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl"
+          >
+            <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
+              <AlertCircle className="w-8 h-8" />
+            </div>
+            <h3 className="text-xl font-bold text-center mb-4 text-slate-900">Atenção</h3>
+            <p className="text-slate-500 text-center mb-8">
+              {errorMessage}
+            </p>
+            <button
+              onClick={() => setErrorModalOpen(false)}
+              className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all"
+            >
+              Entendi, vou corrigir
+            </button>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }
