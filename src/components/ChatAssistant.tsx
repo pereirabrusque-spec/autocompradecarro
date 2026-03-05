@@ -146,8 +146,8 @@ export default function ChatAssistant() {
     video.preload = 'metadata';
     video.onloadedmetadata = () => {
       window.URL.revokeObjectURL(video.src);
-      if (video.duration > 20) {
-        alert("O vídeo excede 20 segundos. Carregando apenas os primeiros 20 segundos.");
+      if (video.duration > 30) {
+        alert("O vídeo excede 30 segundos. Será carregado apenas os primeiros 30 segundos.");
       }
       if (videos.length < 5) {
         setVideos(prev => [...prev, file]);
@@ -182,12 +182,6 @@ export default function ChatAssistant() {
     setIsLoading(true);
 
     try {
-      // Validação básica do formulário
-      if (!isFormFilled && userText.length < 5) {
-        setMessages(prev => [...prev, { role: 'bot', text: '❌ **Erro:** Por favor, forneça mais detalhes para que possamos analisar seu veículo corretamente.' }]);
-        setIsLoading(false);
-        return;
-      }
       // Construct the prompt with dynamic data
       const banksContext = contextData.banks.map((b: any) => `- ${b.name}: ${b.discount_percentage}% desconto`).join('\n');
       const repairContext = contextData.repairCosts.map((r: any) => `- ${r.part_name}: R$ ${r.cost}`).join('\n');
