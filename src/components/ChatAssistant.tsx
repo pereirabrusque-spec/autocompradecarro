@@ -71,8 +71,14 @@ export default function ChatAssistant() {
   };
 
   useEffect(() => {
-    const handleOpenChat = async () => {
+    const handleOpenChat = async (event: any) => {
       setIsOpen(true);
+      const initialMessage = event.detail?.message;
+      if (initialMessage) {
+        setMessages(prev => [...prev, { role: 'user', text: initialMessage }]);
+        // Opcional: disparar o envio automaticamente
+        // setTimeout(() => handleSend(), 500); 
+      }
       
       // Get user and create/get lead
       const { data: { user } } = await supabase.auth.getUser();
@@ -176,6 +182,12 @@ export default function ChatAssistant() {
     setIsLoading(true);
 
     try {
+      // Validação básica do formulário
+      if (!isFormFilled && userText.length < 5) {
+        setMessages(prev => [...prev, { role: 'bot', text: '❌ **Erro:** Por favor, forneça mais detalhes para que possamos analisar seu veículo corretamente.' }]);
+        setIsLoading(false);
+        return;
+      }
       // Construct the prompt with dynamic data
       const banksContext = contextData.banks.map((b: any) => `- ${b.name}: ${b.discount_percentage}% desconto`).join('\n');
       const repairContext = contextData.repairCosts.map((r: any) => `- ${r.part_name}: R$ ${r.cost}`).join('\n');
@@ -280,6 +292,10 @@ export default function ChatAssistant() {
         ${banksContext}
         ${repairContext}
         
+        ### 6. NOTIFICAÇÕES (APÓS FORMULÁRIO)
+        - Após o formulário ser preenchido, pergunte: "Deseja receber notificações sobre o status da sua negociação?"
+        - Se o usuário disser SIM, responda com o JSON: {"notifications_authorized": true}
+        
         [DIRETRIZ DE RESPOSTA]
         Responda de forma direta, autoritária e empática. Se a informação necessária para seguir as regras não estiver disponível, peça-a ao usuário.
       `;
@@ -297,11 +313,27 @@ export default function ChatAssistant() {
 
       const botText = aiResponse.text || 'Entendido. Por favor, continue com as informações solicitadas.';
       
-      // Check if botText contains a JSON block for lead submission
+      // Check if botText contains a JSON block for lead submission or notification authorization
       const jsonMatch = botText.match(/```json\n([\s\S]*?)\n```/);
       if (jsonMatch) {
         try {
-          const leadData = JSON.parse(jsonMatch[1]);
+          const data = JSON.parse(jsonMatch[1]);
+          
+          // Handle Notification Authorization
+          if (data.notifications_authorized) {
+            if ('Notification' in window) {
+              Notification.requestPermission().then(permission => {
+                if (permission === 'granted') {
+                  supabase.from('leads_veiculos').update({ notifications_enabled: true }).eq('id', leadId);
+                  setMessages(prev => [...prev, { role: 'bot', text: '✅ **Notificações ativadas!** Você receberá atualizações sobre sua negociação.' }]);
+                }
+              });
+            }
+            return;
+          }
+
+          // Handle Lead Submission
+          const leadData = data;
           
           // Determine status based on data
           let status = 'fria';
@@ -333,10 +365,10 @@ export default function ChatAssistant() {
           if (error) throw error;
           
           setIsFormFilled(true);
-          setMessages(prev => [...prev, { role: 'bot', text: '✅ **Dados registrados!** Nossa equipe analisará sua proposta e retornará em até 24 horas.' }]);
+          setMessages(prev => [...prev, { role: 'bot', text: '✅ **Dados registrados!** Nossa equipe analisará sua proposta e retornará em até 24 horas. Deseja receber notificações sobre o status da sua negociação?' }]);
           return;
         } catch (e) {
-          console.error('Failed to parse or save lead JSON:', e);
+          console.error('Failed to parse or save JSON:', e);
         }
       }
 

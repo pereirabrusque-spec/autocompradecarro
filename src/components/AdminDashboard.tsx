@@ -712,24 +712,31 @@ export default function AdminDashboard() {
           </div>
         ) : activeTab === 'hero' ? (
           <div className="space-y-6">
-            <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm mb-8">
-              <h3 className="text-xl font-bold mb-4">Configuração do Carrossel</h3>
-              <div className="flex items-center gap-4">
-                <div className="flex-1">
-                  <label className="text-sm font-bold text-slate-700">Tempo de Transição (ms)</label>
-                  <input 
-                    type="number"
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20"
-                    value={heroTimer}
-                    onChange={e => setHeroTimer(e.target.value)}
-                  />
+        <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm mb-8">
+              <h3 className="text-xl font-bold mb-4">Configurações de Automação</h3>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <label className="text-sm font-bold text-slate-700">IA Automática (Sem revisão humana)</label>
+                  <p className="text-xs text-slate-500">Quando ativado, a IA envia propostas diretamente ao cliente.</p>
                 </div>
                 <button 
-                  onClick={handleSaveSettings}
-                  disabled={savingSettings}
-                  className="mt-5 px-6 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-accent transition-all disabled:opacity-50"
+                  onClick={async () => {
+                    const newValue = !autoProposalEnabled;
+                    setAutoProposalEnabled(newValue);
+                    try {
+                      const { error } = await supabase
+                        .from('settings')
+                        .upsert({ key: 'AUTO_PROPOSAL_ENABLED', value: newValue ? 'true' : 'false' }, { onConflict: 'key' });
+                      if (error) throw error;
+                      alert(`IA Automática ${newValue ? 'ativada' : 'desativada'}!`);
+                    } catch (err) {
+                      console.error(err);
+                      alert('Erro ao salvar configuração.');
+                    }
+                  }}
+                  className={`w-16 h-8 rounded-full transition-colors flex items-center px-1 ${autoProposalEnabled ? 'bg-green-500' : 'bg-slate-200'}`}
                 >
-                  {savingSettings ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Salvar Tempo'}
+                  <div className={`w-6 h-6 bg-white rounded-full transition-transform ${autoProposalEnabled ? 'translate-x-8' : 'translate-x-0'}`} />
                 </button>
               </div>
             </div>
