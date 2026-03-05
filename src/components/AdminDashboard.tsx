@@ -1803,32 +1803,36 @@ export default function AdminDashboard() {
                         />
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-slate-700">Foto do Atendente</label>
+                    <div className="space-y-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                      <label className="text-sm font-bold text-slate-700 block">Foto do Atendente (Upload)</label>
                       <input 
                         type="file"
                         accept="image/*"
-                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl"
+                        className="w-full p-3 bg-white border border-slate-200 rounded-xl cursor-pointer"
                         onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (!file) return;
                           
-                          // Upload para o bucket 'chat-avatars'
                           const { data, error } = await supabase.storage
                             .from('chat-avatars')
                             .upload(`avatar-${Date.now()}.png`, file);
                             
-                          if (error) { alert('Erro no upload'); return; }
+                          if (error) { alert('Erro no upload: ' + error.message); return; }
                           
-                          // Pega a URL pública
                           const { data: publicUrlData } = supabase.storage
                             .from('chat-avatars')
                             .getPublicUrl(data.path);
                             
                           setChatAvatarUrl(publicUrlData.publicUrl);
+                          alert('Foto enviada com sucesso!');
                         }}
                       />
-                      {chatAvatarUrl && <img src={chatAvatarUrl} className="w-16 h-16 rounded-full mt-2" />}
+                      {chatAvatarUrl && (
+                        <div className="mt-2">
+                          <p className="text-xs text-slate-500 mb-1">Foto atual:</p>
+                          <img src={chatAvatarUrl} className="w-20 h-20 rounded-full object-cover border-2 border-accent" />
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
