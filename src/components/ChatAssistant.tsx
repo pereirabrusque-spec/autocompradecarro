@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { MessageSquare, Send, X, Bot, User, Loader2, Camera, Paperclip, FileText } from 'lucide-react';
+import { MessageSquare, Send, X, Bot, User, Loader2, Camera, Paperclip, FileText, Video } from 'lucide-react';
 import { GoogleGenAI } from '@google/genai';
 import OpenAI from 'openai';
 import Markdown from 'react-markdown';
@@ -26,8 +26,10 @@ export default function ChatAssistant() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [videos, setVideos] = useState<File[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
   const [activeKey, setActiveKey] = useState<{ key: string, provider: string, model: string } | null>(null);
   const chatEnabled = settings['CHAT_ENABLED'] !== 'false';
@@ -128,6 +130,26 @@ export default function ChatAssistant() {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => {
+      window.URL.revokeObjectURL(video.src);
+      if (video.duration > 20) {
+        alert("O vídeo excede 20 segundos. Carregando apenas os primeiros 20 segundos.");
+      }
+      if (videos.length < 5) {
+        setVideos(prev => [...prev, file]);
+      } else {
+        alert("Limite de 5 vídeos atingido.");
+      }
+    };
+    video.src = URL.createObjectURL(file);
   };
 
   const handleSend = async () => {
@@ -436,6 +458,19 @@ export default function ChatAssistant() {
                   ref={fileInputRef} 
                   onChange={handleImageSelect} 
                   accept="image/*" 
+                  className="hidden" 
+                />
+                <button 
+                  onClick={() => videoInputRef.current?.click()}
+                  className="p-3 bg-slate-50 text-slate-400 rounded-2xl hover:bg-slate-100 hover:text-accent transition-all"
+                >
+                  <Video className="w-6 h-6" />
+                </button>
+                <input 
+                  type="file" 
+                  ref={videoInputRef} 
+                  onChange={handleVideoSelect} 
+                  accept="video/*" 
                   className="hidden" 
                 />
                 <div className="relative flex-1">
