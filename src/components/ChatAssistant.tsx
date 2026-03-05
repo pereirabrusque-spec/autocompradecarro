@@ -95,6 +95,25 @@ export default function ChatAssistant() {
         if (existingLead) {
           setLeadId(existingLead.id);
           setIsFormFilled(existingLead.status === 'quente' || existingLead.status === 'morno');
+
+          // Carregar mensagens anteriores
+          const { data: history } = await supabase
+            .from('chat_messages')
+            .select('*')
+            .eq('lead_id', existingLead.id)
+            .order('created_at', { ascending: true });
+
+          if (history && history.length > 0) {
+            const formattedHistory: Message[] = history.map((msg: any) => ({
+              role: (msg.sender_type === 'cliente' ? 'user' : 'bot') as 'user' | 'bot',
+              text: msg.message
+            }));
+            // Se houver mensagem inicial do evento, adiciona ao final, pois o setMessages vai sobrescrever o estado atual
+            if (initialMessage) {
+                formattedHistory.push({ role: 'user', text: initialMessage });
+            }
+            setMessages(formattedHistory);
+          }
         } else {
           const { data: newLead } = await supabase
             .from('leads_veiculos')
@@ -291,7 +310,10 @@ export default function ChatAssistant() {
         - Se o usuário disser SIM, responda com o JSON: {"notifications_authorized": true}
         
         [DIRETRIZ DE RESPOSTA]
-        Responda de forma direta, autoritária e empática. Se a informação necessária para seguir as regras não estiver disponível, peça-a ao usuário.
+        Responda de forma direta, autoritária e empática.
+        **REGRA DE OURO:** Suas respostas devem ter NO MÁXIMO 4 LINHAS. Seja extremamente conciso. Não use textos longos. Pareça um humano digitando rápido no WhatsApp.
+        Se o usuário quiser uma avaliação detalhada ou estiver fornecendo muitos dados técnicos, sugira: "Para uma avaliação completa e rápida, use nosso formulário oficial clicando em 'Vender Meu Carro' no menu".
+        Se a informação necessária para seguir as regras não estiver disponível, peça-a ao usuário.
       `;
       // Lógica para filtrar mensagens para a UI
     const today = new Date().toDateString();
