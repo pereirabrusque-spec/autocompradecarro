@@ -622,7 +622,6 @@ export default function SellCar() {
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-400 ml-1">Marca *</label>
                 <select 
-                  required
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                   value={formData.brandId}
                   onChange={e => handleBrandChange(e.target.value)}
@@ -634,7 +633,6 @@ export default function SellCar() {
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-400 ml-1">Modelo *</label>
                 <select 
-                  required
                   disabled={!formData.brandId}
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none disabled:opacity-50"
                   value={formData.modelId}
@@ -647,7 +645,6 @@ export default function SellCar() {
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-400 ml-1">Ano *</label>
                 <select 
-                  required
                   disabled={!formData.modelId}
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none disabled:opacity-50"
                   value={formData.yearId}
@@ -677,7 +674,6 @@ export default function SellCar() {
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-400 ml-1">Cor *</label>
                 <input 
-                  required
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                   placeholder="Ex: Prata"
                   value={formData.color}
@@ -687,7 +683,6 @@ export default function SellCar() {
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-400 ml-1">Quilometragem (km) *</label>
                 <input 
-                  required
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                   placeholder="Ex: 85.000"
                   value={formData.mileage}
@@ -878,7 +873,6 @@ export default function SellCar() {
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">R$</span>
                   <input 
-                    required
                     className="w-full p-4 pl-12 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-xl text-slate-900"
                     placeholder="0,00"
                     value={formData.desiredPrice}
@@ -900,7 +894,6 @@ export default function SellCar() {
               <div className="space-y-1 md:col-span-2">
                 <label className="text-xs font-bold text-slate-400 ml-1">Nome Completo *</label>
                 <input 
-                  required
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                   placeholder="Seu nome aqui"
                   value={formData.ownerName}
@@ -910,7 +903,6 @@ export default function SellCar() {
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-400 ml-1">Telefone / WhatsApp *</label>
                 <input 
-                  required
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                   placeholder="(11) 99999-9999"
                   value={formData.ownerPhone}
@@ -920,7 +912,6 @@ export default function SellCar() {
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-400 ml-1">Confirmar Telefone / WhatsApp *</label>
                 <input 
-                  required
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                   placeholder="(11) 99999-9999"
                   value={formData.ownerPhoneConfirm}
@@ -930,7 +921,6 @@ export default function SellCar() {
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-400 ml-1">Email *</label>
                 <input 
-                  required
                   type="email"
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                   placeholder="seu@email.com"
@@ -941,7 +931,6 @@ export default function SellCar() {
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-400 ml-1">Confirmar Email *</label>
                 <input 
-                  required
                   type="email"
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                   placeholder="seu@email.com"
@@ -952,7 +941,6 @@ export default function SellCar() {
               <div className="space-y-1 md:col-span-2">
                 <label className="text-xs font-bold text-slate-400 ml-1">Cidade / Estado *</label>
                 <input 
-                  required
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                   placeholder="Ex: São Paulo - SP"
                   value={formData.ownerLocation}
