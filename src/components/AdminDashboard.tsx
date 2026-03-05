@@ -925,22 +925,29 @@ export default function AdminDashboard() {
                     <button 
                       onClick={async () => {
                         if (!newApiKey) return;
-                        const { error } = await supabase
-                          .from('api_keys')
-                          .upsert({ 
-                            provider: newApiProvider, 
-                            key: newApiKey 
-                          }, { 
-                            onConflict: 'provider' 
-                          });
-                        
-                        if (error) {
-                          console.error('Supabase error details:', error);
-                          alert('Erro ao salvar: ' + error.message + ' (Detalhes: ' + JSON.stringify(error) + ')');
-                        } else {
+
+                        try {
+                          // 1. First, remove any existing key for this provider
+                          const { error: deleteError } = await supabase
+                            .from('api_keys')
+                            .delete()
+                            .eq('provider', newApiProvider);
+
+                          if (deleteError) throw deleteError;
+
+                          // 2. Then, insert the new key
+                          const { error: insertError } = await supabase
+                            .from('api_keys')
+                            .insert([{ provider: newApiProvider, key: newApiKey }]);
+
+                          if (insertError) throw insertError;
+
                           setNewApiKey('');
                           fetchData();
                           alert('Chave adicionada com sucesso!');
+                        } catch (err: any) {
+                          console.error('Erro ao salvar chave:', err);
+                          alert('Erro ao salvar: ' + (err.message || 'Erro desconhecido'));
                         }
                       }}
                       className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-accent transition-all"
