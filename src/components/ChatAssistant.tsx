@@ -17,6 +17,9 @@ interface Message {
 export default function ChatAssistant() {
   const { settings } = useAssets();
   const [isOpen, setIsOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [leadId, setLeadId] = useState<string | null>(null);
+  const [isFormFilled, setIsFormFilled] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     { role: 'bot', text: 'Olá! Sou o especialista sênior da **LOJA ONLINE - SOLUÇÕES AUTOMOTIVAS**. \n\nNós assumimos o problema e limpamos seu nome. \n\nPara começarmos a análise do seu veículo, por favor, informe o **Ano e Modelo** do carro.' }
   ]);
@@ -32,45 +35,75 @@ export default function ChatAssistant() {
   const aiMemory = settings['AI_MEMORY'] || '';
   const [contextData, setContextData] = useState({ banks: [], repairCosts: [], fipeRules: [] });
 
+  const fetchApiKey = async () => {
+    // Try to select with status first
+    let { data, error } = await supabase
+      .from('api_keys')
+      .select('key, provider, service, status')
+      .eq('status', 'ok')
+      .order('created_at', { ascending: false });
+    
+    // Fallback if status column is missing
+    if (error && error.message.includes('status')) {
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('api_keys')
+        .select('key, provider, service')
+        .order('created_at', { ascending: false });
+      data = fallbackData as any;
+      error = fallbackError;
+    }
+    
+    if (!error && data && data.length > 0) {
+      // Just for UI display, AIService handles the actual selection
+      const randomEntry = data[0];
+      const model = randomEntry.service ? randomEntry.service.split(':')[0] : 'default';
+      setActiveKey({ key: randomEntry.key, provider: randomEntry.provider, model });
+    }
+  };
+
+  const fetchData = async () => {
+    const { data: banks } = await supabase.from('banks').select('*');
+    const { data: repairCosts } = await supabase.from('repair_costs').select('*');
+    const { data: fipeRules } = await supabase.from('fipe_rules').select('*');
+    setContextData({ banks: banks || [], repairCosts: repairCosts || [], fipeRules: fipeRules || [] });
+  };
+
   useEffect(() => {
-    const handleOpenChat = () => setIsOpen(true);
+    const handleOpenChat = async () => {
+      setIsOpen(true);
+      
+      // Get user and create/get lead
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUser(user);
+        
+        // Find or create lead
+        const { data: existingLead } = await supabase
+          .from('leads_veiculos')
+          .select('id, status')
+          .eq('email', user.email)
+          .single();
+          
+        if (existingLead) {
+          setLeadId(existingLead.id);
+          setIsFormFilled(existingLead.status === 'quente' || existingLead.status === 'morno');
+        } else {
+          const { data: newLead } = await supabase
+            .from('leads_veiculos')
+            .insert([{ 
+              cliente_nome: user.user_metadata?.full_name || 'Cliente', 
+              email: user.email,
+              status: 'fria'
+            }])
+            .select()
+            .single();
+          if (newLead) setLeadId(newLead.id);
+        }
+      }
+    };
     window.addEventListener('open-chat', handleOpenChat);
 
-    // Get API key from api_keys table
-    const fetchApiKey = async () => {
-      // Try to select with status first
-      let { data, error } = await supabase
-        .from('api_keys')
-        .select('key, provider, service, status')
-        .eq('status', 'ok')
-        .order('created_at', { ascending: false });
-      
-      // Fallback if status column is missing
-      if (error && error.message.includes('status')) {
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from('api_keys')
-          .select('key, provider, service')
-          .order('created_at', { ascending: false });
-        data = fallbackData as any;
-        error = fallbackError;
-      }
-      
-      if (!error && data && data.length > 0) {
-        // Just for UI display, AIService handles the actual selection
-        const randomEntry = data[0];
-        const model = randomEntry.service ? randomEntry.service.split(':')[0] : 'default';
-        setActiveKey({ key: randomEntry.key, provider: randomEntry.provider, model });
-      }
-    };
     fetchApiKey();
-
-    // Fetch Banks, Repair Costs, and FIPE Rules
-    const fetchData = async () => {
-      const { data: banks } = await supabase.from('banks').select('*');
-      const { data: repairCosts } = await supabase.from('repair_costs').select('*');
-      const { data: fipeRules } = await supabase.from('fipe_rules').select('*');
-      setContextData({ banks: banks || [], repairCosts: repairCosts || [], fipeRules: fipeRules || [] });
-    };
     fetchData();
 
     return () => {
@@ -113,7 +146,8 @@ export default function ChatAssistant() {
       // Construct the prompt with dynamic data
       const banksContext = contextData.banks.map((b: any) => `- ${b.name}: ${b.discount_percentage}% desconto`).join('\n');
       const repairContext = contextData.repairCosts.map((r: any) => `- ${r.part_name}: R$ ${r.cost}`).join('\n');
-      const fipeContext = contextData.fipeRules.map((f: any) => `- ${f.condition_name}: -${f.discount_percentage}% sobre FIPE`).join('\n');      const defaultRules = `Você é o **AVALIADOR SÊNIOR DE VEÍCULOS** da plataforma "LOJA ONLINE - SOLUÇÕES AUTOMOTIVAS".
+      const fipeContext = contextData.fipeRules.map((f: any) => `- ${f.condition_name}: -${f.discount_percentage}% sobre FIPE`).join('\n');
+      const defaultRules = `Você é o **AVALIADOR SÊNIOR DE VEÍCULOS** da plataforma "LOJA ONLINE - SOLUÇÕES AUTOMOTIVAS".
         Sua função não é apenas coletar dados, mas **ANALISAR DOCUMENTOS E FOTOS** e **GERAR UMA PROPOSTA COMERCIAL IMEDIATA** baseada em regras rígidas.
 
         ### 1. CAPACIDADE DE VISÃO (OCR E ANÁLISE)
@@ -191,8 +225,22 @@ export default function ChatAssistant() {
       `;
 
       const finalSystemPrompt = `
-        ${defaultRules}
+        Você é um especialista em negociação automotiva da "LOJA ONLINE - SOLUÇÕES AUTOMOTIVAS".
+        
+        ### SUA PERSONA:
+        - Humano, empático, direto e autoritário (no sentido de especialista).
+        - Foco total em resolver o problema do cliente (dívida, carro batido, nome sujo).
+        - **REGRA DE OURO:** Você NÃO PODE fazer propostas, dar orçamentos ou detalhes técnicos antes de coletar: Ano, Modelo, Situação Financeira (Dívida/Financiamento) e fotos do veículo.
+        - Se o cliente perguntar preço ou proposta antes disso, responda: "Para te dar uma proposta justa e segura, preciso entender o estado do seu veículo. Vamos por partes?"
+        - Temas permitidos antes da coleta: Segurança de vender para nós, pagamento à vista, benefícios de se livrar de problemas, nosso serviço de limpar nome.
+        - Prometa sempre uma resposta em até 24 horas.
 
+        ${defaultRules}
+        
+        ### ESTADO ATUAL DO FORMULÁRIO:
+        - Formulário preenchido: ${isFormFilled ? 'SIM' : 'NÃO'}
+        - Se o formulário não estiver preenchido, foque apenas na coleta de dados e nos temas permitidos.
+        
         ### REGRAS PERSONALIZADAS DO ADMINISTRADOR:
         ${systemPrompt || 'Nenhuma regra adicional.'}
 
@@ -219,7 +267,14 @@ export default function ChatAssistant() {
       if (jsonMatch) {
         try {
           const leadData = JSON.parse(jsonMatch[1]);
-          const { error } = await supabase.from('leads_veiculos').insert([{
+          
+          // Determine status based on data
+          let status = 'fria';
+          if (leadData.proposal_value) status = 'morno';
+          if (leadData.status_lead === 'fechado') status = 'quente';
+
+          const { error } = await supabase.from('leads_veiculos').upsert({
+            id: leadId,
             cliente_nome: leadData.owner_name,
             telefone: leadData.owner_phone,
             marca: leadData.brand,
@@ -235,14 +290,15 @@ export default function ChatAssistant() {
             preco_cliente: leadData.desired_price,
             valor_fipe: leadData.fipe_price,
             situacao_financeira: leadData.situation,
-            status: leadData.status_lead || 'novo',
+            status: status,
             origem: 'chat',
-            observacoes: `Score: ${leadData.score_veiculo} | Quitação Est.: ${leadData.valor_quitacao_estimado}`
-          }]);
+            observacoes: `Proposta: ${leadData.proposal_value} | Tipo: ${leadData.proposal_type} | Score: ${leadData.score_veiculo}`
+          });
           
           if (error) throw error;
           
-          setMessages(prev => [...prev, { role: 'bot', text: '✅ **Dados enviados com sucesso!** Nossa equipe de especialistas entrará em contato em breve para finalizar a proposta.' }]);
+          setIsFormFilled(true);
+          setMessages(prev => [...prev, { role: 'bot', text: '✅ **Dados registrados!** Nossa equipe analisará sua proposta e retornará em até 24 horas.' }]);
           return;
         } catch (e) {
           console.error('Failed to parse or save lead JSON:', e);
