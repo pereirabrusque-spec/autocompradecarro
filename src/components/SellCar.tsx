@@ -217,18 +217,19 @@ export default function SellCar() {
     }
 
     setIsSubmitting(true);
-    try {
-      // Prepare problems array
-      const problems = [];
-      if (formData.hasDelayedFinancing) problems.push('Financiamento Atrasado');
-      if (formData.hasBuscaApreensao) problems.push('Busca e Apreensão');
-      if (formData.hasDelayedIpva) problems.push('IPVA/Multas Atrasados');
-      if (formData.hasRenajud) problems.push('Renajud / Bloqueio Judicial');
-      if (formData.hasBlownEngine) problems.push('Motor Fundido / Batendo');
-      if (formData.hasGearboxIssue) problems.push('Câmbio com Defeito');
-      if (formData.hasCrashDamage) problems.push('Batido / Avariado');
-      if (formData.hasSinistradoLeilao) problems.push('Sinistrado / Leilão');
+    
+    // Prepare problems array
+    const problems: string[] = [];
+    if (formData.hasDelayedFinancing) problems.push('Financiamento Atrasado');
+    if (formData.hasBuscaApreensao) problems.push('Busca e Apreensão');
+    if (formData.hasDelayedIpva) problems.push('IPVA/Multas Atrasados');
+    if (formData.hasRenajud) problems.push('Renajud / Bloqueio Judicial');
+    if (formData.hasBlownEngine) problems.push('Motor Fundido / Batendo');
+    if (formData.hasGearboxIssue) problems.push('Câmbio com Defeito');
+    if (formData.hasCrashDamage) problems.push('Batido / Avariado');
+    if (formData.hasSinistradoLeilao) problems.push('Sinistrado / Leilão');
 
+    try {
       console.log('Enviando dados para Supabase:', {
         cliente_nome: formData.ownerName,
         telefone: formData.ownerPhone,
@@ -290,6 +291,25 @@ export default function SellCar() {
       
       setErrorMessage([msg]);
       setErrorModalOpen(true);
+
+      // Fallback para WhatsApp se o erro for de permissão ou banco de dados
+      if (error.code === '42501' || error.message?.includes('row-level security') || error.message?.includes('violates row-level security')) {
+        setTimeout(() => {
+          const message = `Olá, tentei enviar o formulário pelo site mas deu erro. Seguem meus dados:\n\n` +
+            `*Veículo:* ${formData.brandName} ${formData.modelName} ${formData.yearName}\n` +
+            `*Cor:* ${formData.color}\n` +
+            `*KM:* ${formData.mileage}\n` +
+            `*Valor Pedido:* ${formData.desiredPrice}\n` +
+            `*Nome:* ${formData.ownerName}\n` +
+            `*Telefone:* ${formData.ownerPhone}\n` +
+            `*Email:* ${formData.ownerEmail}\n` +
+            `*Cidade:* ${formData.ownerLocation}\n` +
+            `*Observações:* ${problems.join(', ')}`;
+          
+          const whatsappUrl = `https://wa.me/55${formData.ownerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+          window.open(whatsappUrl, '_blank');
+        }, 3000);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -366,10 +386,8 @@ export default function SellCar() {
   if (isSuccess) {
     return (
       <div className="pt-32 pb-24 bg-slate-50 min-h-screen flex items-center justify-center px-4">
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="max-w-md w-full bg-white rounded-[40px] p-12 text-center shadow-2xl"
+        <div 
+          className="max-w-md w-full bg-white rounded-[40px] p-12 text-center shadow-2xl animate-in zoom-in-95 duration-500"
         >
           <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-8">
             <CheckCircle2 className="w-10 h-10" />
@@ -392,7 +410,7 @@ export default function SellCar() {
               Avaliar outro veículo
             </button>
           </div>
-        </motion.div>
+        </div>
       </div>
     );
   }
@@ -413,10 +431,9 @@ export default function SellCar() {
             <span className="text-sm font-bold text-slate-900">{calculateProgress()}%</span>
           </div>
           <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-            <motion.div 
-              initial={{ width: 0 }}
-              animate={{ width: `${calculateProgress()}%` }}
-              className="h-full bg-accent"
+            <div 
+              style={{ width: `${calculateProgress()}%` }}
+              className="h-full bg-accent transition-all duration-500 ease-out"
             />
           </div>
           <p className="text-[10px] text-center mt-4 text-slate-400 font-bold uppercase tracking-widest">
@@ -490,14 +507,12 @@ export default function SellCar() {
             </div>
 
             {fipePrice && (
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-6 p-6 bg-accent/5 border border-accent/10 rounded-2xl text-center"
+              <div 
+                className="mt-6 p-6 bg-accent/5 border border-accent/10 rounded-2xl text-center animate-in fade-in slide-in-from-bottom-4 duration-500"
               >
                 <p className="text-xs font-bold text-accent uppercase tracking-widest mb-1">Valor FIPE</p>
                 <h4 className="text-3xl font-black text-slate-900">{fipePrice}</h4>
-              </motion.div>
+              </div>
             )}
           </div>
 
