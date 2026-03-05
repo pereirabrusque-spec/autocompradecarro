@@ -67,6 +67,7 @@ export default function AdminDashboard() {
   const [chatWidth, setChatWidth] = useState('360');
   const [chatColor, setChatColor] = useState('#F27D26');
   const [autoProposalEnabled, setAutoProposalEnabled] = useState(false);
+  const [chatAvatarUrl, setChatAvatarUrl] = useState('');
   const [bannerHeight, setBannerHeight] = useState('100vh');
   const [savingSettings, setSavingSettings] = useState(false);
   const [selectedLead, setSelectedLead] = useState<any>(null);
@@ -181,6 +182,9 @@ export default function AdminDashboard() {
 
         const autoProposalSetting = settingsData.find((s: any) => s.key === 'AUTO_PROPOSAL_ENABLED');
         if (autoProposalSetting) setAutoProposalEnabled(autoProposalSetting.value === 'true');
+
+        const chatAvatarSetting = settingsData.find((s: any) => s.key === 'CHAT_AVATAR_URL');
+        if (chatAvatarSetting) setChatAvatarUrl(chatAvatarSetting.value);
 
         const bannerHeightSetting = settingsData.find((s: any) => s.key === 'BANNER_HEIGHT');
         if (bannerHeightSetting) setBannerHeight(bannerHeightSetting.value);
@@ -387,6 +391,7 @@ export default function AdminDashboard() {
         { key: 'CHAT_WIDTH', value: chatWidth },
         { key: 'CHAT_COLOR', value: chatColor },
         { key: 'AUTO_PROPOSAL_ENABLED', value: autoProposalEnabled ? 'true' : 'false' },
+        { key: 'CHAT_AVATAR_URL', value: chatAvatarUrl },
         { key: 'BANNER_HEIGHT', value: bannerHeight },
       ];
 
@@ -1797,6 +1802,33 @@ export default function AdminDashboard() {
                           onChange={e => setChatColor(e.target.value)}
                         />
                       </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-slate-700">Foto do Atendente</label>
+                      <input 
+                        type="file"
+                        accept="image/*"
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          
+                          // Upload para o bucket 'chat-avatars'
+                          const { data, error } = await supabase.storage
+                            .from('chat-avatars')
+                            .upload(`avatar-${Date.now()}.png`, file);
+                            
+                          if (error) { alert('Erro no upload'); return; }
+                          
+                          // Pega a URL pública
+                          const { data: publicUrlData } = supabase.storage
+                            .from('chat-avatars')
+                            .getPublicUrl(data.path);
+                            
+                          setChatAvatarUrl(publicUrlData.publicUrl);
+                        }}
+                      />
+                      {chatAvatarUrl && <img src={chatAvatarUrl} className="w-16 h-16 rounded-full mt-2" />}
                     </div>
                   </div>
                 </div>

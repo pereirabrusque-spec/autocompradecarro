@@ -84,7 +84,8 @@ export default function SellCar() {
     ownerPhoneConfirm: '',
     ownerEmail: '',
     ownerEmailConfirm: '',
-    ownerLocation: ''
+    ownerLocation: '',
+    authorizeNotifications: false
   });
 
   useEffect(() => {
@@ -207,7 +208,8 @@ export default function SellCar() {
         observacoes: `Localização: ${formData.ownerLocation}. Danos: ${formData.damageType}. Acessórios: ${Object.entries(formData.accessories).filter(([_, v]) => v).map(([k]) => k).join(', ')}`,
         entrada: parseFloat(formData.entrada.replace(/[^\d,]/g, '').replace(',', '.')) || 0,
         situacao_financeira: formData.situacaoFinanceira,
-        problemas: problems
+        problemas: problems,
+        autoriza_notificacoes: formData.authorizeNotifications
       }]);
 
       if (error) throw error;
@@ -838,6 +840,19 @@ export default function SellCar() {
                   value={formData.ownerLocation}
                   onChange={e => setFormData({...formData, ownerLocation: e.target.value})}
                 />
+              </div>
+              <div className="md:col-span-2">
+                <label className="flex items-center gap-3 cursor-pointer p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                  <input 
+                    type="checkbox" 
+                    className="w-5 h-5 accent-accent"
+                    checked={formData.authorizeNotifications}
+                    onChange={e => setFormData({...formData, authorizeNotifications: e.target.checked})}
+                  />
+                  <span className="text-sm font-medium text-slate-700">
+                    Aceito receber a proposta e notificações através do chat deste site.
+                  </span>
+                </label>
               </div>
             </div>
           </div>

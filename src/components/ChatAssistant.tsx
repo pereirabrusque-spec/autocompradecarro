@@ -340,6 +340,7 @@ export default function ChatAssistant() {
   const chatHeight = settings['CHAT_HEIGHT'] || '560';
   const chatWidth = settings['CHAT_WIDTH'] || '360';
   const chatColor = settings['CHAT_COLOR'] || '#F27D26';
+  const chatAvatarUrl = settings['CHAT_AVATAR_URL'] || '';
 
   return (
     <>
@@ -348,7 +349,11 @@ export default function ChatAssistant() {
         style={{ backgroundColor: chatColor }}
         className="fixed bottom-8 right-8 w-16 h-16 text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-transform z-50 group"
       >
-        <MessageSquare className="w-7 h-7" />
+        {chatAvatarUrl ? (
+          <img src={chatAvatarUrl} alt="Atendente" className="w-10 h-10 rounded-full object-cover" />
+        ) : (
+          <MessageSquare className="w-7 h-7" />
+        )}
         <span className="absolute right-full mr-4 px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
           Especialista em Dívidas
         </span>
@@ -368,8 +373,12 @@ export default function ChatAssistant() {
           >
             <div className="p-6 bg-slate-900 text-white flex justify-between items-center">
               <div className="flex items-center gap-3">
-                <div style={{ backgroundColor: chatColor }} className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg">
-                  <Bot className="w-7 h-7" />
+                <div style={{ backgroundColor: chatColor }} className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden">
+                  {chatAvatarUrl ? (
+                    <img src={chatAvatarUrl} alt="Atendente" className="w-full h-full object-cover" />
+                  ) : (
+                    <Bot className="w-7 h-7" />
+                  )}
                 </div>
                 <div>
                   <h3 className="font-display font-bold text-lg">Loja Online AI</h3>
