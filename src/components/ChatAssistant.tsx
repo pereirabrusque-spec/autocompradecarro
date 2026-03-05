@@ -34,15 +34,19 @@ export default function ChatAssistant() {
     const handleOpenChat = () => setIsOpen(true);
     window.addEventListener('open-chat', handleOpenChat);
 
-    // Get API key from settings
-    const aiKeySetting = settings['GEMINI_API_KEY'];
-    if (aiKeySetting) {
-      const keys = aiKeySetting.split('\n').map((k: string) => k.trim()).filter((k: string) => k.length > 0);
-      if (keys.length > 0) {
-        const randomKey = keys[Math.floor(Math.random() * keys.length)];
+    // Get API key from api_keys table
+    const fetchApiKey = async () => {
+      const { data, error } = await supabase
+        .from('api_keys')
+        .select('key')
+        .eq('provider', 'gemini');
+      
+      if (!error && data && data.length > 0) {
+        const randomKey = data[Math.floor(Math.random() * data.length)].key;
         setApiKey(randomKey);
       }
-    }
+    };
+    fetchApiKey();
 
     // Fetch Banks, Repair Costs, and FIPE Rules
     const fetchData = async () => {

@@ -14,7 +14,6 @@ export default function AdminDashboard() {
   const [deletingAsset, setDeletingAsset] = useState<string | null>(null);
   const [uploadingAsset, setUploadingAsset] = useState<string | null>(null);
   const [seedingCards, setSeedingCards] = useState(false);
-  const [aiApiKey, setAiApiKey] = useState('');
   const [apiKeys, setApiKeys] = useState<any[]>([]);
   const [newApiKey, setNewApiKey] = useState('');
   const [newApiProvider, setNewApiProvider] = useState<'gemini' | 'openai' | 'grok'>('gemini');
@@ -97,11 +96,6 @@ export default function AdminDashboard() {
       const { data: settingsData, error: settingsError } = await supabase.from('settings').select('*');
       
       if (!settingsError && settingsData) {
-        const aiKeySetting = settingsData.find((s: any) => s.key === 'GEMINI_API_KEY');
-        if (aiKeySetting) {
-          setAiApiKey(aiKeySetting.value);
-        }
-
         const aiPromptSetting = settingsData.find((s: any) => s.key === 'AI_SYSTEM_PROMPT');
         if (aiPromptSetting) {
           setAiSystemPrompt(aiPromptSetting.value);
@@ -345,7 +339,6 @@ export default function AdminDashboard() {
     setSavingSettings(true);
     try {
       const settingsToSave = [
-        { key: 'GEMINI_API_KEY', value: aiApiKey },
         { key: 'CHAT_ENABLED', value: chatEnabled ? 'true' : 'false' },
         { key: 'WHATSAPP_NUMBER', value: whatsappNumber },
         { key: 'WHATSAPP_BUTTON_TEXT', value: whatsappButtonText },
@@ -900,18 +893,6 @@ export default function AdminDashboard() {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-6">
-                  <h3 className="text-lg font-bold">Configurações Gerais</h3>
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-slate-700">Altura do Banner (ex: 100vh, 500px)</label>
-                    <input 
-                      className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none"
-                      value={bannerHeight}
-                      onChange={e => setBannerHeight(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-6">
                   <h3 className="text-lg font-bold">Adicionar Nova Chave</h3>
                   <div className="space-y-4">
                     <div className="space-y-2">
@@ -1323,19 +1304,19 @@ export default function AdminDashboard() {
                   </label>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700">Chaves da API de IA (Gemini)</label>
-                  <textarea 
-                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20 h-32 font-mono text-xs"
-                    placeholder="AIzaSy... (uma por linha)"
-                    value={aiApiKey}
-                    onChange={e => setAiApiKey(e.target.value)}
-                  />
-                  <p className="text-xs text-slate-500">Insira múltiplas chaves (uma por linha) para balanceamento de carga e evitar limites de uso.</p>
-                </div>
-
                 <div className="pt-6 border-t border-slate-100">
-                  <h3 className="text-lg font-bold mb-4">Aparência do Chat Inteligente</h3>
+                  <h3 className="text-lg font-bold mb-4">Aparência do Site e Chat</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-slate-700">Altura do Banner Superior (ex: 100vh, 500px)</label>
+                      <input 
+                        className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20"
+                        value={bannerHeight}
+                        onChange={e => setBannerHeight(e.target.value)}
+                        placeholder="Ex: 100vh"
+                      />
+                    </div>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-bold text-slate-700">Altura (px)</label>
