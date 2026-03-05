@@ -281,8 +281,14 @@ export default function SellCar() {
       setIsSuccess(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error: any) {
-      console.error(error);
-      setErrorMessage([`Erro ao enviar avaliação: ${error.message || 'Tente novamente.'}`]);
+      console.error('Erro detalhado:', error);
+      let msg = `Erro ao enviar avaliação: ${error.message || 'Tente novamente.'}`;
+      
+      if (error.code === '42501' || error.message?.includes('row-level security')) {
+        msg = 'Erro de Permissão: O sistema de segurança do banco de dados bloqueou o envio. É necessário configurar as políticas de segurança (RLS) no Supabase para permitir inserções públicas na tabela "leads_veiculos".';
+      }
+      
+      setErrorMessage([msg]);
       setErrorModalOpen(true);
     } finally {
       setIsSubmitting(false);
@@ -374,16 +380,16 @@ export default function SellCar() {
           </p>
           <div className="space-y-4">
             <button 
-              onClick={resetForm}
+              onClick={() => window.location.href = '/'}
               className="w-full py-4 bg-accent text-white rounded-2xl font-bold hover:bg-orange-600 transition-all shadow-lg shadow-accent/20"
             >
-              Avaliar outro veículo
+              Voltar para Home
             </button>
             <button 
-              onClick={() => window.location.href = '/'}
+              onClick={resetForm}
               className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all"
             >
-              Voltar para Home
+              Avaliar outro veículo
             </button>
           </div>
         </motion.div>
@@ -1056,12 +1062,9 @@ export default function SellCar() {
 
       {/* Error Modal */}
       {errorModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl"
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300">
+          <div
+            className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-300"
           >
             <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <AlertCircle className="w-8 h-8" />
@@ -1089,7 +1092,7 @@ export default function SellCar() {
             >
               Entendi, vou corrigir
             </button>
-          </motion.div>
+          </div>
         </div>
       )}
     </div>
