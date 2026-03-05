@@ -41,13 +41,12 @@ export default function ChatAssistant() {
       const { data, error } = await supabase
         .from('api_keys')
         .select('key, provider, service, status')
+        .eq('status', 'ok')
         .order('created_at', { ascending: false });
       
       if (!error && data && data.length > 0) {
-        // Try to find an 'ok' key first
-        const okKeys = data.filter((k: any) => k.status !== 'error');
-        const source = okKeys.length > 0 ? okKeys : data;
-        const randomEntry = source[Math.floor(Math.random() * source.length)];
+        // Just for UI display, AIService handles the actual selection
+        const randomEntry = data[0];
         const model = randomEntry.service.split(':')[0];
         setActiveKey({ key: randomEntry.key, provider: randomEntry.provider, model });
       }

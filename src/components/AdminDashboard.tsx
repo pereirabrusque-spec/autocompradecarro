@@ -1065,7 +1065,7 @@ export default function AdminDashboard() {
                                   } else {
                                     const { error: updateError } = await supabase
                                       .from('api_keys')
-                                      .update({ status: 'error' })
+                                      .update({ status: 'disconnected' })
                                       .eq('id', key.id);
                                     
                                     if (!updateError) await fetchData();
@@ -1122,7 +1122,7 @@ export default function AdminDashboard() {
                               key.status === 'no_credit' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
                             }`}>
                               {key.status === 'ok' ? 'Ativa' : 
-                               key.status === 'no_credit' ? 'Sem Crédito' : 'Erro'}
+                               key.status === 'no_credit' ? 'Sem Crédito' : 'Desconectada'}
                             </span>
                           </div>
 

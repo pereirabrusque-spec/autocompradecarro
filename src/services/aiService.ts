@@ -14,14 +14,40 @@ export class AIService {
     const { data, error } = await supabase
       .from('api_keys')
       .select('*')
-      .eq('status', 'ok')
-      .order('last_used', { ascending: true }); // Use least recently used for load balancing
+      .eq('status', 'ok');
 
     if (error) {
       console.error('Error fetching API keys:', error);
       return [];
     }
-    return data || [];
+
+    // Model priority (higher is better)
+    const modelPriority: Record<string, number> = {
+      'gemini-1.5-pro': 100,
+      'gemini-2.0-flash-exp': 95,
+      'gpt-4o': 90,
+      'grok-2': 85,
+      'gemini-1.5-flash': 50,
+      'gpt-4o-mini': 40,
+      'grok-beta': 30
+    };
+
+    // Sort by priority first, then by last_used (load balance within same priority)
+    return (data || []).sort((a, b) => {
+      const modelA = a.service?.split(':')[0] || '';
+      const modelB = b.service?.split(':')[0] || '';
+      
+      const priorityA = modelPriority[modelA] || 0;
+      const priorityB = modelPriority[modelB] || 0;
+
+      if (priorityA !== priorityB) {
+        return priorityB - priorityA; // Higher priority first
+      }
+
+      const lastUsedA = a.last_used ? new Date(a.last_used).getTime() : 0;
+      const lastUsedB = b.last_used ? new Date(b.last_used).getTime() : 0;
+      return lastUsedA - lastUsedB; // Least recently used first
+    });
   }
 
   private static async updateKeyStatus(id: string, status: 'ok' | 'no_credit' | 'disconnected', errorCount: number = 0) {
