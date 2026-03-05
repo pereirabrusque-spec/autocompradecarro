@@ -82,7 +82,7 @@ export default function Hero() {
               <span class="text-red-600">agora.</span>` }}
             />
 
-            <p className="mt-4 text-sm md:text-lg lg:text-xl text-white/95 max-w-2xl font-medium leading-tight md:leading-relaxed line-clamp-2 md:line-clamp-3 drop-shadow-lg">
+            <p className="mt-4 text-sm md:text-lg lg:text-xl text-white/95 max-w-2xl font-medium leading-tight md:leading-relaxed drop-shadow-lg">
               {currentBanner?.subtitle || currentBanner?.legenda || 'Especialistas em veículos com dívidas, financiamento atrasado, motor estourado ou batidos. Assumimos a burocracia e limpamos seu nome.'}
             </p>
           </motion.div>
