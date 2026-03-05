@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
 import { 
   Search, Car, Calculator, ArrowRight, Loader2, CheckCircle2, 
   Camera, FileText, AlertCircle, ShieldCheck, Info, Bike, Truck,
