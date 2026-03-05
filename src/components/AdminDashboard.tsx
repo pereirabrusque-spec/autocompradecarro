@@ -927,21 +927,13 @@ export default function AdminDashboard() {
                         if (!newApiKey) return;
 
                         try {
-                          // 1. First, remove any existing key for this provider
-                          const { error: deleteError } = await supabase
-                            .from('api_keys')
-                            .delete()
-                            .eq('provider', newApiProvider);
-
-                          if (deleteError) throw deleteError;
-
-                          // 2. Then, insert the new key
+                          // Simply insert the new key without deleting existing ones
                           const { error: insertError } = await supabase
                             .from('api_keys')
                             .insert([{ 
                               provider: newApiProvider, 
                               key: newApiKey,
-                              service: newApiProvider // Added service column
+                              service: newApiProvider
                             }]);
 
                           if (insertError) throw insertError;
