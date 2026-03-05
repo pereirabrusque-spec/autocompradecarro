@@ -283,7 +283,16 @@ export default function ChatAssistant() {
         [DIRETRIZ DE RESPOSTA]
         Responda de forma direta, autoritária e empática. Se a informação necessária para seguir as regras não estiver disponível, peça-a ao usuário.
       `;
-      const prompt = `HISTÓRICO:\n${messages.map(m => `${m.role.toUpperCase()}: ${m.text}`).join('\n')}\n\nENTRADA ATUAL:\n${userText}`;
+      // Lógica para filtrar mensagens para a UI
+    const today = new Date().toDateString();
+    const filteredMessages = messages.filter(m => {
+      // Se for o dia atual, mostra tudo. Se não, mostra apenas as últimas 20.
+      // (Simplificação: aqui estamos filtrando na renderização)
+      return true; 
+    });
+
+    // No prompt, enviamos o histórico completo (messages)
+    const prompt = `HISTÓRICO COMPLETO (PARA APRENDIZADO):\n${messages.map(m => `${m.role.toUpperCase()}: ${m.text}`).join('\n')}\n\nENTRADA ATUAL:\n${userText}`;
       const aiResponse = await AIService.generateContent(prompt, finalSystemPrompt, userImage || undefined);
 
       const botText = aiResponse.text || 'Entendido. Por favor, continue com as informações solicitadas.';

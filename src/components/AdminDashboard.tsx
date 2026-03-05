@@ -686,6 +686,7 @@ export default function AdminDashboard() {
                       <div>
                         <h2 className="font-display text-xl font-bold group-hover:text-accent transition-colors">{v.marca} {v.modelo}</h2>
                         <p className="text-slate-400 text-sm">{v.ano_modelo} • {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v.preco_cliente)}</p>
+                        <p className="text-accent font-bold text-sm mt-1">Proposta IA: {v.ai_proposal ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v.ai_proposal) : 'Aguardando'}</p>
                       </div>
                       <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                         v.status === 'novo' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'
