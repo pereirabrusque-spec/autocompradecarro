@@ -927,7 +927,7 @@ export default function AdminDashboard() {
                             .from('api_keys')
                             .insert([{ 
                               provider: newApiProvider, 
-                              key: newApiKey,
+                              key: newApiKey.trim(),
                               service: newApiProvider
                             }]);
 
@@ -969,10 +969,14 @@ export default function AdminDashboard() {
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify({ provider: key.provider, key: key.key })
                                 });
-                                if (response.ok) alert('Chave válida!');
-                                else alert('Chave inválida!');
+                                const data = await response.json();
+                                if (response.ok) {
+                                  alert('Chave válida!');
+                                } else {
+                                  alert(`Erro: ${data.error || 'Chave inválida'}`);
+                                }
                               } catch (err) {
-                                alert('Erro ao testar chave.');
+                                alert('Erro ao conectar com o servidor de teste.');
                               }
                             }}
                             className="text-blue-400 hover:text-blue-600 mr-2"

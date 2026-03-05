@@ -55,24 +55,33 @@ async function startServer() {
 
   app.post('/api/test-api-key', async (req, res) => {
     const { provider, key } = req.body;
+    const trimmedKey = key?.trim();
+    
     try {
       if (provider === 'gemini') {
-        // Simple test for Gemini
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash?key=${key}`);
-        if (response.ok) res.json({ success: true });
-        else res.status(400).json({ error: 'Invalid key' });
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash?key=${trimmedKey}`);
+        const data = await response.json();
+        if (response.ok) {
+          res.json({ success: true });
+        } else {
+          res.status(400).json({ error: data.error?.message || 'Chave Gemini inválida' });
+        }
       } else if (provider === 'openai') {
-        // Simple test for OpenAI
         const response = await fetch('https://api.openai.com/v1/models', {
-          headers: { 'Authorization': `Bearer ${key}` }
+          headers: { 'Authorization': `Bearer ${trimmedKey}` }
         });
-        if (response.ok) res.json({ success: true });
-        else res.status(400).json({ error: 'Invalid key' });
+        const data = await response.json();
+        if (response.ok) {
+          res.json({ success: true });
+        } else {
+          res.status(400).json({ error: data.error?.message || 'Chave OpenAI inválida' });
+        }
       } else {
-        res.status(400).json({ error: 'Unsupported provider' });
+        res.status(400).json({ error: 'Provedor não suportado para teste automático' });
       }
-    } catch (error) {
-      res.status(500).json({ error: 'Connection error' });
+    } catch (error: any) {
+      console.error('Erro no teste de API:', error);
+      res.status(500).json({ error: 'Erro de conexão com o provedor' });
     }
   });
 
