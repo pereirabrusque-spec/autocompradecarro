@@ -13,13 +13,13 @@ const testimonials = [
     name: 'André Silva',
     location: 'Campinas/SP',
     text: 'Bati o carro e o conserto ficava inviável. Vendi para eles no estado em que estava e o dinheiro caiu na hora.',
-    avatar: 'https://i.pravatar.cc/150?u=andre_man'
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150&h=150'
   },
   {
     name: 'Jessica Luiza',
     location: 'Curitiba/PR',
     text: 'Estava com o financiamento atrasado há meses. Assumiram a dívida e limparam meu nome. Excelente serviço.',
-    avatar: 'https://i.pravatar.cc/150?u=jessica_woman'
+    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=150&h=150'
   },
   {
     name: 'Mariana Costa',
