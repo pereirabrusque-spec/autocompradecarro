@@ -269,8 +269,8 @@ export default function ChatAssistant() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 100, scale: 0.8 }}
             style={{ 
-              height: `${chatHeight}px`, 
-              width: window.innerWidth < 640 ? '95vw' : `${chatWidth}px` 
+              height: `${parseInt(chatHeight) * 0.8}px`, 
+              width: window.innerWidth < 640 ? '95vw' : `${parseInt(chatWidth) * 0.8}px` 
             }}
             className="fixed bottom-8 right-8 bg-white rounded-[32px] shadow-2xl z-[60] flex flex-col overflow-hidden border border-slate-100"
           >
@@ -292,7 +292,7 @@ export default function ChatAssistant() {
                   onClick={() => setIsOpen(false)} 
                   className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors"
                 >
-                  Fechar
+                  Recolher
                 </button>
                 <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-white/10 rounded-xl transition-colors">
                   <X className="w-6 h-6" />

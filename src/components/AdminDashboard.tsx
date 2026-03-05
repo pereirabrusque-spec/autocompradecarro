@@ -1220,7 +1220,7 @@ export default function AdminDashboard() {
                     />
                     <button 
                       onClick={async () => {
-                        const { error } = await handleUpdateAsset(asset.id, asset.url, asset.legenda, asset.tipo);
+                        const { error } = await handleUpdateAsset(asset.id, asset.url, asset.legenda, asset.tipo, asset.button_text, asset.button_link, asset.title, asset.subtitle, asset.badge_text);
                         if (!error) alert('Salvo com sucesso!');
                       }}
                       disabled={savingAsset === asset.id}
