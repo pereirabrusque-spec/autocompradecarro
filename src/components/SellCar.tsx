@@ -230,7 +230,9 @@ export default function SellCar() {
     if (formData.hasSinistradoLeilao) problems.push('Sinistrado / Leilão');
 
     try {
-      console.log('Enviando dados para Supabase:', {
+      console.log('Enviando dados para Supabase (via API)...');
+      
+      const leadPayload = {
         cliente_nome: formData.ownerName,
         telefone: formData.ownerPhone,
         email: formData.ownerEmail,
@@ -249,35 +251,28 @@ export default function SellCar() {
         situacao_financeira: formData.situacaoFinanceira,
         problemas: problems,
         notifications_enabled: formData.authorizeNotifications
+      };
+
+      // Tentar via API Backend (Bypass RLS)
+      const response = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(leadPayload)
       });
 
-      const { data: insertData, error: insertError } = await supabase.from('leads_veiculos').insert([{
-        cliente_nome: formData.ownerName,
-        telefone: formData.ownerPhone,
-        email: formData.ownerEmail,
-        marca: formData.brandName || formData.brandId,
-        modelo: formData.modelName || formData.modelId,
-        ano_modelo: formData.yearName || formData.yearId,
-        cor: formData.color,
-        quilometragem: parseInt(formData.mileage.replace(/\D/g, '')) || 0,
-        placa: '',
-        renavam: '',
-        valor_fipe: parseFloat(fipePrice.replace(/[^\d,]/g, '').replace(',', '.')) || 0,
-        preco_cliente: parseFloat(formData.desiredPrice.replace(/\./g, '').replace(',', '.')) || 0,
-        status: 'novo',
-        observacoes: `Localização: ${formData.ownerLocation}. Danos: ${formData.damageType}. Acessórios: ${Object.entries(formData.accessories).filter(([_, v]) => v).map(([k]) => k).join(', ')}`,
-        entrada: parseFloat(formData.entrada.replace(/\./g, '').replace(',', '.')) || 0,
-        situacao_financeira: formData.situacaoFinanceira,
-        problemas: problems,
-        notifications_enabled: formData.authorizeNotifications
-      }]).select();
+      const result = await response.json();
 
-      if (insertError) {
-        console.error('Erro ao inserir lead:', insertError);
-        throw insertError;
+      if (!response.ok) {
+        // Se falhar no backend (ex: falta chave), tentar direto no Supabase (Client) como fallback
+        console.warn('Falha na API Backend, tentando direto no Supabase...', result.error);
+        
+        const { data: insertData, error: insertError } = await supabase.from('leads_veiculos').insert([leadPayload]).select();
+        
+        if (insertError) throw insertError;
+        console.log('Lead inserido com sucesso (Client):', insertData);
+      } else {
+        console.log('Lead inserido com sucesso (API):', result);
       }
-      
-      console.log('Lead inserido com sucesso:', insertData);
 
       setIsSuccess(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -291,25 +286,6 @@ export default function SellCar() {
       
       setErrorMessage([msg]);
       setErrorModalOpen(true);
-
-      // Fallback para WhatsApp se o erro for de permissão ou banco de dados
-      if (error.code === '42501' || error.message?.includes('row-level security') || error.message?.includes('violates row-level security')) {
-        setTimeout(() => {
-          const message = `Olá, tentei enviar o formulário pelo site mas deu erro. Seguem meus dados:\n\n` +
-            `*Veículo:* ${formData.brandName} ${formData.modelName} ${formData.yearName}\n` +
-            `*Cor:* ${formData.color}\n` +
-            `*KM:* ${formData.mileage}\n` +
-            `*Valor Pedido:* ${formData.desiredPrice}\n` +
-            `*Nome:* ${formData.ownerName}\n` +
-            `*Telefone:* ${formData.ownerPhone}\n` +
-            `*Email:* ${formData.ownerEmail}\n` +
-            `*Cidade:* ${formData.ownerLocation}\n` +
-            `*Observações:* ${problems.join(', ')}`;
-          
-          const whatsappUrl = `https://wa.me/55${formData.ownerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
-          window.open(whatsappUrl, '_blank');
-        }, 3000);
-      }
     } finally {
       setIsSubmitting(false);
     }

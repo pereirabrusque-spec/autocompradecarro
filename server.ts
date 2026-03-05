@@ -3,14 +3,55 @@ import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+import { createClient } from '@supabase/supabase-js';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Initialize Supabase Admin Client (if service role key is available)
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+let supabaseAdmin: any = null;
+
+if (supabaseUrl && supabaseServiceKey) {
+  supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+}
 
 async function startServer() {
   const app = express();
   const PORT = process.env.PORT || 3000;
 
   app.use(express.json());
+
+  // Secure Lead Submission Endpoint (Bypasses RLS)
+  app.post('/api/leads', async (req, res) => {
+    try {
+      if (!supabaseAdmin) {
+        return res.status(500).json({ 
+          error: 'Configuração de servidor incompleta. A chave SUPABASE_SERVICE_ROLE_KEY não foi configurada no ambiente.' 
+        });
+      }
+
+      const leadData = req.body;
+      
+      // Basic validation
+      if (!leadData.cliente_nome || !leadData.telefone) {
+        return res.status(400).json({ error: 'Dados obrigatórios faltando.' });
+      }
+
+      const { data, error } = await supabaseAdmin
+        .from('leads_veiculos')
+        .insert([leadData])
+        .select();
+
+      if (error) throw error;
+
+      res.json({ success: true, data });
+    } catch (error: any) {
+      console.error('Erro ao inserir lead via API:', error);
+      res.status(500).json({ error: error.message || 'Erro interno ao salvar lead.' });
+    }
+  });
 
   // FIPE Proxy Routes (using public API)
   app.get('/api/fipe/brands', async (req, res) => {
