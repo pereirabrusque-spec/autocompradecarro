@@ -216,11 +216,13 @@ export default function AdminDashboard() {
   const handleUpdateAsset = async (id: string, url: string, legenda: string, tipo: string, button_text?: string, button_link?: string, title?: string, subtitle?: string, badge_text?: string) => {
     setSavingAsset(id);
     try {
-      const { error } = await supabase
+      console.log('Updating asset:', { id, url, legenda, tipo, button_text, button_link, title, subtitle, badge_text });
+      const { data, error } = await supabase
         .from('banners')
         .update({ url, legenda, tipo, button_text, button_link, title, subtitle, badge_text, ativo: true })
         .eq('id', id);
 
+      console.log('Supabase update response:', { data, error });
       if (error) throw error;
 
       await refreshAssets();
@@ -373,10 +375,11 @@ export default function AdminDashboard() {
       ];
 
       console.log('settingsToSave:', settingsToSave);
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('settings')
         .upsert(settingsToSave, { onConflict: 'key' });
 
+      console.log('Supabase response:', { data, error });
       if (error) throw error;
 
       alert('Configurações salvas com sucesso!');
@@ -1220,8 +1223,7 @@ export default function AdminDashboard() {
                     />
                     <button 
                       onClick={async () => {
-                        const { error } = await handleUpdateAsset(asset.id, asset.url, asset.legenda, asset.tipo, asset.button_text, asset.button_link, asset.title, asset.subtitle, asset.badge_text);
-                        if (!error) alert('Salvo com sucesso!');
+                        await handleUpdateAsset(asset.id, asset.url, asset.legenda, asset.tipo, asset.button_text, asset.button_link, asset.title, asset.subtitle, asset.badge_text);
                       }}
                       disabled={savingAsset === asset.id}
                       className="mt-auto w-full py-2 bg-slate-900 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1 hover:bg-accent transition-all disabled:opacity-50"
