@@ -53,6 +53,29 @@ async function startServer() {
     }
   });
 
+  app.post('/api/test-api-key', async (req, res) => {
+    const { provider, key } = req.body;
+    try {
+      if (provider === 'gemini') {
+        // Simple test for Gemini
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash?key=${key}`);
+        if (response.ok) res.json({ success: true });
+        else res.status(400).json({ error: 'Invalid key' });
+      } else if (provider === 'openai') {
+        // Simple test for OpenAI
+        const response = await fetch('https://api.openai.com/v1/models', {
+          headers: { 'Authorization': `Bearer ${key}` }
+        });
+        if (response.ok) res.json({ success: true });
+        else res.status(400).json({ error: 'Invalid key' });
+      } else {
+        res.status(400).json({ error: 'Unsupported provider' });
+      }
+    } catch (error) {
+      res.status(500).json({ error: 'Connection error' });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({

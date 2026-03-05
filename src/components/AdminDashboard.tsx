@@ -59,6 +59,7 @@ export default function AdminDashboard() {
   const [chatHeight, setChatHeight] = useState('560');
   const [chatWidth, setChatWidth] = useState('360');
   const [chatColor, setChatColor] = useState('#F27D26');
+  const [bannerHeight, setBannerHeight] = useState('100vh');
   const [savingSettings, setSavingSettings] = useState(false);
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const { refreshAssets } = useAssets();
@@ -372,6 +373,7 @@ export default function AdminDashboard() {
         { key: 'CHAT_HEIGHT', value: chatHeight },
         { key: 'CHAT_WIDTH', value: chatWidth },
         { key: 'CHAT_COLOR', value: chatColor },
+        { key: 'BANNER_HEIGHT', value: bannerHeight },
       ];
 
       console.log('settingsToSave:', settingsToSave);
@@ -898,6 +900,18 @@ export default function AdminDashboard() {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-6">
+                  <h3 className="text-lg font-bold">Configurações Gerais</h3>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-slate-700">Altura do Banner (ex: 100vh, 500px)</label>
+                    <input 
+                      className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                      value={bannerHeight}
+                      onChange={e => setBannerHeight(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-6">
                   <h3 className="text-lg font-bold">Adicionar Nova Chave</h3>
                   <div className="space-y-4">
                     <div className="space-y-2">
@@ -966,6 +980,24 @@ export default function AdminDashboard() {
                               key.status === 'no_credit' ? 'bg-amber-500' : 'bg-red-500'
                             }`} />
                           </div>
+                          <button 
+                            onClick={async () => {
+                              try {
+                                const response = await fetch('/api/test-api-key', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ provider: key.provider, key: key.key })
+                                });
+                                if (response.ok) alert('Chave válida!');
+                                else alert('Chave inválida!');
+                              } catch (err) {
+                                alert('Erro ao testar chave.');
+                              }
+                            }}
+                            className="text-blue-400 hover:text-blue-600 mr-2"
+                          >
+                            Testar
+                          </button>
                           <button 
                             onClick={async () => {
                               if (confirm('Remover chave?')) {

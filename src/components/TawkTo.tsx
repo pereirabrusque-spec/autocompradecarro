@@ -29,6 +29,14 @@ export default function TawkTo() {
       if (existingScript) {
         existingScript.remove();
       }
+      // Remove Tawk.to container if it exists
+      const tawkContainer = document.getElementById('tawkto-chat-container');
+      if (tawkContainer) {
+        tawkContainer.remove();
+      }
+      // Also try to remove any other Tawk.to elements
+      const tawkElements = document.querySelectorAll('[id^="tawk-"]');
+      tawkElements.forEach(el => el.remove());
     }
   }, [settings]);
 
