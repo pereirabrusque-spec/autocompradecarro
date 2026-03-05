@@ -71,6 +71,9 @@ export default function AdminDashboard() {
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const { refreshAssets } = useAssets();
 
+  const [showApiKeyForm, setShowApiKeyForm] = useState(false);
+  const [isSavingKey, setIsSavingKey] = useState(false);
+
   const fetchData = async () => {
     setIsLoading(true);
     try {
@@ -906,134 +909,176 @@ export default function AdminDashboard() {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-6">
-                  <h3 className="text-lg font-bold">{editingApiKey ? 'Editar Chave' : 'Adicionar Nova Chave'}</h3>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-slate-700">Provedor</label>
-                      <select 
-                        className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none"
-                        value={newApiProvider}
-                        onChange={e => {
-                          const provider = e.target.value as any;
-                          setNewApiProvider(provider);
-                          if (provider === 'gemini') setNewApiModel('gemini-1.5-flash');
-                          else if (provider === 'openai') setNewApiModel('gpt-4o-mini');
-                          else if (provider === 'grok') setNewApiModel('grok-beta');
-                        }}
-                      >
-                        {providers.length > 0 ? (
-                          providers.map(p => (
-                            <option key={p.id} value={p.slug}>{p.name}</option>
-                          ))
-                        ) : (
-                          <>
-                            <option value="gemini">Google Gemini</option>
-                            <option value="openai">OpenAI</option>
-                            <option value="grok">xAI Grok</option>
-                          </>
-                        )}
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-slate-700">Modelo Padrão</label>
-                      <div className="flex gap-2">
-                        <input 
-                          type="text"
-                          className="flex-1 p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none"
-                          placeholder="Digite o modelo (ex: gpt-4o)"
-                          value={newApiModel}
-                          onChange={e => setNewApiModel(e.target.value)}
-                          list="common-models"
-                        />
-                        <datalist id="common-models">
-                          <option value="gemini-1.5-pro" />
-                          <option value="gemini-1.5-flash" />
-                          <option value="gemini-2.0-flash-exp" />
-                          <option value="gpt-4o" />
-                          <option value="gpt-4o-mini" />
-                          <option value="gpt-4-turbo" />
-                          <option value="grok-2" />
-                          <option value="grok-beta" />
-                        </datalist>
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-bold">Configuração de APIs</h3>
+                    <button 
+                      onClick={() => {
+                        setShowApiKeyForm(!showApiKeyForm);
+                        if (!showApiKeyForm) {
+                          setEditingApiKey(null);
+                          setNewApiKey('');
+                        }
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-accent transition-all"
+                    >
+                      <Plus className="w-4 h-4" />
+                      {showApiKeyForm ? 'Fechar Formulário' : 'Nova Chave'}
+                    </button>
+                  </div>
+                  
+                  {showApiKeyForm && (
+                    <div className="p-6 bg-white border border-slate-200 rounded-[32px] shadow-sm space-y-6">
+                      <h3 className="text-lg font-bold">{editingApiKey ? 'Editar Chave' : 'Adicionar Nova Chave'}</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-sm font-bold text-slate-700">Provedor</label>
+                          <select 
+                            className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                            value={newApiProvider}
+                            onChange={e => {
+                              const provider = e.target.value as any;
+                              setNewApiProvider(provider);
+                              if (provider === 'gemini') setNewApiModel('gemini-1.5-flash');
+                              else if (provider === 'openai') setNewApiModel('gpt-4o-mini');
+                              else if (provider === 'grok') setNewApiModel('grok-beta');
+                            }}
+                          >
+                            {providers.length > 0 ? (
+                              providers.map(p => (
+                                <option key={p.id} value={p.slug}>{p.name}</option>
+                              ))
+                            ) : (
+                              <>
+                                <option value="gemini">Google Gemini</option>
+                                <option value="openai">OpenAI</option>
+                                <option value="grok">xAI Grok</option>
+                              </>
+                            )}
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-bold text-slate-700">Modelo Padrão</label>
+                          <div className="flex gap-2">
+                            <select 
+                              className="flex-1 p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                              value={newApiModel}
+                              onChange={e => setNewApiModel(e.target.value)}
+                            >
+                              <optgroup label="Google Gemini">
+                                <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                                <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                                <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash</option>
+                              </optgroup>
+                              <optgroup label="OpenAI">
+                                <option value="gpt-4o-mini">GPT-4o Mini</option>
+                                <option value="gpt-4o">GPT-4o</option>
+                                <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                              </optgroup>
+                              <optgroup label="xAI Grok">
+                                <option value="grok-beta">Grok Beta</option>
+                                <option value="grok-2">Grok 2</option>
+                              </optgroup>
+                              <optgroup label="Outros">
+                                <option value="custom">Outro (Digitar abaixo)</option>
+                              </optgroup>
+                            </select>
+                          </div>
+                          {newApiModel === 'custom' && (
+                            <input 
+                              type="text"
+                              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none mt-2"
+                              placeholder="Digite o nome do modelo (ex: claude-3-opus)"
+                              onChange={e => setNewApiModel(e.target.value)}
+                            />
+                          )}
+                        </div>
+                        <div className="space-y-2 md:col-span-2">
+                          <label className="text-sm font-bold text-slate-700">Chave da API</label>
+                          <input 
+                            type="password"
+                            className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                            placeholder="sk-..."
+                            value={newApiKey}
+                            onChange={e => setNewApiKey(e.target.value)}
+                          />
+                        </div>
                       </div>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-slate-700">Chave da API</label>
-                      <input 
-                        type="password"
-                        className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none"
-                        placeholder="sk-..."
-                        value={newApiKey}
-                        onChange={e => setNewApiKey(e.target.value)}
-                      />
-                    </div>
-                    <div className="flex gap-3">
-                      <button 
-                        onClick={async () => {
-                          if (!newApiKey) return;
-
-                          try {
-                            if (editingApiKey) {
-                              const { error } = await supabase
-                                .from('api_keys')
-                                .update({ 
-                                  provider: newApiProvider, 
-                                  key: newApiKey.trim(),
-                                  service: newApiModel,
-                                  status: 'ok'
-                                })
-                                .eq('id', editingApiKey);
-                              if (error) throw error;
-                              setEditingApiKey(null);
-                            } else {
-                              // Try to insert with status, if it fails, try without (in case column is still being created)
-                              const { error } = await supabase
-                                .from('api_keys')
-                                .insert([{ 
-                                  provider: newApiProvider, 
-                                  key: newApiKey.trim(),
-                                  service: newApiModel,
-                                  status: 'ok'
-                                }]);
-                              
-                              if (error) {
-                                console.warn('Erro ao inserir com status, tentando sem status...', error);
-                                const { error: retryError } = await supabase
+                      <div className="flex gap-3">
+                        <button 
+                          onClick={async () => {
+                            if (!newApiKey.trim()) {
+                              alert('Por favor, insira a chave da API.');
+                              return;
+                            }
+                            
+                            setIsSavingKey(true);
+                            try {
+                              if (editingApiKey) {
+                                const { error } = await supabase
+                                  .from('api_keys')
+                                  .update({ 
+                                    provider: newApiProvider, 
+                                    key: newApiKey.trim(),
+                                    service: newApiModel,
+                                    status: 'ok'
+                                  })
+                                  .eq('id', editingApiKey);
+                                if (error) throw error;
+                                setEditingApiKey(null);
+                                setShowApiKeyForm(false);
+                              } else {
+                                const { error } = await supabase
                                   .from('api_keys')
                                   .insert([{ 
                                     provider: newApiProvider, 
                                     key: newApiKey.trim(),
-                                    service: newApiModel
+                                    service: newApiModel,
+                                    status: 'ok'
                                   }]);
-                                if (retryError) throw retryError;
+                                
+                                if (error) {
+                                  const { error: retryError } = await supabase
+                                    .from('api_keys')
+                                    .insert([{ 
+                                      provider: newApiProvider, 
+                                      key: newApiKey.trim(),
+                                      service: newApiModel
+                                    }]);
+                                  if (retryError) throw retryError;
+                                }
+                                setShowApiKeyForm(false);
                               }
-                            }
 
-                            setNewApiKey('');
-                            fetchData();
-                            alert(editingApiKey ? 'Chave atualizada!' : 'Chave adicionada!');
-                          } catch (err: any) {
-                            console.error('Erro ao salvar chave:', err);
-                            alert('Erro ao salvar: ' + (err.message || 'Erro desconhecido'));
-                          }
-                        }}
-                        className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-accent transition-all"
-                      >
-                        {editingApiKey ? 'Salvar Alterações' : 'Adicionar Chave'}
-                      </button>
-                      {editingApiKey && (
-                        <button 
-                          onClick={() => {
-                            setEditingApiKey(null);
-                            setNewApiKey('');
+                              setNewApiKey('');
+                              fetchData();
+                              alert(editingApiKey ? 'Chave atualizada!' : 'Chave adicionada com sucesso!');
+                            } catch (err: any) {
+                              console.error('Erro ao salvar chave:', err);
+                              alert('Erro ao salvar: ' + (err.message || 'Erro desconhecido'));
+                            } finally {
+                              setIsSavingKey(false);
+                            }
                           }}
-                          className="px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all"
+                          disabled={isSavingKey}
+                          className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-accent transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                         >
-                          Cancelar
+                          {isSavingKey ? <Loader2 className="w-5 h-5 animate-spin" /> : (editingApiKey ? 'Salvar Alterações' : 'Adicionar Chave')}
                         </button>
-                      )}
+                        {editingApiKey && (
+                          <button 
+                            onClick={() => {
+                              setEditingApiKey(null);
+                              setNewApiKey('');
+                              setShowApiKeyForm(false);
+                            }}
+                            className="px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all"
+                          >
+                            Cancelar
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 <div className="space-y-6">
@@ -1114,6 +1159,12 @@ export default function AdminDashboard() {
                         </button>
                       </div>
                     ))}
+                  </div>
+
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl">
+                    <p className="text-[10px] text-amber-700 leading-relaxed">
+                      <strong>Dica:</strong> Se aparecer erro de "coluna status não encontrada", certifique-se de ter executado o script SQL no Supabase para atualizar a tabela <code>api_keys</code>.
+                    </p>
                   </div>
 
                   <h3 className="text-lg font-bold">Chaves Ativas</h3>
@@ -1254,18 +1305,35 @@ export default function AdminDashboard() {
                                     'grok-beta'
                                   ];
                                   
-                                  // Sort models: priority ones first, then others
-                                  const sortedModels = [...testedModels[key.id]].sort((a, b) => {
-                                    const indexA = top5.indexOf(a);
-                                    const indexB = top5.indexOf(b);
+                                  // Filter to only show models that are in our top5 list OR are currently selected
+                                  const filteredModels = testedModels[key.id].filter(m => {
+                                    const model = m.toLowerCase();
+                                    // Strict top 5 filter
+                                    return (
+                                      model === 'gemini-1.5-pro' ||
+                                      model === 'gpt-4o' ||
+                                      model === 'gemini-2.0-flash-exp' ||
+                                      model === 'grok-2' ||
+                                      model === 'gpt-4-turbo' ||
+                                      model === 'gemini-1.5-flash' ||
+                                      model === 'gpt-4o-mini' ||
+                                      model === 'grok-beta' ||
+                                      key.service === m
+                                    );
+                                  });
+
+                                  // Sort models: priority ones first
+                                  const sortedModels = [...filteredModels].sort((a, b) => {
+                                    const indexA = top5.findIndex(t => a.toLowerCase().includes(t.toLowerCase()));
+                                    const indexB = top5.findIndex(t => b.toLowerCase().includes(t.toLowerCase()));
                                     if (indexA !== -1 && indexB !== -1) return indexA - indexB;
                                     if (indexA !== -1) return -1;
                                     if (indexB !== -1) return 1;
                                     return a.localeCompare(b);
                                   });
 
-                                  // Take only the first 8 to keep it clean, but prioritize top 5
-                                  return sortedModels.slice(0, 10).map(m => (
+                                  // Take only the first 6-8 to keep it clean
+                                  return sortedModels.slice(0, 8).map(m => (
                                     <button 
                                       key={m} 
                                       onClick={async () => {

@@ -11,10 +11,20 @@ export interface AIResponse {
 
 export class AIService {
   private static async getActiveKeys(): Promise<any[]> {
-    const { data, error } = await supabase
+    // Try with status first
+    let { data, error } = await supabase
       .from('api_keys')
       .select('*')
       .eq('status', 'ok');
+
+    // Fallback if status column is missing
+    if (error && error.message.includes('status')) {
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('api_keys')
+        .select('*');
+      data = fallbackData;
+      error = fallbackError;
+    }
 
     if (error) {
       console.error('Error fetching API keys:', error);
@@ -52,14 +62,28 @@ export class AIService {
   }
 
   private static async updateKeyStatus(id: string, status: 'ok' | 'no_credit' | 'disconnected', errorCount: number = 0) {
-    await supabase
-      .from('api_keys')
-      .update({ 
-        status, 
-        error_count: errorCount,
-        last_used: new Date().toISOString()
-      })
-      .eq('id', id);
+    try {
+      const { error } = await supabase
+        .from('api_keys')
+        .update({ 
+          status, 
+          error_count: errorCount,
+          last_used: new Date().toISOString()
+        })
+        .eq('id', id);
+      
+      if (error && error.message.includes('status')) {
+        // Fallback: don't update status if column missing
+        await supabase
+          .from('api_keys')
+          .update({ 
+            last_used: new Date().toISOString()
+          })
+          .eq('id', id);
+      }
+    } catch (e) {
+      console.error('Error updating key status:', e);
+    }
   }
 
   static async generateContent(prompt: string, systemInstruction: string, image?: string): Promise<AIResponse> {

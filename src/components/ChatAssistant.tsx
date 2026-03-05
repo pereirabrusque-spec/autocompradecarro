@@ -38,16 +38,27 @@ export default function ChatAssistant() {
 
     // Get API key from api_keys table
     const fetchApiKey = async () => {
-      const { data, error } = await supabase
+      // Try to select with status first
+      let { data, error } = await supabase
         .from('api_keys')
         .select('key, provider, service, status')
         .eq('status', 'ok')
         .order('created_at', { ascending: false });
       
+      // Fallback if status column is missing
+      if (error && error.message.includes('status')) {
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('api_keys')
+          .select('key, provider, service')
+          .order('created_at', { ascending: false });
+        data = fallbackData as any;
+        error = fallbackError;
+      }
+      
       if (!error && data && data.length > 0) {
         // Just for UI display, AIService handles the actual selection
         const randomEntry = data[0];
-        const model = randomEntry.service.split(':')[0];
+        const model = randomEntry.service ? randomEntry.service.split(':')[0] : 'default';
         setActiveKey({ key: randomEntry.key, provider: randomEntry.provider, model });
       }
     };
@@ -102,15 +113,8 @@ export default function ChatAssistant() {
       // Construct the prompt with dynamic data
       const banksContext = contextData.banks.map((b: any) => `- ${b.name}: ${b.discount_percentage}% desconto`).join('\n');
       const repairContext = contextData.repairCosts.map((r: any) => `- ${r.part_name}: R$ ${r.cost}`).join('\n');
-      const fipeContext = contextData.fipeRules.map((f: any) => `- ${f.condition_name}: -${f.discount_percentage}% sobre FIPE`).join('\n');
-      
-      const finalSystemPrompt = systemPrompt 
-        ? `${systemPrompt}\n\n### MEMÓRIA DE LONGO PRAZO:\n${aiMemory}\n\n### DADOS DE MERCADO ATUALIZADOS:\n**REGRAS DE DESCONTO FIPE:**\n${fipeContext}\n\n**BANCOS E DESCONTOS:**\n${banksContext}\n\n**CUSTOS DE REPARO:**\n${repairContext}`
-        : `Você é o **AVALIADOR SÊNIOR DE VEÍCULOS** da plataforma "LOJA ONLINE - SOLUÇÕES AUTOMOTIVAS".
+      const fipeContext = contextData.fipeRules.map((f: any) => `- ${f.condition_name}: -${f.discount_percentage}% sobre FIPE`).join('\n');      const defaultRules = `Você é o **AVALIADOR SÊNIOR DE VEÍCULOS** da plataforma "LOJA ONLINE - SOLUÇÕES AUTOMOTIVAS".
         Sua função não é apenas coletar dados, mas **ANALISAR DOCUMENTOS E FOTOS** e **GERAR UMA PROPOSTA COMERCIAL IMEDIATA** baseada em regras rígidas.
-
-        ### MEMÓRIA DE LONGO PRAZO:
-        ${aiMemory}
 
         ### 1. CAPACIDADE DE VISÃO (OCR E ANÁLISE)
         - **Se o usuário enviar foto de documento (CRLV/CNH):** Extraia IMEDIATAMENTE: Placa, Renavam, Nome do Proprietário, Ano, Modelo e Cor. Confirme esses dados com o usuário.
@@ -184,7 +188,17 @@ export default function ChatAssistant() {
           "score_veiculo": 0-100
         }
         \`\`\`
-        
+      `;
+
+      const finalSystemPrompt = `
+        ${defaultRules}
+
+        ### REGRAS PERSONALIZADAS DO ADMINISTRADOR:
+        ${systemPrompt || 'Nenhuma regra adicional.'}
+
+        ### MEMÓRIA DE LONGO PRAZO:
+        ${aiMemory || 'Nenhuma memória registrada.'}
+
         ### DADOS DE MERCADO ATUALIZADOS:
         **REGRAS DE DESCONTO FIPE:**
         ${fipeContext}
@@ -193,8 +207,8 @@ export default function ChatAssistant() {
         ${banksContext}
 
         **CUSTOS DE REPARO:**
-        ${repairContext}`;
-
+        ${repairContext}
+      `;
       const prompt = `HISTÓRICO:\n${messages.map(m => `${m.role.toUpperCase()}: ${m.text}`).join('\n')}\n\nENTRADA ATUAL:\n${userText}`;
       const aiResponse = await AIService.generateContent(prompt, finalSystemPrompt, userImage || undefined);
 
