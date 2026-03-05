@@ -2008,26 +2008,21 @@ export default function AdminDashboard() {
                     placeholder="Defina aqui o contexto ou memória que a IA deve ter..."
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700">Memória da IA (Contexto)</label>
-                  <textarea 
-                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20 h-48 font-mono text-xs"
-                    value={aiMemory}
-                    onChange={e => setAiMemory(e.target.value)}
-                    placeholder="Defina aqui o contexto ou memória que a IA deve ter..."
-                  />
-                </div>
                 <button 
                   onClick={async () => {
                     setSavingSettings(true);
-                    const { error } = await supabase
+                    const { error: promptError } = await supabase
                       .from('settings')
                       .upsert({ key: 'AI_SYSTEM_PROMPT', value: aiSystemPrompt }, { onConflict: 'key' });
                     
-                    if (!error) {
-                      alert('Regras da IA salvas com sucesso!');
+                    const { error: memoryError } = await supabase
+                      .from('settings')
+                      .upsert({ key: 'AI_MEMORY', value: aiMemory }, { onConflict: 'key' });
+                    
+                    if (!promptError && !memoryError) {
+                      alert('Regras e Memória da IA salvas com sucesso!');
                     } else {
-                      alert('Erro ao salvar regras.');
+                      alert('Erro ao salvar configurações.');
                     }
                     setSavingSettings(false);
                   }}
@@ -2035,7 +2030,7 @@ export default function AdminDashboard() {
                   className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-accent transition-all disabled:opacity-50 flex items-center gap-2"
                 >
                   {savingSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  Salvar Regras
+                  Salvar Regras e Memória
                 </button>
               </div>
             </div>
