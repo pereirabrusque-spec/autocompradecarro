@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MessageSquare, Send, X, Bot, User, Loader2, Camera, Paperclip, FileText } from 'lucide-react';
 import { GoogleGenAI } from '@google/genai';
+import OpenAI from 'openai';
 import Markdown from 'react-markdown';
 import { supabase } from '../lib/supabase';
 import { AIService } from '../services/aiService';
@@ -25,7 +26,7 @@ export default function ChatAssistant() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [apiKey, setApiKey] = useState<string>('');
+  const [activeKey, setActiveKey] = useState<{ key: string, provider: string, model: string } | null>(null);
   const chatEnabled = settings['CHAT_ENABLED'] !== 'false';
   const systemPrompt = settings['AI_SYSTEM_PROMPT'] || '';
   const [contextData, setContextData] = useState({ banks: [], repairCosts: [], fipeRules: [] });
@@ -38,12 +39,16 @@ export default function ChatAssistant() {
     const fetchApiKey = async () => {
       const { data, error } = await supabase
         .from('api_keys')
-        .select('key')
-        .eq('provider', 'gemini');
+        .select('key, provider, service')
+        .order('created_at', { ascending: false });
       
       if (!error && data && data.length > 0) {
-        const randomKey = data[Math.floor(Math.random() * data.length)].key;
-        setApiKey(randomKey);
+        // Try to find an 'ok' key first
+        const okKeys = data.filter((k: any) => k.status !== 'error');
+        const source = okKeys.length > 0 ? okKeys : data;
+        const randomEntry = source[Math.floor(Math.random() * source.length)];
+        const model = randomEntry.service.split(':')[0];
+        setActiveKey({ key: randomEntry.key, provider: randomEntry.provider, model });
       }
     };
     fetchApiKey();
@@ -94,19 +99,6 @@ export default function ChatAssistant() {
     setIsLoading(true);
 
     try {
-      const parts: any[] = [];
-      if (userText) parts.push({ text: userText });
-      if (userImage) {
-        parts.push({
-          inlineData: {
-            data: userImage.split(',')[1],
-            mimeType: 'image/jpeg'
-          }
-        });
-      }
-
-      const ai = new GoogleGenAI({ apiKey });
-      
       // Construct the prompt with dynamic data
       const banksContext = contextData.banks.map((b: any) => `- ${b.name}: ${b.discount_percentage}% desconto`).join('\n');
       const repairContext = contextData.repairCosts.map((r: any) => `- ${r.part_name}: R$ ${r.cost}`).join('\n');
@@ -201,7 +193,7 @@ export default function ChatAssistant() {
         ${repairContext}`;
 
       const prompt = `HISTÓRICO:\n${messages.map(m => `${m.role.toUpperCase()}: ${m.text}`).join('\n')}\n\nENTRADA ATUAL:\n${userText}`;
-      const aiResponse = await AIService.generateContent(prompt, finalSystemPrompt);
+      const aiResponse = await AIService.generateContent(prompt, finalSystemPrompt, userImage || undefined);
 
       const botText = aiResponse.text || 'Entendido. Por favor, continue com as informações solicitadas.';
       

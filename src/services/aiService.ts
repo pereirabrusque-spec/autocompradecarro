@@ -35,24 +35,44 @@ export class AIService {
       .eq('id', id);
   }
 
-  static async generateContent(prompt: string, systemInstruction: string): Promise<AIResponse> {
+  static async generateContent(prompt: string, systemInstruction: string, image?: string): Promise<AIResponse> {
     const keys = await this.getActiveKeys();
     
     if (keys.length === 0) {
-      throw new Error('Nenhuma chave de API configurada ou ativa.');
+      // If no 'ok' keys, try any key
+      const { data: allKeys } = await supabase.from('api_keys').select('*');
+      if (!allKeys || allKeys.length === 0) {
+        throw new Error('Nenhuma chave de API configurada.');
+      }
+      keys.push(...allKeys);
     }
 
     // Try each key until one works
     for (const apiKey of keys) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout for vision tasks
+
+        const modelName = apiKey.service?.split(':')[0] || (apiKey.provider === 'gemini' ? 'gemini-1.5-flash' : 'gpt-4o-mini');
 
         if (apiKey.provider === 'gemini') {
           const ai = new GoogleGenAI({ apiKey: apiKey.key });
+          
+          const parts: any[] = [];
+          if (prompt) parts.push({ text: prompt });
+          if (image) {
+            parts.push({
+              inlineData: {
+                data: image.split(',')[1],
+                mimeType: 'image/jpeg'
+              }
+            });
+          }
+
           const response = await ai.models.generateContent({
-            model: "gemini-1.5-flash",
-            contents: `${systemInstruction}\n\n${prompt}`,
+            model: modelName,
+            contents: [{ role: 'user', parts }],
+            config: { systemInstruction }
           });
 
           clearTimeout(timeoutId);
@@ -62,10 +82,17 @@ export class AIService {
             return {
               text: response.text,
               provider: 'gemini',
-              model: 'gemini-1.5-flash'
+              model: modelName
             };
           }
         } else if (apiKey.provider === 'openai') {
+          const content: any[] = [
+            { type: 'text', text: prompt || 'Analise esta imagem.' }
+          ];
+          if (image) {
+            content.push({ type: 'image_url', image_url: { url: image } });
+          }
+
           const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -73,10 +100,10 @@ export class AIService {
               'Authorization': `Bearer ${apiKey.key}`
             },
             body: JSON.stringify({
-              model: 'gpt-4o',
+              model: modelName,
               messages: [
                 { role: 'system', content: systemInstruction },
-                { role: 'user', content: prompt }
+                { role: 'user', content }
               ],
               temperature: 0.4
             }),
@@ -95,7 +122,7 @@ export class AIService {
           return {
             text: data.choices[0].message.content,
             provider: 'openai',
-            model: 'gpt-4o'
+            model: modelName
           };
         } else if (apiKey.provider === 'grok') {
           const response = await fetch('https://api.x.ai/v1/chat/completions', {
@@ -105,7 +132,7 @@ export class AIService {
               'Authorization': `Bearer ${apiKey.key}`
             },
             body: JSON.stringify({
-              model: 'grok-beta',
+              model: modelName,
               messages: [
                 { role: 'system', content: systemInstruction },
                 { role: 'user', content: prompt }
@@ -127,25 +154,28 @@ export class AIService {
           return {
             text: data.choices[0].message.content,
             provider: 'grok',
-            model: 'grok-beta'
+            model: modelName
           };
         }
 
       } catch (error: any) {
         console.error(`Error with ${apiKey.provider} key ${apiKey.id}:`, error);
         
+        if (error.name === 'AbortError') {
+          console.warn('Request timed out');
+        }
+
         let newStatus: 'ok' | 'no_credit' | 'disconnected' = 'disconnected';
-        if (error.message?.includes('credit') || error.message?.includes('quota')) {
+        const errMsg = error.message?.toLowerCase() || '';
+        if (errMsg.includes('credit') || errMsg.includes('quota') || errMsg.includes('limit')) {
           newStatus = 'no_credit';
         }
         
         await this.updateKeyStatus(apiKey.id, newStatus, (apiKey.error_count || 0) + 1);
-        
-        // Continue to next key
         continue;
       }
     }
 
-    throw new Error('Todas as chaves de API falharam.');
+    throw new Error('Todas as chaves de API falharam ou estão sem crédito.');
   }
 }

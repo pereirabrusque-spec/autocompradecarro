@@ -17,6 +17,7 @@ export default function AdminDashboard() {
   const [apiKeys, setApiKeys] = useState<any[]>([]);
   const [newApiKey, setNewApiKey] = useState('');
   const [newApiProvider, setNewApiProvider] = useState<'gemini' | 'openai' | 'grok'>('gemini');
+  const [newApiModel, setNewApiModel] = useState('gemini-1.5-flash');
   const [aiSystemPrompt, setAiSystemPrompt] = useState('');
   const [aiMemory, setAiMemory] = useState('');
   const [banks, setBanks] = useState<any[]>([]);
@@ -900,11 +901,43 @@ export default function AdminDashboard() {
                       <select 
                         className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                         value={newApiProvider}
-                        onChange={e => setNewApiProvider(e.target.value as any)}
+                        onChange={e => {
+                          const provider = e.target.value as any;
+                          setNewApiProvider(provider);
+                          if (provider === 'gemini') setNewApiModel('gemini-1.5-flash');
+                          else if (provider === 'openai') setNewApiModel('gpt-4o-mini');
+                          else if (provider === 'grok') setNewApiModel('grok-beta');
+                        }}
                       >
                         <option value="gemini">Google Gemini</option>
-                        <option value="openai">OpenAI (GPT-4)</option>
+                        <option value="openai">OpenAI</option>
                         <option value="grok">xAI Grok</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-slate-700">Modelo</label>
+                      <select 
+                        className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                        value={newApiModel}
+                        onChange={e => setNewApiModel(e.target.value)}
+                      >
+                        {newApiProvider === 'gemini' && (
+                          <>
+                            <option value="gemini-1.5-flash">Gemini 1.5 Flash (Recomendado)</option>
+                            <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                            <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash</option>
+                          </>
+                        )}
+                        {newApiProvider === 'openai' && (
+                          <>
+                            <option value="gpt-4o-mini">GPT-4o Mini (Econômico)</option>
+                            <option value="gpt-4o">GPT-4o (Poderoso)</option>
+                            <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                          </>
+                        )}
+                        {newApiProvider === 'grok' && (
+                          <option value="grok-beta">Grok Beta</option>
+                        )}
                       </select>
                     </div>
                     <div className="space-y-2">
@@ -928,7 +961,7 @@ export default function AdminDashboard() {
                             .insert([{ 
                               provider: newApiProvider, 
                               key: newApiKey.trim(),
-                              service: newApiProvider
+                              service: `${newApiModel}:${newApiKey.trim().substring(0, 8)}`
                             }]);
 
                           if (insertError) throw insertError;
@@ -956,6 +989,9 @@ export default function AdminDashboard() {
                         <div className="flex justify-between items-center">
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-black uppercase tracking-widest text-slate-400">{key.provider}</span>
+                            <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-mono">
+                              {key.service.split(':')[0]}
+                            </span>
                             <div className={`w-2 h-2 rounded-full ${
                               key.status === 'ok' ? 'bg-emerald-500' : 
                               key.status === 'no_credit' ? 'bg-amber-500' : 'bg-red-500'

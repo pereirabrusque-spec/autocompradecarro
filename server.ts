@@ -59,7 +59,7 @@ async function startServer() {
     
     try {
       if (provider === 'gemini') {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash?key=${trimmedKey}`);
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${trimmedKey}`);
         const data = await response.json();
         if (response.ok) {
           res.json({ success: true });
