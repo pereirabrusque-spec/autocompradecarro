@@ -66,6 +66,7 @@ export default function AdminDashboard() {
   const [chatHeight, setChatHeight] = useState('560');
   const [chatWidth, setChatWidth] = useState('360');
   const [chatColor, setChatColor] = useState('#F27D26');
+  const [autoProposalEnabled, setAutoProposalEnabled] = useState(false);
   const [bannerHeight, setBannerHeight] = useState('100vh');
   const [savingSettings, setSavingSettings] = useState(false);
   const [selectedLead, setSelectedLead] = useState<any>(null);
@@ -177,6 +178,9 @@ export default function AdminDashboard() {
 
         const chatColorSetting = settingsData.find((s: any) => s.key === 'CHAT_COLOR');
         if (chatColorSetting) setChatColor(chatColorSetting.value);
+
+        const autoProposalSetting = settingsData.find((s: any) => s.key === 'AUTO_PROPOSAL_ENABLED');
+        if (autoProposalSetting) setAutoProposalEnabled(autoProposalSetting.value === 'true');
 
         const bannerHeightSetting = settingsData.find((s: any) => s.key === 'BANNER_HEIGHT');
         if (bannerHeightSetting) setBannerHeight(bannerHeightSetting.value);
@@ -382,6 +386,7 @@ export default function AdminDashboard() {
         { key: 'CHAT_HEIGHT', value: chatHeight },
         { key: 'CHAT_WIDTH', value: chatWidth },
         { key: 'CHAT_COLOR', value: chatColor },
+        { key: 'AUTO_PROPOSAL_ENABLED', value: autoProposalEnabled ? 'true' : 'false' },
         { key: 'BANNER_HEIGHT', value: bannerHeight },
       ];
 
@@ -414,6 +419,41 @@ export default function AdminDashboard() {
       future_payoff: 'Futura Quitação'
     };
     return labels[s] || s;
+  };
+
+  const calculateProposal = (lead: any) => {
+    let baseValue = lead.valor_fipe;
+    let totalDeductions = 0;
+    const deductions = [];
+
+    // Deductions based on problems
+    if (lead.problemas) {
+      lead.problemas.forEach((problem: string) => {
+        const rule = fipeRules.find(r => r.condition_name === problem);
+        if (rule) {
+          const deduction = baseValue * (rule.discount_percentage / 100);
+          totalDeductions += deduction;
+          deductions.push({ name: problem, value: deduction });
+        }
+      });
+    }
+
+    // Deductions based on repair costs
+    if (lead.observacoes) {
+      repairCosts.forEach(cost => {
+        if (lead.observacoes.toLowerCase().includes(cost.part_name.toLowerCase())) {
+          totalDeductions += cost.cost_value;
+          deductions.push({ name: cost.part_name, value: cost.cost_value });
+        }
+      });
+    }
+
+    return {
+      baseValue,
+      totalDeductions,
+      deductions,
+      finalValue: baseValue - totalDeductions
+    };
   };
 
   const handleSeedCards = async () => {
@@ -565,6 +605,36 @@ export default function AdminDashboard() {
                           <span className="text-slate-500">Entrada Paga</span>
                           <span className="font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.entrada)}</span>
                         </div>
+                      </div>
+
+                      <h3 className="font-bold text-lg mt-8 mb-4">Proposta de Compra</h3>
+                      <div className="bg-slate-50 p-6 rounded-2xl">
+                        <div className="flex justify-between border-b border-slate-200 pb-2">
+                          <span className="text-slate-500">Valor FIPE</span>
+                          <span className="font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculateProposal(selectedLead).baseValue)}</span>
+                        </div>
+                        {calculateProposal(selectedLead).deductions.map((d: any, i: number) => (
+                          <div key={i} className="flex justify-between border-b border-slate-200 py-2">
+                            <span className="text-slate-500">{d.name}</span>
+                            <span className="font-bold text-red-600">-{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
+                          </div>
+                        ))}
+                        <div className="flex justify-between pt-2">
+                          <span className="text-slate-500 font-bold">Valor Final</span>
+                          <span className="font-bold text-green-600 text-lg">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculateProposal(selectedLead).finalValue)}</span>
+                        </div>
+                        <button 
+                          onClick={() => {
+                            const proposal = calculateProposal(selectedLead);
+                            const message = `Olá ${selectedLead.cliente_nome}, analisamos seu ${selectedLead.marca} ${selectedLead.modelo} (${selectedLead.ano_modelo}). Com base em nossa análise, nossa proposta final é de R$ ${proposal.finalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`;
+                            const whatsappUrl = `https://wa.me/${selectedLead.telefone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+                            window.open(whatsappUrl, '_blank');
+                            alert('Proposta enviada!');
+                          }}
+                          className="w-full mt-6 py-3 bg-accent text-white rounded-xl font-bold hover:bg-orange-600 transition-colors"
+                        >
+                          Confirmar e Enviar Proposta
+                        </button>
                       </div>
                     </div>
 
@@ -1658,6 +1728,22 @@ export default function AdminDashboard() {
                       className="sr-only peer"
                       checked={chatEnabled}
                       onChange={(e) => setChatEnabled(e.target.checked)}
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                  </label>
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                  <div>
+                    <p className="font-bold text-slate-900">Habilitar Envio Automático de Propostas</p>
+                    <p className="text-xs text-slate-500">A IA enviará propostas automaticamente para leads qualificados.</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer"
+                      checked={autoProposalEnabled}
+                      onChange={(e) => setAutoProposalEnabled(e.target.checked)}
                     />
                     <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
                   </label>
