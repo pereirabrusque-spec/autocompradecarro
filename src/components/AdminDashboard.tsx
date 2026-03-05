@@ -925,7 +925,14 @@ export default function AdminDashboard() {
                     <button 
                       onClick={async () => {
                         if (!newApiKey) return;
-                        const { error } = await supabase.from('api_keys').upsert([{ provider: newApiProvider, key: newApiKey }], { onConflict: 'provider' });
+                        const { error } = await supabase
+                          .from('api_keys')
+                          .upsert({ 
+                            provider: newApiProvider, 
+                            key: newApiKey 
+                          }, { 
+                            onConflict: 'provider' 
+                          });
                         if (!error) {
                           setNewApiKey('');
                           fetchData();
