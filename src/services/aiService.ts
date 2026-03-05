@@ -104,7 +104,7 @@ export class AIService {
         const modelName = apiKey.service || (apiKey.provider === 'gemini' ? 'gemini-1.5-flash' : 'gpt-4o-mini');
 
         const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('TIMEOUT')), 10000); // 10s timeout
+          setTimeout(() => reject(new Error('TIMEOUT')), 30000); // 30s timeout
         });
 
         const apiCallPromise = async () => {
