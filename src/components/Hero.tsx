@@ -30,7 +30,13 @@ export default function Hero() {
   }, [heroBanners.length, settings]);
 
   return (
-    <section className="relative flex items-center pt-20 overflow-hidden bg-black" style={{ minHeight: settings['BANNER_HEIGHT'] || '100vh' }}>
+    <section 
+      className="relative flex items-center pt-20 overflow-hidden bg-black" 
+      style={{ 
+        height: settings['BANNER_HEIGHT'] || '100vh',
+        minHeight: settings['BANNER_HEIGHT'] || '100vh' 
+      }}
+    >
       {/* Background Image Carousel */}
       <div className="absolute inset-0 z-0">
         <AnimatePresence mode='wait'>
