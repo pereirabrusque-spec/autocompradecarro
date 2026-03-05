@@ -4,28 +4,28 @@ import { Star, Quote } from 'lucide-react';
 
 const testimonials = [
   {
-    name: 'Carlos Mendes',
+    name: 'Rafael Alves',
     location: 'São Paulo/SP',
     text: 'Meu carro estava com busca e apreensão. Eles resolveram tudo rápido e ainda recebi um valor justo. Confiança total!',
-    avatar: 'https://i.pravatar.cc/150?u=carlos'
+    avatar: 'https://i.pravatar.cc/150?u=rafael'
   },
   {
-    name: 'Ana Souza',
+    name: 'André Silva',
     location: 'Campinas/SP',
     text: 'Bati o carro e o conserto ficava inviável. Vendi para eles no estado em que estava e o dinheiro caiu na hora.',
-    avatar: 'https://i.pravatar.cc/150?u=ana'
+    avatar: 'https://i.pravatar.cc/150?u=andre'
   },
   {
-    name: 'Roberto Alves',
+    name: 'Jessica Luiza',
     location: 'Curitiba/PR',
     text: 'Estava com o financiamento atrasado há meses. Assumiram a dívida e limparam meu nome. Excelente serviço.',
-    avatar: 'https://i.pravatar.cc/150?u=roberto'
+    avatar: 'https://i.pravatar.cc/150?u=jessica'
   },
   {
     name: 'Mariana Costa',
     location: 'Belo Horizonte/MG',
     text: 'Vendi minha moto com motor fundido. Não achei que conseguiria algo por ela, mas me pagaram super bem.',
-    avatar: 'https://i.pravatar.cc/150?u=mariana'
+    avatar: 'https://i.pravatar.cc/150?u=mariana_woman'
   },
   {
     name: 'Fernando Silva',

@@ -166,6 +166,9 @@ export default function AdminDashboard() {
         const chatColorSetting = settingsData.find((s: any) => s.key === 'CHAT_COLOR');
         if (chatColorSetting) setChatColor(chatColorSetting.value);
 
+        const bannerHeightSetting = settingsData.find((s: any) => s.key === 'BANNER_HEIGHT');
+        if (bannerHeightSetting) setBannerHeight(bannerHeightSetting.value);
+
         const footerTextSetting = settingsData.find((s: any) => s.key === 'FOOTER_TEXT');
         if (footerTextSetting) setFooterText(footerTextSetting.value);
 
