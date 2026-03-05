@@ -1041,25 +1041,39 @@ export default function AdminDashboard() {
                                     body: JSON.stringify({ provider: key.provider, key: key.key })
                                   });
                                   const data = await response.json();
-                                  if (response.ok) {
+                                  
+                                  if (response.ok && data.success) {
                                     setTestedModels(prev => ({ ...prev, [key.id]: data.models || [] }));
+                                    
                                     // Update status in Supabase
-                                    await supabase
+                                    const { error: updateError } = await supabase
                                       .from('api_keys')
-                                      .update({ status: 'ok', error_count: 0 })
+                                      .update({ 
+                                        status: 'ok', 
+                                        error_count: 0,
+                                        last_used: new Date().toISOString()
+                                      })
                                       .eq('id', key.id);
-                                    fetchData();
-                                    alert('Conexão bem sucedida! Status atualizado para OK.');
+                                    
+                                    if (updateError) {
+                                      console.error('Supabase update error:', updateError);
+                                      alert('Conexão OK, mas erro ao atualizar status no banco.');
+                                    } else {
+                                      await fetchData();
+                                      alert('Conexão bem sucedida! Status atualizado para OK.');
+                                    }
                                   } else {
-                                    await supabase
+                                    const { error: updateError } = await supabase
                                       .from('api_keys')
                                       .update({ status: 'error' })
                                       .eq('id', key.id);
-                                    fetchData();
-                                    alert(`Erro: ${data.error || 'Chave inválida'}`);
+                                    
+                                    if (!updateError) await fetchData();
+                                    alert(`Erro: ${data.error || 'Chave inválida ou erro de conexão'}`);
                                   }
-                                } catch (err) {
-                                  alert('Erro ao conectar com o servidor de teste.');
+                                } catch (err: any) {
+                                  console.error('Test API error:', err);
+                                  alert('Erro ao conectar com o servidor de teste: ' + (err.message || 'Erro desconhecido'));
                                 } finally {
                                   setTestingKey(null);
                                 }
