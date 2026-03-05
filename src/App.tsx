@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { AssetsProvider, useAssets } from './lib/assetsContext';
+import { AuthProvider, useAuth } from './lib/authContext';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import CarGrid from './components/CarGrid';
@@ -24,13 +25,14 @@ import ResetPassword from './components/ResetPassword';
 import SellCar from './components/SellCar';
 import TawkTo from './components/TawkTo';
 import WhatsAppButton from './components/WhatsAppButton';
-import { supabase } from './lib/supabase';
+import ChatWidget from './components/ChatWidget';
+import AuthModal from './components/AuthModal';
 
 function AppContent() {
   const [view, setView] = useState<'home' | 'admin' | 'login' | 'forgot-password' | 'reset-password' | 'sell'>('home');
-  const [user, setUser] = useState<any>(null);
-  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const { user, isAdmin, isLoading } = useAuth();
   const { settings } = useAssets();
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const primaryContact = settings['PRIMARY_CONTACT_METHOD'] || 'chat';
   const specialistAction = settings['SPECIALIST_BUTTON_ACTION'] || 'chat';
@@ -43,60 +45,42 @@ function AppContent() {
   const showTawkTo = primaryContact === 'tawkto' && tawkToEnabled;
 
   useEffect(() => {
-    // Check current session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setIsAuthLoading(false);
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    const checkAdminAccess = async () => {
-      if (isAuthLoading) return;
-
+    const checkRoute = () => {
       const path = window.location.pathname;
+      
+      if (isLoading) return;
+
       if (path === '/admin') {
         if (!user) {
+          // If accessing admin and not logged in, show login
           setView('login');
+        } else if (isAdmin) {
+          // If admin, show dashboard
+          setView('admin');
         } else {
-          const { data, error } = await supabase
-            .from('admin_users')
-            .select('email')
-            .eq('email', user.email)
-            .single();
-
-          if (error || !data) {
-            await supabase.auth.signOut();
-            setView('login');
-          } else {
-            setView('admin');
-          }
+          // If logged in but not admin, redirect to home
+          window.history.pushState({}, '', '/');
+          setView('home');
         }
       } else if (path === '/reset-password') {
         setView('reset-password');
       } else if (path === '/vender') {
+        // Protect /vender route? User said "se clicar para mandar o formulario tem que logar"
+        // Let's allow viewing but block submission inside the component, or block access here.
+        // User request: "se clicar para mandar o formulario tem que logar" -> implies action, not necessarily page view.
+        // But let's keep it accessible and handle auth on submit for better UX (conversion).
         setView('sell');
       } else {
         setView('home');
       }
     };
 
-    checkAdminAccess();
-  }, [user, isAuthLoading]);
+    checkRoute();
+    window.addEventListener('popstate', checkRoute);
+    return () => window.removeEventListener('popstate', checkRoute);
+  }, [user, isAdmin, isLoading]);
 
-  const handleLogin = (userData: any) => {
-    setUser(userData);
-    setView('admin');
-  };
-
-  if (isAuthLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent"></div>
@@ -107,9 +91,9 @@ function AppContent() {
   const renderContent = () => {
     switch (view) {
       case 'admin':
-        return <AdminDashboard />;
+        return isAdmin ? <AdminDashboard /> : null;
       case 'login':
-        return <Login onLogin={handleLogin} onForgotPassword={() => setView('forgot-password')} />;
+        return <Login onLogin={() => window.location.href = '/admin'} onForgotPassword={() => setView('forgot-password')} />;
       case 'forgot-password':
         return <ForgotPassword onBack={() => setView('login')} />;
       case 'reset-password':
@@ -134,26 +118,34 @@ function AppContent() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar />
+      {view !== 'admin' && <Navbar />}
+      
       <main className="flex-grow">
         {renderContent()}
       </main>
-      <Footer />
       
-      {/* Contact Widgets based on Primary Method */}
+      {view !== 'admin' && <Footer />}
+      
+      {/* Contact Widgets */}
       {showChat && <ChatAssistant />}
       {showWhatsApp && <WhatsAppButton />}
       {showTawkTo && <TawkTo />}
       
+      {/* Real-time Chat Widget for logged users */}
+      <ChatWidget />
+      
       <SellModal />
+      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
     </div>
   );
 }
 
 export default function App() {
   return (
-    <AssetsProvider>
-      <AppContent />
-    </AssetsProvider>
+    <AuthProvider>
+      <AssetsProvider>
+        <AppContent />
+      </AssetsProvider>
+    </AuthProvider>
   );
 }

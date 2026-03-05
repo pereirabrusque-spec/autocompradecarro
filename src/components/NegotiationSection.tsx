@@ -1,8 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Briefcase, MessageSquare } from 'lucide-react';
+import { useAuth } from '../lib/authContext';
+import AuthModal from './AuthModal';
 
 export default function NegotiationSection() {
+  const { user } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  const handleAction = (action: () => void) => {
+    if (!user) {
+      setShowAuthModal(true);
+    } else {
+      action();
+    }
+  };
+
   return (
     <section className="py-20 bg-[#001a33] text-white overflow-hidden relative">
       <div className="absolute top-0 right-0 opacity-10 pointer-events-none">
@@ -25,20 +38,20 @@ export default function NegotiationSection() {
           
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <button 
-              onClick={() => window.location.href = '/vender'}
+              onClick={() => handleAction(() => window.location.href = '/vender')}
               className="w-full sm:w-auto px-10 py-5 bg-green-500 text-white rounded-xl font-bold text-lg hover:bg-green-600 transition-all shadow-lg shadow-green-500/20"
             >
               Quero Renegociar Minha Dívida
             </button>
             <button 
-              onClick={() => window.dispatchEvent(new CustomEvent('open-chat'))}
+              onClick={() => handleAction(() => window.dispatchEvent(new CustomEvent('open-chat')))}
               className="w-full sm:w-auto px-10 py-5 bg-transparent border-2 border-white/20 text-white rounded-xl font-bold text-lg hover:bg-white/5 transition-all flex items-center justify-center gap-2"
             >
               <MessageSquare className="w-5 h-5" />
               Falar com Especialista
             </button>
             <button 
-              onClick={() => window.dispatchEvent(new CustomEvent('open-chat', { detail: { message: 'Quero limpar meu nome' } }))}
+              onClick={() => handleAction(() => window.dispatchEvent(new CustomEvent('open-chat', { detail: { message: 'Quero limpar meu nome' } })))}
               className="w-full sm:w-auto px-10 py-5 bg-blue-600 text-white rounded-xl font-bold text-lg hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20"
             >
               Limpe seu nome
@@ -46,6 +59,8 @@ export default function NegotiationSection() {
           </div>
         </div>
       </div>
+
+      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
     </section>
   );
 }

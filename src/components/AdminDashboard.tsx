@@ -76,6 +76,13 @@ export default function AdminDashboard() {
   const [showApiKeyForm, setShowApiKeyForm] = useState(false);
   const [isSavingKey, setIsSavingKey] = useState(false);
 
+  const [activeLeadTab, setActiveLeadTab] = useState<'novo' | 'proposta_enviada' | 'fechado' | 'recusado' | 'sem_interesse'>('novo');
+  const [proposalCalculator, setProposalCalculator] = useState<{
+    baseValue: number;
+    deductions: { name: string; value: number }[];
+    finalValue: number;
+  } | null>(null);
+
   const fetchData = async () => {
     setIsLoading(true);
     try {
@@ -233,6 +240,20 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Initialize proposal calculator when a lead is selected
+  useEffect(() => {
+    if (selectedLead) {
+      if (selectedLead.detalhes_proposta) {
+        setProposalCalculator(selectedLead.detalhes_proposta);
+      } else {
+        const initialCalc = calculateProposal(selectedLead);
+        setProposalCalculator(initialCalc);
+      }
+    } else {
+      setProposalCalculator(null);
+    }
+  }, [selectedLead]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -564,215 +585,409 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {activeTab === 'leads' ? (
-          <div className="grid grid-cols-1 gap-6">
-            <div className="flex justify-end mb-4">
-              <button 
-                onClick={fetchData}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-colors"
-              >
-                <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                Atualizar Leads
-              </button>
-            </div>
-            {selectedLead && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setSelectedLead(null)}>
-                <div 
-                  className="bg-white rounded-[32px] w-full max-w-4xl max-h-[90vh] overflow-y-auto p-8 shadow-2xl animate-in zoom-in-95 duration-300"
-                  onClick={e => e.stopPropagation()}
-                >
-                  <div className="flex justify-between items-center mb-8">
-                    <h2 className="text-3xl font-bold font-display">{selectedLead.marca} {selectedLead.modelo}</h2>
-                    <button onClick={() => setSelectedLead(null)} className="p-2 hover:bg-slate-100 rounded-full">
-                      <LogOut className="w-6 h-6 rotate-45" />
-                    </button>
+            {activeTab === 'leads' ? (
+              <div className="grid grid-cols-1 gap-6">
+                <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
+                  {/* Abas de Status dos Leads */}
+                  <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-100 overflow-x-auto w-full md:w-auto">
+                    {[
+                      { id: 'novo', label: 'Novos' },
+                      { id: 'proposta_enviada', label: 'Proposta Enviada' },
+                      { id: 'fechado', label: 'Fechados' },
+                      { id: 'recusado', label: 'Recusados' },
+                      { id: 'sem_interesse', label: 'Sem Interesse' }
+                    ].map((tab) => (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveLeadTab(tab.id as any)}
+                        className={`px-4 py-2 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${
+                          activeLeadTab === tab.id 
+                            ? 'bg-slate-900 text-white' 
+                            : 'text-slate-500 hover:bg-slate-50'
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div>
-                      {/* Galeria de Fotos e Vídeos */}
-                      {(selectedLead.fotos?.length > 0 || selectedLead.videos?.length > 0) && (
-                        <div className="mb-8">
-                          <h3 className="font-bold text-lg mb-4">Galeria do Veículo</h3>
-                          <div className="grid grid-cols-3 gap-2">
-                            {selectedLead.fotos?.map((foto: string, i: number) => (
-                              <a key={`foto-${i}`} href={foto} target="_blank" rel="noopener noreferrer" className="aspect-square rounded-xl overflow-hidden border border-slate-200 hover:opacity-80 transition-opacity">
-                                <img src={foto} alt={`Foto ${i+1}`} className="w-full h-full object-cover" />
-                              </a>
-                            ))}
-                            {selectedLead.videos?.map((video: string, i: number) => (
-                              <a key={`video-${i}`} href={video} target="_blank" rel="noopener noreferrer" className="aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-100 flex items-center justify-center hover:opacity-80 transition-opacity relative">
-                                <video src={video} className="w-full h-full object-cover opacity-50" />
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                  <div className="w-8 h-8 bg-white/80 rounded-full flex items-center justify-center">
-                                    <div className="w-0 h-0 border-t-4 border-t-transparent border-l-8 border-l-slate-900 border-b-4 border-b-transparent ml-1"></div>
+                  <button 
+                    onClick={fetchData}
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-colors text-sm"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                    Atualizar Leads
+                  </button>
+                </div>
+
+                {selectedLead && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setSelectedLead(null)}>
+                    <div 
+                      className="bg-white rounded-[32px] w-full max-w-4xl max-h-[90vh] overflow-y-auto p-8 shadow-2xl animate-in zoom-in-95 duration-300"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <div className="flex justify-between items-center mb-8">
+                        <div>
+                          <h2 className="text-3xl font-bold font-display">{selectedLead.marca} {selectedLead.modelo}</h2>
+                          <div className="flex items-center gap-4 mt-2">
+                            {/* Seletor de Classificação */}
+                            <select
+                              value={selectedLead.classificacao || 'morna'}
+                              onChange={async (e) => {
+                                const newVal = e.target.value;
+                                const { error } = await supabase
+                                  .from('leads_veiculos')
+                                  .update({ classificacao: newVal })
+                                  .eq('id', selectedLead.id);
+                                if (!error) {
+                                  setSelectedLead({...selectedLead, classificacao: newVal});
+                                  setLeads(prev => prev.map(l => l.id === selectedLead.id ? {...l, classificacao: newVal} : l));
+                                }
+                              }}
+                              className={`text-xs font-bold uppercase px-3 py-1 rounded-full border-none outline-none cursor-pointer ${
+                                (selectedLead.classificacao || 'morna') === 'quente' ? 'bg-red-100 text-red-600' :
+                                (selectedLead.classificacao || 'morna') === 'fria' ? 'bg-blue-100 text-blue-600' :
+                                'bg-orange-100 text-orange-600'
+                              }`}
+                            >
+                              <option value="quente">🔥 Lead Quente</option>
+                              <option value="morna">🌤️ Lead Morna</option>
+                              <option value="fria">❄️ Lead Fria</option>
+                            </select>
+
+                            {/* Seletor de Status Manual */}
+                            <select
+                              value={selectedLead.status}
+                              onChange={async (e) => {
+                                const newVal = e.target.value;
+                                const { error } = await supabase
+                                  .from('leads_veiculos')
+                                  .update({ status: newVal })
+                                  .eq('id', selectedLead.id);
+                                if (!error) {
+                                  setSelectedLead({...selectedLead, status: newVal});
+                                  setLeads(prev => prev.map(l => l.id === selectedLead.id ? {...l, status: newVal} : l));
+                                }
+                              }}
+                              className="text-xs font-bold uppercase px-3 py-1 rounded-full bg-slate-100 text-slate-600 border-none outline-none cursor-pointer"
+                            >
+                              <option value="novo">Novo</option>
+                              <option value="proposta_enviada">Proposta Enviada</option>
+                              <option value="fechado">Fechado (Venda)</option>
+                              <option value="recusado">Recusado</option>
+                              <option value="sem_interesse">Sem Interesse</option>
+                            </select>
+                          </div>
+                        </div>
+                        <button onClick={() => setSelectedLead(null)} className="p-2 hover:bg-slate-100 rounded-full">
+                          <LogOut className="w-6 h-6 rotate-45" />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div>
+                          {/* Galeria de Fotos e Vídeos */}
+                          {(selectedLead.fotos?.length > 0 || selectedLead.videos?.length > 0) && (
+                            <div className="mb-8">
+                              <h3 className="font-bold text-lg mb-4">Galeria do Veículo</h3>
+                              <div className="grid grid-cols-3 gap-2">
+                                {selectedLead.fotos?.map((foto: string, i: number) => (
+                                  <a key={`foto-${i}`} href={foto} target="_blank" rel="noopener noreferrer" className="aspect-square rounded-xl overflow-hidden border border-slate-200 hover:opacity-80 transition-opacity">
+                                    <img src={foto} alt={`Foto ${i+1}`} className="w-full h-full object-cover" />
+                                  </a>
+                                ))}
+                                {selectedLead.videos?.map((video: string, i: number) => (
+                                  <a key={`video-${i}`} href={video} target="_blank" rel="noopener noreferrer" className="aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-100 flex items-center justify-center hover:opacity-80 transition-opacity relative">
+                                    <video src={video} className="w-full h-full object-cover opacity-50" />
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                      <div className="w-8 h-8 bg-white/80 rounded-full flex items-center justify-center">
+                                        <div className="w-0 h-0 border-t-4 border-t-transparent border-l-8 border-l-slate-900 border-b-4 border-b-transparent ml-1"></div>
+                                      </div>
+                                    </div>
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          <h3 className="font-bold text-lg mb-4">Detalhes do Veículo</h3>
+                          <div className="space-y-3 bg-slate-50 p-6 rounded-2xl">
+                            <div className="flex justify-between border-b border-slate-200 pb-2">
+                              <span className="text-slate-500">Ano</span>
+                              <span className="font-bold">{selectedLead.ano_modelo}</span>
+                            </div>
+                            <div className="flex justify-between border-b border-slate-200 pb-2">
+                              <span className="text-slate-500">Cor</span>
+                              <span className="font-bold">{selectedLead.cor}</span>
+                            </div>
+                            <div className="flex justify-between border-b border-slate-200 pb-2">
+                              <span className="text-slate-500">KM</span>
+                              <span className="font-bold">{selectedLead.quilometragem?.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between border-b border-slate-200 pb-2">
+                              <span className="text-slate-500">Valor FIPE</span>
+                              <span className="font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.valor_fipe)}</span>
+                            </div>
+                            <div className="flex justify-between pt-2">
+                              <span className="text-slate-500">Valor Pedido</span>
+                              <span className="font-bold text-green-600 text-lg">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.preco_cliente)}</span>
+                            </div>
+                          </div>
+
+                          <h3 className="font-bold text-lg mt-8 mb-4">Financeiro</h3>
+                          <div className="space-y-3 bg-slate-50 p-6 rounded-2xl">
+                            <div className="flex justify-between border-b border-slate-200 pb-2">
+                              <span className="text-slate-500">Situação</span>
+                              <span className="font-bold">{selectedLead.situacao_financeira || 'N/A'}</span>
+                            </div>
+                            <div className="flex justify-between pt-2">
+                              <span className="text-slate-500">Entrada Paga</span>
+                              <span className="font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.entrada)}</span>
+                            </div>
+                          </div>
+
+                          <h3 className="font-bold text-lg mt-8 mb-4 flex items-center gap-2">
+                            <DollarSign className="w-5 h-5 text-accent" />
+                            Calculadora de Proposta (Editável)
+                          </h3>
+                          <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+                            {proposalCalculator && (
+                              <>
+                                <div className="flex justify-between items-center border-b border-slate-200 pb-4 mb-4">
+                                  <span className="text-slate-500 font-bold">Valor Base (FIPE)</span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-slate-400 text-xs">R$</span>
+                                    <input 
+                                      type="number"
+                                      value={proposalCalculator.baseValue}
+                                      onChange={(e) => {
+                                        const newVal = parseFloat(e.target.value) || 0;
+                                        setProposalCalculator({
+                                          ...proposalCalculator,
+                                          baseValue: newVal,
+                                          finalValue: newVal - proposalCalculator.deductions.reduce((acc, d) => acc + d.value, 0)
+                                        });
+                                      }}
+                                      className="w-32 p-2 bg-white border border-slate-300 rounded-lg text-right font-bold"
+                                    />
                                   </div>
                                 </div>
-                              </a>
-                            ))}
+
+                                <div className="space-y-3 mb-6">
+                                  <div className="flex justify-between items-center mb-2">
+                                    <span className="text-xs font-bold uppercase text-slate-400">Descontos Aplicados</span>
+                                    <button 
+                                      onClick={() => {
+                                        const newDeductions = [...proposalCalculator.deductions, { name: 'Novo Desconto', value: 0 }];
+                                        setProposalCalculator({
+                                          ...proposalCalculator,
+                                          deductions: newDeductions,
+                                          finalValue: proposalCalculator.baseValue - newDeductions.reduce((acc, d) => acc + d.value, 0)
+                                        });
+                                      }}
+                                      className="text-xs font-bold text-accent hover:underline flex items-center gap-1"
+                                    >
+                                      <Plus className="w-3 h-3" /> Adicionar
+                                    </button>
+                                  </div>
+                                  
+                                  {proposalCalculator.deductions.map((d, i) => (
+                                    <div key={i} className="flex items-center gap-2">
+                                      <input 
+                                        type="text"
+                                        value={d.name}
+                                        onChange={(e) => {
+                                          const newDeductions = [...proposalCalculator.deductions];
+                                          newDeductions[i].name = e.target.value;
+                                          setProposalCalculator({...proposalCalculator, deductions: newDeductions});
+                                        }}
+                                        className="flex-1 p-2 bg-white border border-slate-300 rounded-lg text-sm"
+                                      />
+                                      <span className="text-red-500 font-bold">- R$</span>
+                                      <input 
+                                        type="number"
+                                        value={d.value}
+                                        onChange={(e) => {
+                                          const newVal = parseFloat(e.target.value) || 0;
+                                          const newDeductions = [...proposalCalculator.deductions];
+                                          newDeductions[i].value = newVal;
+                                          setProposalCalculator({
+                                            ...proposalCalculator,
+                                            deductions: newDeductions,
+                                            finalValue: proposalCalculator.baseValue - newDeductions.reduce((acc, d) => acc + d.value, 0)
+                                          });
+                                        }}
+                                        className="w-24 p-2 bg-white border border-slate-300 rounded-lg text-right font-bold text-red-600"
+                                      />
+                                      <button 
+                                        onClick={() => {
+                                          const newDeductions = proposalCalculator.deductions.filter((_, idx) => idx !== i);
+                                          setProposalCalculator({
+                                            ...proposalCalculator,
+                                            deductions: newDeductions,
+                                            finalValue: proposalCalculator.baseValue - newDeductions.reduce((acc, d) => acc + d.value, 0)
+                                          });
+                                        }}
+                                        className="p-2 text-slate-400 hover:text-red-500"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+
+                                <div className="flex justify-between pt-4 border-t border-slate-200 bg-slate-100 p-4 rounded-xl">
+                                  <span className="text-slate-700 font-bold text-lg">Valor Final da Proposta</span>
+                                  <span className="font-black text-green-600 text-2xl">
+                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}
+                                  </span>
+                                </div>
+
+                                <button 
+                                  onClick={async () => {
+                                    if (!proposalCalculator) return;
+                                    
+                                    const message = `Olá ${selectedLead.cliente_nome}, analisamos seu ${selectedLead.marca} ${selectedLead.modelo} (${selectedLead.ano_modelo}). Com base em nossa análise técnica e comercial, nossa proposta final é de R$ ${proposalCalculator.finalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`;
+                                    
+                                    const confirmSend = window.confirm(`Deseja enviar a seguinte proposta para o cliente?\n\n"${message}"\n\nIsso mudará o status para "Proposta Enviada".`);
+                                    
+                                    if (confirmSend) {
+                                      try {
+                                        // 1. Salvar mensagem
+                                        const { error: msgError } = await supabase.from('mensagens').insert([{
+                                          lead_id: selectedLead.id,
+                                          remetente: 'admin',
+                                          conteudo: message
+                                        }]);
+                                        if (msgError) throw msgError;
+
+                                        // 2. Atualizar Lead (Status, Valor Proposta, Detalhes Proposta)
+                                        const { error: leadError } = await supabase
+                                          .from('leads_veiculos')
+                                          .update({
+                                            status: 'proposta_enviada',
+                                            valor_proposta_final: proposalCalculator.finalValue,
+                                            detalhes_proposta: proposalCalculator
+                                          })
+                                          .eq('id', selectedLead.id);
+                                        
+                                        if (leadError) throw leadError;
+                                        
+                                        alert('Proposta enviada com sucesso! Status atualizado.');
+                                        setSelectedLead(null);
+                                        fetchData(); // Atualiza a lista para mover o lead de aba
+                                      } catch (err: any) {
+                                        console.error(err);
+                                        alert('Erro ao enviar proposta: ' + err.message);
+                                      }
+                                    }
+                                  }}
+                                  className="w-full mt-6 py-4 bg-accent text-white rounded-xl font-bold hover:bg-orange-600 transition-colors shadow-lg shadow-accent/20 flex items-center justify-center gap-2"
+                                >
+                                  <Save className="w-5 h-5" />
+                                  Salvar e Enviar Proposta (Mudar Status)
+                                </button>
+                              </>
+                            )}
                           </div>
                         </div>
-                      )}
 
-                      <h3 className="font-bold text-lg mb-4">Detalhes do Veículo</h3>
-                      <div className="space-y-3 bg-slate-50 p-6 rounded-2xl">
-                        <div className="flex justify-between border-b border-slate-200 pb-2">
-                          <span className="text-slate-500">Ano</span>
-                          <span className="font-bold">{selectedLead.ano_modelo}</span>
-                        </div>
-                        <div className="flex justify-between border-b border-slate-200 pb-2">
-                          <span className="text-slate-500">Cor</span>
-                          <span className="font-bold">{selectedLead.cor}</span>
-                        </div>
-                        <div className="flex justify-between border-b border-slate-200 pb-2">
-                          <span className="text-slate-500">KM</span>
-                          <span className="font-bold">{selectedLead.quilometragem?.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between border-b border-slate-200 pb-2">
-                          <span className="text-slate-500">Valor FIPE</span>
-                          <span className="font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.valor_fipe)}</span>
-                        </div>
-                        <div className="flex justify-between pt-2">
-                          <span className="text-slate-500">Valor Pedido</span>
-                          <span className="font-bold text-green-600 text-lg">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.preco_cliente)}</span>
-                        </div>
-                      </div>
-
-                      <h3 className="font-bold text-lg mt-8 mb-4">Financeiro</h3>
-                      <div className="space-y-3 bg-slate-50 p-6 rounded-2xl">
-                        <div className="flex justify-between border-b border-slate-200 pb-2">
-                          <span className="text-slate-500">Situação</span>
-                          <span className="font-bold">{selectedLead.situacao_financeira || 'N/A'}</span>
-                        </div>
-                        <div className="flex justify-between pt-2">
-                          <span className="text-slate-500">Entrada Paga</span>
-                          <span className="font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.entrada)}</span>
-                        </div>
-                      </div>
-
-                      <h3 className="font-bold text-lg mt-8 mb-4">Proposta de Compra</h3>
-                      <div className="bg-slate-50 p-6 rounded-2xl">
-                        <div className="flex justify-between border-b border-slate-200 pb-2">
-                          <span className="text-slate-500">Valor FIPE</span>
-                          <span className="font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculateProposal(selectedLead).baseValue)}</span>
-                        </div>
-                        {calculateProposal(selectedLead).deductions.map((d: any, i: number) => (
-                          <div key={i} className="flex justify-between border-b border-slate-200 py-2">
-                            <span className="text-slate-500">{d.name}</span>
-                            <span className="font-bold text-red-600">-{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
+                        <div>
+                          <h3 className="font-bold text-lg mb-4">Contato do Cliente</h3>
+                          <div className="bg-slate-50 p-6 rounded-2xl mb-8">
+                            <p className="font-bold text-lg mb-1">{selectedLead.cliente_nome}</p>
+                            <p className="text-slate-500 mb-4">{selectedLead.email}</p>
+                            <a 
+                              href={`https://wa.me/55${selectedLead.telefone.replace(/\D/g, '')}`} 
+                              target="_blank"
+                              className="flex items-center justify-center gap-2 w-full py-3 bg-green-500 text-white rounded-xl font-bold hover:bg-green-600 transition-colors"
+                            >
+                              <Phone className="w-4 h-4" />
+                              Chamar no WhatsApp
+                            </a>
                           </div>
-                        ))}
-                        <div className="flex justify-between pt-2">
-                          <span className="text-slate-500 font-bold">Valor Final</span>
-                          <span className="font-bold text-green-600 text-lg">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculateProposal(selectedLead).finalValue)}</span>
+
+                          <h3 className="font-bold text-lg mb-4">Observações</h3>
+                          <div className="bg-slate-50 p-6 rounded-2xl">
+                            <p className="text-sm text-slate-600">{selectedLead.observacoes}</p>
+                            {selectedLead.problemas && selectedLead.problemas.length > 0 && (
+                              <div className="mt-4 pt-4 border-t border-slate-200">
+                                <p className="font-bold text-xs uppercase text-slate-400 mb-2">Problemas Relatados</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {selectedLead.problemas.map((p: string, i: number) => (
+                                    <span key={i} className="px-2 py-1 bg-red-100 text-red-600 text-xs font-bold rounded-lg">{p}</span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <button 
-                          onClick={async () => {
-                            const proposal = calculateProposal(selectedLead);
-                            const message = `Olá ${selectedLead.cliente_nome}, analisamos seu ${selectedLead.marca} ${selectedLead.modelo} (${selectedLead.ano_modelo}). Com base em nossa análise, nossa proposta final é de R$ ${proposal.finalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`;
-                            
-                            const confirmSend = window.confirm(`Deseja enviar a seguinte proposta para o cliente?\n\n"${message}"`);
-                            
-                            if (confirmSend) {
-                              try {
-                                const { error } = await supabase.from('mensagens').insert([{
-                                  lead_id: selectedLead.id,
-                                  remetente: 'admin',
-                                  conteudo: message
-                                }]);
-                                
-                                if (error) throw error;
-                                
-                                alert('Proposta enviada com sucesso! (Mensagem registrada no sistema)');
-                              } catch (err: any) {
-                                console.error(err);
-                                alert('Erro ao salvar mensagem: ' + err.message);
-                              }
-                            }
-                          }}
-                          className="w-full mt-6 py-3 bg-accent text-white rounded-xl font-bold hover:bg-orange-600 transition-colors"
-                        >
-                          Confirmar e Enviar Proposta (Chat)
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {leads.filter(l => l.status === activeLeadTab).map((v) => (
+                  <div
+                    key={v.id}
+                    onClick={() => setSelectedLead(v)}
+                    className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden hover:shadow-md transition-all cursor-pointer group animate-in fade-in slide-in-from-bottom-4 duration-500"
+                  >
+                    <div className="p-6 flex items-center gap-6">
+                      <div className="w-24 h-24 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-300 overflow-hidden relative">
+                        {v.fotos && v.fotos.length > 0 ? (
+                          <img src={v.fotos[0]} alt={v.modelo} className="w-full h-full object-cover" />
+                        ) : (
+                          <ImageIcon className="w-8 h-8" />
+                        )}
+                        {/* Indicador de Temperatura */}
+                        <div className={`absolute top-0 right-0 p-1 rounded-bl-xl ${
+                          (v.classificacao || 'morna') === 'quente' ? 'bg-red-500 text-white' :
+                          (v.classificacao || 'morna') === 'fria' ? 'bg-blue-500 text-white' :
+                          'bg-orange-400 text-white'
+                        }`}>
+                          {(v.classificacao || 'morna') === 'quente' ? '🔥' :
+                           (v.classificacao || 'morna') === 'fria' ? '❄️' : '🌤️'}
+                        </div>
+                      </div>
+                      
+                      <div className="flex-1">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h2 className="font-display text-xl font-bold group-hover:text-accent transition-colors">{v.marca} {v.modelo}</h2>
+                            <p className="text-slate-400 text-sm">{v.ano_modelo} • {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v.preco_cliente)}</p>
+                            <p className="text-accent font-bold text-sm mt-1">
+                              Proposta: {v.valor_proposta_final 
+                                ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v.valor_proposta_final) 
+                                : (v.ai_proposal ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v.ai_proposal) : 'Aguardando')}
+                            </p>
+                          </div>
+                          <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                            v.status === 'novo' ? 'bg-blue-100 text-blue-600' : 
+                            v.status === 'proposta_enviada' ? 'bg-purple-100 text-purple-600' :
+                            v.status === 'fechado' ? 'bg-green-100 text-green-600' :
+                            'bg-slate-100 text-slate-600'
+                          }`}>
+                            {v.status.replace('_', ' ')}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="hidden md:block">
+                        <button className="px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-sm font-bold group-hover:bg-slate-100 transition-colors">
+                          Ver Detalhes
                         </button>
                       </div>
                     </div>
-
-                    <div>
-                      <h3 className="font-bold text-lg mb-4">Contato do Cliente</h3>
-                      <div className="bg-slate-50 p-6 rounded-2xl mb-8">
-                        <p className="font-bold text-lg mb-1">{selectedLead.cliente_nome}</p>
-                        <p className="text-slate-500 mb-4">{selectedLead.email}</p>
-                        <a 
-                          href={`https://wa.me/55${selectedLead.telefone.replace(/\D/g, '')}`} 
-                          target="_blank"
-                          className="flex items-center justify-center gap-2 w-full py-3 bg-green-500 text-white rounded-xl font-bold hover:bg-green-600 transition-colors"
-                        >
-                          <Phone className="w-4 h-4" />
-                          Chamar no WhatsApp
-                        </a>
-                      </div>
-
-                      <h3 className="font-bold text-lg mb-4">Observações</h3>
-                      <div className="bg-slate-50 p-6 rounded-2xl">
-                        <p className="text-sm text-slate-600">{selectedLead.observacoes}</p>
-                        {selectedLead.problemas && selectedLead.problemas.length > 0 && (
-                          <div className="mt-4 pt-4 border-t border-slate-200">
-                            <p className="font-bold text-xs uppercase text-slate-400 mb-2">Problemas Relatados</p>
-                            <div className="flex flex-wrap gap-2">
-                              {selectedLead.problemas.map((p: string, i: number) => (
-                                <span key={i} className="px-2 py-1 bg-red-100 text-red-600 text-xs font-bold rounded-lg">{p}</span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
                   </div>
-                </div>
+                ))}
+                {leads.filter(l => l.status === activeLeadTab).length === 0 && (
+                  <div className="text-center py-20 bg-white rounded-[32px] border border-slate-100">
+                    <p className="text-slate-400">Nenhum lead encontrado nesta categoria.</p>
+                  </div>
+                )}
               </div>
-            )}
-
-            {leads.map((v) => (
-              <div
-                key={v.id}
-                onClick={() => setSelectedLead(v)}
-                className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden hover:shadow-md transition-all cursor-pointer group animate-in fade-in slide-in-from-bottom-4 duration-500"
-              >
-                <div className="p-6 flex items-center gap-6">
-                  <div className="w-24 h-24 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-300">
-                    <ImageIcon className="w-8 h-8" />
-                  </div>
-                  
-                  <div className="flex-1">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h2 className="font-display text-xl font-bold group-hover:text-accent transition-colors">{v.marca} {v.modelo}</h2>
-                        <p className="text-slate-400 text-sm">{v.ano_modelo} • {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v.preco_cliente)}</p>
-                        <p className="text-accent font-bold text-sm mt-1">Proposta IA: {v.ai_proposal ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v.ai_proposal) : 'Aguardando'}</p>
-                      </div>
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        v.status === 'novo' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'
-                      }`}>
-                        {v.status}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="hidden md:block">
-                    <button className="px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-sm font-bold group-hover:bg-slate-100 transition-colors">
-                      Ver Detalhes
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-            {leads.length === 0 && (
-              <div className="text-center py-20 bg-white rounded-[32px] border border-slate-100">
-                <p className="text-slate-400">Nenhum lead recebido até o momento.</p>
-              </div>
-            )}
-          </div>
-        ) : activeTab === 'hero' ? (
+            ) : activeTab === 'hero' ? (
           <div className="space-y-6">
         <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm mb-8">
               <h3 className="text-xl font-bold mb-4">Configurações de Automação</h3>

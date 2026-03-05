@@ -5,8 +5,12 @@ import {
   Check, X, Video
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../lib/authContext';
+import AuthModal from './AuthModal';
 
 export default function SellCar() {
+  const { user } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [brands, setBrands] = useState<any[]>([]);
   const [models, setModels] = useState<any[]>([]);
   const [years, setYears] = useState<any[]>([]);
@@ -205,8 +209,29 @@ export default function SellCar() {
     return errors;
   };
 
+  // Gerenciar previews de fotos com useEffect para evitar vazamento de memória
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
+  const [videoPreviews, setVideoPreviews] = useState<string[]>([]);
+
+  useEffect(() => {
+    const newPreviews = photos.map(photo => URL.createObjectURL(photo));
+    setPhotoPreviews(newPreviews);
+    return () => newPreviews.forEach(url => URL.revokeObjectURL(url));
+  }, [photos]);
+
+  useEffect(() => {
+    const newPreviews = videos.map(video => URL.createObjectURL(video));
+    setVideoPreviews(newPreviews);
+    return () => newPreviews.forEach(url => URL.revokeObjectURL(url));
+  }, [videos]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
 
     const validationErrors = validateForm();
     if (validationErrors.length > 0) {
@@ -229,8 +254,6 @@ export default function SellCar() {
     if (formData.hasSinistradoLeilao) problems.push('Sinistrado / Leilão');
 
     try {
-      setIsSubmitting(true);
-      
       // 1. Upload de Fotos e Vídeos para o Supabase Storage
       const uploadedPhotos: string[] = [];
       const uploadedVideos: string[] = [];
@@ -272,6 +295,7 @@ export default function SellCar() {
       console.log('Enviando dados para Supabase (via API)...');
       
       const leadPayload = {
+        user_id: user.id, // Associate lead with user
         cliente_nome: formData.ownerName,
         telefone: formData.ownerPhone,
         email: formData.ownerEmail,
@@ -331,6 +355,7 @@ export default function SellCar() {
       setIsSubmitting(false);
     }
   };
+
 
   const resetForm = () => {
     setFormData({
@@ -400,67 +425,256 @@ export default function SellCar() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  if (isSuccess) {
-    return (
-      <div className="pt-32 pb-24 bg-slate-50 min-h-screen flex items-center justify-center px-4">
-        <div 
-          className="max-w-md w-full bg-white rounded-[40px] p-12 text-center shadow-2xl animate-in zoom-in-95 duration-500"
-        >
-          <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-8">
-            <CheckCircle2 className="w-10 h-10" />
-          </div>
-          <h2 className="text-3xl font-black mb-4">Envio com sucesso!</h2>
-          <p className="text-slate-500 mb-8">
-            Recebemos seus dados. Nossa equipe analisará as informações e entrará em contato via WhatsApp em até 24 horas com uma oferta real.
-          </p>
-          <div className="space-y-4">
-            <button 
-              onClick={() => window.location.href = '/'}
-              className="w-full py-4 bg-accent text-white rounded-2xl font-bold hover:bg-orange-600 transition-all shadow-lg shadow-accent/20"
-            >
-              Voltar para Home
-            </button>
-            <button 
-              onClick={resetForm}
-              className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all"
-            >
-              Avaliar outro veículo
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="pt-24 pb-24 bg-slate-50 min-h-screen">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="font-display text-4xl md:text-5xl font-black mb-4">Avaliação Completa de Veículo</h1>
-          <p className="text-lg text-slate-500">Preencha os dados abaixo para receber uma oferta em até 24h.</p>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="bg-white rounded-3xl border border-slate-200 p-6 mb-8 shadow-sm">
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-xs font-black uppercase tracking-widest text-slate-400">Progresso da Avaliação</span>
-            <span className="text-sm font-bold text-slate-900">{calculateProgress()}%</span>
+      {isSuccess ? (
+        <div className="pt-10 pb-10 flex items-center justify-center px-4">
+          <div 
+            className="max-w-md w-full bg-white rounded-[40px] p-12 text-center shadow-2xl"
+          >
+            <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-8">
+              <CheckCircle2 className="w-10 h-10" />
+            </div>
+            <h2 className="text-3xl font-black mb-4">Envio com sucesso!</h2>
+            <p className="text-slate-500 mb-8">
+              Recebemos seus dados. Nossa equipe analisará as informações e entrará em contato via WhatsApp em até 24 horas com uma oferta real.
+            </p>
+            <div className="space-y-4">
+              <button 
+                onClick={() => window.location.href = '/'}
+                className="w-full py-4 bg-accent text-white rounded-2xl font-bold hover:bg-orange-600 transition-all shadow-lg shadow-accent/20"
+              >
+                Voltar para Home
+              </button>
+              <button 
+                onClick={resetForm}
+                className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all"
+              >
+                Avaliar outro veículo
+              </button>
+            </div>
           </div>
-          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-            <div 
-              style={{ width: `${calculateProgress()}%` }}
-              className="h-full bg-accent transition-all duration-500 ease-out"
-            />
-          </div>
-          <p className="text-[10px] text-center mt-4 text-slate-400 font-bold uppercase tracking-widest">
-            ENVIE A FOTO DO CRLV PARA FINALIZAR E RECEBER O VALOR NA CONTA EM 48H.
-          </p>
         </div>
+      ) : (
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Header */}
+          <div className="text-center mb-12">
+            <h1 className="font-display text-4xl md:text-5xl font-black mb-4">Avaliação Completa de Veículo</h1>
+            <p className="text-lg text-slate-500">Preencha os dados abaixo para receber uma oferta em até 24h.</p>
+          </div>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
-          {/* FIPE Consultation */}
-          <div className="bg-white rounded-[32px] border border-slate-200 p-8 shadow-sm">
+          {/* Progress Bar */}
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 mb-8 shadow-sm">
+            <div className="flex justify-between items-center mb-4">
+              <span className="text-xs font-black uppercase tracking-widest text-slate-400">Progresso da Avaliação</span>
+              <span className="text-sm font-bold text-slate-900">{calculateProgress()}%</span>
+            </div>
+            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+              <div 
+                style={{ width: `${calculateProgress()}%` }}
+                className="h-full bg-accent transition-all duration-500 ease-out"
+              />
+            </div>
+            <p className="text-[10px] text-center mt-4 text-slate-400 font-bold uppercase tracking-widest">
+              ENVIE A FOTO DO CRLV PARA FINALIZAR E RECEBER O VALOR NA CONTA EM 48H.
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-8">
+            {/* FIPE Consultation */}
+            <div className="bg-white rounded-[32px] border border-slate-200 p-8 shadow-sm">
+              <div className="flex items-center gap-3 mb-8">
+                <Search className="w-6 h-6 text-slate-400" />
+                <h3 className="text-xl font-bold">Consulta Rápida Tabela FIPE</h3>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-400 ml-1">Tipo</label>
+                  <select 
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20"
+                    value={formData.vehicleType}
+                    onChange={e => setFormData({...formData, vehicleType: e.target.value})}
+                  >
+                    <option value="Carros">Carros</option>
+                    <option value="Motos">Motos</option>
+                    <option value="Caminhoes">Caminhões</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-400 ml-1">Marca</label>
+                  <select 
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20"
+                    value={formData.brandId}
+                    onChange={e => handleBrandChange(e.target.value)}
+                  >
+                    <option value="">Selecione</option>
+                    {brands.map(b => <option key={b.codigo} value={b.codigo}>{b.nome}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-400 ml-1">Modelo</label>
+                  <select 
+                    disabled={!formData.brandId}
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20 disabled:opacity-50"
+                    value={formData.modelId}
+                    onChange={e => handleModelChange(e.target.value)}
+                  >
+                    <option value="">Selecione</option>
+                    {models.map(m => <option key={m.codigo} value={m.codigo}>{m.nome}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-400 ml-1">Ano</label>
+                  <select 
+                    disabled={!formData.modelId}
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20 disabled:opacity-50"
+                    value={formData.yearId}
+                    onChange={e => {
+                      const yearId = e.target.value;
+                      const yearName = years.find(y => y.codigo === yearId)?.nome || '';
+                      setFormData(prev => ({...prev, yearId, yearName}));
+                      if (yearId) {
+                        handleSearchFipe(yearId);
+                      }
+                    }}
+                  >
+                    <option value="">Selecione</option>
+                    {years.map(y => <option key={y.codigo} value={y.codigo}>{y.nome}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {fipePrice && (
+                <div 
+                  className="mt-6 p-6 bg-accent/5 border border-accent/10 rounded-2xl text-center animate-in fade-in slide-in-from-bottom-4 duration-500"
+                >
+                  <p className="text-xs font-bold text-accent uppercase tracking-widest mb-1">Valor FIPE</p>
+                  <h4 className="text-3xl font-black text-slate-900">{fipePrice}</h4>
+                </div>
+              )}
+            </div>
+
+            {/* CRLV Upload */}
+            <div className="bg-blue-50/50 border border-blue-100 rounded-[32px] p-8 text-center">
+              <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <FileText className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-bold text-blue-900 mb-2">Envie o CRLV (Opcional, mas recomendado)</h3>
+              <p className="text-sm text-blue-700/70 mb-6 max-w-sm mx-auto">
+                Envie uma foto do documento do veículo. Nossa IA preencherá os dados automaticamente para você poupar tempo!
+              </p>
+              <div className="border-2 border-dashed border-blue-200 rounded-2xl p-6 hover:border-blue-400 transition-colors cursor-pointer group">
+                <div className="flex items-center justify-center gap-2 text-blue-600 font-bold">
+                  <Camera className="w-5 h-5" />
+                  Selecionar Foto do CRLV
+                </div>
+              </div>
+            </div>
+
+            {/* Vehicle Photos */}
+            <div className="bg-white rounded-[32px] border border-slate-200 p-8 shadow-sm">
+              <div className="flex items-center gap-3 mb-4">
+                <Camera className="w-6 h-6 text-slate-400" />
+                <h3 className="text-xl font-bold">Fotos do Veículo (Mínimo 5)</h3>
+              </div>
+              <p className="text-sm text-slate-400 mb-8">Adicione até 10 fotos do seu veículo (frente, traseira, laterais, interior e avarias se houver).</p>
+              
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                {photoPreviews.map((preview, index) => (
+                  <div key={index} className="relative aspect-square rounded-2xl overflow-hidden border border-slate-200">
+                    <img src={preview} alt={`Foto ${index + 1}`} className="w-full h-full object-cover" />
+                    <button 
+                      type="button"
+                      onClick={() => setPhotos(photos.filter((_, i) => i !== index))}
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                {photos.length < 10 && (
+                  <label className="aspect-square border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-2 hover:border-accent transition-colors cursor-pointer group relative">
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      multiple 
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      onChange={(e) => {
+                        if (e.target.files) {
+                          const newPhotos = Array.from(e.target.files);
+                          setPhotos(prev => [...prev, ...newPhotos].slice(0, 10));
+                        }
+                      }}
+                    />
+                    <Camera className="w-6 h-6 text-slate-300 group-hover:text-accent transition-colors" />
+                    <span className="text-[10px] font-bold text-slate-400 uppercase text-center px-2">Adicionar Foto</span>
+                  </label>
+                )}
+                <div className="col-span-full text-right">
+                  <span className={`text-[10px] font-bold uppercase ${photos.length >= 5 ? 'text-green-500' : 'text-red-500'}`}>
+                    {photos.length}/10 fotos adicionadas (Mínimo 5)
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 mt-8 mb-4">
+                <Video className="w-6 h-6 text-slate-400" />
+                <h3 className="text-xl font-bold">Vídeos do Veículo (Opcional)</h3>
+              </div>
+              <p className="text-sm text-slate-400 mb-8">Adicione até 5 vídeos do seu veículo (máximo 20 segundos cada).</p>
+              
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                {videoPreviews.map((preview, index) => (
+                  <div key={index} className="relative aspect-square rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 flex items-center justify-center">
+                    <video 
+                      src={preview} 
+                      className="w-full h-full object-cover" 
+                      controls 
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => setVideos(videos.filter((_, i) => i !== index))}
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors z-10"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                {videos.length < 5 && (
+                  <label className="aspect-square border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-2 hover:border-accent transition-colors cursor-pointer group relative">
+                    <input 
+                      type="file" 
+                      accept="video/*" 
+                      multiple 
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      onChange={(e) => {
+                        if (e.target.files) {
+                          const newVideos = Array.from(e.target.files);
+                          newVideos.forEach(file => {
+                            const video = document.createElement('video');
+                            video.preload = 'metadata';
+                            video.onloadedmetadata = () => {
+                              window.URL.revokeObjectURL(video.src);
+                              if (video.duration > 20) {
+                                alert("O vídeo excede 20 segundos. Carregando apenas os primeiros 20 segundos.");
+                              }
+                            };
+                            video.src = URL.createObjectURL(file);
+                          });
+                          setVideos(prev => [...prev, ...newVideos].slice(0, 5));
+                        }
+                      }}
+                    />
+                    <Video className="w-6 h-6 text-slate-300 group-hover:text-accent transition-colors" />
+                    <span className="text-[10px] font-bold text-slate-400 uppercase text-center px-2">Adicionar Vídeo</span>
+                  </label>
+                )}
+              </div>
+            </div>
+
+            {/* 1. Tipo de Veículo */}
+            <div className="bg-white rounded-[32px] border border-slate-200 p-8 shadow-sm">
             <div className="flex items-center gap-3 mb-8">
               <Search className="w-6 h-6 text-slate-400" />
               <h3 className="text-xl font-bold">Consulta Rápida Tabela FIPE</h3>
@@ -1091,42 +1305,9 @@ export default function SellCar() {
           </div>
         </form>
       </div>
-
-      {/* Error Modal */}
-      {errorModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300">
-          <div
-            className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-300"
-          >
-            <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
-              <AlertCircle className="w-8 h-8" />
-            </div>
-            <h3 className="text-xl font-bold text-center mb-4 text-slate-900">Atenção</h3>
-            <div className="text-slate-500 text-left mb-8 space-y-2">
-              <p className="font-medium text-center mb-4">Por favor, preencha os campos obrigatórios:</p>
-              <ul className="space-y-2 text-sm">
-                {Array.isArray(errorMessage) ? errorMessage.map((error, index) => (
-                  <li key={index} className="flex items-center gap-2 text-red-500 font-medium">
-                    <ArrowRight className="w-4 h-4 shrink-0" />
-                    {error}
-                  </li>
-                )) : (
-                  <li className="flex items-center gap-2 text-red-500 font-medium">
-                    <ArrowRight className="w-4 h-4 shrink-0" />
-                    {errorMessage}
-                  </li>
-                )}
-              </ul>
-            </div>
-            <button
-              onClick={() => setErrorModalOpen(false)}
-              className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all"
-            >
-              Entendi, vou corrigir
-            </button>
-          </div>
-        </div>
       )}
+
+      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
     </div>
   );
 }
