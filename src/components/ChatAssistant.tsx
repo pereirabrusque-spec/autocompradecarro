@@ -163,6 +163,16 @@ export default function ChatAssistant() {
     setVideos([]);
     
     setMessages(prev => [...prev, { role: 'user', text: userText, image: userImage || undefined }]);
+    
+    // Salvar mensagem do usuário
+    if (leadId) {
+      await supabase.from('chat_messages').insert({
+        lead_id: leadId,
+        sender_type: 'cliente',
+        message: userText
+      });
+    }
+
     setIsLoading(true);
 
     try {
@@ -329,6 +339,15 @@ export default function ChatAssistant() {
       }
 
       setMessages(prev => [...prev, { role: 'bot', text: botText }]);
+      
+      // Salvar resposta do bot
+      if (leadId) {
+        await supabase.from('chat_messages').insert({
+          lead_id: leadId,
+          sender_type: 'admin',
+          message: botText
+        });
+      }
     } catch (error) {
       console.error(error);
       setMessages(prev => [...prev, { role: 'bot', text: 'Erro na conexão. Por favor, tente novamente.' }]);
@@ -381,7 +400,7 @@ export default function ChatAssistant() {
                   )}
                 </div>
                 <div>
-                  <h3 className="font-display font-bold text-lg">Loja Online AI</h3>
+                  <h3 className="font-display font-bold text-lg">Atendimento AUTO COMPRA</h3>
                   <div className="flex items-center gap-1.5">
                     <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
                     <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Especialista Sênior</span>
