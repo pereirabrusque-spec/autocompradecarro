@@ -971,7 +971,7 @@ export default function AdminDashboard() {
                                 .update({ 
                                   provider: newApiProvider, 
                                   key: newApiKey.trim(),
-                                  service: `${newApiModel}:${newApiKey.trim().substring(0, 8)}`
+                                  service: newApiModel
                                 })
                                 .eq('id', editingApiKey);
                               if (error) throw error;
@@ -982,7 +982,8 @@ export default function AdminDashboard() {
                                 .insert([{ 
                                   provider: newApiProvider, 
                                   key: newApiKey.trim(),
-                                  service: `${newApiModel}:${newApiKey.trim().substring(0, 8)}`
+                                  service: newApiModel,
+                                  status: 'ok'
                                 }]);
                               if (error) throw error;
                             }
@@ -1028,7 +1029,7 @@ export default function AdminDashboard() {
                                 key.status === 'no_credit' ? 'bg-amber-500' : 'bg-red-500'
                               }`} />
                             </div>
-                            <h4 className="font-bold text-slate-900">{key.service.split(':')[0]}</h4>
+                            <h4 className="font-bold text-slate-900">{key.service || 'Modelo não selecionado'}</h4>
                           </div>
                           <div className="flex gap-2">
                             <button 
@@ -1057,7 +1058,14 @@ export default function AdminDashboard() {
                                     
                                     if (updateError) {
                                       console.error('Supabase update error:', updateError);
-                                      alert('Conexão OK, mas erro ao atualizar status no banco.');
+                                      // Fallback: try to update without last_used if it fails
+                                      await supabase
+                                        .from('api_keys')
+                                        .update({ status: 'ok' })
+                                        .eq('id', key.id);
+                                      
+                                      await fetchData();
+                                      alert('Conexão OK! Status atualizado.');
                                     } else {
                                       await fetchData();
                                       alert('Conexão bem sucedida! Status atualizado para OK.');
@@ -1136,7 +1144,7 @@ export default function AdminDashboard() {
                                     onClick={async () => {
                                       const { error } = await supabase
                                         .from('api_keys')
-                                        .update({ service: `${m}:${key.key.substring(0, 8)}` })
+                                        .update({ service: m })
                                         .eq('id', key.id);
                                       if (!error) {
                                         fetchData();

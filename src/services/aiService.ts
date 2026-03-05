@@ -34,8 +34,8 @@ export class AIService {
 
     // Sort by priority first, then by last_used (load balance within same priority)
     return (data || []).sort((a, b) => {
-      const modelA = a.service?.split(':')[0] || '';
-      const modelB = b.service?.split(':')[0] || '';
+      const modelA = a.service || '';
+      const modelB = b.service || '';
       
       const priorityA = modelPriority[modelA] || 0;
       const priorityB = modelPriority[modelB] || 0;
@@ -79,7 +79,7 @@ export class AIService {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout for vision tasks
 
-        const modelName = apiKey.service?.split(':')[0] || (apiKey.provider === 'gemini' ? 'gemini-1.5-flash' : 'gpt-4o-mini');
+        const modelName = apiKey.service || (apiKey.provider === 'gemini' ? 'gemini-1.5-flash' : 'gpt-4o-mini');
 
         if (apiKey.provider === 'gemini') {
           const ai = new GoogleGenAI({ apiKey: apiKey.key });
