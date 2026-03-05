@@ -55,24 +55,26 @@ export default function Hero() {
         <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent z-10" />
       </div>
 
-      <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex flex-col justify-center h-full">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center w-full">
+      <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12 flex flex-col justify-center h-full min-h-0">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center w-full">
           <motion.div
             initial={{ opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8 }}
-            className="lg:col-span-8 space-y-4"
+            className="lg:col-span-8 flex flex-col justify-center"
           >
-            <span className="inline-block px-3 py-1 text-[10px] md:text-xs font-black tracking-widest text-white uppercase bg-red-600 rounded-lg shadow-lg">
-              {currentBanner?.badge_text || 'SOLUÇÃO IMEDIATA'}
-            </span>
+            <div className="mb-2">
+              <span className="inline-block px-3 py-1 text-[10px] md:text-xs font-black tracking-widest text-white uppercase bg-red-600 rounded-lg shadow-lg">
+                {currentBanner?.badge_text || 'SOLUÇÃO IMEDIATA'}
+              </span>
+            </div>
             
             <h1 
-              className="font-display font-black leading-[0.95] tracking-tighter drop-shadow-2xl text-white"
+              className="font-display font-black leading-[0.9] tracking-tighter drop-shadow-2xl text-white"
               style={{ 
-                fontSize: 'clamp(1.75rem, 12vh, 6rem)',
-                maxHeight: '60vh',
-                overflow: 'hidden'
+                fontSize: 'clamp(1.5rem, 10vh, 5.5rem)',
+                lineHeight: '0.9',
+                wordBreak: 'break-word'
               }}
               dangerouslySetInnerHTML={{ __html: currentBanner?.title || `<span class="text-red-600">Transforme</span> <span class="text-green-500">seu</span><br />
               <span class="text-white">problema</span> <span class="text-red-600">em</span><br />
@@ -80,7 +82,7 @@ export default function Hero() {
               <span class="text-red-600">agora.</span>` }}
             />
 
-            <p className="text-sm md:text-lg lg:text-xl text-white/95 max-w-2xl font-medium leading-relaxed line-clamp-2 md:line-clamp-3 drop-shadow-lg">
+            <p className="mt-4 text-sm md:text-lg lg:text-xl text-white/95 max-w-2xl font-medium leading-tight md:leading-relaxed line-clamp-2 md:line-clamp-3 drop-shadow-lg">
               {currentBanner?.subtitle || currentBanner?.legenda || 'Especialistas em veículos com dívidas, financiamento atrasado, motor estourado ou batidos. Assumimos a burocracia e limpamos seu nome.'}
             </p>
           </motion.div>
@@ -89,14 +91,14 @@ export default function Hero() {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className="lg:col-span-4 flex justify-start lg:justify-end"
+            className="lg:col-span-4 flex justify-start lg:justify-end mt-4 lg:mt-0"
           >
             <button 
               onClick={() => window.location.href = currentBanner?.button_link || '#avaliar'}
-              className="btn-orange text-sm md:text-lg lg:text-xl py-3 md:py-5 px-6 md:px-10 group flex items-center gap-3 shadow-2xl hover:scale-105 transition-all"
+              className="btn-orange text-xs md:text-lg lg:text-xl py-3 md:py-5 px-6 md:px-10 group flex items-center gap-3 shadow-2xl hover:scale-105 transition-all whitespace-nowrap"
             >
               <span className="font-black tracking-tight">{currentBanner?.button_text || 'QUERO MINHA PROPOSTA AGORA'}</span>
-              <ArrowRight className="w-5 h-5 md:w-7 md:h-7 group-hover:translate-x-2 transition-transform" />
+              <ArrowRight className="w-4 h-4 md:w-6 md:h-6 group-hover:translate-x-2 transition-transform" />
             </button>
           </motion.div>
         </div>
