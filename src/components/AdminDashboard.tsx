@@ -382,6 +382,7 @@ export default function AdminDashboard() {
       console.log('Supabase response:', { data, error });
       if (error) throw error;
 
+      await refreshAssets();
       alert('Configurações salvas com sucesso!');
     } catch (error) {
       console.error('Error saving settings:', error);
@@ -924,7 +925,7 @@ export default function AdminDashboard() {
                     <button 
                       onClick={async () => {
                         if (!newApiKey) return;
-                        const { error } = await supabase.from('api_keys').insert([{ provider: newApiProvider, key: newApiKey, status: 'ok' }]);
+                        const { error } = await supabase.from('api_keys').insert([{ provider: newApiProvider, key: newApiKey }]);
                         if (!error) {
                           setNewApiKey('');
                           fetchData();
