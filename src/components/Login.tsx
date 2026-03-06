@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'motion/react';
 import { Mail, Lock, Loader2, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../lib/authContext';
 
 interface LoginProps {
   onLogin: (user: any) => void;
@@ -13,18 +14,13 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const { signInWithGoogle } = useAuth();
 
   const handleGoogleLogin = async () => {
     setIsLoading(true);
     setError('');
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: window.location.origin
-        }
-      });
-      if (error) throw error;
+      await signInWithGoogle();
     } catch (err: any) {
       setError(err.message || 'Erro ao entrar com Google');
       setIsLoading(false);

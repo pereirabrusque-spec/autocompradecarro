@@ -16,9 +16,21 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { refreshProfile } = useAuth();
+  const { refreshProfile, signInWithGoogle } = useAuth();
 
   if (!isOpen) return null;
+
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await signInWithGoogle();
+    } catch (err: any) {
+      console.error('Google Auth error:', err);
+      setError(err.message || 'Erro ao entrar com Google');
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -146,6 +158,24 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                 <ArrowRight className="w-5 h-5" />
               </>
             )}
+          </button>
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200"></div>
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white px-4 text-slate-400 font-bold">Ou continue com</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleGoogleLogin}
+            disabled={loading}
+            className="w-full py-4 bg-white border border-slate-200 text-slate-700 rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-slate-50 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+          >
+            <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
+            Entrar com Google
           </button>
         </form>
 

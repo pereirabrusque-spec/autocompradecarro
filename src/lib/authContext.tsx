@@ -47,11 +47,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (data) {
         setProfile(data as Profile);
       } else {
-        // If profile doesn't exist, create it (fallback if trigger fails)
+        // Check if user is in admin_users table
+        const { data: adminData } = await supabase
+          .from('admin_users')
+          .select('email')
+          .eq('email', user.email)
+          .single();
+
+        // If profile doesn't exist, create it
         const newProfile = {
           id: user.id,
           email: user.email,
-          role: 'user',
+          role: adminData ? 'admin' : 'user',
           full_name: user.user_metadata.full_name || user.email?.split('@')[0],
           avatar_url: user.user_metadata.avatar_url
         };

@@ -29,7 +29,7 @@ import ChatWidget from './components/ChatWidget';
 import AuthModal from './components/AuthModal';
 
 function AppContent() {
-  const [view, setView] = useState<'home' | 'admin' | 'login' | 'forgot-password' | 'reset-password' | 'sell'>('home');
+  const [view, setView] = useState<'home' | 'admin' | 'login' | 'forgot-password' | 'reset-password' | 'sell' | 'auth-callback'>('home');
   const { user, isAdmin, isLoading } = useAuth();
   const { settings } = useAssets();
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -49,6 +49,12 @@ function AppContent() {
       const path = window.location.pathname;
       
       if (isLoading) return;
+
+      if (path === '/auth/callback') {
+        setView('auth-callback');
+        // Redirection will happen in the renderContent or another useEffect
+        return;
+      }
 
       if (path === '/admin') {
         if (!user) {
@@ -80,6 +86,18 @@ function AppContent() {
     return () => window.removeEventListener('popstate', checkRoute);
   }, [user, isAdmin, isLoading]);
 
+  useEffect(() => {
+    if (view === 'auth-callback' && !isLoading) {
+      if (isAdmin) {
+        window.history.pushState({}, '', '/admin');
+        setView('admin');
+      } else {
+        window.history.pushState({}, '', '/');
+        setView('home');
+      }
+    }
+  }, [view, isAdmin, isLoading]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -100,6 +118,12 @@ function AppContent() {
         return <ResetPassword />;
       case 'sell':
         return <SellCar />;
+      case 'auth-callback':
+        return (
+          <div className="min-h-screen flex items-center justify-center bg-slate-50">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent"></div>
+          </div>
+        );
       default:
         return (
           <>
