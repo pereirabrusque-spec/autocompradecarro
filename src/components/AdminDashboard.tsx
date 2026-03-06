@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Car, Phone, Calendar, DollarSign, AlertCircle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw, Pencil, Users, Share2, MessageCircle, ChevronRight, ChevronLeft, Search, Filter, ShieldCheck, Wrench, Wallet, UserPlus } from 'lucide-react';
+import { Car, Phone, Calendar, DollarSign, AlertCircle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw, Pencil, Users, Share2, MessageCircle, ChevronRight, ChevronLeft, Search, Filter, ShieldCheck, Wrench, Wallet, User, UserPlus } from 'lucide-react';
 import { useAssets } from '../lib/assetsContext';
 import { supabase } from '../lib/supabase';
 import { defaultCards } from '../lib/seedData';
@@ -9,8 +9,9 @@ export default function AdminDashboard() {
   const [leads, setLeads] = useState<any[]>([]);
   const [dbAssets, setDbAssets] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'leads' | 'hero' | 'assets' | 'footer' | 'settings' | 'ai' | 'apis' | 'crm' | 'messages'>('leads');
+  const [activeTab, setActiveTab] = useState<'leads' | 'hero' | 'assets' | 'footer' | 'settings' | 'ai' | 'apis' | 'crm' | 'messages' | 'buyers'>('leads');
   const [interestedBuyers, setInterestedBuyers] = useState<any[]>([]);
+  const [buyerAuthorizations, setBuyerAuthorizations] = useState<any[]>([]);
   const [sentLeads, setSentLeads] = useState<any[]>([]);
   const [conversations, setConversations] = useState<any[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<any>(null);
@@ -20,7 +21,7 @@ export default function AdminDashboard() {
   const [showProposalModal, setShowProposalModal] = useState(false);
   const [searchCode, setSearchCode] = useState('');
   const [isSavingBuyer, setIsSavingBuyer] = useState(false);
-  const [newBuyer, setNewBuyer] = useState({ name: '', phone: '', category: 'carro', type: 'normal' });
+  const [newBuyer, setNewBuyer] = useState({ name: '', phone: '', email: '', category: 'carro', sub_category: '', type: 'normal' });
   const [selectedBuyers, setSelectedBuyers] = useState<string[]>([]);
   const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
   const [savingAsset, setSavingAsset] = useState<string | null>(null);
@@ -96,6 +97,7 @@ export default function AdminDashboard() {
     finalValue: number;
     profitMargin: number;
     payoffValue: number;
+    clientPayoffValue: number;
     docDebts: number;
     repairDebts: number;
   } | null>(null);
@@ -132,6 +134,7 @@ export default function AdminDashboard() {
       const { data: apiKeysData } = await supabase.from('api_keys').select('*').order('created_at', { ascending: false });
       const { data: providersData } = await supabase.from('providers').select('*').order('name');
       const { data: buyersData } = await supabase.from('interested_buyers').select('*').order('created_at', { ascending: false });
+      const { data: authsData } = await supabase.from('buyer_authorizations').select('*');
       const { data: sentData } = await supabase.from('sent_leads').select('*');
       const { data: messagesData } = await supabase
         .from('mensagens')
@@ -166,6 +169,7 @@ export default function AdminDashboard() {
       setApiKeys(apiKeysData || []);
       setProviders(providersData || []);
       setInterestedBuyers(buyersData || []);
+      setBuyerAuthorizations(authsData || []);
       setSentLeads(sentData || []);
 
       // Fetch settings from Supabase
@@ -655,10 +659,26 @@ Podemos prosseguir com o agendamento da vistoria?`;
     }
 
     // Payoff and Debts
-    // Se o cliente informou parcelas, calculamos a quitação aproximada
-    const payoffValue = (lead.parcelas_pagas && lead.valor_parcela && lead.total_parcelas) 
-      ? ((lead.total_parcelas - lead.parcelas_pagas) * lead.valor_parcela * 0.8) // 20% de desconto médio na quitação antecipada
-      : 0;
+    let payoffValue = 0;
+    let clientPayoffValue = 0;
+    
+    if (lead.valor_parcela && lead.total_parcelas && lead.parcelas_pagas !== undefined) {
+      const remainingInstallments = lead.total_parcelas - lead.parcelas_pagas;
+      if (remainingInstallments > 0) {
+        const totalRemaining = remainingInstallments * lead.valor_parcela;
+        
+        // Find bank discount
+        const bankName = lead.banco_financiamento || '';
+        const bank = banks.find(b => b.name.toLowerCase() === bankName.toLowerCase());
+        const bankDiscount = bank ? (bank.payoff_discount_percentage / 100) : 0.20; // Default 20%
+        
+        // Calculate payoff for profit (with bank discount)
+        payoffValue = totalRemaining * (1 - bankDiscount);
+        
+        // Calculate payoff for client (compound interest 2% per month)
+        clientPayoffValue = totalRemaining * Math.pow(1.02, remainingInstallments);
+      }
+    }
     
     const docDebts = lead.multas || 0;
 
@@ -671,6 +691,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
       finalValue: baseValue - totalDeductions - payoffValue - docDebts - profitMargin,
       profitMargin,
       payoffValue,
+      clientPayoffValue,
       docDebts,
       repairDebts: repairTotal
     };
@@ -690,7 +711,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
           payoff_value: proposalCalculator.payoffValue,
           doc_debts: proposalCalculator.docDebts,
           repair_debts: proposalCalculator.repairDebts,
-          profit_margin: proposalCalculator.profitMargin
+          profit_margin: proposalCalculator.profitMargin,
+          selected_items: selectedLead.selected_items || []
         })
         .eq('id', selectedLead.id);
 
@@ -712,15 +734,20 @@ Podemos prosseguir com o agendamento da vistoria?`;
   };
 
   const handleSaveBuyer = async () => {
-    if (!newBuyer.name || !newBuyer.phone) return;
+    if (!newBuyer.name || !newBuyer.phone || !newBuyer.email) {
+      alert('Nome, WhatsApp e E-mail são obrigatórios.');
+      return;
+    }
     setIsSavingBuyer(true);
     try {
       const { error } = await supabase.from('interested_buyers').insert([newBuyer]);
       if (error) throw error;
-      setNewBuyer({ name: '', phone: '', category: 'carro', type: 'normal' });
+      setNewBuyer({ name: '', phone: '', email: '', category: 'carro', sub_category: '', type: 'normal' });
       fetchData();
-    } catch (error) {
+      alert('Comprador cadastrado com sucesso!');
+    } catch (error: any) {
       console.error('Error saving buyer:', error);
+      alert('Erro ao salvar comprador: ' + error.message);
     } finally {
       setIsSavingBuyer(false);
     }
@@ -867,6 +894,12 @@ _Comissão a combinar após o fechamento._`;
                 className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'messages' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
               >
                 Conversas
+              </button>
+              <button 
+                onClick={() => setActiveTab('buyers')}
+                className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'buyers' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+              >
+                Compradores & Autorizações
               </button>
             </div>
             <button 
@@ -1234,6 +1267,7 @@ _Comissão a combinar após o fechamento._`;
                           <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">FIPE</th>
                           <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Desejado</th>
                           <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Sugerido</th>
+                          <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Contato</th>
                           <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Ações</th>
                         </tr>
                       </thead>
@@ -1281,6 +1315,20 @@ _Comissão a combinar após o fechamento._`;
                               {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.suggested_value || 0)}
                             </td>
                             <td className="px-6 py-4">
+                              <div className="flex items-center gap-2">
+                                {lead.telefone && (
+                                  <a href={`https://wa.me/55${lead.telefone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="p-2 bg-green-50 hover:bg-green-100 rounded-lg transition-colors text-green-600" onClick={(e) => e.stopPropagation()} title="WhatsApp">
+                                    <Phone className="w-4 h-4" />
+                                  </a>
+                                )}
+                                {lead.email && (
+                                  <a href={`mailto:${lead.email}`} className="p-2 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors text-blue-600" onClick={(e) => e.stopPropagation()} title="E-mail">
+                                    <MessageCircle className="w-4 h-4" />
+                                  </a>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
                               <button className="p-2 hover:bg-slate-200 rounded-lg transition-colors">
                                 <Pencil className="w-4 h-4 text-slate-400" />
                               </button>
@@ -1289,6 +1337,220 @@ _Comissão a combinar após o fechamento._`;
                         ))}
                       </tbody>
                     </table>
+                  </div>
+                </div>
+              </div>
+            ) : activeTab === 'buyers' ? (
+              <div className="space-y-8">
+                <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm">
+                  <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+                    <UserPlus className="w-6 h-6 text-accent" />
+                    Cadastrar Novo Comprador (Investidor)
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nome Completo</label>
+                      <input 
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-accent/20"
+                        placeholder="Ex: João Silva"
+                        value={newBuyer.name}
+                        onChange={(e) => setNewBuyer({...newBuyer, name: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">WhatsApp (com DDD)</label>
+                      <input 
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-accent/20"
+                        placeholder="Ex: 11999999999"
+                        value={newBuyer.phone}
+                        onChange={(e) => setNewBuyer({...newBuyer, phone: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">E-mail (Para Login)</label>
+                      <input 
+                        type="email"
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-accent/20"
+                        placeholder="email@comprador.com"
+                        value={newBuyer.email}
+                        onChange={(e) => setNewBuyer({...newBuyer, email: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Categoria Principal</label>
+                      <select 
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-accent/20"
+                        value={newBuyer.category}
+                        onChange={(e) => setNewBuyer({...newBuyer, category: e.target.value as any})}
+                      >
+                        <option value="carro">Carros</option>
+                        <option value="moto">Motos</option>
+                        <option value="caminhao">Caminhões</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Subcategorias (Preferências)</label>
+                      <input 
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-accent/20"
+                        placeholder="Ex: SUV, Sedan, Diesel, Repasse"
+                        value={newBuyer.sub_category}
+                        onChange={(e) => setNewBuyer({...newBuyer, sub_category: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Perfil de Investimento</label>
+                      <select 
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-accent/20"
+                        value={newBuyer.type}
+                        onChange={(e) => setNewBuyer({...newBuyer, type: e.target.value as any})}
+                      >
+                        <option value="popular">Popular (Até 50k)</option>
+                        <option value="normal">Normal (50k - 150k)</option>
+                        <option value="premium">Premium (Acima 150k)</option>
+                      </select>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={handleSaveBuyer}
+                    disabled={isSavingBuyer}
+                    className="mt-6 w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {isSavingBuyer ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                    Cadastrar Comprador e Autorizar Acesso
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* Lista de Compradores */}
+                  <div className="lg:col-span-2 bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm">
+                    <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+                      <h3 className="font-bold text-lg">Base de Compradores</h3>
+                      <div className="flex gap-2">
+                        <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-bold">
+                          {interestedBuyers.length} Ativos
+                        </span>
+                      </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-200">
+                            <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Nome / E-mail</th>
+                            <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Preferências</th>
+                            <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Ações</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {interestedBuyers.map((buyer) => (
+                            <tr key={buyer.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                              <td className="px-6 py-4">
+                                <p className="font-bold text-slate-900">{buyer.name}</p>
+                                <p className="text-[10px] text-slate-400">{buyer.email}</p>
+                                <p className="text-[10px] text-slate-400 font-mono">{buyer.phone}</p>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="flex flex-wrap gap-1">
+                                  <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-bold uppercase">
+                                    {buyer.category}
+                                  </span>
+                                  {buyer.sub_category && buyer.sub_category.split(',').map((s: string, i: number) => (
+                                    <span key={i} className="px-2 py-0.5 bg-accent/10 text-accent rounded text-[9px] font-bold uppercase">
+                                      {s.trim()}
+                                    </span>
+                                  ))}
+                                </div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-2">
+                                  <button 
+                                    onClick={async () => {
+                                      if (confirm('Excluir este comprador?')) {
+                                        const { error } = await supabase.from('interested_buyers').delete().eq('id', buyer.id);
+                                        if (!error) setInterestedBuyers(prev => prev.filter(b => b.id !== buyer.id));
+                                      }
+                                    }}
+                                    className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Painel de Autorização Rápida */}
+                  <div className="bg-white rounded-[32px] p-6 border border-slate-100 shadow-sm h-fit">
+                    <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                      <ShieldCheck className="w-5 h-5 text-green-500" />
+                      Autorização de Visualização
+                    </h3>
+                    <p className="text-xs text-slate-500 mb-6">
+                      Selecione um lead e os compradores que poderão ver as fotos e detalhes técnicos (sem dados do vendedor).
+                    </p>
+                    
+                    <div className="space-y-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">1. Selecionar Lead</label>
+                        <select 
+                          className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-accent/20"
+                          onChange={(e) => {
+                            const lead = leads.find(l => l.id === e.target.value);
+                            setSelectedLead(lead);
+                          }}
+                        >
+                          <option value="">Selecione um veículo...</option>
+                          {leads.filter(l => l.status !== 'perdido').map(l => (
+                            <option key={l.id} value={l.id}>#{l.vehicle_code} - {l.marca} {l.modelo}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {selectedLead && (
+                        <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">2. Autorizar Compradores</label>
+                          <div className="max-h-64 overflow-y-auto space-y-2 border border-slate-100 rounded-xl p-2">
+                            {interestedBuyers.map(buyer => {
+                              const isAuthorized = buyerAuthorizations.some(a => a.buyer_id === buyer.id && a.lead_id === selectedLead.id);
+                              return (
+                                <label key={buyer.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
+                                  <div className="flex items-center gap-3">
+                                    <input 
+                                      type="checkbox" 
+                                      checked={isAuthorized}
+                                      onChange={async (e) => {
+                                        if (e.target.checked) {
+                                          const { data, error } = await supabase.from('buyer_authorizations').insert({
+                                            buyer_id: buyer.id,
+                                            lead_id: selectedLead.id
+                                          }).select().single();
+                                          if (!error) setBuyerAuthorizations(prev => [...prev, data]);
+                                        } else {
+                                          const { error } = await supabase.from('buyer_authorizations').delete().eq('buyer_id', buyer.id).eq('lead_id', selectedLead.id);
+                                          if (!error) setBuyerAuthorizations(prev => prev.filter(a => !(a.buyer_id === buyer.id && a.lead_id === selectedLead.id)));
+                                        }
+                                      }}
+                                      className="w-4 h-4 rounded border-slate-300 text-accent focus:ring-accent"
+                                    />
+                                    <div>
+                                      <p className="text-xs font-bold">{buyer.name}</p>
+                                      <p className="text-[9px] text-slate-400">{buyer.category}</p>
+                                    </div>
+                                  </div>
+                                  {isAuthorized && <CheckCircle className="w-4 h-4 text-green-500" />}
+                                </label>
+                              );
+                            })}
+                          </div>
+                          <p className="text-[10px] text-center text-slate-400">
+                            Os compradores selecionados poderão ver este veículo em sua área restrita.
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1564,159 +1826,250 @@ _Comissão a combinar após o fechamento._`;
                 {/* Modal de Proposta (dentro do chat) */}
                 {showProposalModal && selectedLead && proposalCalculator && (
                   <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white rounded-[32px] w-full max-w-2xl p-8 shadow-2xl">
+                    <div className="bg-white rounded-[32px] w-full max-w-4xl max-h-[90vh] overflow-y-auto p-8 shadow-2xl">
                       <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-2xl font-bold">Proposta: {selectedLead.marca} {selectedLead.modelo}</h3>
+                        <div>
+                          <h3 className="text-2xl font-bold">Proposta: {selectedLead.marca} {selectedLead.modelo}</h3>
+                          <p className="text-sm text-slate-400">#{selectedLead.vehicle_code} • Cliente: {selectedLead.cliente_nome}</p>
+                        </div>
                         <button onClick={() => setShowProposalModal(false)} className="p-2 hover:bg-slate-100 rounded-full">
                           <LogOut className="w-6 h-6 rotate-45" />
                         </button>
                       </div>
 
-                      <div className="space-y-6">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Valor FIPE</label>
-                            <input 
-                              type="number"
-                              value={proposalCalculator.baseValue}
-                              onChange={(e) => {
-                                const val = parseFloat(e.target.value) || 0;
-                                setProposalCalculator({...proposalCalculator, baseValue: val, finalValue: val - proposalCalculator.deductions.reduce((acc, d) => acc + d.value, 0) - proposalCalculator.payoffValue - proposalCalculator.docDebts - proposalCalculator.profitMargin});
-                              }}
-                              className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold"
-                            />
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {/* Coluna 1: Dados do Cliente & Resumo */}
+                        <div className="space-y-6">
+                          <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                            <h4 className="text-sm font-bold mb-4 flex items-center gap-2">
+                              <User className="w-4 h-4 text-accent" />
+                              Dados Preenchidos pelo Cliente
+                            </h4>
+                            <div className="grid grid-cols-2 gap-4 text-xs">
+                              <div>
+                                <p className="text-slate-400 uppercase font-black tracking-widest text-[9px]">Quilometragem</p>
+                                <p className="font-bold">{selectedLead.quilometragem} km</p>
+                              </div>
+                              <div>
+                                <p className="text-slate-400 uppercase font-black tracking-widest text-[9px]">Situação</p>
+                                <p className="font-bold">{selectedLead.situacao}</p>
+                              </div>
+                              <div>
+                                <p className="text-slate-400 uppercase font-black tracking-widest text-[9px]">Preço Desejado</p>
+                                <p className="font-bold text-green-600">
+                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.preco_cliente || 0)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-slate-400 uppercase font-black tracking-widest text-[9px]">Financiamento</p>
+                                <p className="font-bold">{selectedLead.situacao_financeira}</p>
+                              </div>
+                            </div>
                           </div>
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Margem de Lucro</label>
-                            <input 
-                              type="number"
-                              value={proposalCalculator.profitMargin}
-                              onChange={(e) => {
-                                const val = parseFloat(e.target.value) || 0;
-                                setProposalCalculator({...proposalCalculator, profitMargin: val, finalValue: proposalCalculator.baseValue - proposalCalculator.deductions.reduce((acc, d) => acc + d.value, 0) - proposalCalculator.payoffValue - proposalCalculator.docDebts - val});
-                              }}
-                              className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dívidas/Multas</label>
-                            <input 
-                              type="number"
-                              value={proposalCalculator.docDebts}
-                              onChange={(e) => {
-                                const val = parseFloat(e.target.value) || 0;
-                                setProposalCalculator({...proposalCalculator, docDebts: val, finalValue: proposalCalculator.baseValue - proposalCalculator.deductions.reduce((acc, d) => acc + d.value, 0) - proposalCalculator.payoffValue - val - proposalCalculator.profitMargin});
-                              }}
-                              className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Quitação Banco</label>
-                            <input 
-                              type="number"
-                              value={proposalCalculator.payoffValue}
-                              onChange={(e) => {
-                                const val = parseFloat(e.target.value) || 0;
-                                setProposalCalculator({...proposalCalculator, payoffValue: val, finalValue: proposalCalculator.baseValue - proposalCalculator.deductions.reduce((acc, d) => acc + d.value, 0) - val - proposalCalculator.docDebts - proposalCalculator.profitMargin});
-                              }}
-                              className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold"
-                            />
+
+                          <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                            <h4 className="text-sm font-bold mb-4 flex items-center gap-2">
+                              <CheckCircle className="w-4 h-4 text-accent" />
+                              Resumo para o Cliente (Selecionáveis)
+                            </h4>
+                            <p className="text-[10px] text-slate-400 mb-4">Marque os itens que deseja mostrar no resumo oficial enviado ao cliente.</p>
+                            <div className="space-y-2">
+                              {[
+                                { id: 'fipe', label: 'Valor FIPE' },
+                                { id: 'km', label: 'Quilometragem' },
+                                { id: 'situacao', label: 'Situação Geral' },
+                                { id: 'pneus', label: 'Estado dos Pneus' },
+                                { id: 'pintura', label: 'Estado da Pintura' },
+                                { id: 'deducoes', label: 'Lista de Deduções' },
+                                { id: 'quitacao', label: 'Valor de Quitação' }
+                              ].map(item => (
+                                <label key={item.id} className="flex items-center gap-3 p-2 bg-white rounded-xl border border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors">
+                                  <input 
+                                    type="checkbox"
+                                    checked={(selectedLead.selected_items || []).includes(item.id)}
+                                    onChange={(e) => {
+                                      const current = selectedLead.selected_items || [];
+                                      const newVal = e.target.checked 
+                                        ? [...current, item.id]
+                                        : current.filter((i: string) => i !== item.id);
+                                      setSelectedLead({...selectedLead, selected_items: newVal});
+                                    }}
+                                    className="w-4 h-4 rounded border-slate-300 text-accent focus:ring-accent"
+                                  />
+                                  <span className="text-xs font-bold text-slate-700">{item.label}</span>
+                                </label>
+                              ))}
+                              <div className="flex gap-2 mt-4">
+                                <button 
+                                  onClick={() => setSelectedLead({...selectedLead, selected_items: ['fipe', 'km', 'situacao', 'pneus', 'pintura', 'deducoes', 'quitacao']})}
+                                  className="flex-1 py-2 bg-slate-200 text-slate-600 rounded-lg text-[10px] font-bold hover:bg-slate-300"
+                                >
+                                  Marcar Todos
+                                </button>
+                                <button 
+                                  onClick={() => setSelectedLead({...selectedLead, selected_items: []})}
+                                  className="flex-1 py-2 bg-slate-100 text-slate-400 rounded-lg text-[10px] font-bold hover:bg-slate-200"
+                                >
+                                  Desmarcar Todos
+                                </button>
+                              </div>
+                            </div>
                           </div>
                         </div>
 
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Deduções (Avarias/Histórico)</label>
-                          <div className="max-h-32 overflow-y-auto space-y-2 pr-2">
-                            {proposalCalculator.deductions.map((deduction, idx) => (
-                              <div key={idx} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg text-xs">
-                                <span className="text-slate-600">{deduction.name}</span>
-                                <div className="flex items-center gap-2">
-                                  <input 
-                                    type="number"
-                                    value={deduction.value}
-                                    onChange={(e) => {
-                                      const newVal = parseFloat(e.target.value) || 0;
-                                      const newDeductions = [...proposalCalculator.deductions];
-                                      newDeductions[idx].value = newVal;
-                                      const totalDeductions = newDeductions.reduce((acc, d) => acc + d.value, 0);
-                                      setProposalCalculator({
-                                        ...proposalCalculator, 
-                                        deductions: newDeductions,
-                                        finalValue: proposalCalculator.baseValue - totalDeductions - proposalCalculator.payoffValue - proposalCalculator.docDebts - proposalCalculator.profitMargin
-                                      });
-                                    }}
-                                    className="w-20 p-1 border border-slate-200 rounded text-right font-bold"
-                                  />
-                                  <button 
-                                    onClick={() => {
-                                      const newDeductions = proposalCalculator.deductions.filter((_, i) => i !== idx);
-                                      const totalDeductions = newDeductions.reduce((acc, d) => acc + d.value, 0);
-                                      setProposalCalculator({
-                                        ...proposalCalculator, 
-                                        deductions: newDeductions,
-                                        finalValue: proposalCalculator.baseValue - totalDeductions - proposalCalculator.payoffValue - proposalCalculator.docDebts - proposalCalculator.profitMargin
-                                      });
-                                    }}
-                                    className="text-red-400 hover:text-red-600"
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </button>
+                        {/* Coluna 2: Calculadora & Regras */}
+                        <div className="space-y-6">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Valor FIPE</label>
+                              <input 
+                                type="number"
+                                value={proposalCalculator.baseValue}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value) || 0;
+                                  setProposalCalculator({...proposalCalculator, baseValue: val, finalValue: val - proposalCalculator.deductions.reduce((acc, d) => acc + d.value, 0) - proposalCalculator.payoffValue - proposalCalculator.docDebts - proposalCalculator.profitMargin});
+                                }}
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Margem de Lucro</label>
+                              <input 
+                                type="number"
+                                value={proposalCalculator.profitMargin}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value) || 0;
+                                  setProposalCalculator({...proposalCalculator, profitMargin: val, finalValue: proposalCalculator.baseValue - proposalCalculator.deductions.reduce((acc, d) => acc + d.value, 0) - proposalCalculator.payoffValue - proposalCalculator.docDebts - val});
+                                }}
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dívidas/Multas</label>
+                              <input 
+                                type="number"
+                                value={proposalCalculator.docDebts}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value) || 0;
+                                  setProposalCalculator({...proposalCalculator, docDebts: val, finalValue: proposalCalculator.baseValue - proposalCalculator.deductions.reduce((acc, d) => acc + d.value, 0) - proposalCalculator.payoffValue - val - proposalCalculator.profitMargin});
+                                }}
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Quitação Banco</label>
+                              <input 
+                                type="number"
+                                value={proposalCalculator.payoffValue}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value) || 0;
+                                  setProposalCalculator({...proposalCalculator, payoffValue: val, finalValue: proposalCalculator.baseValue - proposalCalculator.deductions.reduce((acc, d) => acc + d.value, 0) - val - proposalCalculator.docDebts - proposalCalculator.profitMargin});
+                                }}
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold"
+                              />
+                              {selectedLead.valor_parcela && selectedLead.total_parcelas && (
+                                <div className="text-[9px] text-slate-400 mt-1">
+                                  <p>Custo (Lucro): {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.payoffValue)}</p>
+                                  <p>Para Cliente: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.clientPayoffValue || 0)}</p>
                                 </div>
-                              </div>
-                            ))}
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Deduções (Avarias/Histórico)</label>
+                            <div className="max-h-48 overflow-y-auto space-y-2 pr-2">
+                              {proposalCalculator.deductions.map((deduction, idx) => (
+                                <div key={idx} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg text-xs">
+                                  <span className="text-slate-600">{deduction.name}</span>
+                                  <div className="flex items-center gap-2">
+                                    <input 
+                                      type="number"
+                                      value={deduction.value}
+                                      onChange={(e) => {
+                                        const newVal = parseFloat(e.target.value) || 0;
+                                        const newDeductions = [...proposalCalculator.deductions];
+                                        newDeductions[idx].value = newVal;
+                                        const totalDeductions = newDeductions.reduce((acc, d) => acc + d.value, 0);
+                                        setProposalCalculator({
+                                          ...proposalCalculator, 
+                                          deductions: newDeductions,
+                                          finalValue: proposalCalculator.baseValue - totalDeductions - proposalCalculator.payoffValue - proposalCalculator.docDebts - proposalCalculator.profitMargin
+                                        });
+                                      }}
+                                      className="w-20 p-1 border border-slate-200 rounded text-right font-bold"
+                                    />
+                                    <button 
+                                      onClick={() => {
+                                        const newDeductions = proposalCalculator.deductions.filter((_, i) => i !== idx);
+                                        const totalDeductions = newDeductions.reduce((acc, d) => acc + d.value, 0);
+                                        setProposalCalculator({
+                                          ...proposalCalculator, 
+                                          deductions: newDeductions,
+                                          finalValue: proposalCalculator.baseValue - totalDeductions - proposalCalculator.payoffValue - proposalCalculator.docDebts - proposalCalculator.profitMargin
+                                        });
+                                      }}
+                                      className="text-red-400 hover:text-red-600"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                              <button 
+                                onClick={() => {
+                                  const name = prompt('Nome da dedução:');
+                                  const value = parseFloat(prompt('Valor da dedução:') || '0');
+                                  if (name && value) {
+                                    const newDeductions: { name: string; value: number; type: 'fixed' | 'percent' }[] = [
+                                      ...proposalCalculator.deductions, 
+                                      { name, value, type: 'fixed' }
+                                    ];
+                                    const totalDeductions = newDeductions.reduce((acc, d) => acc + d.value, 0);
+                                    setProposalCalculator({
+                                      ...proposalCalculator, 
+                                      deductions: newDeductions,
+                                      finalValue: proposalCalculator.baseValue - totalDeductions - proposalCalculator.payoffValue - proposalCalculator.docDebts - proposalCalculator.profitMargin
+                                    });
+                                  }
+                                }}
+                                className="w-full py-2 border-2 border-dashed border-slate-200 rounded-xl text-[10px] font-bold text-slate-400 hover:border-accent hover:text-accent transition-all"
+                              >
+                                + Adicionar Dedução
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="p-6 bg-slate-900 rounded-2xl text-white">
+                            <p className="text-xs font-bold uppercase text-slate-400 mb-1">Valor Final Sugerido</p>
+                            <p className="text-3xl font-black text-accent">
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}
+                            </p>
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-3">
                             <button 
-                              onClick={() => {
-                                const name = prompt('Nome da dedução:');
-                                const value = parseFloat(prompt('Valor da dedução:') || '0');
-                                if (name && value) {
-                                  const newDeductions: { name: string; value: number; type: 'fixed' | 'percent' }[] = [
-                                    ...proposalCalculator.deductions, 
-                                    { name, value, type: 'fixed' }
-                                  ];
-                                  const totalDeductions = newDeductions.reduce((acc, d) => acc + d.value, 0);
-                                  setProposalCalculator({
-                                    ...proposalCalculator, 
-                                    deductions: newDeductions,
-                                    finalValue: proposalCalculator.baseValue - totalDeductions - proposalCalculator.payoffValue - proposalCalculator.docDebts - proposalCalculator.profitMargin
-                                  });
-                                }
-                              }}
-                              className="w-full py-2 border-2 border-dashed border-slate-200 rounded-xl text-[10px] font-bold text-slate-400 hover:border-accent hover:text-accent transition-all"
+                              onClick={() => handleSaveProposal(false)}
+                              className="w-full py-4 bg-slate-100 text-slate-700 rounded-2xl font-bold hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
                             >
-                              + Adicionar Dedução
+                              <Save className="w-5 h-5" />
+                              Salvar na Proposta
+                            </button>
+                            <button 
+                              onClick={() => handleSaveProposal(true)}
+                              className="w-full py-4 bg-slate-100 text-slate-700 rounded-2xl font-bold hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
+                            >
+                              <RefreshCw className="w-5 h-5" />
+                              Salvar e Atualizar Regras (IA)
+                            </button>
+                            <button 
+                              onClick={handleSendProposalFromChat}
+                              className="w-full py-4 bg-accent text-white rounded-2xl font-bold hover:bg-accent/90 transition-all flex items-center justify-center gap-2"
+                            >
+                              <Share2 className="w-5 h-5" />
+                              Enviar Resumo Oficial p/ WhatsApp
                             </button>
                           </div>
-                        </div>
-
-                        <div className="p-6 bg-slate-900 rounded-2xl text-white">
-                          <p className="text-xs font-bold uppercase text-slate-400 mb-1">Valor Final Sugerido</p>
-                          <p className="text-3xl font-black text-accent">
-                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}
-                          </p>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-3">
-                          <button 
-                            onClick={() => handleSaveProposal(false)}
-                            className="w-full py-4 bg-slate-100 text-slate-700 rounded-2xl font-bold hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
-                          >
-                            <Save className="w-5 h-5" />
-                            Salvar Alterações
-                          </button>
-                          <button 
-                            onClick={() => handleSaveProposal(true)}
-                            className="w-full py-4 bg-slate-100 text-slate-700 rounded-2xl font-bold hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
-                          >
-                            <RefreshCw className="w-5 h-5" />
-                            Salvar e Atualizar IA
-                          </button>
-                          <button 
-                            onClick={handleSendProposalFromChat}
-                            className="w-full py-4 bg-accent text-white rounded-2xl font-bold hover:bg-accent/90 transition-all flex items-center justify-center gap-2"
-                          >
-                            <Share2 className="w-5 h-5" />
-                            Enviar Proposta Oficial
-                          </button>
                         </div>
                       </div>
                     </div>
@@ -3260,7 +3613,7 @@ _Comissão a combinar após o fechamento._`;
                   <button 
                     onClick={async () => {
                       if (!newRepairName || !newRepairCost) return;
-                      const { error } = await supabase.from('repair_costs').insert([{ part_name: newRepairName, cost: parseFloat(newRepairCost) }]);
+                      const { error } = await supabase.from('repair_costs').insert([{ part_name: newRepairName, cost_value: parseFloat(newRepairCost) }]);
                       if (!error) {
                         setNewRepairName('');
                         setNewRepairCost('');
@@ -3308,7 +3661,9 @@ _Comissão a combinar após o fechamento._`;
                         <div className="flex justify-between items-center">
                           <span className="font-bold text-sm">{item.part_name}</span>
                           <div className="flex items-center gap-3">
-                            <span className="text-xs font-mono bg-red-100 text-red-700 px-2 py-1 rounded-lg">R$ {item.cost_value}</span>
+                            <span className="text-xs font-mono bg-red-100 text-red-700 px-2 py-1 rounded-lg">
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.cost_value || 0)}
+                            </span>
                             <div className="flex gap-1">
                               <button onClick={() => setEditingRepairCost(item.id)} className="text-slate-400 hover:text-slate-600"><Save className="w-4 h-4" /></button>
                               <button 

@@ -23,14 +23,15 @@ import Login from './components/Login';
 import ForgotPassword from './components/ForgotPassword';
 import ResetPassword from './components/ResetPassword';
 import SellCar from './components/SellCar';
+import BuyerView from './components/BuyerView';
 import TawkTo from './components/TawkTo';
 import WhatsAppButton from './components/WhatsAppButton';
 import ChatWidget from './components/ChatWidget';
 import AuthModal from './components/AuthModal';
 
 function AppContent() {
-  const [view, setView] = useState<'home' | 'admin' | 'login' | 'forgot-password' | 'reset-password' | 'sell' | 'auth-callback'>('home');
-  const { user, isAdmin, isLoading } = useAuth();
+  const [view, setView] = useState<'home' | 'admin' | 'buyer' | 'login' | 'forgot-password' | 'reset-password' | 'sell' | 'auth-callback'>('home');
+  const { user, isAdmin, isBuyer, isLoading } = useAuth();
   const { settings } = useAssets();
   const [showAuthModal, setShowAuthModal] = useState(false);
 
@@ -58,13 +59,19 @@ function AppContent() {
 
       if (path === '/admin') {
         if (!user) {
-          // If accessing admin and not logged in, show login
           setView('login');
         } else if (isAdmin) {
-          // If admin, show dashboard
           setView('admin');
         } else {
-          // If logged in but not admin, redirect to home
+          window.history.pushState({}, '', '/');
+          setView('home');
+        }
+      } else if (path === '/comprar') {
+        if (!user) {
+          setView('login');
+        } else if (isBuyer || isAdmin) {
+          setView('buyer');
+        } else {
           window.history.pushState({}, '', '/');
           setView('home');
         }
@@ -76,6 +83,9 @@ function AppContent() {
         if (isAdmin && (path === '/' || path === '')) {
           window.history.pushState({}, '', '/admin');
           setView('admin');
+        } else if (isBuyer && (path === '/' || path === '')) {
+          window.history.pushState({}, '', '/comprar');
+          setView('buyer');
         } else {
           setView('home');
         }
@@ -92,6 +102,9 @@ function AppContent() {
       if (isAdmin) {
         window.history.pushState({}, '', '/admin');
         setView('admin');
+      } else if (isBuyer) {
+        window.history.pushState({}, '', '/comprar');
+        setView('buyer');
       } else {
         window.history.pushState({}, '', '/');
         setView('home');
@@ -111,8 +124,17 @@ function AppContent() {
     switch (view) {
       case 'admin':
         return isAdmin ? <AdminDashboard /> : null;
+      case 'buyer':
+        return (isBuyer || isAdmin) ? <BuyerView /> : null;
       case 'login':
-        return <Login onLogin={() => window.location.href = '/admin'} onForgotPassword={() => setView('forgot-password')} />;
+        return <Login 
+          onLogin={() => {
+            if (isAdmin) window.location.href = '/admin';
+            else if (isBuyer) window.location.href = '/comprar';
+            else window.location.href = '/';
+          }} 
+          onForgotPassword={() => setView('forgot-password')} 
+        />;
       case 'forgot-password':
         return <ForgotPassword onBack={() => setView('login')} />;
       case 'reset-password':
@@ -143,13 +165,13 @@ function AppContent() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {view !== 'admin' && <Navbar />}
+      {view !== 'admin' && view !== 'buyer' && <Navbar />}
       
       <main className="flex-grow">
         {renderContent()}
       </main>
       
-      {view !== 'admin' && <Footer />}
+      {view !== 'admin' && view !== 'buyer' && <Footer />}
       
       {/* Contact Widgets */}
       {showChat && <ChatAssistant />}

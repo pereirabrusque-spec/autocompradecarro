@@ -5,7 +5,7 @@ import { User } from '@supabase/supabase-js';
 interface Profile {
   id: string;
   email: string;
-  role: 'admin' | 'user';
+  role: 'admin' | 'user' | 'buyer';
   full_name: string;
   avatar_url?: string;
 }
@@ -15,6 +15,7 @@ interface AuthContextType {
   profile: Profile | null;
   isLoading: boolean;
   isAdmin: boolean;
+  isBuyer: boolean;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: (currentUser?: User) => Promise<void>;
@@ -52,13 +53,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .eq('email', targetUser.email)
           .single();
 
+        const { data: buyerData } = await supabase
+          .from('interested_buyers')
+          .select('email')
+          .eq('email', targetUser.email)
+          .single();
+
         const shouldBeAdmin = !!adminData || targetUser.email === 'pereira.brusque@gmail.com';
+        const shouldBeBuyer = !!buyerData;
         
-        if (shouldBeAdmin && data.role !== 'admin') {
-          // Update profile to admin if it's not already
+        let newRole: 'admin' | 'user' | 'buyer' = data.role;
+        if (shouldBeAdmin) newRole = 'admin';
+        else if (shouldBeBuyer) newRole = 'buyer';
+        else newRole = 'user';
+
+        if (newRole !== data.role) {
+          // Update profile role if it's not already correct
           const { data: updatedProfile, error: updateError } = await supabase
             .from('profiles')
-            .update({ role: 'admin' })
+            .update({ role: newRole })
             .eq('id', targetUser.id)
             .select()
             .single();
@@ -79,13 +92,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .eq('email', targetUser.email)
           .single();
 
+        const { data: buyerData } = await supabase
+          .from('interested_buyers')
+          .select('email')
+          .eq('email', targetUser.email)
+          .single();
+
         const isAdminEmail = !!adminData || targetUser.email === 'pereira.brusque@gmail.com';
+        const isBuyerEmail = !!buyerData;
 
         // If profile doesn't exist, create it
         const newProfile = {
           id: targetUser.id,
           email: targetUser.email,
-          role: isAdminEmail ? 'admin' : 'user',
+          role: isAdminEmail ? 'admin' : (isBuyerEmail ? 'buyer' : 'user'),
           full_name: targetUser.user_metadata.full_name || targetUser.email?.split('@')[0],
           avatar_url: targetUser.user_metadata.avatar_url
         };
@@ -160,6 +180,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     profile,
     isLoading,
     isAdmin: profile?.role === 'admin' || user?.email === 'pereira.brusque@gmail.com',
+    isBuyer: profile?.role === 'buyer',
     signInWithGoogle,
     signOut,
     refreshProfile
