@@ -17,7 +17,7 @@ interface AuthContextType {
   isAdmin: boolean;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
-  refreshProfile: () => Promise<void>;
+  refreshProfile: (currentUser?: User) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -26,18 +26,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isProfileLoading, setIsProfileLoading] = useState(false);
 
-  const refreshProfile = async () => {
-    if (!user) {
-      setProfile(null);
-      return;
-    }
-
+  const refreshProfile = async (currentUser?: User) => {
+    const targetUser = currentUser || user;
+    if (!targetUser) return;
+    
+    setIsProfileLoading(true);
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', user.id)
+        .eq('id', targetUser.id)
         .single();
 
       if (error && error.code !== 'PGRST116') {
@@ -49,17 +49,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { data: adminData } = await supabase
           .from('admin_users')
           .select('email')
-          .eq('email', user.email)
+          .eq('email', targetUser.email)
           .single();
 
-        const shouldBeAdmin = !!adminData || user.email === 'pereira.brusque@gmail.com';
+        const shouldBeAdmin = !!adminData || targetUser.email === 'pereira.brusque@gmail.com';
         
         if (shouldBeAdmin && data.role !== 'admin') {
           // Update profile to admin if it's not already
           const { data: updatedProfile, error: updateError } = await supabase
             .from('profiles')
             .update({ role: 'admin' })
-            .eq('id', user.id)
+            .eq('id', targetUser.id)
             .select()
             .single();
           
@@ -76,18 +76,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { data: adminData } = await supabase
           .from('admin_users')
           .select('email')
-          .eq('email', user.email)
+          .eq('email', targetUser.email)
           .single();
 
-        const isAdminEmail = !!adminData || user.email === 'pereira.brusque@gmail.com';
+        const isAdminEmail = !!adminData || targetUser.email === 'pereira.brusque@gmail.com';
 
         // If profile doesn't exist, create it
         const newProfile = {
-          id: user.id,
-          email: user.email,
+          id: targetUser.id,
+          email: targetUser.email,
           role: isAdminEmail ? 'admin' : 'user',
-          full_name: user.user_metadata.full_name || user.email?.split('@')[0],
-          avatar_url: user.user_metadata.avatar_url
+          full_name: targetUser.user_metadata.full_name || targetUser.email?.split('@')[0],
+          avatar_url: targetUser.user_metadata.avatar_url
         };
         
         const { data: createdProfile, error: createError } = await supabase
@@ -102,20 +102,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error('Error in refreshProfile:', error);
+    } finally {
+      setIsProfileLoading(false);
     }
   };
 
   useEffect(() => {
     // Check active session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setIsLoading(false);
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      if (!currentUser) {
+        setIsLoading(false);
+      }
     });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      setIsLoading(false);
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      if (!currentUser) {
+        setIsLoading(false);
+        setProfile(null);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -123,9 +132,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (user) {
-      refreshProfile();
-    } else {
-      setProfile(null);
+      refreshProfile(user).then(() => {
+        setIsLoading(false);
+      });
     }
   }, [user]);
 
@@ -150,7 +159,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     profile,
     isLoading,
-    isAdmin: profile?.role === 'admin',
+    isAdmin: profile?.role === 'admin' || user?.email === 'pereira.brusque@gmail.com',
     signInWithGoogle,
     signOut,
     refreshProfile

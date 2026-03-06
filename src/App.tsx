@@ -71,13 +71,14 @@ function AppContent() {
       } else if (path === '/reset-password') {
         setView('reset-password');
       } else if (path === '/vender') {
-        // Protect /vender route? User said "se clicar para mandar o formulario tem que logar"
-        // Let's allow viewing but block submission inside the component, or block access here.
-        // User request: "se clicar para mandar o formulario tem que logar" -> implies action, not necessarily page view.
-        // But let's keep it accessible and handle auth on submit for better UX (conversion).
         setView('sell');
       } else {
-        setView('home');
+        if (isAdmin && (path === '/' || path === '')) {
+          window.history.pushState({}, '', '/admin');
+          setView('admin');
+        } else {
+          setView('home');
+        }
       }
     };
 
