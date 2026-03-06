@@ -24,7 +24,7 @@ export default function AdminDashboard() {
   const [showProposalModal, setShowProposalModal] = useState(false);
   const [searchCode, setSearchCode] = useState('');
   const [isSavingBuyer, setIsSavingBuyer] = useState(false);
-  const [newBuyer, setNewBuyer] = useState({ name: '', phone: '', email: '', category: ['carro'], sub_category: '', type: ['normal'] });
+  const [newBuyer, setNewBuyer] = useState({ name: '', phone: '', category: ['carro'], sub_category: '', type: ['normal'] });
   const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
   const [savingAsset, setSavingAsset] = useState<string | null>(null);
   const [deletingAsset, setDeletingAsset] = useState<string | null>(null);
@@ -797,8 +797,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
   };
 
   const handleSaveBuyer = async () => {
-    if (!newBuyer.name || !newBuyer.phone || !newBuyer.email) {
-      alert('Nome, WhatsApp e E-mail são obrigatórios.');
+    if (!newBuyer.name || !newBuyer.phone) {
+      alert('Nome e WhatsApp são obrigatórios.');
       return;
     }
     setIsSavingBuyer(true);
@@ -808,9 +808,10 @@ Podemos prosseguir com o agendamento da vistoria?`;
         category: newBuyer.category.join(','),
         type: newBuyer.type.join(',')
       };
+      delete buyerData.email;
       const { error } = await supabase.from('interested_buyers').insert([buyerData]);
       if (error) throw error;
-      setNewBuyer({ name: '', phone: '', email: '', category: ['carro'], sub_category: '', type: ['normal'] });
+      setNewBuyer({ name: '', phone: '', category: ['carro'], sub_category: '', type: ['normal'] });
       fetchData();
       alert('Comprador cadastrado com sucesso!');
     } catch (error: any) {
@@ -1968,15 +1969,6 @@ _Comissão a combinar após o fechamento._`;
                         placeholder="Ex: 11999999999"
                         value={newBuyer.phone}
                         onChange={(e) => setNewBuyer({...newBuyer, phone: e.target.value})}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">E-mail</label>
-                      <input 
-                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-accent/20"
-                        placeholder="Ex: joao@email.com"
-                        value={newBuyer.email}
-                        onChange={(e) => setNewBuyer({...newBuyer, email: e.target.value})}
                       />
                     </div>
                     <div className="space-y-1">
