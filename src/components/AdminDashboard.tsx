@@ -24,7 +24,7 @@ export default function AdminDashboard() {
   const [showProposalModal, setShowProposalModal] = useState(false);
   const [searchCode, setSearchCode] = useState('');
   const [isSavingBuyer, setIsSavingBuyer] = useState(false);
-  const [newBuyer, setNewBuyer] = useState({ name: '', phone: '', category: ['carro'], sub_category: '', type: ['normal'] });
+  const [newBuyer, setNewBuyer] = useState({ name: '', phone: '', category: ['carro'], type: ['normal'] });
   const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
   const [savingAsset, setSavingAsset] = useState<string | null>(null);
   const [deletingAsset, setDeletingAsset] = useState<string | null>(null);
@@ -809,9 +809,10 @@ Podemos prosseguir com o agendamento da vistoria?`;
         type: newBuyer.type.join(',')
       };
       delete buyerData.email;
+      delete buyerData.sub_category;
       const { error } = await supabase.from('interested_buyers').insert([buyerData]);
       if (error) throw error;
-      setNewBuyer({ name: '', phone: '', category: ['carro'], sub_category: '', type: ['normal'] });
+      setNewBuyer({ name: '', phone: '', category: ['carro'], type: ['normal'] });
       fetchData();
       alert('Comprador cadastrado com sucesso!');
     } catch (error: any) {
@@ -909,74 +910,23 @@ _Comissão a combinar após o fechamento._`;
           </div>
           
           <div className="flex items-center gap-4">
+          <div className="flex flex-col gap-2">
             <div className="flex bg-white p-1 rounded-2xl shadow-sm border border-slate-100 overflow-x-auto">
-              <button 
-                onClick={() => setActiveTab('leads')}
-                className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'leads' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                Leads ({leads.length})
-              </button>
-              <button 
-                onClick={() => setActiveTab('hero')}
-                className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'hero' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                Banner Principal
-              </button>
-              <button 
-                onClick={() => setActiveTab('assets')}
-                className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'assets' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                Fotos do Site
-              </button>
-              <button 
-                onClick={() => setActiveTab('footer')}
-                className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'footer' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                Rodapé & Contatos
-              </button>
-              <button 
-                onClick={() => setActiveTab('settings')}
-                className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'settings' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                Configurações
-              </button>
-              <button 
-                onClick={() => setActiveTab('ai')}
-                className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'ai' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                Inteligência Artificial (Regras)
-              </button>
-              <button 
-                onClick={() => setActiveTab('apis')}
-                className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'apis' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                APIs & Chaves
-              </button>
-              <button 
-                onClick={() => setActiveTab('crm')}
-                className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'crm' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                CRM (Interessados)
-              </button>
-              <button 
-                onClick={() => setActiveTab('messages')}
-                className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'messages' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                Conversas
-              </button>
-              <button 
-                onClick={() => setActiveTab('buyers')}
-                className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'buyers' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                Compradores & Autorizações
-              </button>
-              <button 
-                onClick={() => setActiveTab('tags')}
-                className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'tags' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                Tags & Marketing
-              </button>
+              <button onClick={() => setActiveTab('leads')} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'leads' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Leads ({leads.length})</button>
+              <button onClick={() => setActiveTab('hero')} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'hero' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Banner Principal</button>
+              <button onClick={() => setActiveTab('assets')} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'assets' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Fotos do Site</button>
+              <button onClick={() => setActiveTab('footer')} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'footer' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Rodapé & Contatos</button>
+              <button onClick={() => setActiveTab('settings')} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'settings' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Configurações</button>
             </div>
+            <div className="flex bg-white p-1 rounded-2xl shadow-sm border border-slate-100 overflow-x-auto">
+              <button onClick={() => setActiveTab('ai')} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'ai' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Inteligência Artificial (Regras)</button>
+              <button onClick={() => setActiveTab('apis')} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'apis' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>APIs & Chaves</button>
+              <button onClick={() => setActiveTab('crm')} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'crm' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>CRM (Interessados)</button>
+              <button onClick={() => setActiveTab('messages')} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'messages' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Conversas</button>
+              <button onClick={() => setActiveTab('buyers')} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'buyers' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Compradores & Autorizações</button>
+              <button onClick={() => setActiveTab('tags')} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'tags' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Tags & Marketing</button>
+            </div>
+          </div>
             <button 
               onClick={handleLogout}
               className="p-3 bg-white border border-slate-200 text-slate-400 rounded-2xl hover:text-red-500 hover:border-red-100 transition-all"
