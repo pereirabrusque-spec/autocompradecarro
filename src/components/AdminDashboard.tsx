@@ -886,15 +886,15 @@ _Comissão a combinar após o fechamento._`;
                   <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-100 overflow-x-auto w-full md:w-auto">
                     {[
                       { id: 'novo', label: 'Novos' },
+                      { id: 'em_contato', label: 'Em Contato' },
                       { id: 'proposta_enviada', label: 'Proposta Enviada' },
                       { id: 'fechado', label: 'Fechados' },
-                      { id: 'recusado', label: 'Recusados' },
-                      { id: 'sem_interesse', label: 'Sem Interesse' }
+                      { id: 'perdido', label: 'Perdidos' }
                     ].map((tab) => (
                       <button
                         key={tab.id}
                         onClick={() => setActiveLeadTab(tab.id as any)}
-                        className={`px-4 py-2 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${
+                        className={`px-4 py-2 rounded-xl font-bold text-xs transition-all whitespace-nowrap ${
                           activeLeadTab === tab.id 
                             ? 'bg-slate-900 text-white' 
                             : 'text-slate-500 hover:bg-slate-50'
@@ -969,10 +969,10 @@ _Comissão a combinar após o fechamento._`;
                               className="text-xs font-bold uppercase px-3 py-1 rounded-full bg-slate-100 text-slate-600 border-none outline-none cursor-pointer"
                             >
                               <option value="novo">Novo</option>
+                              <option value="em_contato">Em Contato</option>
                               <option value="proposta_enviada">Proposta Enviada</option>
                               <option value="fechado">Fechado (Venda)</option>
-                              <option value="recusado">Recusado</option>
-                              <option value="sem_interesse">Sem Interesse</option>
+                              <option value="perdido">Perdido</option>
                             </select>
                           </div>
                         </div>
@@ -1450,7 +1450,10 @@ _Comissão a combinar após o fechamento._`;
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex justify-between items-start">
-                            <h4 className="font-bold text-slate-900 truncate">{conv.lead?.cliente_nome || 'Cliente'}</h4>
+                            <div className="flex flex-col min-w-0">
+                              <h4 className="font-bold text-slate-900 truncate">{conv.lead?.cliente_nome || 'Cliente'}</h4>
+                              <span className="text-[10px] font-mono font-bold text-slate-400">#{conv.lead?.vehicle_code || '----'}</span>
+                            </div>
                             <span className="text-[10px] text-slate-400 whitespace-nowrap">{new Date(conv.last_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                           </div>
                           <p className="text-xs text-slate-500 truncate">{conv.last_message}</p>

@@ -207,9 +207,14 @@ export default function ChatWidget() {
                       }}
                       className="w-full text-left p-3 bg-white rounded-xl border border-slate-200 hover:border-accent hover:shadow-md transition-all group"
                     >
-                      <div className="flex justify-between items-center">
-                        <span className="font-bold text-slate-700 group-hover:text-accent">{lead.marca} {lead.modelo}</span>
-                        <span className="text-[10px] bg-slate-100 px-2 py-1 rounded-full text-slate-500">{lead.status}</span>
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-mono font-bold bg-slate-900 text-white px-1.5 py-0.5 rounded">
+                            #{lead.vehicle_code || '----'}
+                          </span>
+                          <span className="font-bold text-slate-700 group-hover:text-accent">{lead.marca} {lead.modelo}</span>
+                        </div>
+                        <span className="text-[10px] bg-slate-100 px-2 py-1 rounded-full text-slate-500 self-start mt-1">{lead.status}</span>
                       </div>
                       <p className="text-xs text-slate-400 mt-1">{new Date(lead.created_at).toLocaleDateString()}</p>
                     </button>
