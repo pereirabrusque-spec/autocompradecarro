@@ -1,9 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { CarFront, Instagram, Facebook, MessageCircle, Youtube, Linkedin, Video } from 'lucide-react';
 import { useAssets } from '../lib/assetsContext';
+import { useAuth } from '../lib/authContext';
+import AuthModal from './AuthModal';
 
 export default function Footer() {
   const { settings, banners } = useAssets();
+  const { user } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
   
   const footerText = settings['FOOTER_TEXT'] || 'Compramos seu carro com a melhor avaliação do mercado. Pagamento rápido e seguro.';
   const footerCopyright = settings['FOOTER_COPYRIGHT'] || '© 2026 AutoCompra. Todos os direitos reservados.';
@@ -23,7 +27,11 @@ export default function Footer() {
   const handleSpecialistClick = (e: React.MouseEvent) => {
     if (specialistAction === 'chat') {
       e.preventDefault();
-      window.dispatchEvent(new CustomEvent('open-chat'));
+      if (!user) {
+        setShowAuthModal(true);
+      } else {
+        window.dispatchEvent(new CustomEvent('open-chat'));
+      }
     }
   };
 
@@ -117,6 +125,8 @@ export default function Footer() {
           <p>{footerCopyright}</p>
         </div>
       </div>
+
+      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
     </footer>
   );
 }

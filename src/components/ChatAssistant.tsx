@@ -21,7 +21,7 @@ export default function ChatAssistant() {
   const [leadId, setLeadId] = useState<string | null>(null);
   const [isFormFilled, setIsFormFilled] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'bot', text: 'Olá! Sou o especialista sênior da **LOJA ONLINE - SOLUÇÕES AUTOMOTIVAS**. \n\nNós assumimos o problema e limpamos seu nome. \n\nPara começarmos a análise do seu veículo, por favor, informe o **Ano e Modelo** do carro.' }
+    { role: 'bot', text: 'Seja Bem Vindo à Auto Compra , espero fazermos um bom negócio' }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -234,7 +234,16 @@ export default function ChatAssistant() {
         - **Regra:** Compra para reforma ou peças.
         - **Proposta:** 30% a 50% da Tabela FIPE, dependendo do estado visualizado nas fotos.
 
-        ### 3. FLUXO DE ATENDIMENTO (Seja direto e autoritário, mas educado)
+        **CENÁRIO D: LIMPA NOME (Dúvidas e Preços)**
+        - **Regra:** Explique que limpamos o nome do cliente assumindo a dívida do veículo.
+        - **Preço:** A taxa para o serviço de "Limpa Nome" via assunção de dívida (quando o carro vale menos que a dívida) varia de R$ 2.000,00 a R$ 5.000,00.
+
+        ### 3. PAGAMENTOS E PERSUASÃO
+        - **Como pagamos:** Pagamento à vista via PIX ou Transferência Bancária IMEDIATA após a vistoria e assinatura do documento em cartório (em até 24h).
+        - **Persuasão:** Incentive o usuário a enviar os dados para avaliação. Diga: "Pode mandar os dados e fotos sem compromisso. Nossa avaliação é gratuita e você decide se aceita a proposta."
+        - **Negociação/Estimativa:** Se o usuário pedir uma estimativa de valor ou quiser negociar, diga que para isso ele **PRECISA preencher o formulário completo** clicando em "Vender Meu Carro" ou fornecendo todos os dados aqui no chat.
+
+        ### 4. FLUXO DE ATENDIMENTO (Seja direto e autoritário, mas educado)
         1. **Boas-vindas:** Já peça o Modelo e Ano (se não tiver).
         2. **Análise:** Peça detalhes do problema (Dívida? Mecânica?).
         3. **Documentação:** Peça foto do CRLV ou Placa/Renavam para consulta (simulada).
