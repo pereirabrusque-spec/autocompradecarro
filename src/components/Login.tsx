@@ -42,13 +42,15 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
 
       if (data.user) {
         // Check if user is admin
-        const { data: adminData, error: adminError } = await supabase
+        const { data: adminData } = await supabase
           .from('admin_users')
           .select('email')
           .eq('email', data.user.email)
           .single();
 
-        if (adminData) {
+        const isUserAdmin = !!adminData || data.user.email === 'pereira.brusque@gmail.com';
+
+        if (isUserAdmin) {
           // Is admin, proceed to admin panel
           onLogin(data.user);
         } else {

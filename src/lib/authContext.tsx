@@ -45,7 +45,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (data) {
-        setProfile(data as Profile);
+        // Check if user is in admin_users table to ensure role is up to date
+        const { data: adminData } = await supabase
+          .from('admin_users')
+          .select('email')
+          .eq('email', user.email)
+          .single();
+
+        const shouldBeAdmin = !!adminData || user.email === 'pereira.brusque@gmail.com';
+        
+        if (shouldBeAdmin && data.role !== 'admin') {
+          // Update profile to admin if it's not already
+          const { data: updatedProfile, error: updateError } = await supabase
+            .from('profiles')
+            .update({ role: 'admin' })
+            .eq('id', user.id)
+            .select()
+            .single();
+          
+          if (!updateError && updatedProfile) {
+            setProfile(updatedProfile as Profile);
+          } else {
+            setProfile(data as Profile);
+          }
+        } else {
+          setProfile(data as Profile);
+        }
       } else {
         // Check if user is in admin_users table
         const { data: adminData } = await supabase
@@ -54,11 +79,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .eq('email', user.email)
           .single();
 
+        const isAdminEmail = !!adminData || user.email === 'pereira.brusque@gmail.com';
+
         // If profile doesn't exist, create it
         const newProfile = {
           id: user.id,
           email: user.email,
-          role: adminData ? 'admin' : 'user',
+          role: isAdminEmail ? 'admin' : 'user',
           full_name: user.user_metadata.full_name || user.email?.split('@')[0],
           avatar_url: user.user_metadata.avatar_url
         };
