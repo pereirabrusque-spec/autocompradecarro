@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Car, Phone, Calendar, DollarSign, AlertCircle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw, Pencil } from 'lucide-react';
+import { Car, Phone, Calendar, DollarSign, AlertCircle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw, Pencil, Users, Share2, MessageCircle, ChevronRight, ChevronLeft, Search, Filter, ShieldCheck, Wrench, Wallet, UserPlus } from 'lucide-react';
 import { useAssets } from '../lib/assetsContext';
 import { supabase } from '../lib/supabase';
 import { defaultCards } from '../lib/seedData';
@@ -9,7 +9,14 @@ export default function AdminDashboard() {
   const [leads, setLeads] = useState<any[]>([]);
   const [dbAssets, setDbAssets] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'leads' | 'hero' | 'assets' | 'footer' | 'settings' | 'ai' | 'apis'>('leads');
+  const [activeTab, setActiveTab] = useState<'leads' | 'hero' | 'assets' | 'footer' | 'settings' | 'ai' | 'apis' | 'crm'>('leads');
+  const [interestedBuyers, setInterestedBuyers] = useState<any[]>([]);
+  const [sentLeads, setSentLeads] = useState<any[]>([]);
+  const [searchCode, setSearchCode] = useState('');
+  const [isSavingBuyer, setIsSavingBuyer] = useState(false);
+  const [newBuyer, setNewBuyer] = useState({ name: '', phone: '', category: 'carro', type: 'normal' });
+  const [selectedBuyers, setSelectedBuyers] = useState<string[]>([]);
+  const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
   const [savingAsset, setSavingAsset] = useState<string | null>(null);
   const [deletingAsset, setDeletingAsset] = useState<string | null>(null);
   const [uploadingAsset, setUploadingAsset] = useState<string | null>(null);
@@ -79,9 +86,15 @@ export default function AdminDashboard() {
   const [activeLeadTab, setActiveLeadTab] = useState<'novo' | 'proposta_enviada' | 'fechado' | 'recusado' | 'sem_interesse'>('novo');
   const [proposalCalculator, setProposalCalculator] = useState<{
     baseValue: number;
-    deductions: { name: string; value: number }[];
+    deductions: { name: string; value: number; type: 'fixed' | 'percent' }[];
     finalValue: number;
+    profitMargin: number;
+    payoffValue: number;
+    docDebts: number;
+    repairDebts: number;
   } | null>(null);
+
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -112,6 +125,8 @@ export default function AdminDashboard() {
       const { data: fipeData } = await supabase.from('fipe_rules').select('*').order('condition_name');
       const { data: apiKeysData } = await supabase.from('api_keys').select('*').order('created_at', { ascending: false });
       const { data: providersData } = await supabase.from('providers').select('*').order('name');
+      const { data: buyersData } = await supabase.from('interested_buyers').select('*').order('created_at', { ascending: false });
+      const { data: sentData } = await supabase.from('sent_leads').select('*');
 
       setLeads(leadsData || []);
       setDbAssets(assetsData || []);
@@ -120,6 +135,8 @@ export default function AdminDashboard() {
       setFipeRules(fipeData || []);
       setApiKeys(apiKeysData || []);
       setProviders(providersData || []);
+      setInterestedBuyers(buyersData || []);
+      setSentLeads(sentData || []);
 
       // Fetch settings from Supabase
       const { data: settingsData, error: settingsError } = await supabase.from('settings').select('*');
@@ -455,38 +472,175 @@ export default function AdminDashboard() {
   };
 
   const calculateProposal = (lead: any) => {
-    let baseValue = lead.valor_fipe;
-    let totalDeductions = 0;
-    const deductions = [];
+    let baseValue = lead.valor_fipe || 0;
+    const deductions: { name: string; value: number; type: 'fixed' | 'percent' }[] = [];
 
-    // Deductions based on problems
-    if (lead.problemas) {
+    // 1. Procedência / Histórico (Deduções por Porcentagem)
+    // Procurar por termos específicos no campo 'problemas' (que é um array)
+    if (lead.problemas && lead.problemas.length > 0) {
       lead.problemas.forEach((problem: string) => {
-        const rule = fipeRules.find(r => r.condition_name === problem);
+        // Tentar encontrar regra no banco
+        const rule = fipeRules.find(r => r.condition_name.toLowerCase() === problem.toLowerCase());
         if (rule) {
-          const deduction = baseValue * (rule.discount_percentage / 100);
-          totalDeductions += deduction;
-          deductions.push({ name: problem, value: deduction });
+          const deductionValue = baseValue * (rule.discount_percentage / 100);
+          deductions.push({ name: problem, value: deductionValue, type: 'percent' });
+        } else {
+          // Regras padrão caso não encontre no banco
+          let discount = 0;
+          const p = problem.toLowerCase();
+          if (p.includes('sinistro')) discount = 0.30; // 30%
+          else if (p.includes('leilao') || p.includes('leilão')) discount = 0.25; // 25%
+          else if (p.includes('recuperado')) discount = 0.20; // 20%
+          else if (p.includes('furto')) discount = 0.15; // 15%
+          
+          if (discount > 0) {
+            deductions.push({ name: problem, value: baseValue * discount, type: 'percent' });
+          }
         }
       });
     }
 
-    // Deductions based on repair costs
-    if (lead.observacoes) {
-      repairCosts.forEach(cost => {
-        if (lead.observacoes.toLowerCase().includes(cost.part_name.toLowerCase())) {
-          totalDeductions += cost.cost_value;
-          deductions.push({ name: cost.part_name, value: cost.cost_value });
-        }
-      });
+    // 2. Avarias (Deduções por Valor Fixo)
+    // Procurar por termos específicos no campo 'observacoes' ou 'problemas'
+    let repairTotal = 0;
+    const allText = `${lead.observacoes || ''} ${lead.problemas?.join(' ') || ''}`.toLowerCase();
+    
+    repairCosts.forEach(cost => {
+      if (allText.includes(cost.part_name.toLowerCase())) {
+        repairTotal += cost.cost_value;
+        deductions.push({ name: `Avaria: ${cost.part_name}`, value: cost.cost_value, type: 'fixed' });
+      }
+    });
+
+    // 3. Situação Financeira
+    if (lead.situacao_financeira === 'Financiado') {
+      const financeDeduction = baseValue * 0.1; // 10% de margem extra para financiados
+      deductions.push({ name: 'Margem Veículo Financiado', value: financeDeduction, type: 'percent' });
     }
+    if (lead.situacao_financeira === 'RENAJUD') {
+      const renajudDeduction = baseValue * 0.15; // 15% discount for Renajud
+      deductions.push({ name: 'RENAJUD', value: renajudDeduction, type: 'percent' });
+    }
+    if (lead.situacao_financeira === 'Busca e Apreensão') {
+      const buscaDeduction = baseValue * 0.20; // 20% discount for Busca e Apreensão
+      deductions.push({ name: 'Busca e Apreensão', value: buscaDeduction, type: 'percent' });
+    }
+
+    // Payoff and Debts
+    // Se o cliente informou parcelas, calculamos a quitação aproximada
+    const payoffValue = (lead.parcelas_pagas && lead.valor_parcela && lead.total_parcelas) 
+      ? ((lead.total_parcelas - lead.parcelas_pagas) * lead.valor_parcela * 0.8) // 20% de desconto médio na quitação antecipada
+      : 0;
+    
+    const docDebts = lead.multas || 0;
+
+    const totalDeductions = deductions.reduce((acc, d) => acc + d.value, 0);
+    const profitMargin = baseValue * 0.2; // 20% de margem de lucro padrão
 
     return {
       baseValue,
-      totalDeductions,
       deductions,
-      finalValue: baseValue - totalDeductions
+      finalValue: baseValue - totalDeductions - payoffValue - docDebts - profitMargin,
+      profitMargin,
+      payoffValue,
+      docDebts,
+      repairDebts: repairTotal
     };
+  };
+
+  const handleSaveProposal = async (updateGlobal: boolean = false) => {
+    if (!selectedLead || !proposalCalculator) return;
+
+    try {
+      // Save to lead
+      const { error } = await supabase
+        .from('leads_veiculos')
+        .update({
+          detalhes_proposta: proposalCalculator,
+          suggested_value: proposalCalculator.finalValue,
+          fipe_value: proposalCalculator.baseValue,
+          payoff_value: proposalCalculator.payoffValue,
+          doc_debts: proposalCalculator.docDebts,
+          repair_debts: proposalCalculator.repairDebts,
+          profit_margin: proposalCalculator.profitMargin
+        })
+        .eq('id', selectedLead.id);
+
+      if (error) throw error;
+
+      if (updateGlobal) {
+        // Update AI rules/memory in settings
+        const newMemory = `${aiMemory}\n\nAtualização de Regras (${new Date().toLocaleDateString()}): ${proposalCalculator.deductions.map(d => `${d.name}: ${d.value}`).join(', ')}`;
+        await supabase.from('settings').upsert({ key: 'AI_MEMORY', value: newMemory }, { onConflict: 'key' });
+        setAiMemory(newMemory);
+      }
+
+      alert('Proposta salva com sucesso!');
+      fetchData();
+    } catch (error) {
+      console.error('Error saving proposal:', error);
+      alert('Erro ao salvar proposta.');
+    }
+  };
+
+  const handleSaveBuyer = async () => {
+    if (!newBuyer.name || !newBuyer.phone) return;
+    setIsSavingBuyer(true);
+    try {
+      const { error } = await supabase.from('interested_buyers').insert([newBuyer]);
+      if (error) throw error;
+      setNewBuyer({ name: '', phone: '', category: 'carro', type: 'normal' });
+      fetchData();
+    } catch (error) {
+      console.error('Error saving buyer:', error);
+    } finally {
+      setIsSavingBuyer(false);
+    }
+  };
+
+  const handleSendToWhatsApp = (lead: any, buyers: any[]) => {
+    if (buyers.length === 0) {
+      alert('Selecione pelo menos um comprador.');
+      return;
+    }
+    if (buyers.length > 3) {
+      alert('Selecione no máximo 3 clientes por vez.');
+      return;
+    }
+
+    buyers.forEach(async (buyer) => {
+      // Check for duplicate
+      const isDuplicate = sentLeads.some(s => s.lead_id === lead.id && s.buyer_id === buyer.id);
+      if (isDuplicate) {
+        if (!confirm(`O lead ${lead.vehicle_code} já foi enviado para ${buyer.name}. Deseja enviar novamente?`)) {
+          return;
+        }
+      }
+
+      const message = `🚀 *OPORTUNIDADE AUTOCOMPRA*
+Olá ${buyer.name}! Temos um novo veículo que pode te interessar:
+
+🚗 *${lead.marca} ${lead.modelo}*
+📅 Ano: ${lead.ano_modelo}
+💰 FIPE: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.valor_fipe || 0)}
+🔥 Sugestão de Compra: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.suggested_value || 0)}
+
+Até que valor você acha que pode chegar para fecharmos negócio?
+_Comissão a combinar após o fechamento._`;
+
+      const encodedMessage = encodeURIComponent(message);
+      const whatsappUrl = `https://wa.me/55${buyer.phone.replace(/\D/g, '')}?text=${encodedMessage}`;
+      
+      // Track sent lead
+      const { error } = await supabase.from('sent_leads').insert({ lead_id: lead.id, buyer_id: buyer.id });
+      if (!error) {
+        setSentLeads(prev => [...prev, { lead_id: lead.id, buyer_id: buyer.id }]);
+      }
+      
+      window.open(whatsappUrl, '_blank');
+    });
+
+    fetchData();
   };
 
   const handleSeedCards = async () => {
@@ -574,6 +728,12 @@ export default function AdminDashboard() {
               >
                 APIs & Chaves
               </button>
+              <button 
+                onClick={() => setActiveTab('crm')}
+                className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'crm' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+              >
+                CRM (Interessados)
+              </button>
             </div>
             <button 
               onClick={handleLogout}
@@ -611,38 +771,48 @@ export default function AdminDashboard() {
                     ))}
                   </div>
 
-                  <button 
-                    onClick={fetchData}
-                    className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-colors text-sm"
-                  >
-                    <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                    Atualizar Leads
-                  </button>
+                  <div className="flex items-center gap-2 w-full md:w-auto">
+                    <div className="relative flex-grow md:w-64">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input 
+                        type="text" 
+                        placeholder="Buscar por Código (4 dígitos)..."
+                        value={searchCode}
+                        onChange={(e) => setSearchCode(e.target.value.toUpperCase())}
+                        className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent/20"
+                      />
+                    </div>
+                    <button 
+                      onClick={fetchData}
+                      className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-colors text-sm"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                      Atualizar
+                    </button>
+                  </div>
                 </div>
 
                 {selectedLead && (
                   <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setSelectedLead(null)}>
                     <div 
-                      className="bg-white rounded-[32px] w-full max-w-4xl max-h-[90vh] overflow-y-auto p-8 shadow-2xl animate-in zoom-in-95 duration-300"
+                      className="bg-white rounded-[32px] w-full max-w-6xl max-h-[95vh] overflow-y-auto p-8 shadow-2xl animate-in zoom-in-95 duration-300"
                       onClick={e => e.stopPropagation()}
                     >
                       <div className="flex justify-between items-center mb-8">
                         <div>
-                          <h2 className="text-3xl font-bold font-display">{selectedLead.marca} {selectedLead.modelo}</h2>
-                          <div className="flex items-center gap-4 mt-2">
-                            {/* Seletor de Classificação */}
+                          <div className="flex items-center gap-3 mb-2">
+                            <span className="px-3 py-1 bg-slate-900 text-white rounded-full text-xs font-mono font-bold tracking-widest">
+                              #{selectedLead.vehicle_code || '----'}
+                            </span>
+                            <h2 className="text-3xl font-bold font-display">{selectedLead.marca} {selectedLead.modelo}</h2>
+                          </div>
+                          <div className="flex items-center gap-4">
                             <select
                               value={selectedLead.classificacao || 'morna'}
                               onChange={async (e) => {
                                 const newVal = e.target.value;
-                                const { error } = await supabase
-                                  .from('leads_veiculos')
-                                  .update({ classificacao: newVal })
-                                  .eq('id', selectedLead.id);
-                                if (!error) {
-                                  setSelectedLead({...selectedLead, classificacao: newVal});
-                                  setLeads(prev => prev.map(l => l.id === selectedLead.id ? {...l, classificacao: newVal} : l));
-                                }
+                                const { error } = await supabase.from('leads_veiculos').update({ classificacao: newVal }).eq('id', selectedLead.id);
+                                if (!error) setSelectedLead({...selectedLead, classificacao: newVal});
                               }}
                               className={`text-xs font-bold uppercase px-3 py-1 rounded-full border-none outline-none cursor-pointer ${
                                 (selectedLead.classificacao || 'morna') === 'quente' ? 'bg-red-100 text-red-600' :
@@ -655,19 +825,12 @@ export default function AdminDashboard() {
                               <option value="fria">❄️ Lead Fria</option>
                             </select>
 
-                            {/* Seletor de Status Manual */}
                             <select
                               value={selectedLead.status}
                               onChange={async (e) => {
                                 const newVal = e.target.value;
-                                const { error } = await supabase
-                                  .from('leads_veiculos')
-                                  .update({ status: newVal })
-                                  .eq('id', selectedLead.id);
-                                if (!error) {
-                                  setSelectedLead({...selectedLead, status: newVal});
-                                  setLeads(prev => prev.map(l => l.id === selectedLead.id ? {...l, status: newVal} : l));
-                                }
+                                const { error } = await supabase.from('leads_veiculos').update({ status: newVal }).eq('id', selectedLead.id);
+                                if (!error) setSelectedLead({...selectedLead, status: newVal});
                               }}
                               className="text-xs font-bold uppercase px-3 py-1 rounded-full bg-slate-100 text-slate-600 border-none outline-none cursor-pointer"
                             >
@@ -684,308 +847,433 @@ export default function AdminDashboard() {
                         </button>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div>
-                          {/* Galeria de Fotos e Vídeos */}
-                          {(selectedLead.fotos?.length > 0 || selectedLead.videos?.length > 0) && (
-                            <div className="mb-8">
-                              <h3 className="font-bold text-lg mb-4">Galeria do Veículo</h3>
-                              <div className="grid grid-cols-3 gap-2">
-                                {selectedLead.fotos?.map((foto: string, i: number) => (
-                                  <a key={`foto-${i}`} href={foto} target="_blank" rel="noopener noreferrer" className="aspect-square rounded-xl overflow-hidden border border-slate-200 hover:opacity-80 transition-opacity">
-                                    <img src={foto} alt={`Foto ${i+1}`} className="w-full h-full object-cover" />
-                                  </a>
-                                ))}
-                                {selectedLead.videos?.map((video: string, i: number) => (
-                                  <a key={`video-${i}`} href={video} target="_blank" rel="noopener noreferrer" className="aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-100 flex items-center justify-center hover:opacity-80 transition-opacity relative">
-                                    <video src={video} className="w-full h-full object-cover opacity-50" />
-                                    <div className="absolute inset-0 flex items-center justify-center">
-                                      <div className="w-8 h-8 bg-white/80 rounded-full flex items-center justify-center">
-                                        <div className="w-0 h-0 border-t-4 border-t-transparent border-l-8 border-l-slate-900 border-b-4 border-b-transparent ml-1"></div>
-                                      </div>
-                                    </div>
-                                  </a>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          <h3 className="font-bold text-lg mb-4">Detalhes do Veículo</h3>
-                          <div className="space-y-3 bg-slate-50 p-6 rounded-2xl">
-                            <div className="flex justify-between border-b border-slate-200 pb-2">
-                              <span className="text-slate-500">Ano</span>
-                              <span className="font-bold">{selectedLead.ano_modelo}</span>
-                            </div>
-                            <div className="flex justify-between border-b border-slate-200 pb-2">
-                              <span className="text-slate-500">Cor</span>
-                              <span className="font-bold">{selectedLead.cor}</span>
-                            </div>
-                            <div className="flex justify-between border-b border-slate-200 pb-2">
-                              <span className="text-slate-500">KM</span>
-                              <span className="font-bold">{selectedLead.quilometragem?.toLocaleString()}</span>
-                            </div>
-                            <div className="flex justify-between border-b border-slate-200 pb-2">
-                              <span className="text-slate-500">Valor FIPE</span>
-                              <span className="font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.valor_fipe)}</span>
-                            </div>
-                            <div className="flex justify-between pt-2">
-                              <span className="text-slate-500">Valor Pedido</span>
-                              <span className="font-bold text-green-600 text-lg">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.preco_cliente)}</span>
-                            </div>
-                          </div>
-
-                          <h3 className="font-bold text-lg mt-8 mb-4">Financeiro</h3>
-                          <div className="space-y-3 bg-slate-50 p-6 rounded-2xl">
-                            <div className="flex justify-between border-b border-slate-200 pb-2">
-                              <span className="text-slate-500">Situação</span>
-                              <span className="font-bold">{selectedLead.situacao_financeira || 'N/A'}</span>
-                            </div>
-                            <div className="flex justify-between pt-2">
-                              <span className="text-slate-500">Entrada Paga</span>
-                              <span className="font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.entrada)}</span>
-                            </div>
-                          </div>
-
-                          <h3 className="font-bold text-lg mt-8 mb-4 flex items-center gap-2">
-                            <DollarSign className="w-5 h-5 text-accent" />
-                            Calculadora de Proposta (Editável)
-                          </h3>
-                          <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
-                            {proposalCalculator && (
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                        {/* Coluna Esquerda: Fotos e Dados */}
+                        <div className="lg:col-span-4 space-y-8">
+                          {/* Carrossel de Fotos */}
+                          <div className="relative aspect-video rounded-2xl overflow-hidden bg-slate-100 group">
+                            {selectedLead.fotos && selectedLead.fotos.length > 0 ? (
                               <>
-                                <div className="flex justify-between items-center border-b border-slate-200 pb-4 mb-4">
-                                  <span className="text-slate-500 font-bold">Valor Base (FIPE)</span>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-slate-400 text-xs">R$</span>
-                                    <input 
-                                      type="number"
-                                      value={proposalCalculator.baseValue}
-                                      onChange={(e) => {
-                                        const newVal = parseFloat(e.target.value) || 0;
-                                        setProposalCalculator({
-                                          ...proposalCalculator,
-                                          baseValue: newVal,
-                                          finalValue: newVal - proposalCalculator.deductions.reduce((acc, d) => acc + d.value, 0)
-                                        });
-                                      }}
-                                      className="w-32 p-2 bg-white border border-slate-300 rounded-lg text-right font-bold"
-                                    />
-                                  </div>
-                                </div>
-
-                                <div className="space-y-3 mb-6">
-                                  <div className="flex justify-between items-center mb-2">
-                                    <span className="text-xs font-bold uppercase text-slate-400">Descontos Aplicados</span>
+                                <img 
+                                  src={selectedLead.fotos[currentPhotoIndex]} 
+                                  alt="Veículo" 
+                                  className="w-full h-full object-cover"
+                                />
+                                {selectedLead.fotos.length > 1 && (
+                                  <>
                                     <button 
-                                      onClick={() => {
-                                        const newDeductions = [...proposalCalculator.deductions, { name: 'Novo Desconto', value: 0 }];
-                                        setProposalCalculator({
-                                          ...proposalCalculator,
-                                          deductions: newDeductions,
-                                          finalValue: proposalCalculator.baseValue - newDeductions.reduce((acc, d) => acc + d.value, 0)
-                                        });
-                                      }}
-                                      className="text-xs font-bold text-accent hover:underline flex items-center gap-1"
+                                      onClick={() => setCurrentPhotoIndex(prev => (prev === 0 ? selectedLead.fotos.length - 1 : prev - 1))}
+                                      className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-white/80 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                                     >
-                                      <Plus className="w-3 h-3" /> Adicionar
+                                      <ChevronLeft className="w-5 h-5" />
                                     </button>
-                                  </div>
-                                  
-                                  {proposalCalculator.deductions.map((d, i) => (
-                                    <div key={i} className="flex items-center gap-2">
-                                      <input 
-                                        type="text"
-                                        value={d.name}
-                                        onChange={(e) => {
-                                          const newDeductions = [...proposalCalculator.deductions];
-                                          newDeductions[i].name = e.target.value;
-                                          setProposalCalculator({...proposalCalculator, deductions: newDeductions});
-                                        }}
-                                        className="flex-1 p-2 bg-white border border-slate-300 rounded-lg text-sm"
-                                      />
-                                      <span className="text-red-500 font-bold">- R$</span>
-                                      <input 
-                                        type="number"
-                                        value={d.value}
-                                        onChange={(e) => {
-                                          const newVal = parseFloat(e.target.value) || 0;
-                                          const newDeductions = [...proposalCalculator.deductions];
-                                          newDeductions[i].value = newVal;
-                                          setProposalCalculator({
-                                            ...proposalCalculator,
-                                            deductions: newDeductions,
-                                            finalValue: proposalCalculator.baseValue - newDeductions.reduce((acc, d) => acc + d.value, 0)
-                                          });
-                                        }}
-                                        className="w-24 p-2 bg-white border border-slate-300 rounded-lg text-right font-bold text-red-600"
-                                      />
-                                      <button 
-                                        onClick={() => {
-                                          const newDeductions = proposalCalculator.deductions.filter((_, idx) => idx !== i);
-                                          setProposalCalculator({
-                                            ...proposalCalculator,
-                                            deductions: newDeductions,
-                                            finalValue: proposalCalculator.baseValue - newDeductions.reduce((acc, d) => acc + d.value, 0)
-                                          });
-                                        }}
-                                        className="p-2 text-slate-400 hover:text-red-500"
-                                      >
-                                        <Trash2 className="w-4 h-4" />
-                                      </button>
+                                    <button 
+                                      onClick={() => setCurrentPhotoIndex(prev => (prev === selectedLead.fotos.length - 1 ? 0 : prev + 1))}
+                                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-white/80 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                      <ChevronRight className="w-5 h-5" />
+                                    </button>
+                                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+                                      {selectedLead.fotos.map((_: any, i: number) => (
+                                        <div key={i} className={`w-1.5 h-1.5 rounded-full ${i === currentPhotoIndex ? 'bg-white' : 'bg-white/40'}`} />
+                                      ))}
+                                    </div>
+                                  </>
+                                )}
+                              </>
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                <ImageIcon className="w-12 h-12" />
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="bg-slate-50 p-6 rounded-2xl space-y-4">
+                            <h3 className="font-bold flex items-center gap-2 text-slate-900 border-b border-slate-200 pb-2">
+                              <ShieldCheck className="w-5 h-5 text-accent" />
+                              Dados do Veículo
+                            </h3>
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <p className="text-slate-400 font-bold uppercase text-[10px]">Ano/Modelo</p>
+                                <p className="font-bold">{selectedLead.ano_modelo}</p>
+                              </div>
+                              <div>
+                                <p className="text-slate-400 font-bold uppercase text-[10px]">Cor</p>
+                                <p className="font-bold">{selectedLead.cor}</p>
+                              </div>
+                              <div>
+                                <p className="text-slate-400 font-bold uppercase text-[10px]">KM</p>
+                                <p className="font-bold">{selectedLead.quilometragem?.toLocaleString()} km</p>
+                              </div>
+                              <div>
+                                <p className="text-slate-400 font-bold uppercase text-[10px]">FIPE</p>
+                                <p className="font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.valor_fipe || 0)}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="bg-slate-50 p-6 rounded-2xl space-y-4">
+                            <h3 className="font-bold flex items-center gap-2 text-slate-900 border-b border-slate-200 pb-2">
+                              <Users className="w-5 h-5 text-accent" />
+                              Dados do Cadastro
+                            </h3>
+                            <div className="space-y-3 text-sm">
+                              <div>
+                                <p className="text-slate-400 font-bold uppercase text-[10px]">Cliente</p>
+                                <p className="font-bold">{selectedLead.cliente_nome}</p>
+                              </div>
+                              <div>
+                                <p className="text-slate-400 font-bold uppercase text-[10px]">Telefone</p>
+                                <p className="font-bold">{selectedLead.telefone}</p>
+                              </div>
+                              <div>
+                                <p className="text-slate-400 font-bold uppercase text-[10px]">Data</p>
+                                <p className="font-bold">{new Date(selectedLead.created_at).toLocaleString()}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Coluna Central: Descontos e Proposta */}
+                        <div className="lg:col-span-5 space-y-8">
+                          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                            <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
+                              <DollarSign className="w-5 h-5 text-accent" />
+                              Cálculo da Proposta
+                            </h3>
+
+                            {proposalCalculator && (
+                              <div className="space-y-6">
+                                {/* Histórico de Procedência */}
+                                <div className="space-y-3">
+                                  <p className="text-xs font-black uppercase text-slate-400 flex items-center gap-2">
+                                    <ShieldCheck className="w-4 h-4" />
+                                    Histórico de Procedência
+                                  </p>
+                                  {proposalCalculator.deductions.filter(d => d.type === 'percent').map((d, i) => (
+                                    <div key={i} className="flex justify-between items-center p-3 bg-red-50 rounded-xl border border-red-100">
+                                      <span className="text-sm font-bold text-red-700">{d.name}</span>
+                                      <span className="text-sm font-black text-red-700">-{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
                                     </div>
                                   ))}
                                 </div>
 
-                                <div className="flex justify-between pt-4 border-t border-slate-200 bg-slate-100 p-4 rounded-xl">
-                                  <span className="text-slate-700 font-bold text-lg">Valor Final da Proposta</span>
-                                  <span className="font-black text-green-600 text-2xl">
-                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}
-                                  </span>
+                                {/* Problemas de Avaria */}
+                                <div className="space-y-3">
+                                  <p className="text-xs font-black uppercase text-slate-400 flex items-center gap-2">
+                                    <Wrench className="w-4 h-4" />
+                                    Problemas de Avaria
+                                  </p>
+                                  {proposalCalculator.deductions.filter(d => d.type === 'fixed').map((d, i) => (
+                                    <div key={i} className="flex justify-between items-center p-3 bg-orange-50 rounded-xl border border-orange-100">
+                                      <span className="text-sm font-bold text-orange-700">{d.name}</span>
+                                      <span className="text-sm font-black text-orange-700">-{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
+                                    </div>
+                                  ))}
                                 </div>
 
-                                <button 
-                                  onClick={async () => {
-                                    if (!proposalCalculator) return;
-                                    
-                                    const message = `Olá ${selectedLead.cliente_nome}, analisamos seu ${selectedLead.marca} ${selectedLead.modelo} (${selectedLead.ano_modelo}). Com base em nossa análise técnica e comercial, nossa proposta final é de R$ ${proposalCalculator.finalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`;
-                                    
-                                    const confirmSend = window.confirm(`Deseja enviar a seguinte proposta para o cliente?\n\n"${message}"\n\nIsso mudará o status para "Proposta Enviada".`);
-                                    
-                                    if (confirmSend) {
-                                      try {
-                                        // 1. Salvar mensagem
-                                        const { error: msgError } = await supabase.from('mensagens').insert([{
-                                          lead_id: selectedLead.id,
-                                          remetente: 'admin',
-                                          conteudo: message
-                                        }]);
-                                        if (msgError) throw msgError;
+                                {/* Situação Financeira */}
+                                <div className="space-y-3">
+                                  <p className="text-xs font-black uppercase text-slate-400 flex items-center gap-2">
+                                    <Wallet className="w-4 h-4" />
+                                    Situação Financeira
+                                  </p>
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                                      <p className="text-[10px] font-bold text-slate-400 uppercase">Quitação</p>
+                                      <p className="font-black text-slate-700">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.payoffValue)}</p>
+                                    </div>
+                                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                                      <p className="text-[10px] font-bold text-slate-400 uppercase">Débitos (Doc/IPVA)</p>
+                                      <p className="font-black text-slate-700">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.docDebts)}</p>
+                                    </div>
+                                  </div>
+                                </div>
 
-                                        // 2. Atualizar Lead (Status, Valor Proposta, Detalhes Proposta)
-                                        const { error: leadError } = await supabase
-                                          .from('leads_veiculos')
-                                          .update({
-                                            status: 'proposta_enviada',
-                                            valor_proposta_final: proposalCalculator.finalValue,
-                                            detalhes_proposta: proposalCalculator
-                                          })
-                                          .eq('id', selectedLead.id);
-                                        
-                                        if (leadError) throw leadError;
-                                        
-                                        alert('Proposta enviada com sucesso! Status atualizado.');
-                                        setSelectedLead(null);
-                                        fetchData(); // Atualiza a lista para mover o lead de aba
-                                      } catch (err: any) {
-                                        console.error(err);
-                                        alert('Erro ao enviar proposta: ' + err.message);
-                                      }
-                                    }
-                                  }}
-                                  className="w-full mt-6 py-4 bg-accent text-white rounded-xl font-bold hover:bg-orange-600 transition-colors shadow-lg shadow-accent/20 flex items-center justify-center gap-2"
-                                >
-                                  <Save className="w-5 h-5" />
-                                  Salvar e Enviar Proposta (Mudar Status)
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </div>
+                                {/* Resumo Final */}
+                                <div className="pt-6 border-t border-slate-200 space-y-4">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-slate-500 font-bold">Margem de Lucro (20%)</span>
+                                    <span className="font-bold text-slate-900">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.profitMargin)}</span>
+                                  </div>
+                                  <div className="p-6 bg-slate-900 rounded-2xl text-white">
+                                    <p className="text-xs font-bold uppercase text-slate-400 mb-1">Valor Sugerido de Compra</p>
+                                    <p className="text-3xl font-black text-accent">
+                                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}
+                                    </p>
+                                  </div>
+                                </div>
 
-                        <div>
-                          <h3 className="font-bold text-lg mb-4">Contato do Cliente</h3>
-                          <div className="bg-slate-50 p-6 rounded-2xl mb-8">
-                            <p className="font-bold text-lg mb-1">{selectedLead.cliente_nome}</p>
-                            <p className="text-slate-500 mb-4">{selectedLead.email}</p>
-                            <a 
-                              href={`https://wa.me/55${selectedLead.telefone.replace(/\D/g, '')}`} 
-                              target="_blank"
-                              className="flex items-center justify-center gap-2 w-full py-3 bg-green-500 text-white rounded-xl font-bold hover:bg-green-600 transition-colors"
-                            >
-                              <Phone className="w-4 h-4" />
-                              Chamar no WhatsApp
-                            </a>
-                          </div>
-
-                          <h3 className="font-bold text-lg mb-4">Observações</h3>
-                          <div className="bg-slate-50 p-6 rounded-2xl">
-                            <p className="text-sm text-slate-600">{selectedLead.observacoes}</p>
-                            {selectedLead.problemas && selectedLead.problemas.length > 0 && (
-                              <div className="mt-4 pt-4 border-t border-slate-200">
-                                <p className="font-bold text-xs uppercase text-slate-400 mb-2">Problemas Relatados</p>
-                                <div className="flex flex-wrap gap-2">
-                                  {selectedLead.problemas.map((p: string, i: number) => (
-                                    <span key={i} className="px-2 py-1 bg-red-100 text-red-600 text-xs font-bold rounded-lg">{p}</span>
-                                  ))}
+                                <div className="grid grid-cols-2 gap-4">
+                                  <button 
+                                    onClick={() => handleSaveProposal(false)}
+                                    className="py-4 bg-slate-100 text-slate-700 rounded-2xl font-bold hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
+                                  >
+                                    <Save className="w-5 h-5" />
+                                    Salvar Cotação
+                                  </button>
+                                  <button 
+                                    onClick={() => handleSaveProposal(true)}
+                                    className="py-4 bg-accent text-white rounded-2xl font-bold hover:bg-accent/90 transition-all flex items-center justify-center gap-2"
+                                  >
+                                    <RefreshCw className="w-5 h-5" />
+                                    Salvar e Atualizar IA
+                                  </button>
                                 </div>
                               </div>
                             )}
                           </div>
                         </div>
+
+                        {/* Coluna Direita: Resumo e Envio */}
+                        <div className="lg:col-span-3 space-y-8">
+                          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                            <h3 className="font-bold mb-4 flex items-center gap-2">
+                              <Share2 className="w-5 h-5 text-accent" />
+                              Resumo para Envio
+                            </h3>
+                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-3 mb-6">
+                              <p><strong>Veículo:</strong> {selectedLead.marca} {selectedLead.modelo}</p>
+                              <p><strong>Ano:</strong> {selectedLead.ano_modelo}</p>
+                              <p><strong>FIPE:</strong> {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.valor_fipe || 0)}</p>
+                              <p><strong>Desejado:</strong> {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.preco_cliente || 0)}</p>
+                              <div className="pt-2 border-t border-slate-200">
+                                <p className="font-bold text-accent">Sugerido: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.suggested_value || 0)}</p>
+                              </div>
+                            </div>
+                            
+                            <button 
+                              onClick={() => {
+                                const buyers = interestedBuyers.filter(b => selectedBuyers.includes(b.id));
+                                handleSendToWhatsApp(selectedLead, buyers);
+                              }}
+                              className="w-full py-4 bg-green-600 text-white rounded-2xl font-bold hover:bg-green-700 transition-all flex items-center justify-center gap-2"
+                            >
+                              <MessageCircle className="w-5 h-5" />
+                              Enviar para WhatsApp
+                            </button>
+                          </div>
+
+                          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                            <h3 className="font-bold mb-4 flex items-center gap-2">
+                              <Users className="w-5 h-5 text-accent" />
+                              Selecionar Compradores
+                            </h3>
+                            <div className="max-h-64 overflow-y-auto space-y-2">
+                              {interestedBuyers.map(buyer => (
+                                <label key={buyer.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
+                                  <input 
+                                    type="checkbox" 
+                                    checked={selectedBuyers.includes(buyer.id)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) setSelectedBuyers([...selectedBuyers, buyer.id]);
+                                      else setSelectedBuyers(selectedBuyers.filter(id => id !== buyer.id));
+                                    }}
+                                    className="w-4 h-4 rounded border-slate-300 text-accent focus:ring-accent"
+                                  />
+                                  <div className="flex-grow">
+                                    <p className="text-xs font-bold">{buyer.name}</p>
+                                    <p className="text-[10px] text-slate-400">{buyer.category} - {buyer.type}</p>
+                                  </div>
+                                  {sentLeads.some(s => s.lead_id === selectedLead.id && s.buyer_id === buyer.id) && (
+                                    <div className="w-2 h-2 rounded-full bg-red-500" title="Já enviado" />
+                                  )}
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
                 )}
 
-                {leads.filter(l => l.status === activeLeadTab).map((v) => (
-                  <div
-                    key={v.id}
-                    onClick={() => setSelectedLead(v)}
-                    className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden hover:shadow-md transition-all cursor-pointer group animate-in fade-in slide-in-from-bottom-4 duration-500"
-                  >
-                    <div className="p-6 flex items-center gap-6">
-                      <div className="w-24 h-24 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-300 overflow-hidden relative">
-                        {v.fotos && v.fotos.length > 0 ? (
-                          <img src={v.fotos[0]} alt={v.modelo} className="w-full h-full object-cover" />
-                        ) : (
-                          <ImageIcon className="w-8 h-8" />
-                        )}
-                        {/* Indicador de Temperatura */}
-                        <div className={`absolute top-0 right-0 p-1 rounded-bl-xl ${
-                          (v.classificacao || 'morna') === 'quente' ? 'bg-red-500 text-white' :
-                          (v.classificacao || 'morna') === 'fria' ? 'bg-blue-500 text-white' :
-                          'bg-orange-400 text-white'
-                        }`}>
-                          {(v.classificacao || 'morna') === 'quente' ? '🔥' :
-                           (v.classificacao || 'morna') === 'fria' ? '❄️' : '🌤️'}
-                        </div>
-                      </div>
-                      
-                      <div className="flex-1">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h2 className="font-display text-xl font-bold group-hover:text-accent transition-colors">{v.marca} {v.modelo}</h2>
-                            <p className="text-slate-400 text-sm">{v.ano_modelo} • {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v.preco_cliente)}</p>
-                            <p className="text-accent font-bold text-sm mt-1">
-                              Proposta: {v.valor_proposta_final 
-                                ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v.valor_proposta_final) 
-                                : (v.ai_proposal ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v.ai_proposal) : 'Aguardando')}
-                            </p>
-                          </div>
-                          <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                            v.status === 'novo' ? 'bg-blue-100 text-blue-600' : 
-                            v.status === 'proposta_enviada' ? 'bg-purple-100 text-purple-600' :
-                            v.status === 'fechado' ? 'bg-green-100 text-green-600' :
-                            'bg-slate-100 text-slate-600'
-                          }`}>
-                            {v.status.replace('_', ' ')}
-                          </span>
-                        </div>
-                      </div>
-                      
-                      <div className="hidden md:block">
-                        <button className="px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-sm font-bold group-hover:bg-slate-100 transition-colors">
-                          Ver Detalhes
-                        </button>
-                      </div>
+                <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-200">
+                          <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Veículo</th>
+                          <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Código</th>
+                          <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Ano/Modelo</th>
+                          <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">FIPE</th>
+                          <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Desejado</th>
+                          <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Sugerido</th>
+                          <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {leads
+                          .filter(l => l.status === activeLeadTab)
+                          .filter(l => !searchCode || (l.vehicle_code && l.vehicle_code.includes(searchCode)))
+                          .map((lead) => (
+                          <tr key={lead.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => {
+                            setSelectedLead(lead);
+                            setProposalCalculator(calculateProposal(lead));
+                            setSelectedBuyers([]);
+                            setCurrentPhotoIndex(0);
+                          }}>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-lg bg-slate-100 overflow-hidden flex-shrink-0">
+                                  {lead.fotos && lead.fotos[0] ? (
+                                    <img src={lead.fotos[0]} alt="Veículo" className="w-full h-full object-cover" />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                      <ImageIcon className="w-6 h-6" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div>
+                                  <p className="font-bold text-slate-900">{lead.marca} {lead.modelo}</p>
+                                  <p className="text-xs text-slate-400">{lead.cliente_nome}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded text-xs font-mono font-bold">
+                                {lead.vehicle_code || '----'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-sm text-slate-600">{lead.ano_modelo}</td>
+                            <td className="px-6 py-4 text-sm font-bold text-slate-900">
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.valor_fipe || 0)}
+                            </td>
+                            <td className="px-6 py-4 text-sm font-bold text-green-600">
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.preco_cliente || 0)}
+                            </td>
+                            <td className="px-6 py-4 text-sm font-bold text-accent">
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.suggested_value || 0)}
+                            </td>
+                            <td className="px-6 py-4">
+                              <button className="p-2 hover:bg-slate-200 rounded-lg transition-colors">
+                                <Pencil className="w-4 h-4 text-slate-400" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            ) : activeTab === 'crm' ? (
+              <div className="space-y-8">
+                <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm">
+                  <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+                    <UserPlus className="w-6 h-6 text-accent" />
+                    Cadastrar Novo Comprador Interessado
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nome Completo</label>
+                      <input 
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-accent/20"
+                        placeholder="Ex: João Silva"
+                        value={newBuyer.name}
+                        onChange={(e) => setNewBuyer({...newBuyer, name: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">WhatsApp (com DDD)</label>
+                      <input 
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-accent/20"
+                        placeholder="Ex: 11999999999"
+                        value={newBuyer.phone}
+                        onChange={(e) => setNewBuyer({...newBuyer, phone: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Categoria de Interesse</label>
+                      <select 
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-accent/20"
+                        value={newBuyer.category}
+                        onChange={(e) => setNewBuyer({...newBuyer, category: e.target.value as any})}
+                      >
+                        <option value="carro">Carros</option>
+                        <option value="moto">Motos</option>
+                        <option value="caminhao">Caminhões</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Perfil de Compra</label>
+                      <select 
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-accent/20"
+                        value={newBuyer.type}
+                        onChange={(e) => setNewBuyer({...newBuyer, type: e.target.value as any})}
+                      >
+                        <option value="popular">Popular (Até 50k)</option>
+                        <option value="normal">Normal (50k - 150k)</option>
+                        <option value="premium">Premium (Acima 150k)</option>
+                      </select>
                     </div>
                   </div>
-                ))}
-                {leads.filter(l => l.status === activeLeadTab).length === 0 && (
-                  <div className="text-center py-20 bg-white rounded-[32px] border border-slate-100">
-                    <p className="text-slate-400">Nenhum lead encontrado nesta categoria.</p>
+                  <button 
+                    onClick={handleSaveBuyer}
+                    className="mt-6 w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Save className="w-5 h-5" />
+                    Salvar Comprador no CRM
+                  </button>
+                </div>
+
+                <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm">
+                  <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+                    <h3 className="font-bold text-lg">Base de Compradores Ativos</h3>
+                    <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-bold">
+                      {interestedBuyers.length} Compradores
+                    </span>
                   </div>
-                )}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-200">
+                          <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Nome</th>
+                          <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">WhatsApp</th>
+                          <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Categoria</th>
+                          <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Perfil</th>
+                          <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {interestedBuyers.map((buyer) => (
+                          <tr key={buyer.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                            <td className="px-6 py-4 font-bold text-slate-900">{buyer.name}</td>
+                            <td className="px-6 py-4 text-sm text-slate-600">{buyer.phone}</td>
+                            <td className="px-6 py-4">
+                              <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded text-[10px] font-bold uppercase">
+                                {buyer.category}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${
+                                buyer.type === 'premium' ? 'bg-purple-100 text-purple-600' :
+                                buyer.type === 'normal' ? 'bg-blue-100 text-blue-600' :
+                                'bg-slate-100 text-slate-600'
+                              }`}>
+                                {buyer.type}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <button 
+                                onClick={async () => {
+                                  if (confirm('Excluir este comprador?')) {
+                                    const { error } = await supabase.from('interested_buyers').delete().eq('id', buyer.id);
+                                    if (!error) setInterestedBuyers(prev => prev.filter(b => b.id !== buyer.id));
+                                  }
+                                }}
+                                className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
             ) : activeTab === 'hero' ? (
           <div className="space-y-6">
