@@ -9,9 +9,15 @@ export default function AdminDashboard() {
   const [leads, setLeads] = useState<any[]>([]);
   const [dbAssets, setDbAssets] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'leads' | 'hero' | 'assets' | 'footer' | 'settings' | 'ai' | 'apis' | 'crm'>('leads');
+  const [activeTab, setActiveTab] = useState<'leads' | 'hero' | 'assets' | 'footer' | 'settings' | 'ai' | 'apis' | 'crm' | 'messages'>('leads');
   const [interestedBuyers, setInterestedBuyers] = useState<any[]>([]);
   const [sentLeads, setSentLeads] = useState<any[]>([]);
+  const [conversations, setConversations] = useState<any[]>([]);
+  const [selectedConversation, setSelectedConversation] = useState<any>(null);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [adminMessage, setAdminMessage] = useState('');
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [showProposalModal, setShowProposalModal] = useState(false);
   const [searchCode, setSearchCode] = useState('');
   const [isSavingBuyer, setIsSavingBuyer] = useState(false);
   const [newBuyer, setNewBuyer] = useState({ name: '', phone: '', category: 'carro', type: 'normal' });
@@ -127,7 +133,31 @@ export default function AdminDashboard() {
       const { data: providersData } = await supabase.from('providers').select('*').order('name');
       const { data: buyersData } = await supabase.from('interested_buyers').select('*').order('created_at', { ascending: false });
       const { data: sentData } = await supabase.from('sent_leads').select('*');
+      const { data: messagesData } = await supabase
+        .from('mensagens')
+        .select('*, leads_veiculos(marca, modelo, cliente_nome, vehicle_code, fotos)')
+        .order('created_at', { ascending: false });
 
+      // Group messages by lead_id to create conversation list
+      const groupedConversations: any[] = [];
+      const leadIds = new Set();
+      
+      if (messagesData) {
+        messagesData.forEach((msg: any) => {
+          if (!leadIds.has(msg.lead_id)) {
+            leadIds.add(msg.lead_id);
+            groupedConversations.push({
+              lead_id: msg.lead_id,
+              last_message: msg.conteudo,
+              last_time: msg.created_at,
+              lead: msg.leads_veiculos,
+              unread: 0 // Placeholder for unread logic if needed
+            });
+          }
+        });
+      }
+
+      setConversations(groupedConversations);
       setLeads(leadsData || []);
       setDbAssets(assetsData || []);
       setBanks(banksData || []);
@@ -271,6 +301,104 @@ export default function AdminDashboard() {
       setProposalCalculator(null);
     }
   }, [selectedLead]);
+
+  const fetchChatMessages = async (leadId: string) => {
+    const { data, error } = await supabase
+      .from('mensagens')
+      .select('*')
+      .eq('lead_id', leadId)
+      .order('created_at', { ascending: true });
+    
+    if (!error) {
+      setChatMessages(data || []);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!selectedConversation || !adminMessage.trim()) return;
+
+    setIsSendingMessage(true);
+    try {
+      const { error } = await supabase.from('mensagens').insert({
+        lead_id: selectedConversation.lead_id,
+        remetente: 'admin',
+        conteudo: adminMessage
+      });
+
+      if (error) throw error;
+
+      setAdminMessage('');
+      await fetchChatMessages(selectedConversation.lead_id);
+      await fetchData(); // Refresh conversation list
+    } catch (error) {
+      console.error('Error sending message:', error);
+      alert('Erro ao enviar mensagem.');
+    } finally {
+      setIsSendingMessage(false);
+    }
+  };
+
+  const handleSendProposalFromChat = async () => {
+    if (!selectedLead || !proposalCalculator) return;
+
+    const message = `🚀 *PROPOSTA AUTOCOMPRA*
+Olá ${selectedLead.cliente_nome}, analisamos seu ${selectedLead.marca} ${selectedLead.modelo} (${selectedLead.ano_modelo}).
+
+Com base em nossa análise técnica e comercial, nossa proposta final é de:
+💰 *${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}*
+
+Podemos prosseguir com o agendamento da vistoria?`;
+
+    if (confirm(`Deseja enviar a proposta oficial para o cliente?\n\n"${message}"`)) {
+      try {
+        // 1. Salvar mensagem no chat
+        const { error: msgError } = await supabase.from('mensagens').insert([{
+          lead_id: selectedLead.id,
+          remetente: 'admin',
+          conteudo: message
+        }]);
+        if (msgError) throw msgError;
+
+        // 2. Atualizar Lead
+        const { error: leadError } = await supabase
+          .from('leads_veiculos')
+          .update({
+            status: 'proposta_enviada',
+            valor_proposta_final: proposalCalculator.finalValue,
+            detalhes_proposta: proposalCalculator
+          })
+          .eq('id', selectedLead.id);
+        
+        if (leadError) throw leadError;
+        
+        alert('Proposta enviada com sucesso!');
+        setShowProposalModal(false);
+        await fetchChatMessages(selectedLead.id);
+        await fetchData();
+      } catch (err: any) {
+        console.error(err);
+        alert('Erro ao enviar proposta: ' + err.message);
+      }
+    }
+  };
+
+  const handleLearnFromChat = async () => {
+    if (!selectedConversation || chatMessages.length === 0) return;
+
+    try {
+      const chatHistory = chatMessages.map(m => `${m.remetente === 'admin' ? 'Humano' : 'Cliente'}: ${m.conteudo}`).join('\n');
+      const newMemory = `${aiMemory}\n\n--- Aprendizado de Conversa (${new Date().toLocaleDateString()}) ---\n${chatHistory}\n`;
+      
+      const { error } = await supabase.from('settings').upsert({ key: 'AI_MEMORY', value: newMemory }, { onConflict: 'key' });
+      if (error) throw error;
+      
+      setAiMemory(newMemory);
+      alert('A IA aprendeu com o histórico desta conversa!');
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao atualizar memória da IA.');
+    }
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -733,6 +861,12 @@ _Comissão a combinar após o fechamento._`;
                 className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'crm' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
               >
                 CRM (Interessados)
+              </button>
+              <button 
+                onClick={() => setActiveTab('messages')}
+                className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'messages' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+              >
+                Conversas
               </button>
             </div>
             <button 
@@ -1274,6 +1408,317 @@ _Comissão a combinar após o fechamento._`;
                     </table>
                   </div>
                 </div>
+              </div>
+            ) : activeTab === 'messages' ? (
+              <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm flex h-[700px]">
+                {/* Lista de Conversas (Esquerda) */}
+                <div className="w-1/3 border-r border-slate-100 flex flex-col">
+                  <div className="p-6 border-b border-slate-100">
+                    <h3 className="text-xl font-bold mb-4">Conversas</h3>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input 
+                        type="text" 
+                        placeholder="Buscar cliente..."
+                        className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent/20"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex-1 overflow-y-auto">
+                    {conversations.map((conv) => (
+                      <div 
+                        key={conv.lead_id}
+                        onClick={() => {
+                          setSelectedConversation(conv);
+                          fetchChatMessages(conv.lead_id);
+                          const lead = leads.find(l => l.id === conv.lead_id);
+                          if (lead) {
+                            setSelectedLead(lead);
+                            setProposalCalculator(calculateProposal(lead));
+                          }
+                        }}
+                        className={`p-4 flex items-center gap-4 cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 ${selectedConversation?.lead_id === conv.lead_id ? 'bg-slate-50' : ''}`}
+                      >
+                        <div className="w-12 h-12 rounded-full bg-slate-100 overflow-hidden flex-shrink-0">
+                          {conv.lead?.fotos && conv.lead.fotos[0] ? (
+                            <img src={conv.lead.fotos[0]} alt="Veículo" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-300">
+                              <ImageIcon className="w-6 h-6" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-start">
+                            <h4 className="font-bold text-slate-900 truncate">{conv.lead?.cliente_nome || 'Cliente'}</h4>
+                            <span className="text-[10px] text-slate-400 whitespace-nowrap">{new Date(conv.last_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          </div>
+                          <p className="text-xs text-slate-500 truncate">{conv.last_message}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Janela de Chat (Direita) */}
+                <div className="flex-1 flex flex-col bg-slate-50/50">
+                  {selectedConversation ? (
+                    <>
+                      {/* Cabeçalho do Chat */}
+                      <div className="p-4 bg-white border-b border-slate-100 flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden">
+                            {selectedConversation.lead?.fotos && selectedConversation.lead.fotos[0] ? (
+                              <img src={selectedConversation.lead.fotos[0]} alt="Veículo" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                <ImageIcon className="w-5 h-5" />
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-slate-900">{selectedConversation.lead?.cliente_nome}</h4>
+                            <p className="text-[10px] text-slate-400 font-mono">#{selectedConversation.lead?.vehicle_code}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={handleLearnFromChat}
+                            className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl font-bold text-xs hover:bg-slate-200 transition-all flex items-center gap-2"
+                            title="Adicionar histórico desta conversa à memória da IA"
+                          >
+                            <ShieldCheck className="w-4 h-4" />
+                            IA: Aprender
+                          </button>
+                          <button 
+                            onClick={() => setShowProposalModal(true)}
+                            className="px-4 py-2 bg-accent/10 text-accent rounded-xl font-bold text-xs hover:bg-accent/20 transition-all flex items-center gap-2"
+                          >
+                            <DollarSign className="w-4 h-4" />
+                            Ver Proposta
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Mensagens */}
+                      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                        {chatMessages.map((msg) => (
+                          <div 
+                            key={msg.id}
+                            className={`flex ${msg.remetente === 'admin' ? 'justify-end' : 'justify-start'}`}
+                          >
+                            <div className={`max-w-[70%] p-4 rounded-2xl text-sm shadow-sm ${
+                              msg.remetente === 'admin' 
+                                ? 'bg-slate-900 text-white rounded-tr-none' 
+                                : 'bg-white text-slate-700 rounded-tl-none border border-slate-100'
+                            }`}>
+                              <p className="whitespace-pre-wrap">{msg.conteudo}</p>
+                              <span className={`text-[9px] mt-1 block ${msg.remetente === 'admin' ? 'text-slate-400' : 'text-slate-400'}`}>
+                                {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Input de Mensagem */}
+                      <div className="p-4 bg-white border-t border-slate-100">
+                        <div className="flex gap-2">
+                          <textarea 
+                            value={adminMessage}
+                            onChange={(e) => setAdminMessage(e.target.value)}
+                            placeholder="Digite sua mensagem..."
+                            className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent/20 resize-none h-12"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSendMessage();
+                              }
+                            }}
+                          />
+                          <button 
+                            onClick={handleSendMessage}
+                            disabled={isSendingMessage || !adminMessage.trim()}
+                            className="p-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all disabled:opacity-50"
+                          >
+                            <Share2 className="w-5 h-5" />
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-2 text-center">
+                          Você está assumindo a conversa como <strong>Humano</strong>. A IA aprenderá com suas respostas.
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center text-slate-300 p-12 text-center">
+                      <MessageCircle className="w-16 h-16 mb-4 opacity-20" />
+                      <h3 className="text-xl font-bold text-slate-400">Selecione uma conversa</h3>
+                      <p className="text-sm max-w-xs">Escolha um cliente na lista ao lado para visualizar o histórico e assumir o atendimento.</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Modal de Proposta (dentro do chat) */}
+                {showProposalModal && selectedLead && proposalCalculator && (
+                  <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white rounded-[32px] w-full max-w-2xl p-8 shadow-2xl">
+                      <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-2xl font-bold">Proposta: {selectedLead.marca} {selectedLead.modelo}</h3>
+                        <button onClick={() => setShowProposalModal(false)} className="p-2 hover:bg-slate-100 rounded-full">
+                          <LogOut className="w-6 h-6 rotate-45" />
+                        </button>
+                      </div>
+
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Valor FIPE</label>
+                            <input 
+                              type="number"
+                              value={proposalCalculator.baseValue}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                setProposalCalculator({...proposalCalculator, baseValue: val, finalValue: val - proposalCalculator.deductions.reduce((acc, d) => acc + d.value, 0) - proposalCalculator.payoffValue - proposalCalculator.docDebts - proposalCalculator.profitMargin});
+                              }}
+                              className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Margem de Lucro</label>
+                            <input 
+                              type="number"
+                              value={proposalCalculator.profitMargin}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                setProposalCalculator({...proposalCalculator, profitMargin: val, finalValue: proposalCalculator.baseValue - proposalCalculator.deductions.reduce((acc, d) => acc + d.value, 0) - proposalCalculator.payoffValue - proposalCalculator.docDebts - val});
+                              }}
+                              className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dívidas/Multas</label>
+                            <input 
+                              type="number"
+                              value={proposalCalculator.docDebts}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                setProposalCalculator({...proposalCalculator, docDebts: val, finalValue: proposalCalculator.baseValue - proposalCalculator.deductions.reduce((acc, d) => acc + d.value, 0) - proposalCalculator.payoffValue - val - proposalCalculator.profitMargin});
+                              }}
+                              className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Quitação Banco</label>
+                            <input 
+                              type="number"
+                              value={proposalCalculator.payoffValue}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                setProposalCalculator({...proposalCalculator, payoffValue: val, finalValue: proposalCalculator.baseValue - proposalCalculator.deductions.reduce((acc, d) => acc + d.value, 0) - val - proposalCalculator.docDebts - proposalCalculator.profitMargin});
+                              }}
+                              className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Deduções (Avarias/Histórico)</label>
+                          <div className="max-h-32 overflow-y-auto space-y-2 pr-2">
+                            {proposalCalculator.deductions.map((deduction, idx) => (
+                              <div key={idx} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg text-xs">
+                                <span className="text-slate-600">{deduction.name}</span>
+                                <div className="flex items-center gap-2">
+                                  <input 
+                                    type="number"
+                                    value={deduction.value}
+                                    onChange={(e) => {
+                                      const newVal = parseFloat(e.target.value) || 0;
+                                      const newDeductions = [...proposalCalculator.deductions];
+                                      newDeductions[idx].value = newVal;
+                                      const totalDeductions = newDeductions.reduce((acc, d) => acc + d.value, 0);
+                                      setProposalCalculator({
+                                        ...proposalCalculator, 
+                                        deductions: newDeductions,
+                                        finalValue: proposalCalculator.baseValue - totalDeductions - proposalCalculator.payoffValue - proposalCalculator.docDebts - proposalCalculator.profitMargin
+                                      });
+                                    }}
+                                    className="w-20 p-1 border border-slate-200 rounded text-right font-bold"
+                                  />
+                                  <button 
+                                    onClick={() => {
+                                      const newDeductions = proposalCalculator.deductions.filter((_, i) => i !== idx);
+                                      const totalDeductions = newDeductions.reduce((acc, d) => acc + d.value, 0);
+                                      setProposalCalculator({
+                                        ...proposalCalculator, 
+                                        deductions: newDeductions,
+                                        finalValue: proposalCalculator.baseValue - totalDeductions - proposalCalculator.payoffValue - proposalCalculator.docDebts - proposalCalculator.profitMargin
+                                      });
+                                    }}
+                                    className="text-red-400 hover:text-red-600"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                            <button 
+                              onClick={() => {
+                                const name = prompt('Nome da dedução:');
+                                const value = parseFloat(prompt('Valor da dedução:') || '0');
+                                if (name && value) {
+                                  const newDeductions: { name: string; value: number; type: 'fixed' | 'percent' }[] = [
+                                    ...proposalCalculator.deductions, 
+                                    { name, value, type: 'fixed' }
+                                  ];
+                                  const totalDeductions = newDeductions.reduce((acc, d) => acc + d.value, 0);
+                                  setProposalCalculator({
+                                    ...proposalCalculator, 
+                                    deductions: newDeductions,
+                                    finalValue: proposalCalculator.baseValue - totalDeductions - proposalCalculator.payoffValue - proposalCalculator.docDebts - proposalCalculator.profitMargin
+                                  });
+                                }
+                              }}
+                              className="w-full py-2 border-2 border-dashed border-slate-200 rounded-xl text-[10px] font-bold text-slate-400 hover:border-accent hover:text-accent transition-all"
+                            >
+                              + Adicionar Dedução
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="p-6 bg-slate-900 rounded-2xl text-white">
+                          <p className="text-xs font-bold uppercase text-slate-400 mb-1">Valor Final Sugerido</p>
+                          <p className="text-3xl font-black text-accent">
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3">
+                          <button 
+                            onClick={() => handleSaveProposal(false)}
+                            className="w-full py-4 bg-slate-100 text-slate-700 rounded-2xl font-bold hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
+                          >
+                            <Save className="w-5 h-5" />
+                            Salvar Alterações
+                          </button>
+                          <button 
+                            onClick={() => handleSaveProposal(true)}
+                            className="w-full py-4 bg-slate-100 text-slate-700 rounded-2xl font-bold hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
+                          >
+                            <RefreshCw className="w-5 h-5" />
+                            Salvar e Atualizar IA
+                          </button>
+                          <button 
+                            onClick={handleSendProposalFromChat}
+                            className="w-full py-4 bg-accent text-white rounded-2xl font-bold hover:bg-accent/90 transition-all flex items-center justify-center gap-2"
+                          >
+                            <Share2 className="w-5 h-5" />
+                            Enviar Proposta Oficial
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : activeTab === 'hero' ? (
           <div className="space-y-6">
