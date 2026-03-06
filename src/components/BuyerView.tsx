@@ -14,6 +14,7 @@ import {
   FileText,
   DollarSign
 } from 'lucide-react';
+import InternalChat from './InternalChat';
 
 export default function BuyerView() {
   const { user, profile, signOut } = useAuth();
@@ -21,6 +22,13 @@ export default function BuyerView() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [permissions, setPermissions] = useState({
+    show_price: true,
+    show_photos: true,
+    show_plate: false,
+    show_details: true,
+    show_history: false
+  });
 
   useEffect(() => {
     fetchAuthorizedLeads();
@@ -30,6 +38,21 @@ export default function BuyerView() {
     if (!user) return;
     setIsLoading(true);
     try {
+      // Fetch permissions
+      const { data: settingsData } = await supabase
+        .from('banners')
+        .select('*')
+        .eq('key', 'BUYER_VIEW_PERMISSIONS')
+        .single();
+      
+      if (settingsData && settingsData.value) {
+        try {
+          setPermissions(JSON.parse(settingsData.value));
+        } catch (e) {
+          console.error('Error parsing permissions:', e);
+        }
+      }
+
       // Fetch leads that this buyer is authorized to see
       const { data, error } = await supabase
         .from('leads_veiculos')
@@ -122,22 +145,25 @@ export default function BuyerView() {
                 }}
               >
                 <div className="relative aspect-[4/3] bg-slate-100">
-                  {lead.fotos && lead.fotos[0] ? (
+                  {permissions.show_photos && lead.fotos && lead.fotos[0] ? (
                     <img 
                       src={lead.fotos[0]} 
                       alt={lead.modelo} 
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-300">
+                    <div className="w-full h-full flex items-center justify-center text-slate-300 flex-col gap-2">
                       <ImageIcon className="w-12 h-12" />
+                      {!permissions.show_photos && <span className="text-xs font-bold uppercase">Fotos Restritas</span>}
                     </div>
                   )}
-                  <div className="absolute top-4 left-4">
-                    <span className="px-3 py-1 bg-white/90 backdrop-blur-sm text-slate-900 rounded-full text-[10px] font-mono font-bold shadow-sm">
-                      #{lead.vehicle_code}
-                    </span>
-                  </div>
+                  {permissions.show_plate && (
+                    <div className="absolute top-4 left-4">
+                      <span className="px-3 py-1 bg-white/90 backdrop-blur-sm text-slate-900 rounded-full text-[10px] font-mono font-bold shadow-sm">
+                        #{lead.vehicle_code}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="p-6">
                   <h3 className="text-xl font-bold text-slate-900 mb-1">{lead.marca} {lead.modelo}</h3>
@@ -147,7 +173,10 @@ export default function BuyerView() {
                     <div>
                       <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest">Valor FIPE</p>
                       <p className="text-lg font-black text-slate-900">
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.valor_fipe || 0)}
+                        {permissions.show_price 
+                          ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.valor_fipe || 0)
+                          : 'Sob Consulta'
+                        }
                       </p>
                     </div>
                     <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-accent group-hover:text-white transition-colors">
@@ -172,7 +201,7 @@ export default function BuyerView() {
           >
             {/* Fotos (Esquerda) */}
             <div className="w-full md:w-1/2 bg-slate-900 relative flex items-center justify-center">
-              {selectedLead.fotos && selectedLead.fotos.length > 0 ? (
+              {permissions.show_photos && selectedLead.fotos && selectedLead.fotos.length > 0 ? (
                 <>
                   <img 
                     src={selectedLead.fotos[currentPhotoIndex]} 
@@ -207,7 +236,7 @@ export default function BuyerView() {
               ) : (
                 <div className="text-slate-700 flex flex-col items-center">
                   <ImageIcon className="w-20 h-20 mb-4 opacity-20" />
-                  <p>Sem fotos disponíveis</p>
+                  <p>{permissions.show_photos ? 'Sem fotos disponíveis' : 'Visualização de fotos restrita'}</p>
                 </div>
               )}
             </div>
@@ -216,9 +245,11 @@ export default function BuyerView() {
             <div className="w-full md:w-1/2 p-12 overflow-y-auto bg-white">
               <div className="flex justify-between items-start mb-8">
                 <div>
-                  <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-[10px] font-mono font-bold mb-2 inline-block">
-                    #{selectedLead.vehicle_code}
-                  </span>
+                  {permissions.show_plate && (
+                    <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-[10px] font-mono font-bold mb-2 inline-block">
+                      #{selectedLead.vehicle_code}
+                    </span>
+                  )}
                   <h2 className="text-4xl font-display font-bold text-slate-900">{selectedLead.marca} {selectedLead.modelo}</h2>
                   <p className="text-slate-500 text-lg">{selectedLead.ano_modelo} • {selectedLead.cor} • {selectedLead.combustivel}</p>
                 </div>
@@ -241,42 +272,47 @@ export default function BuyerView() {
                     <span className="text-[10px] font-black uppercase tracking-widest">Valor FIPE</span>
                   </div>
                   <p className="text-2xl font-bold text-slate-900">
-                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.valor_fipe || 0)}
+                    {permissions.show_price 
+                      ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.valor_fipe || 0)
+                      : 'Sob Consulta'
+                    }
                   </p>
                 </div>
               </div>
 
-              <div className="space-y-8 mb-12">
-                <div>
-                  <h4 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
-                    <Info className="w-4 h-4 text-accent" />
-                    Detalhes Técnicos & Situação
-                  </h4>
-                  <div className="grid grid-cols-1 gap-3">
-                    <div className="flex justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
-                      <span className="text-sm text-slate-500">Situação</span>
-                      <span className="text-sm font-bold text-slate-900">{selectedLead.situacao || 'Não informada'}</span>
-                    </div>
-                    <div className="flex justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
-                      <span className="text-sm text-slate-500">Pneus</span>
-                      <span className="text-sm font-bold text-slate-900">{selectedLead.pneus || 'Não informado'}</span>
-                    </div>
-                    <div className="flex justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
-                      <span className="text-sm text-slate-500">Pintura</span>
-                      <span className="text-sm font-bold text-slate-900">{selectedLead.pintura || 'Não informada'}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {selectedLead.observacoes && (
+              {permissions.show_details && (
+                <div className="space-y-8 mb-12">
                   <div>
-                    <h4 className="text-sm font-bold text-slate-900 mb-2">Observações Adicionais</h4>
-                    <p className="text-sm text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-2xl italic">
-                      "{selectedLead.observacoes}"
-                    </p>
+                    <h4 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
+                      <Info className="w-4 h-4 text-accent" />
+                      Detalhes Técnicos & Situação
+                    </h4>
+                    <div className="grid grid-cols-1 gap-3">
+                      <div className="flex justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
+                        <span className="text-sm text-slate-500">Situação</span>
+                        <span className="text-sm font-bold text-slate-900">{selectedLead.situacao || 'Não informada'}</span>
+                      </div>
+                      <div className="flex justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
+                        <span className="text-sm text-slate-500">Pneus</span>
+                        <span className="text-sm font-bold text-slate-900">{selectedLead.pneus || 'Não informado'}</span>
+                      </div>
+                      <div className="flex justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
+                        <span className="text-sm text-slate-500">Pintura</span>
+                        <span className="text-sm font-bold text-slate-900">{selectedLead.pintura || 'Não informada'}</span>
+                      </div>
+                    </div>
                   </div>
-                )}
-              </div>
+
+                  {selectedLead.observacoes && (
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900 mb-2">Observações Adicionais</h4>
+                      <p className="text-sm text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-2xl italic">
+                        "{selectedLead.observacoes}"
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="flex flex-col gap-4">
                 <button className="w-full py-5 bg-slate-900 text-white rounded-[24px] font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-3 shadow-lg shadow-slate-200">
@@ -297,6 +333,10 @@ export default function BuyerView() {
           </motion.div>
         </div>
       )}
+      <InternalChat 
+        leadId={selectedLead?.id} 
+        leadTitle={selectedLead ? `${selectedLead.marca} ${selectedLead.modelo}` : 'Atendimento Geral'} 
+      />
     </div>
   );
 }

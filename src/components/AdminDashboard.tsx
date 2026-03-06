@@ -121,6 +121,14 @@ export default function AdminDashboard() {
   const [filterUser, setFilterUser] = useState('');
   const [showAvariasModal, setShowAvariasModal] = useState(false);
 
+  const [buyerPermissions, setBuyerPermissions] = useState({
+    show_price: true,
+    show_photos: true,
+    show_plate: false,
+    show_details: true,
+    show_history: false
+  });
+
   const fetchData = async () => {
     setIsLoading(true);
     try {
@@ -176,6 +184,17 @@ export default function AdminDashboard() {
             });
           }
         });
+      }
+
+      if (assetsData) {
+        const permissions = assetsData.find((a: any) => a.key === 'BUYER_VIEW_PERMISSIONS');
+        if (permissions && permissions.value) {
+          try {
+            setBuyerPermissions(JSON.parse(permissions.value));
+          } catch (e) {
+            console.error('Error parsing buyer permissions:', e);
+          }
+        }
       }
 
       setConversations(groupedConversations);
@@ -620,6 +639,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
         { key: 'AUTO_PROPOSAL_ENABLED', value: autoProposalEnabled ? 'true' : 'false' },
         { key: 'CHAT_AVATAR_URL', value: chatAvatarUrl },
         { key: 'BANNER_HEIGHT', value: bannerHeight },
+        { key: 'BUYER_VIEW_PERMISSIONS', value: JSON.stringify(buyerPermissions) },
       ];
 
       console.log('settingsToSave:', settingsToSave);
@@ -907,45 +927,69 @@ _Comissão a combinar após o fechamento._`;
     }
   };
 
-  if (isLoading) return <div className="p-20 text-center">Carregando painel...</div>;
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="w-8 h-8 animate-spin text-slate-900" /></div>;
 
   return (
-    <div className="min-h-screen bg-slate-50 pt-24 pb-20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6">
-          <div>
-            <h1 className="font-display text-4xl font-bold">Painel Administrativo</h1>
-            <p className="text-slate-500">Gerencie leads e conteúdo do site.</p>
-          </div>
-          
+    <div className="min-h-screen bg-slate-50">
+      {/* Top Navbar */}
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+        <div className="w-full px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
-          <div className="flex flex-col gap-2">
-            <div className="flex bg-white p-1 rounded-2xl shadow-sm border border-slate-100 overflow-x-auto">
-              <button onClick={() => setActiveTab('leads')} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'leads' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Leads ({leads.length})</button>
-              <button onClick={() => setActiveTab('hero')} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'hero' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Banner Principal</button>
-              <button onClick={() => setActiveTab('assets')} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'assets' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Fotos do Site</button>
-              <button onClick={() => setActiveTab('footer')} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'footer' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Rodapé & Contatos</button>
-              <button onClick={() => setActiveTab('settings')} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'settings' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Configurações</button>
-            </div>
-            <div className="flex bg-white p-1 rounded-2xl shadow-sm border border-slate-100 overflow-x-auto">
-              <button onClick={() => setActiveTab('ai')} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'ai' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Inteligência Artificial (Regras)</button>
-              <button onClick={() => setActiveTab('apis')} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'apis' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>APIs & Chaves</button>
-              <button onClick={() => setActiveTab('crm')} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'crm' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>CRM (Interessados)</button>
-              <button onClick={() => setActiveTab('messages')} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'messages' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Conversas</button>
-              <button onClick={() => setActiveTab('buyers')} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'buyers' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Compradores & Autorizações</button>
-              <button onClick={() => setActiveTab('tags')} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'tags' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Tags & Marketing</button>
-              <button onClick={() => setActiveTab('users')} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'users' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Usuários Logados</button>
-            </div>
+            <h1 className="font-display text-xl font-bold text-slate-900 hidden md:block">Painel Administrativo</h1>
+            <div className="h-6 w-px bg-slate-200 hidden md:block"></div>
+            
+            {/* Navigation Menu */}
+            <nav className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+              <button onClick={() => setActiveTab('leads')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'leads' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
+                <Car className="w-3 h-3" /> Leads
+              </button>
+              <button onClick={() => setActiveTab('messages')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'messages' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
+                <MessageCircle className="w-3 h-3" /> Mensagens
+              </button>
+              <button onClick={() => setActiveTab('buyers')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'buyers' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
+                <Users className="w-3 h-3" /> Compradores
+              </button>
+              <button onClick={() => setActiveTab('users')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'users' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
+                <User className="w-3 h-3" /> Usuários
+              </button>
+              
+              <div className="h-4 w-px bg-slate-200 mx-1"></div>
+              
+              <button onClick={() => setActiveTab('hero')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'hero' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Site</button>
+              <button onClick={() => setActiveTab('assets')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'assets' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Fotos</button>
+              <button onClick={() => setActiveTab('footer')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'footer' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Rodapé</button>
+              
+              <div className="h-4 w-px bg-slate-200 mx-1"></div>
+
+              <button onClick={() => setActiveTab('settings')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'settings' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
+                <Wrench className="w-3 h-3" /> Config
+              </button>
+              <button onClick={() => setActiveTab('tags')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'tags' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Mkt</button>
+              <button onClick={() => setActiveTab('ai')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'ai' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>IA</button>
+              <button onClick={() => setActiveTab('apis')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'apis' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>APIs</button>
+            </nav>
           </div>
-            <button 
+
+          <div className="flex items-center gap-2">
+             <button 
+              onClick={() => window.location.href = '/'}
+              className="p-2 text-slate-400 hover:text-slate-900 transition-colors"
+              title="Ver Site"
+            >
+              <Share2 className="w-5 h-5" />
+            </button>
+             <button 
               onClick={handleLogout}
-              className="p-3 bg-white border border-slate-200 text-slate-400 rounded-2xl hover:text-red-500 hover:border-red-100 transition-all"
+              className="p-2 text-slate-400 hover:text-red-500 transition-colors"
               title="Sair"
             >
               <LogOut className="w-5 h-5" />
             </button>
           </div>
         </div>
+      </header>
+
+      <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
 
             {activeTab === 'users' && (
               <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
@@ -1092,9 +1136,9 @@ _Comissão a combinar após o fechamento._`;
                         </button>
                       </div>
 
-                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                         {/* Coluna Esquerda: Fotos e Dados */}
-                        <div className="lg:col-span-4 space-y-8">
+                        <div className="lg:col-span-5 space-y-6">
                           {/* Carrossel de Fotos */}
                           <div className="relative aspect-video rounded-2xl overflow-hidden bg-slate-100 group">
                             {selectedLead.fotos && selectedLead.fotos.length > 0 ? (
@@ -1133,7 +1177,7 @@ _Comissão a combinar após o fechamento._`;
                             )}
                           </div>
 
-                          <div className="bg-slate-50 p-6 rounded-2xl space-y-4">
+                          <div className="bg-slate-50 p-5 rounded-2xl space-y-4">
                             <h3 className="font-bold flex items-center justify-between gap-2 text-slate-900 border-b border-slate-200 pb-2">
                               <span className="flex items-center gap-2">
                                 <ShieldCheck className="w-5 h-5 text-accent" />
@@ -1235,7 +1279,7 @@ _Comissão a combinar após o fechamento._`;
                             </div>
                           </div>
 
-                          <div className="bg-slate-50 p-6 rounded-2xl space-y-4">
+                          <div className="bg-slate-50 p-5 rounded-2xl space-y-4">
                             <h3 className="font-bold flex items-center gap-2 text-slate-900 border-b border-slate-200 pb-2">
                               <Wallet className="w-5 h-5 text-accent" />
                               Financeiro & Condição
@@ -1360,7 +1404,7 @@ _Comissão a combinar após o fechamento._`;
                             </div>
                           </div>
 
-                          <div className="bg-slate-50 p-6 rounded-2xl space-y-4">
+                          <div className="bg-slate-50 p-5 rounded-2xl space-y-4">
                             <h3 className="font-bold flex items-center gap-2 text-slate-900 border-b border-slate-200 pb-2">
                               <Users className="w-5 h-5 text-accent" />
                               Dados do Cadastro
@@ -1382,9 +1426,9 @@ _Comissão a combinar após o fechamento._`;
                           </div>
                         </div>
 
-                        {/* Coluna Central: Descontos e Proposta */}
-                        <div className="lg:col-span-5 space-y-8">
-                          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                        {/* Coluna Direita: Descontos, Proposta e Envio */}
+                        <div className="lg:col-span-7 space-y-6">
+                          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
                             <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
                               <DollarSign className="w-5 h-5 text-accent" />
                               Cálculo da Proposta
@@ -1502,7 +1546,7 @@ _Comissão a combinar após o fechamento._`;
                                     <span className="text-slate-500 font-bold">Margem de Lucro (20%)</span>
                                     <span className="font-bold text-slate-900">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.profitMargin)}</span>
                                   </div>
-                                  <div className="p-6 bg-slate-900 rounded-2xl text-white">
+                                  <div className="p-5 bg-slate-900 rounded-2xl text-white">
                                     <p className="text-xs font-bold uppercase text-slate-400 mb-1">Valor Sugerido de Compra</p>
                                     <p className="text-3xl font-black text-accent">
                                       {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}
@@ -1529,15 +1573,14 @@ _Comissão a combinar após o fechamento._`;
                               </div>
                             )}
                           </div>
-                        </div>
 
-                        {/* Coluna Direita: Resumo e Envio */}
-                        <div className="lg:col-span-3 space-y-8">
-                          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                            <h3 className="font-bold mb-4 flex items-center gap-2">
-                              <Share2 className="w-5 h-5 text-accent" />
-                              Resumo para Envio
-                            </h3>
+                          {/* Seção de Envio e Compradores (Agora na mesma coluna) */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                              <h3 className="font-bold mb-4 flex items-center gap-2">
+                                <Share2 className="w-5 h-5 text-accent" />
+                                Resumo para Envio
+                              </h3>
                             <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-3 mb-6">
                               <p><strong>Veículo:</strong> {selectedLead.marca} {selectedLead.modelo}</p>
                               <p><strong>Ano:</strong> {selectedLead.ano_modelo}</p>
@@ -1560,7 +1603,7 @@ _Comissão a combinar após o fechamento._`;
                             </button>
                           </div>
 
-                          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
                             <h3 className="font-bold mb-4 flex items-center gap-2">
                               <Users className="w-5 h-5 text-accent" />
                               Selecionar Compradores
@@ -1592,6 +1635,7 @@ _Comissão a combinar após o fechamento._`;
                       </div>
                     </div>
                   </div>
+                </div>
                 )}
 
                 <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm">
@@ -3557,6 +3601,63 @@ _Comissão a combinar após o fechamento._`;
                 ))}
               </div>
 
+              <h2 className="text-2xl font-bold mt-12 mb-6">Permissões de Visualização do Comprador</h2>
+              <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-4">
+                <p className="text-sm text-slate-500 mb-4">Defina quais informações os compradores autorizados podem visualizar nos veículos.</p>
+                
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-700">Mostrar Preço (FIPE)</span>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer"
+                      checked={buyerPermissions.show_price}
+                      onChange={(e) => setBuyerPermissions({...buyerPermissions, show_price: e.target.checked})}
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                  </label>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-700">Mostrar Fotos</span>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer"
+                      checked={buyerPermissions.show_photos}
+                      onChange={(e) => setBuyerPermissions({...buyerPermissions, show_photos: e.target.checked})}
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                  </label>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-700">Mostrar Placa/Código</span>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer"
+                      checked={buyerPermissions.show_plate}
+                      onChange={(e) => setBuyerPermissions({...buyerPermissions, show_plate: e.target.checked})}
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                  </label>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-700">Mostrar Detalhes Técnicos</span>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer"
+                      checked={buyerPermissions.show_details}
+                      onChange={(e) => setBuyerPermissions({...buyerPermissions, show_details: e.target.checked})}
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                  </label>
+                </div>
+              </div>
+
               <h2 className="text-2xl font-bold mb-6">Configurações do Sistema</h2>
               
               <div className="space-y-6">
@@ -4434,7 +4535,7 @@ _Comissão a combinar após o fechamento._`;
             </div>
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }
