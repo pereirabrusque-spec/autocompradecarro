@@ -25,7 +25,6 @@ export default function AdminDashboard() {
   const [searchCode, setSearchCode] = useState('');
   const [isSavingBuyer, setIsSavingBuyer] = useState(false);
   const [newBuyer, setNewBuyer] = useState({ name: '', phone: '', email: '', category: ['carro'], sub_category: '', type: ['normal'] });
-  const [selectedBuyers, setSelectedBuyers] = useState<string[]>([]);
   const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
   const [savingAsset, setSavingAsset] = useState<string | null>(null);
   const [deletingAsset, setDeletingAsset] = useState<string | null>(null);
@@ -96,6 +95,15 @@ export default function AdminDashboard() {
   const [isSavingKey, setIsSavingKey] = useState(false);
 
   const [activeLeadTab, setActiveLeadTab] = useState<'novo' | 'proposta_enviada' | 'fechado' | 'recusado' | 'sem_interesse'>('novo');
+  const [filterBrand, setFilterBrand] = useState('');
+  const [filterYear, setFilterYear] = useState('');
+  const [filterMinPrice, setFilterMinPrice] = useState('');
+  const [filterMaxPrice, setFilterMaxPrice] = useState('');
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [leadToWhatsApp, setLeadToWhatsApp] = useState<any>(null);
+  const [selectedBuyers, setSelectedBuyers] = useState<string[]>([]);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [buyerToAuth, setBuyerToAuth] = useState<any>(null);
   const [proposalCalculator, setProposalCalculator] = useState<{
     baseValue: number;
     deductions: { name: string; value: number; type: 'fixed' | 'percent' }[];
@@ -761,13 +769,13 @@ Podemos prosseguir com o agendamento da vistoria?`;
         .from('leads_veiculos')
         .update({
           detalhes_proposta: proposalCalculator,
-          valor_proposta_final: proposalCalculator.finalValue,
-          // fipe_value: proposalCalculator.baseValue, // These columns might not exist
-          // payoff_value: proposalCalculator.payoffValue,
-          // doc_debts: proposalCalculator.docDebts,
-          // repair_debts: proposalCalculator.repairDebts,
-          // profit_margin: proposalCalculator.profitMargin,
-          // selected_items: selectedLead.selected_items || []
+          suggested_value: proposalCalculator.finalValue,
+          fipe_value: proposalCalculator.baseValue,
+          payoff_value: proposalCalculator.payoffValue,
+          doc_debts: proposalCalculator.docDebts,
+          repair_debts: proposalCalculator.repairDebts,
+          profit_margin: proposalCalculator.profitMargin,
+          selected_items: selectedLead.selected_items || []
         })
         .eq('id', selectedLead.id);
 
@@ -1004,6 +1012,17 @@ _Comissão a combinar após o fechamento._`;
                     ))}
                   </div>
 
+                  {/* Filtros */}
+                  <div className="flex gap-2 w-full md:w-auto overflow-x-auto p-1">
+                    <select className="p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold" value={filterBrand} onChange={(e) => setFilterBrand(e.target.value)}>
+                      <option value="">Todas as Marcas</option>
+                      {[...new Set(leads.map(l => l.marca))].map(brand => <option key={brand} value={brand}>{brand}</option>)}
+                    </select>
+                    <input type="number" placeholder="Ano" className="p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold w-20" value={filterYear} onChange={(e) => setFilterYear(e.target.value)} />
+                    <input type="number" placeholder="Min R$" className="p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold w-24" value={filterMinPrice} onChange={(e) => setFilterMinPrice(e.target.value)} />
+                    <input type="number" placeholder="Max R$" className="p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold w-24" value={filterMaxPrice} onChange={(e) => setFilterMaxPrice(e.target.value)} />
+                  </div>
+
                   <div className="flex items-center gap-2 w-full md:w-auto">
                     <div className="relative flex-grow md:w-64">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -1122,30 +1141,103 @@ _Comissão a combinar após o fechamento._`;
                           </div>
 
                           <div className="bg-slate-50 p-6 rounded-2xl space-y-4">
-                            <h3 className="font-bold flex items-center gap-2 text-slate-900 border-b border-slate-200 pb-2">
-                              <ShieldCheck className="w-5 h-5 text-accent" />
-                              Dados do Veículo
+                            <h3 className="font-bold flex items-center justify-between gap-2 text-slate-900 border-b border-slate-200 pb-2">
+                              <span className="flex items-center gap-2">
+                                <ShieldCheck className="w-5 h-5 text-accent" />
+                                Dados do Veículo
+                              </span>
+                              <button 
+                                onClick={async () => {
+                                  const { error } = await supabase.from('leads_veiculos').update(selectedLead).eq('id', selectedLead.id);
+                                  if (error) alert('Erro ao salvar: ' + error.message);
+                                  else alert('Dados salvos!');
+                                }}
+                                className="text-[10px] bg-accent text-white px-2 py-1 rounded hover:bg-orange-600"
+                              >
+                                SALVAR
+                              </button>
                             </h3>
                             <div className="grid grid-cols-2 gap-4 text-sm">
                               <div>
+                                <p className="text-slate-400 font-bold uppercase text-[10px]">Cliente</p>
+                                <input 
+                                  type="text"
+                                  value={selectedLead.cliente_nome || ''}
+                                  onChange={(e) => setSelectedLead({...selectedLead, cliente_nome: e.target.value})}
+                                  className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
+                                />
+                              </div>
+                              <div>
+                                <p className="text-slate-400 font-bold uppercase text-[10px]">Telefone</p>
+                                <input 
+                                  type="text"
+                                  value={selectedLead.telefone || ''}
+                                  onChange={(e) => setSelectedLead({...selectedLead, telefone: e.target.value})}
+                                  className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
+                                />
+                              </div>
+                              <div>
+                                <p className="text-slate-400 font-bold uppercase text-[10px]">Marca</p>
+                                <input 
+                                  type="text"
+                                  value={selectedLead.marca || ''}
+                                  onChange={(e) => setSelectedLead({...selectedLead, marca: e.target.value})}
+                                  className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
+                                />
+                              </div>
+                              <div>
+                                <p className="text-slate-400 font-bold uppercase text-[10px]">Modelo</p>
+                                <input 
+                                  type="text"
+                                  value={selectedLead.modelo || ''}
+                                  onChange={(e) => setSelectedLead({...selectedLead, modelo: e.target.value})}
+                                  className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
+                                />
+                              </div>
+                              <div>
                                 <p className="text-slate-400 font-bold uppercase text-[10px]">Ano/Modelo</p>
-                                <p className="font-bold">{selectedLead.ano_modelo}</p>
+                                <input 
+                                  type="number"
+                                  value={selectedLead.ano_modelo || ''}
+                                  onChange={(e) => setSelectedLead({...selectedLead, ano_modelo: parseInt(e.target.value)})}
+                                  className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
+                                />
                               </div>
                               <div>
                                 <p className="text-slate-400 font-bold uppercase text-[10px]">Cor</p>
-                                <p className="font-bold">{selectedLead.cor}</p>
+                                <input 
+                                  type="text"
+                                  value={selectedLead.cor || ''}
+                                  onChange={(e) => setSelectedLead({...selectedLead, cor: e.target.value})}
+                                  className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
+                                />
                               </div>
                               <div>
                                 <p className="text-slate-400 font-bold uppercase text-[10px]">KM</p>
-                                <p className="font-bold">{selectedLead.quilometragem?.toLocaleString()} km</p>
+                                <input 
+                                  type="number"
+                                  value={selectedLead.quilometragem || 0}
+                                  onChange={(e) => setSelectedLead({...selectedLead, quilometragem: parseFloat(e.target.value)})}
+                                  className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
+                                />
                               </div>
                               <div>
                                 <p className="text-slate-400 font-bold uppercase text-[10px]">FIPE</p>
-                                <p className="font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.valor_fipe || 0)}</p>
+                                <input 
+                                  type="number"
+                                  value={selectedLead.valor_fipe || 0}
+                                  onChange={(e) => setSelectedLead({...selectedLead, valor_fipe: parseFloat(e.target.value)})}
+                                  className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
+                                />
                               </div>
                               <div className="col-span-2">
                                 <p className="text-slate-400 font-bold uppercase text-[10px]">Placa</p>
-                                <p className="font-bold">{selectedLead.placa}</p>
+                                <input 
+                                  type="text"
+                                  value={selectedLead.placa || ''}
+                                  onChange={(e) => setSelectedLead({...selectedLead, placa: e.target.value})}
+                                  className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
+                                />
                               </div>
                             </div>
                           </div>
@@ -1528,6 +1620,10 @@ _Comissão a combinar após o fechamento._`;
                         {leads
                           .filter(l => l.status === activeLeadTab)
                           .filter(l => !searchCode || (l.vehicle_code && l.vehicle_code.includes(searchCode)))
+                          .filter(l => !filterBrand || l.marca === filterBrand)
+                          .filter(l => !filterYear || l.ano_modelo === parseInt(filterYear))
+                          .filter(l => !filterMinPrice || (l.preco_cliente || 0) >= parseFloat(filterMinPrice))
+                          .filter(l => !filterMaxPrice || (l.preco_cliente || 0) <= parseFloat(filterMaxPrice))
                           .map((lead) => (
                           <tr key={lead.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => {
                             setSelectedLead(lead);
@@ -1570,9 +1666,17 @@ _Comissão a combinar após o fechamento._`;
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-2">
                                 {lead.telefone && (
-                                  <a href={`https://wa.me/55${lead.telefone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="p-2 bg-green-50 hover:bg-green-100 rounded-lg transition-colors text-green-600" onClick={(e) => e.stopPropagation()} title="WhatsApp">
+                                  <button 
+                                    onClick={(e) => { 
+                                      e.stopPropagation(); 
+                                      setLeadToWhatsApp(lead); 
+                                      setShowWhatsAppModal(true); 
+                                    }} 
+                                    className="p-2 bg-green-50 hover:bg-green-100 rounded-lg transition-colors text-green-600" 
+                                    title="WhatsApp"
+                                  >
                                     <Phone className="w-4 h-4" />
-                                  </a>
+                                  </button>
                                 )}
                                 {lead.email && (
                                   <a href={`mailto:${lead.email}`} className="p-2 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors text-blue-600" onClick={(e) => e.stopPropagation()} title="E-mail">
@@ -1738,6 +1842,16 @@ _Comissão a combinar após o fechamento._`;
                               <td className="px-6 py-4">
                                 <div className="flex items-center gap-2">
                                   <button 
+                                    onClick={() => {
+                                      setBuyerToAuth(buyer);
+                                      setShowAuthModal(true);
+                                    }}
+                                    className="p-2 text-slate-400 hover:text-accent transition-colors"
+                                    title="Autorizar Acesso"
+                                  >
+                                    <ShieldCheck className="w-4 h-4" />
+                                  </button>
+                                  <button 
                                     onClick={async () => {
                                       if (confirm('Excluir este comprador?')) {
                                         const { error } = await supabase.from('interested_buyers').delete().eq('id', buyer.id);
@@ -1745,6 +1859,7 @@ _Comissão a combinar após o fechamento._`;
                                       }
                                     }}
                                     className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                                    title="Excluir"
                                   >
                                     <Trash2 className="w-4 h-4" />
                                   </button>
@@ -4173,6 +4288,106 @@ _Comissão a combinar após o fechamento._`;
             </div>
           </div>
         ) : null}
+        {/* Modal de WhatsApp */}
+        {showWhatsAppModal && leadToWhatsApp && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <div className="bg-white rounded-[32px] w-full max-w-2xl p-8 shadow-2xl">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-2xl font-bold">Enviar para Compradores</h3>
+                <button onClick={() => setShowWhatsAppModal(false)} className="p-2 hover:bg-slate-100 rounded-full">
+                  <LogOut className="w-6 h-6 rotate-45" />
+                </button>
+              </div>
+
+              <div className="space-y-4 max-h-[60vh] overflow-y-auto mb-6">
+                {interestedBuyers.map(buyer => (
+                  <label key={buyer.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <input 
+                        type="checkbox" 
+                        checked={selectedBuyers.includes(buyer.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedBuyers([...selectedBuyers, buyer.id]);
+                          else setSelectedBuyers(selectedBuyers.filter(id => id !== buyer.id));
+                        }}
+                        className="w-5 h-5 rounded border-slate-300 text-accent focus:ring-accent"
+                      />
+                      <div>
+                        <p className="font-bold text-slate-900">{buyer.name}</p>
+                        <p className="text-xs text-slate-500">{buyer.phone}</p>
+                      </div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+
+              <button 
+                onClick={() => {
+                  const buyers = interestedBuyers.filter(b => selectedBuyers.includes(b.id));
+                  handleSendToWhatsApp(leadToWhatsApp, buyers);
+                  setShowWhatsAppModal(false);
+                  setSelectedBuyers([]);
+                }}
+                disabled={selectedBuyers.length === 0}
+                className="w-full py-4 bg-accent text-white rounded-xl font-bold hover:bg-orange-600 transition-all disabled:opacity-50"
+              >
+                Enviar WhatsApp ({selectedBuyers.length})
+              </button>
+            </div>
+          </div>
+        )}
+        {/* Modal de Autorização */}
+        {showAuthModal && buyerToAuth && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <div className="bg-white rounded-[32px] w-full max-w-2xl p-8 shadow-2xl">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-2xl font-bold">Autorizar Acesso: {buyerToAuth.name}</h3>
+                <button onClick={() => setShowAuthModal(false)} className="p-2 hover:bg-slate-100 rounded-full">
+                  <LogOut className="w-6 h-6 rotate-45" />
+                </button>
+              </div>
+
+              <div className="space-y-4 max-h-[60vh] overflow-y-auto mb-6">
+                {leads.map(lead => {
+                  const isAuthorized = buyerAuthorizations.some(a => a.buyer_id === buyerToAuth.id && a.lead_id === lead.id);
+                  return (
+                    <label key={lead.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <input 
+                          type="checkbox" 
+                          checked={isAuthorized}
+                          onChange={async (e) => {
+                            if (e.target.checked) {
+                              const { data, error } = await supabase.from('buyer_authorizations').insert({
+                                buyer_id: buyerToAuth.id,
+                                lead_id: lead.id
+                              }).select().single();
+                              if (!error) setBuyerAuthorizations(prev => [...prev, data]);
+                            } else {
+                              const { error } = await supabase.from('buyer_authorizations').delete().eq('buyer_id', buyerToAuth.id).eq('lead_id', lead.id);
+                              if (!error) setBuyerAuthorizations(prev => prev.filter(a => !(a.buyer_id === buyerToAuth.id && a.lead_id === lead.id)));
+                            }
+                          }}
+                          className="w-5 h-5 rounded border-slate-300 text-accent focus:ring-accent"
+                        />
+                        <div>
+                          <p className="font-bold text-slate-900">#{lead.vehicle_code} - {lead.marca} {lead.modelo}</p>
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+
+              <button 
+                onClick={() => setShowAuthModal(false)}
+                className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all"
+              >
+                Concluir
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
