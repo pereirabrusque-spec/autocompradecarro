@@ -21,7 +21,7 @@ export default function AdminDashboard() {
   const [showProposalModal, setShowProposalModal] = useState(false);
   const [searchCode, setSearchCode] = useState('');
   const [isSavingBuyer, setIsSavingBuyer] = useState(false);
-  const [newBuyer, setNewBuyer] = useState({ name: '', phone: '', email: '', category: 'carro', sub_category: '', type: 'normal' });
+  const [newBuyer, setNewBuyer] = useState({ name: '', phone: '', email: '', category: ['carro'], sub_category: '', type: ['normal'] });
   const [selectedBuyers, setSelectedBuyers] = useState<string[]>([]);
   const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
   const [savingAsset, setSavingAsset] = useState<string | null>(null);
@@ -43,7 +43,9 @@ export default function AdminDashboard() {
   const [aiMemory, setAiMemory] = useState('');
   const [banks, setBanks] = useState<any[]>([]);
   const [repairCosts, setRepairCosts] = useState<any[]>([]);
+  const [repairMultipliers, setRepairMultipliers] = useState<{id: string, min: number, max: number, multiplier: number}[]>([]);
   const [fipeRules, setFipeRules] = useState<any[]>([]);
+  const [jurosAtraso, setJurosAtraso] = useState<number>(2);
   const [newBankName, setNewBankName] = useState('');
   const [newBankDiscount, setNewBankDiscount] = useState('');
   const [newRepairName, setNewRepairName] = useState('');
@@ -186,9 +188,34 @@ export default function AdminDashboard() {
           setAiMemory(aiMemorySetting.value);
         }
         
+        const repairMultipliersSetting = settingsData.find((s: any) => s.key === 'REPAIR_MULTIPLIERS');
+        if (repairMultipliersSetting) {
+          try {
+            setRepairMultipliers(JSON.parse(repairMultipliersSetting.value));
+          } catch (e) {
+            console.error('Error parsing repair multipliers:', e);
+            setRepairMultipliers([
+              { id: '1', min: 0, max: 20000, multiplier: 1 },
+              { id: '2', min: 20000, max: 60000, multiplier: 2 },
+              { id: '3', min: 60000, max: 100000, multiplier: 3 }
+            ]);
+          }
+        } else {
+          setRepairMultipliers([
+            { id: '1', min: 0, max: 20000, multiplier: 1 },
+            { id: '2', min: 20000, max: 60000, multiplier: 2 },
+            { id: '3', min: 60000, max: 100000, multiplier: 3 }
+          ]);
+        }
+        
         const chatEnabledSetting = settingsData.find((s: any) => s.key === 'CHAT_ENABLED');
         if (chatEnabledSetting) {
           setChatEnabled(chatEnabledSetting.value === 'true');
+        }
+
+        const jurosAtrasoSetting = settingsData.find((s: any) => s.key === 'JUROS_ATRASO_FINANCIAMENTO');
+        if (jurosAtrasoSetting) {
+          setJurosAtraso(parseFloat(jurosAtrasoSetting.value) || 2);
         }
 
         const waNumberSetting = settingsData.find((s: any) => s.key === 'WHATSAPP_NUMBER');
@@ -608,9 +635,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
     const deductions: { name: string; value: number; type: 'fixed' | 'percent' }[] = [];
 
     // 1. Procedência / Histórico (Deduções por Porcentagem)
-    // Procurar por termos específicos no campo 'problemas' (que é um array)
-    if (lead.problemas && lead.problemas.length > 0) {
-      lead.problemas.forEach((problem: string) => {
+    const problemasSelecionados = lead.problemas || [];
+    if (problemasSelecionados.length > 0) {
+      problemasSelecionados.forEach((problem: string) => {
         // Tentar encontrar regra no banco
         const rule = fipeRules.find(r => r.condition_name.toLowerCase() === problem.toLowerCase());
         if (rule) {
@@ -633,14 +660,30 @@ Podemos prosseguir com o agendamento da vistoria?`;
     }
 
     // 2. Avarias (Deduções por Valor Fixo)
-    // Procurar por termos específicos no campo 'observacoes' ou 'problemas'
     let repairTotal = 0;
     const allText = `${lead.observacoes || ''} ${lead.problemas?.join(' ') || ''}`.toLowerCase();
     
+    // Initialize avarias if not present
+    const avariasSelecionadas = lead.avarias || repairCosts.filter(cost => allText.includes(cost.part_name.toLowerCase())).map(c => c.id);
+    
+    // Find multiplier based on FIPE value
+    let currentMultiplier = 1;
+    for (const rule of repairMultipliers) {
+      if (baseValue >= rule.min && baseValue <= rule.max) {
+        currentMultiplier = rule.multiplier;
+        break;
+      }
+    }
+    
     repairCosts.forEach(cost => {
-      if (allText.includes(cost.part_name.toLowerCase())) {
-        repairTotal += cost.cost_value;
-        deductions.push({ name: `Avaria: ${cost.part_name}`, value: cost.cost_value, type: 'fixed' });
+      if (avariasSelecionadas.includes(cost.id)) {
+        const finalCost = cost.cost_value * currentMultiplier;
+        repairTotal += finalCost;
+        deductions.push({ 
+          name: `Avaria: ${cost.part_name} (x${currentMultiplier})`, 
+          value: finalCost, 
+          type: 'fixed' 
+        });
       }
     });
 
@@ -675,8 +718,10 @@ Podemos prosseguir com o agendamento da vistoria?`;
         // Calculate payoff for profit (with bank discount)
         payoffValue = totalRemaining * (1 - bankDiscount);
         
-        // Calculate payoff for client (compound interest 2% per month)
-        clientPayoffValue = totalRemaining * Math.pow(1.02, remainingInstallments);
+        // Calculate payoff for client (valor parcelas vezes quantidade de parcelas + juros)
+        const atrasadas = lead.parcelas_atrasadas || 0;
+        const jurosTotal = lead.valor_parcela * atrasadas * (jurosAtraso / 100);
+        clientPayoffValue = totalRemaining + jurosTotal;
       }
     }
     
@@ -740,9 +785,14 @@ Podemos prosseguir com o agendamento da vistoria?`;
     }
     setIsSavingBuyer(true);
     try {
-      const { error } = await supabase.from('interested_buyers').insert([newBuyer]);
+      const buyerData = {
+        ...newBuyer,
+        category: newBuyer.category.join(','),
+        type: newBuyer.type.join(',')
+      };
+      const { error } = await supabase.from('interested_buyers').insert([buyerData]);
       if (error) throw error;
-      setNewBuyer({ name: '', phone: '', email: '', category: 'carro', sub_category: '', type: 'normal' });
+      setNewBuyer({ name: '', phone: '', email: '', category: ['carro'], sub_category: '', type: ['normal'] });
       fetchData();
       alert('Comprador cadastrado com sucesso!');
     } catch (error: any) {
@@ -1077,6 +1127,135 @@ _Comissão a combinar após o fechamento._`;
                                 <p className="text-slate-400 font-bold uppercase text-[10px]">FIPE</p>
                                 <p className="font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.valor_fipe || 0)}</p>
                               </div>
+                              <div className="col-span-2">
+                                <p className="text-slate-400 font-bold uppercase text-[10px]">Placa</p>
+                                <p className="font-bold">{selectedLead.placa}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="bg-slate-50 p-6 rounded-2xl space-y-4">
+                            <h3 className="font-bold flex items-center gap-2 text-slate-900 border-b border-slate-200 pb-2">
+                              <Wallet className="w-5 h-5 text-accent" />
+                              Financeiro & Condição
+                            </h3>
+                            <div className="space-y-3 text-sm">
+                              <div>
+                                <p className="text-slate-400 font-bold uppercase text-[10px]">Situação Financeira</p>
+                                <p className="font-bold capitalize">{selectedLead.situacao_financeira?.replace('_', ' ') || 'Não informada'}</p>
+                              </div>
+                              {selectedLead.situacao_financeira === 'financiado' && (
+                                <div className="grid grid-cols-2 gap-2 bg-white p-3 rounded-xl border border-slate-200">
+                                  <div>
+                                    <p className="text-slate-400 font-bold uppercase text-[9px]">Banco</p>
+                                    <p className="font-bold text-xs">{selectedLead.banco || '-'}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-slate-400 font-bold uppercase text-[9px]">Valor Parcela</p>
+                                    <input 
+                                      type="number"
+                                      value={selectedLead.valor_parcela || 0}
+                                      onChange={(e) => {
+                                        const val = parseFloat(e.target.value) || 0;
+                                        const updatedLead = { ...selectedLead, valor_parcela: val };
+                                        setSelectedLead(updatedLead);
+                                        setProposalCalculator(calculateProposal(updatedLead));
+                                      }}
+                                      className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
+                                    />
+                                  </div>
+                                  <div>
+                                    <p className="text-slate-400 font-bold uppercase text-[9px]">Pagas</p>
+                                    <input 
+                                      type="number"
+                                      value={selectedLead.parcelas_pagas || 0}
+                                      onChange={(e) => {
+                                        const val = parseInt(e.target.value) || 0;
+                                        const updatedLead = { ...selectedLead, parcelas_pagas: val };
+                                        setSelectedLead(updatedLead);
+                                        setProposalCalculator(calculateProposal(updatedLead));
+                                      }}
+                                      className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
+                                    />
+                                  </div>
+                                  <div>
+                                    <p className="text-slate-400 font-bold uppercase text-[9px]">Total</p>
+                                    <input 
+                                      type="number"
+                                      value={selectedLead.total_parcelas || 0}
+                                      onChange={(e) => {
+                                        const val = parseInt(e.target.value) || 0;
+                                        const updatedLead = { ...selectedLead, total_parcelas: val };
+                                        setSelectedLead(updatedLead);
+                                        setProposalCalculator(calculateProposal(updatedLead));
+                                      }}
+                                      className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
+                                    />
+                                  </div>
+                                  <div className="col-span-2">
+                                    <p className="text-slate-400 font-bold uppercase text-[9px]">Parcelas Atrasadas</p>
+                                    <input 
+                                      type="number"
+                                      value={selectedLead.parcelas_atrasadas || 0}
+                                      onChange={(e) => {
+                                        const val = parseInt(e.target.value) || 0;
+                                        const updatedLead = { ...selectedLead, parcelas_atrasadas: val };
+                                        setSelectedLead(updatedLead);
+                                        setProposalCalculator(calculateProposal(updatedLead));
+                                      }}
+                                      className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
+                                    />
+                                  </div>
+                                </div>
+                              )}
+                              
+                              <div>
+                                <p className="text-slate-400 font-bold uppercase text-[10px]">Débitos (Multas/IPVA)</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-xs font-bold text-slate-500">R$</span>
+                                  <input 
+                                    type="number"
+                                    value={selectedLead.multas || 0}
+                                    onChange={(e) => {
+                                      const val = parseFloat(e.target.value) || 0;
+                                      const updatedLead = { ...selectedLead, multas: val };
+                                      setSelectedLead(updatedLead);
+                                      setProposalCalculator(calculateProposal(updatedLead));
+                                    }}
+                                    className="flex-1 p-2 border border-slate-200 rounded-lg text-xs font-bold bg-white"
+                                  />
+                                </div>
+                              </div>
+                              {selectedLead.problemas && selectedLead.problemas.length > 0 && (
+                                <div>
+                                  <p className="text-slate-400 font-bold uppercase text-[10px]">Histórico / Problemas</p>
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {selectedLead.problemas.map((p: string, i: number) => (
+                                      <span key={i} className="px-2 py-1 bg-red-100 text-red-700 rounded text-[10px] font-bold uppercase">
+                                        {p}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {selectedLead.selected_items && selectedLead.selected_items.length > 0 && (
+                                <div>
+                                  <p className="text-slate-400 font-bold uppercase text-[10px]">Opcionais</p>
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {selectedLead.selected_items.map((item: string, i: number) => (
+                                      <span key={i} className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-[10px] font-bold uppercase">
+                                        {item}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {selectedLead.observacoes && (
+                                <div>
+                                  <p className="text-slate-400 font-bold uppercase text-[10px]">Observações do Cliente</p>
+                                  <p className="text-xs bg-white p-2 rounded-lg border border-slate-200 mt-1">{selectedLead.observacoes}</p>
+                                </div>
+                              )}
                             </div>
                           </div>
 
@@ -1118,12 +1297,34 @@ _Comissão a combinar após o fechamento._`;
                                     <ShieldCheck className="w-4 h-4" />
                                     Histórico de Procedência
                                   </p>
-                                  {proposalCalculator.deductions.filter(d => d.type === 'percent').map((d, i) => (
-                                    <div key={i} className="flex justify-between items-center p-3 bg-red-50 rounded-xl border border-red-100">
-                                      <span className="text-sm font-bold text-red-700">{d.name}</span>
-                                      <span className="text-sm font-black text-red-700">-{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
-                                    </div>
-                                  ))}
+                                  <div className="grid grid-cols-2 gap-2">
+                                    {fipeRules.map((rule) => {
+                                      const isSelected = (selectedLead.problemas || []).includes(rule.condition_name);
+                                      return (
+                                        <label key={rule.id} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${isSelected ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'}`}>
+                                          <input 
+                                            type="checkbox"
+                                            checked={isSelected}
+                                            onChange={(e) => {
+                                              const currentProblemas = selectedLead.problemas || [];
+                                              let newProblemas;
+                                              if (e.target.checked) {
+                                                newProblemas = [...currentProblemas, rule.condition_name];
+                                              } else {
+                                                newProblemas = currentProblemas.filter((p: string) => p !== rule.condition_name);
+                                              }
+                                              const updatedLead = { ...selectedLead, problemas: newProblemas };
+                                              setSelectedLead(updatedLead);
+                                              setProposalCalculator(calculateProposal(updatedLead));
+                                            }}
+                                            className="w-3 h-3 rounded border-slate-300 text-red-500 focus:ring-red-500"
+                                          />
+                                          <span className={`text-[10px] font-bold ${isSelected ? 'text-red-700' : 'text-slate-600'}`}>{rule.condition_name}</span>
+                                          <span className={`ml-auto text-[9px] font-black ${isSelected ? 'text-red-700' : 'text-slate-400'}`}>-{rule.discount_percentage}%</span>
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
                                 </div>
 
                                 {/* Problemas de Avaria */}
@@ -1132,12 +1333,46 @@ _Comissão a combinar após o fechamento._`;
                                     <Wrench className="w-4 h-4" />
                                     Problemas de Avaria
                                   </p>
-                                  {proposalCalculator.deductions.filter(d => d.type === 'fixed').map((d, i) => (
-                                    <div key={i} className="flex justify-between items-center p-3 bg-orange-50 rounded-xl border border-orange-100">
-                                      <span className="text-sm font-bold text-orange-700">{d.name}</span>
-                                      <span className="text-sm font-black text-orange-700">-{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
-                                    </div>
-                                  ))}
+                                  <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-2">
+                                    {repairCosts.map((cost) => {
+                                      const allText = `${selectedLead.observacoes || ''} ${selectedLead.problemas?.join(' ') || ''}`.toLowerCase();
+                                      const avariasSelecionadas = selectedLead.avarias || repairCosts.filter(c => allText.includes(c.part_name.toLowerCase())).map(c => c.id);
+                                      const isSelected = avariasSelecionadas.includes(cost.id);
+                                      
+                                      // Find multiplier
+                                      let currentMultiplier = 1;
+                                      for (const rule of repairMultipliers) {
+                                        if ((selectedLead.valor_fipe || 0) >= rule.min && (selectedLead.valor_fipe || 0) <= rule.max) {
+                                          currentMultiplier = rule.multiplier;
+                                          break;
+                                        }
+                                      }
+                                      const finalCost = cost.cost_value * currentMultiplier;
+
+                                      return (
+                                        <label key={cost.id} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${isSelected ? 'bg-orange-50 border-orange-200' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'}`}>
+                                          <input 
+                                            type="checkbox"
+                                            checked={isSelected}
+                                            onChange={(e) => {
+                                              let newAvarias;
+                                              if (e.target.checked) {
+                                                newAvarias = [...avariasSelecionadas, cost.id];
+                                              } else {
+                                                newAvarias = avariasSelecionadas.filter((id: string) => id !== cost.id);
+                                              }
+                                              const updatedLead = { ...selectedLead, avarias: newAvarias };
+                                              setSelectedLead(updatedLead);
+                                              setProposalCalculator(calculateProposal(updatedLead));
+                                            }}
+                                            className="w-3 h-3 rounded border-slate-300 text-orange-500 focus:ring-orange-500"
+                                          />
+                                          <span className={`text-[10px] font-bold ${isSelected ? 'text-orange-700' : 'text-slate-600'}`}>{cost.part_name}</span>
+                                          <span className={`ml-auto text-[9px] font-black ${isSelected ? 'text-orange-700' : 'text-slate-400'}`}>-{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(finalCost)}</span>
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
                                 </div>
 
                                 {/* Situação Financeira */}
@@ -1378,15 +1613,24 @@ _Comissão a combinar após o fechamento._`;
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Categoria Principal</label>
-                      <select 
-                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-accent/20"
-                        value={newBuyer.category}
-                        onChange={(e) => setNewBuyer({...newBuyer, category: e.target.value as any})}
-                      >
-                        <option value="carro">Carros</option>
-                        <option value="moto">Motos</option>
-                        <option value="caminhao">Caminhões</option>
-                      </select>
+                      <div className="flex flex-col gap-2 p-2 bg-slate-50 border border-slate-200 rounded-xl">
+                        {['carro', 'moto', 'caminhao'].map(cat => (
+                          <label key={cat} className="flex items-center gap-2 cursor-pointer">
+                            <input 
+                              type="checkbox"
+                              checked={newBuyer.category.includes(cat)}
+                              onChange={(e) => {
+                                const newCategories = e.target.checked 
+                                  ? [...newBuyer.category, cat]
+                                  : newBuyer.category.filter(c => c !== cat);
+                                setNewBuyer({...newBuyer, category: newCategories});
+                              }}
+                              className="w-4 h-4 rounded border-slate-300 text-accent focus:ring-accent"
+                            />
+                            <span className="text-sm font-bold capitalize">{cat}</span>
+                          </label>
+                        ))}
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Subcategorias (Preferências)</label>
@@ -1399,15 +1643,28 @@ _Comissão a combinar após o fechamento._`;
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Perfil de Investimento</label>
-                      <select 
-                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-accent/20"
-                        value={newBuyer.type}
-                        onChange={(e) => setNewBuyer({...newBuyer, type: e.target.value as any})}
-                      >
-                        <option value="popular">Popular (Até 50k)</option>
-                        <option value="normal">Normal (50k - 150k)</option>
-                        <option value="premium">Premium (Acima 150k)</option>
-                      </select>
+                      <div className="flex flex-col gap-2 p-2 bg-slate-50 border border-slate-200 rounded-xl">
+                        {[
+                          { id: 'popular', label: 'Popular (Até 50k)' },
+                          { id: 'normal', label: 'Normal (50k - 150k)' },
+                          { id: 'premium', label: 'Premium (Acima 150k)' }
+                        ].map(t => (
+                          <label key={t.id} className="flex items-center gap-2 cursor-pointer">
+                            <input 
+                              type="checkbox"
+                              checked={newBuyer.type.includes(t.id)}
+                              onChange={(e) => {
+                                const newTypes = e.target.checked 
+                                  ? [...newBuyer.type, t.id]
+                                  : newBuyer.type.filter(type => type !== t.id);
+                                setNewBuyer({...newBuyer, type: newTypes});
+                              }}
+                              className="w-4 h-4 rounded border-slate-300 text-accent focus:ring-accent"
+                            />
+                            <span className="text-sm font-bold">{t.label}</span>
+                          </label>
+                        ))}
+                      </div>
                     </div>
                   </div>
                   <button 
@@ -1581,28 +1838,59 @@ _Comissão a combinar após o fechamento._`;
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Categoria de Interesse</label>
-                      <select 
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">E-mail</label>
+                      <input 
                         className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-accent/20"
-                        value={newBuyer.category}
-                        onChange={(e) => setNewBuyer({...newBuyer, category: e.target.value as any})}
-                      >
-                        <option value="carro">Carros</option>
-                        <option value="moto">Motos</option>
-                        <option value="caminhao">Caminhões</option>
-                      </select>
+                        placeholder="Ex: joao@email.com"
+                        value={newBuyer.email}
+                        onChange={(e) => setNewBuyer({...newBuyer, email: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Categoria de Interesse</label>
+                      <div className="flex flex-col gap-2 p-2 bg-slate-50 border border-slate-200 rounded-xl">
+                        {['carro', 'moto', 'caminhao'].map(cat => (
+                          <label key={cat} className="flex items-center gap-2 cursor-pointer">
+                            <input 
+                              type="checkbox"
+                              checked={newBuyer.category.includes(cat)}
+                              onChange={(e) => {
+                                const newCategories = e.target.checked 
+                                  ? [...newBuyer.category, cat]
+                                  : newBuyer.category.filter(c => c !== cat);
+                                setNewBuyer({...newBuyer, category: newCategories});
+                              }}
+                              className="w-4 h-4 rounded border-slate-300 text-accent focus:ring-accent"
+                            />
+                            <span className="text-sm font-bold capitalize">{cat}</span>
+                          </label>
+                        ))}
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Perfil de Compra</label>
-                      <select 
-                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-accent/20"
-                        value={newBuyer.type}
-                        onChange={(e) => setNewBuyer({...newBuyer, type: e.target.value as any})}
-                      >
-                        <option value="popular">Popular (Até 50k)</option>
-                        <option value="normal">Normal (50k - 150k)</option>
-                        <option value="premium">Premium (Acima 150k)</option>
-                      </select>
+                      <div className="flex flex-col gap-2 p-2 bg-slate-50 border border-slate-200 rounded-xl">
+                        {[
+                          { id: 'popular', label: 'Popular (Até 50k)' },
+                          { id: 'normal', label: 'Normal (50k - 150k)' },
+                          { id: 'premium', label: 'Premium (Acima 150k)' }
+                        ].map(t => (
+                          <label key={t.id} className="flex items-center gap-2 cursor-pointer">
+                            <input 
+                              type="checkbox"
+                              checked={newBuyer.type.includes(t.id)}
+                              onChange={(e) => {
+                                const newTypes = e.target.checked 
+                                  ? [...newBuyer.type, t.id]
+                                  : newBuyer.type.filter(type => type !== t.id);
+                                setNewBuyer({...newBuyer, type: newTypes});
+                              }}
+                              className="w-4 h-4 rounded border-slate-300 text-accent focus:ring-accent"
+                            />
+                            <span className="text-sm font-bold">{t.label}</span>
+                          </label>
+                        ))}
+                      </div>
                     </div>
                   </div>
                   <button 
@@ -3410,6 +3698,102 @@ _Comissão a combinar após o fechamento._`;
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Multiplicadores de Reparo */}
+              <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm md:col-span-2">
+                <h3 className="text-xl font-bold mb-4">Multiplicadores de Reparo (por Valor FIPE)</h3>
+                <div className="flex gap-2 mb-4">
+                  <button 
+                    onClick={() => {
+                      const newMultipliers = [
+                        ...repairMultipliers,
+                        { id: Date.now().toString(), min: 0, max: 0, multiplier: 1 }
+                      ];
+                      setRepairMultipliers(newMultipliers);
+                    }}
+                    className="px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-colors flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Adicionar Regra
+                  </button>
+                  <button 
+                    onClick={async () => {
+                      try {
+                        const { error } = await supabase
+                          .from('settings')
+                          .upsert({ key: 'REPAIR_MULTIPLIERS', value: JSON.stringify(repairMultipliers) }, { onConflict: 'key' });
+                        if (error) throw error;
+                        alert('Multiplicadores salvos com sucesso!');
+                      } catch (err) {
+                        console.error(err);
+                        alert('Erro ao salvar multiplicadores.');
+                      }
+                    }}
+                    className="px-4 py-2 bg-accent text-white rounded-xl text-sm font-bold hover:bg-orange-600 transition-colors flex items-center gap-2"
+                  >
+                    <Save className="w-4 h-4" />
+                    Salvar Regras
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {repairMultipliers.map((rule, idx) => (
+                    <div key={rule.id} className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <div className="flex-1 grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase">Valor Mínimo (R$)</label>
+                          <input 
+                            type="number"
+                            className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm font-bold"
+                            value={rule.min}
+                            onChange={e => {
+                              const newMultipliers = [...repairMultipliers];
+                              newMultipliers[idx].min = parseFloat(e.target.value) || 0;
+                              setRepairMultipliers(newMultipliers);
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase">Valor Máximo (R$)</label>
+                          <input 
+                            type="number"
+                            className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm font-bold"
+                            value={rule.max}
+                            onChange={e => {
+                              const newMultipliers = [...repairMultipliers];
+                              newMultipliers[idx].max = parseFloat(e.target.value) || 0;
+                              setRepairMultipliers(newMultipliers);
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase">Multiplicador (x)</label>
+                          <input 
+                            type="number"
+                            step="0.1"
+                            className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-accent"
+                            value={rule.multiplier}
+                            onChange={e => {
+                              const newMultipliers = [...repairMultipliers];
+                              newMultipliers[idx].multiplier = parseFloat(e.target.value) || 1;
+                              setRepairMultipliers(newMultipliers);
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => {
+                          if (confirm('Excluir esta regra?')) {
+                            setRepairMultipliers(repairMultipliers.filter(r => r.id !== rule.id));
+                          }
+                        }}
+                        className="p-2 text-slate-400 hover:text-red-500 transition-colors mt-4"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               {/* Regras FIPE */}
               <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm md:col-span-2">
                 <h3 className="text-xl font-bold mb-4">Regras de Desconto FIPE</h3>
