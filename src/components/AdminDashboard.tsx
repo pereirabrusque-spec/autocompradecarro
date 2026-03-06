@@ -116,6 +116,10 @@ export default function AdminDashboard() {
   } | null>(null);
 
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [avarias, setAvarias] = useState<{id: string, description: string, value: number}[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [filterUser, setFilterUser] = useState('');
+  const [showAvariasModal, setShowAvariasModal] = useState(false);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -146,6 +150,7 @@ export default function AdminDashboard() {
       const { data: fipeData } = await supabase.from('fipe_rules').select('*').order('condition_name');
       const { data: apiKeysData } = await supabase.from('api_keys').select('*').order('created_at', { ascending: false });
       const { data: providersData } = await supabase.from('providers').select('*').order('name');
+      const { data: profilesData } = await supabase.from('profiles').select('*').order('last_login', { ascending: false });
       const { data: buyersData } = await supabase.from('interested_buyers').select('*').order('created_at', { ascending: false });
       const { data: authsData } = await supabase.from('buyer_authorizations').select('*');
       const { data: sentData } = await supabase.from('sent_leads').select('*');
@@ -181,6 +186,7 @@ export default function AdminDashboard() {
       setFipeRules(fipeData || []);
       setApiKeys(apiKeysData || []);
       setProviders(providersData || []);
+      setUsers(profilesData || []);
       setInterestedBuyers(buyersData || []);
       setBuyerAuthorizations(authsData || []);
       setSentLeads(sentData || []);
@@ -680,8 +686,19 @@ Podemos prosseguir com o agendamento da vistoria?`;
     let repairTotal = 0;
     const allText = `${lead.observacoes || ''} ${lead.problemas?.join(' ') || ''}`.toLowerCase();
     
-    // Initialize avarias if not present
-    const avariasSelecionadas = lead.avarias || repairCosts.filter(cost => allText.includes(cost.part_name.toLowerCase())).map(c => c.id);
+    // Usar avarias do lead ou do estado global se disponível
+    const avariasSelecionadas = lead.avarias || [];
+    
+    // Deduções manuais do modal de avarias
+    const avariasManuais = lead.avarias_manuais || [];
+    avariasManuais.forEach((avaria: { description: string, value: number }) => {
+      repairTotal += avaria.value;
+      deductions.push({ 
+        name: `Avaria Manual: ${avaria.description}`, 
+        value: avaria.value, 
+        type: 'fixed' 
+      });
+    });
     
     repairCosts.forEach(cost => {
       if (avariasSelecionadas.includes(cost.id)) {
@@ -705,21 +722,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
       }
     });
 
-    // 3. Situação Financeira
-    if (lead.situacao_financeira === 'Financiado') {
-      const financeDeduction = baseValue * 0.1; // 10% de margem extra para financiados
-      deductions.push({ name: 'Margem Veículo Financiado', value: financeDeduction, type: 'percent' });
-    }
-    if (lead.situacao_financeira === 'RENAJUD') {
-      const renajudDeduction = baseValue * 0.15; // 15% discount for Renajud
-      deductions.push({ name: 'RENAJUD', value: renajudDeduction, type: 'percent' });
-    }
-    if (lead.situacao_financeira === 'Busca e Apreensão') {
-      const buscaDeduction = baseValue * 0.20; // 20% discount for Busca e Apreensão
-      deductions.push({ name: 'Busca e Apreensão', value: buscaDeduction, type: 'percent' });
-    }
-
-    // Payoff and Debts
+    // 3. Situação Financeira e Quitação
     let payoffValue = 0;
     let clientPayoffValue = 0;
     
@@ -745,13 +748,19 @@ Podemos prosseguir com o agendamento da vistoria?`;
     
     const docDebts = lead.multas || 0;
 
+    // 4. Cálculo de Lucro (FIPE - Deduções - Quitação - Documentos - Margem)
     const totalDeductions = deductions.reduce((acc, d) => acc + d.value, 0);
-    const profitMargin = baseValue * 0.2; // 20% de margem de lucro padrão
+    
+    // Margem de lucro configurável ou padrão de 20%
+    const profitMargin = baseValue * 0.2; 
+    
+    // Fórmula final: Lucro = FIPE - (Deduções + Quitação + Documentos + Margem)
+    const finalValue = baseValue - totalDeductions - payoffValue - docDebts - profitMargin;
 
     return {
       baseValue,
       deductions,
-      finalValue: baseValue - totalDeductions - payoffValue - docDebts - profitMargin,
+      finalValue,
       profitMargin,
       payoffValue,
       clientPayoffValue,
@@ -925,6 +934,7 @@ _Comissão a combinar após o fechamento._`;
               <button onClick={() => setActiveTab('messages')} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'messages' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Conversas</button>
               <button onClick={() => setActiveTab('buyers')} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'buyers' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Compradores & Autorizações</button>
               <button onClick={() => setActiveTab('tags')} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'tags' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Tags & Marketing</button>
+              <button onClick={() => setActiveTab('users')} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'users' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Usuários Logados</button>
             </div>
           </div>
             <button 
@@ -937,6 +947,38 @@ _Comissão a combinar após o fechamento._`;
           </div>
         </div>
 
+            {activeTab === 'users' && (
+              <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold">Usuários Logados</h2>
+                  <input 
+                    type="text" 
+                    placeholder="Filtrar por email..." 
+                    className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                    value={filterUser}
+                    onChange={(e) => setFilterUser(e.target.value)}
+                  />
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="text-xs text-slate-500 uppercase bg-slate-50">
+                      <tr>
+                        <th className="px-6 py-3">Email</th>
+                        <th className="px-6 py-3">Último Login</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {users.filter(u => u.email.includes(filterUser)).map((user) => (
+                        <tr key={user.id} className="bg-white border-b hover:bg-slate-50">
+                          <td className="px-6 py-4 font-medium text-slate-900">{user.email}</td>
+                          <td className="px-6 py-4">{new Date(user.last_login).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
             {activeTab === 'leads' ? (
               <div className="grid grid-cols-1 gap-6">
                 <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
@@ -2220,7 +2262,9 @@ _Comissão a combinar após o fechamento._`;
                               <div>
                                 <p className="text-slate-400 uppercase font-black tracking-widest text-[9px]">Preço Desejado</p>
                                 <p className="font-bold text-green-600">
-                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.preco_cliente || 0)}
+                                  <span className="text-2xl font-bold text-accent">
+                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.preco_cliente || 0)}
+                                  </span>
                                 </p>
                               </div>
                               <div>
@@ -2231,9 +2275,14 @@ _Comissão a combinar após o fechamento._`;
                           </div>
 
                           <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
-                            <h4 className="text-sm font-bold mb-4 flex items-center gap-2">
-                              <CheckCircle className="w-4 h-4 text-accent" />
-                              Resumo para o Cliente (Selecionáveis)
+                            <h4 className="text-sm font-bold mb-4 flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <CheckCircle className="w-4 h-4 text-accent" />
+                                Resumo para o Cliente (Selecionáveis)
+                              </div>
+                              <button onClick={() => setShowAvariasModal(true)} className="text-xs text-accent font-bold hover:underline">
+                                + Avarias/Problemas
+                              </button>
                             </h4>
                             <p className="text-[10px] text-slate-400 mb-4">Marque os itens que deseja mostrar no resumo oficial enviado ao cliente.</p>
                             <div className="space-y-2">
@@ -4326,6 +4375,61 @@ _Comissão a combinar após o fechamento._`;
                 className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all"
               >
                 Concluir
+              </button>
+            </div>
+          </div>
+        )}
+
+        {showAvariasModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-[32px] w-full max-w-lg p-8 shadow-2xl">
+              <h3 className="text-2xl font-bold mb-6">Problemas e Avarias</h3>
+              <div className="space-y-4 mb-6">
+                {avarias.map((avaria, index) => (
+                  <div key={index} className="flex gap-2">
+                    <input 
+                      className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                      placeholder="Descrição (ex: Motor fundido)"
+                      value={avaria.description}
+                      onChange={(e) => {
+                        const newAvarias = [...avarias];
+                        newAvarias[index].description = e.target.value;
+                        setAvarias(newAvarias);
+                      }}
+                    />
+                    <input 
+                      type="number"
+                      className="w-32 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                      placeholder="Valor (R$)"
+                      value={avaria.value}
+                      onChange={(e) => {
+                        const newAvarias = [...avarias];
+                        newAvarias[index].value = parseFloat(e.target.value) || 0;
+                        setAvarias(newAvarias);
+                      }}
+                    />
+                    <button onClick={() => setAvarias(avarias.filter((_, i) => i !== index))} className="p-3 text-red-500 hover:bg-red-50 rounded-xl">
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
+                ))}
+                <button 
+                  onClick={() => setAvarias([...avarias, { id: Date.now().toString(), description: '', value: 0 }])}
+                  className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 font-bold hover:border-accent hover:text-accent transition-all"
+                >
+                  + Adicionar Avaria
+                </button>
+              </div>
+              <button 
+                onClick={() => {
+                  const updatedLead = { ...selectedLead, avarias_manuais: avarias };
+                  setSelectedLead(updatedLead);
+                  setProposalCalculator(calculateProposal(updatedLead));
+                  setShowAvariasModal(false);
+                }}
+                className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all"
+              >
+                Salvar e Deduzir
               </button>
             </div>
           </div>
