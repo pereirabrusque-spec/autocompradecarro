@@ -28,6 +28,7 @@ import TawkTo from './components/TawkTo';
 import WhatsAppButton from './components/WhatsAppButton';
 import ChatWidget from './components/ChatWidget';
 import AuthModal from './components/AuthModal';
+import { GoogleTags } from './components/GoogleTags';
 
 function AppContent() {
   const [view, setView] = useState<'home' | 'admin' | 'buyer' | 'login' | 'forgot-password' | 'reset-password' | 'sell' | 'auth-callback'>('home');
@@ -191,6 +192,7 @@ export default function App() {
   return (
     <AuthProvider>
       <AssetsProvider>
+        <GoogleTags />
         <AppContent />
       </AssetsProvider>
     </AuthProvider>

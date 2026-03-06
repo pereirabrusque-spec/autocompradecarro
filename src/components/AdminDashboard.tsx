@@ -9,7 +9,10 @@ export default function AdminDashboard() {
   const [leads, setLeads] = useState<any[]>([]);
   const [dbAssets, setDbAssets] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'leads' | 'hero' | 'assets' | 'footer' | 'settings' | 'ai' | 'apis' | 'crm' | 'messages' | 'buyers'>('leads');
+  const [activeTab, setActiveTab] = useState<'leads' | 'hero' | 'assets' | 'footer' | 'settings' | 'ai' | 'apis' | 'crm' | 'messages' | 'buyers' | 'tags'>('leads');
+  const [googleAnalyticsId, setGoogleAnalyticsId] = useState('');
+  const [googleAdsId, setGoogleAdsId] = useState('');
+  const [googleAdsConversionLabel, setGoogleAdsConversionLabel] = useState('');
   const [interestedBuyers, setInterestedBuyers] = useState<any[]>([]);
   const [buyerAuthorizations, setBuyerAuthorizations] = useState<any[]>([]);
   const [sentLeads, setSentLeads] = useState<any[]>([]);
@@ -245,8 +248,14 @@ export default function AdminDashboard() {
         const specialistEnabledSetting = settingsData.find((s: any) => s.key === 'SPECIALIST_BUTTON_ENABLED');
         if (specialistEnabledSetting) setSpecialistEnabled(specialistEnabledSetting.value === 'true');
 
-        const specialistTextSetting = settingsData.find((s: any) => s.key === 'SPECIALIST_BUTTON_TEXT');
-        if (specialistTextSetting) setSpecialistText(specialistTextSetting.value);
+        const gaIdSetting = settingsData.find((s: any) => s.key === 'GOOGLE_ANALYTICS_ID');
+        if (gaIdSetting) setGoogleAnalyticsId(gaIdSetting.value);
+
+        const adsIdSetting = settingsData.find((s: any) => s.key === 'GOOGLE_ADS_ID');
+        if (adsIdSetting) setGoogleAdsId(adsIdSetting.value);
+
+        const adsConvSetting = settingsData.find((s: any) => s.key === 'GOOGLE_ADS_CONVERSION_LABEL');
+        if (adsConvSetting) setGoogleAdsConversionLabel(adsConvSetting.value);
 
         const specialistLinkSetting = settingsData.find((s: any) => s.key === 'SPECIALIST_BUTTON_LINK');
         if (specialistLinkSetting) setSpecialistLink(specialistLinkSetting.value);
@@ -666,21 +675,22 @@ Podemos prosseguir com o agendamento da vistoria?`;
     // Initialize avarias if not present
     const avariasSelecionadas = lead.avarias || repairCosts.filter(cost => allText.includes(cost.part_name.toLowerCase())).map(c => c.id);
     
-    // Find multiplier based on FIPE value
-    let currentMultiplier = 1;
-    for (const rule of repairMultipliers) {
-      if (baseValue >= rule.min && baseValue <= rule.max) {
-        currentMultiplier = rule.multiplier;
-        break;
-      }
-    }
-    
     repairCosts.forEach(cost => {
       if (avariasSelecionadas.includes(cost.id)) {
-        const finalCost = cost.cost_value * currentMultiplier;
+        let itemMultiplier = 1;
+        if (cost.conditions && cost.conditions.length > 0) {
+          for (const cond of cost.conditions) {
+            if (baseValue >= cond.min_value && baseValue <= cond.max_value) {
+              itemMultiplier = cond.multiplier;
+              break;
+            }
+          }
+        }
+        
+        const finalCost = cost.cost * itemMultiplier;
         repairTotal += finalCost;
         deductions.push({ 
-          name: `Avaria: ${cost.part_name} (x${currentMultiplier})`, 
+          name: `Avaria: ${cost.part_name} (x${itemMultiplier})`, 
           value: finalCost, 
           type: 'fixed' 
         });
@@ -713,7 +723,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
         // Find bank discount
         const bankName = lead.banco_financiamento || '';
         const bank = banks.find(b => b.name.toLowerCase() === bankName.toLowerCase());
-        const bankDiscount = bank ? (bank.payoff_discount_percentage / 100) : 0.20; // Default 20%
+        const bankDiscount = bank ? (bank.discount_percentage / 100) : 0.20; // Default 20%
         
         // Calculate payoff for profit (with bank discount)
         payoffValue = totalRemaining * (1 - bankDiscount);
@@ -751,13 +761,13 @@ Podemos prosseguir com o agendamento da vistoria?`;
         .from('leads_veiculos')
         .update({
           detalhes_proposta: proposalCalculator,
-          suggested_value: proposalCalculator.finalValue,
-          fipe_value: proposalCalculator.baseValue,
-          payoff_value: proposalCalculator.payoffValue,
-          doc_debts: proposalCalculator.docDebts,
-          repair_debts: proposalCalculator.repairDebts,
-          profit_margin: proposalCalculator.profitMargin,
-          selected_items: selectedLead.selected_items || []
+          valor_proposta_final: proposalCalculator.finalValue,
+          // fipe_value: proposalCalculator.baseValue, // These columns might not exist
+          // payoff_value: proposalCalculator.payoffValue,
+          // doc_debts: proposalCalculator.docDebts,
+          // repair_debts: proposalCalculator.repairDebts,
+          // profit_margin: proposalCalculator.profitMargin,
+          // selected_items: selectedLead.selected_items || []
         })
         .eq('id', selectedLead.id);
 
@@ -950,6 +960,12 @@ _Comissão a combinar após o fechamento._`;
                 className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'buyers' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
               >
                 Compradores & Autorizações
+              </button>
+              <button 
+                onClick={() => setActiveTab('tags')}
+                className={`px-4 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'tags' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+              >
+                Tags & Marketing
               </button>
             </div>
             <button 
@@ -1340,14 +1356,16 @@ _Comissão a combinar após o fechamento._`;
                                       const isSelected = avariasSelecionadas.includes(cost.id);
                                       
                                       // Find multiplier
-                                      let currentMultiplier = 1;
-                                      for (const rule of repairMultipliers) {
-                                        if ((selectedLead.valor_fipe || 0) >= rule.min && (selectedLead.valor_fipe || 0) <= rule.max) {
-                                          currentMultiplier = rule.multiplier;
-                                          break;
+                                      let itemMultiplier = 1;
+                                      if (cost.conditions && cost.conditions.length > 0) {
+                                        for (const cond of cost.conditions) {
+                                          if ((selectedLead.valor_fipe || 0) >= cond.min_value && (selectedLead.valor_fipe || 0) <= cond.max_value) {
+                                            itemMultiplier = cond.multiplier;
+                                            break;
+                                          }
                                         }
                                       }
-                                      const finalCost = cost.cost_value * currentMultiplier;
+                                      const finalCost = cost.cost * itemMultiplier;
 
                                       return (
                                         <label key={cost.id} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${isSelected ? 'bg-orange-50 border-orange-200' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'}`}>
@@ -2637,6 +2655,59 @@ _Comissão a combinar após o fechamento._`;
                   </div>
                 </motion.div>
               ))}
+            </div>
+          </div>
+        ) : activeTab === 'tags' ? (
+          <div className="space-y-8">
+            <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm">
+              <h2 className="text-2xl font-bold mb-6">Tags & Marketing (Google Ads / Analytics)</h2>
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Google Analytics ID (ex: G-XXXXXXXXXX)</label>
+                  <input 
+                    type="text"
+                    value={googleAnalyticsId}
+                    onChange={(e) => setGoogleAnalyticsId(e.target.value)}
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all"
+                    placeholder="G-..."
+                  />
+                  <p className="text-xs text-slate-500 mt-2">Usado para rastrear visitas e comportamento no site.</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Google Ads ID (ex: AW-XXXXXXXXXX)</label>
+                  <input 
+                    type="text"
+                    value={googleAdsId}
+                    onChange={(e) => setGoogleAdsId(e.target.value)}
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all"
+                    placeholder="AW-..."
+                  />
+                  <p className="text-xs text-slate-500 mt-2">ID da sua conta do Google Ads para remarketing e conversões.</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Google Ads Conversion Label (ex: abcdefg123456)</label>
+                  <input 
+                    type="text"
+                    value={googleAdsConversionLabel}
+                    onChange={(e) => setGoogleAdsConversionLabel(e.target.value)}
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all"
+                    placeholder="Label de conversão..."
+                  />
+                  <p className="text-xs text-slate-500 mt-2">Disparado SOMENTE quando o cliente finaliza o formulário de venda.</p>
+                </div>
+                <button 
+                  onClick={async () => {
+                    await supabase.from('settings').upsert({ key: 'GOOGLE_ANALYTICS_ID', value: googleAnalyticsId }, { onConflict: 'key' });
+                    await supabase.from('settings').upsert({ key: 'GOOGLE_ADS_ID', value: googleAdsId }, { onConflict: 'key' });
+                    await supabase.from('settings').upsert({ key: 'GOOGLE_ADS_CONVERSION_LABEL', value: googleAdsConversionLabel }, { onConflict: 'key' });
+                    alert('Tags salvas com sucesso!');
+                  }}
+                  className="px-8 py-4 bg-accent text-white rounded-xl font-bold hover:bg-orange-600 transition-all flex items-center gap-2"
+                >
+                  <Save className="w-5 h-5" />
+                  Salvar Tags
+                </button>
+              </div>
             </div>
           </div>
         ) : activeTab === 'apis' ? (
@@ -3931,13 +4002,13 @@ _Comissão a combinar após o fechamento._`;
                           <input 
                             className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs"
                             type="number"
-                            value={bank.payoff_discount_percentage}
-                            onChange={e => setBanks(prev => prev.map(b => b.id === bank.id ? { ...b, payoff_discount_percentage: parseFloat(e.target.value) } : b))}
+                            value={bank.discount_percentage}
+                            onChange={e => setBanks(prev => prev.map(b => b.id === bank.id ? { ...b, discount_percentage: parseFloat(e.target.value) } : b))}
                           />
                           <div className="flex gap-2">
                             <button 
                               onClick={async () => {
-                                const { error } = await supabase.from('banks').update({ name: bank.name, payoff_discount_percentage: bank.payoff_discount_percentage }).eq('id', bank.id);
+                                const { error } = await supabase.from('banks').update({ name: bank.name, discount_percentage: bank.discount_percentage }).eq('id', bank.id);
                                 if (!error) {
                                   setEditingBank(null);
                                   alert('Banco salvo com sucesso!');
@@ -3954,7 +4025,7 @@ _Comissão a combinar após o fechamento._`;
                         <div className="flex justify-between items-center">
                           <span className="font-bold text-sm">{bank.name}</span>
                           <div className="flex items-center gap-3">
-                            <span className="text-xs font-mono bg-green-100 text-green-700 px-2 py-1 rounded-lg">-{bank.payoff_discount_percentage}%</span>
+                            <span className="text-xs font-mono bg-green-100 text-green-700 px-2 py-1 rounded-lg">-{bank.discount_percentage}%</span>
                             <div className="flex gap-1">
                               <button onClick={() => setEditingBank(bank.id)} className="text-slate-400 hover:text-slate-600"><Save className="w-4 h-4" /></button>
                               <button 
@@ -3997,7 +4068,7 @@ _Comissão a combinar após o fechamento._`;
                   <button 
                     onClick={async () => {
                       if (!newRepairName || !newRepairCost) return;
-                      const { error } = await supabase.from('repair_costs').insert([{ part_name: newRepairName, cost_value: parseFloat(newRepairCost) }]);
+                      const { error } = await supabase.from('repair_costs').insert([{ part_name: newRepairName, cost: parseFloat(newRepairCost) }]);
                       if (!error) {
                         setNewRepairName('');
                         setNewRepairCost('');
@@ -4022,13 +4093,13 @@ _Comissão a combinar após o fechamento._`;
                           <input 
                             className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs"
                             type="number"
-                            value={item.cost_value}
-                            onChange={e => setRepairCosts(prev => prev.map(r => r.id === item.id ? { ...r, cost_value: parseFloat(e.target.value) } : r))}
+                            value={item.cost}
+                            onChange={e => setRepairCosts(prev => prev.map(r => r.id === item.id ? { ...r, cost: parseFloat(e.target.value) } : r))}
                           />
                           <div className="flex gap-2">
                             <button 
                               onClick={async () => {
-                                const { error } = await supabase.from('repair_costs').update({ part_name: item.part_name, cost_value: item.cost_value }).eq('id', item.id);
+                                const { error } = await supabase.from('repair_costs').update({ part_name: item.part_name, cost: item.cost, conditions: item.conditions || [] }).eq('id', item.id);
                                 if (!error) {
                                   setEditingRepairCost(null);
                                   alert('Custo salvo com sucesso!');
@@ -4040,13 +4111,43 @@ _Comissão a combinar após o fechamento._`;
                             </button>
                             <button onClick={() => setEditingRepairCost(null)} className="flex-1 py-1 bg-slate-200 text-slate-600 rounded-lg text-[10px] font-bold">Cancelar</button>
                           </div>
+                          <div className="space-y-2 mt-2 border-t border-slate-200 pt-2">
+                            <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Condições de Multiplicação (por valor FIPE)</h4>
+                            {(item.conditions || []).map((cond: any, idx: number) => (
+                              <div key={idx} className="flex gap-2 items-center">
+                                <input type="number" placeholder="Min R$" className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs" value={cond.min_value} onChange={e => {
+                                  const newConditions = [...(item.conditions || [])];
+                                  newConditions[idx].min_value = parseFloat(e.target.value);
+                                  setRepairCosts(prev => prev.map(r => r.id === item.id ? { ...r, conditions: newConditions } : r));
+                                }} />
+                                <input type="number" placeholder="Max R$" className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs" value={cond.max_value} onChange={e => {
+                                  const newConditions = [...(item.conditions || [])];
+                                  newConditions[idx].max_value = parseFloat(e.target.value);
+                                  setRepairCosts(prev => prev.map(r => r.id === item.id ? { ...r, conditions: newConditions } : r));
+                                }} />
+                                <input type="number" placeholder="Mult (ex: 2)" className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs" value={cond.multiplier} onChange={e => {
+                                  const newConditions = [...(item.conditions || [])];
+                                  newConditions[idx].multiplier = parseFloat(e.target.value);
+                                  setRepairCosts(prev => prev.map(r => r.id === item.id ? { ...r, conditions: newConditions } : r));
+                                }} />
+                                <button onClick={() => {
+                                  const newConditions = (item.conditions || []).filter((_: any, i: number) => i !== idx);
+                                  setRepairCosts(prev => prev.map(r => r.id === item.id ? { ...r, conditions: newConditions } : r));
+                                }} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
+                              </div>
+                            ))}
+                            <button onClick={() => {
+                              const newConditions = [...(item.conditions || []), { min_value: 0, max_value: 0, multiplier: 1 }];
+                              setRepairCosts(prev => prev.map(r => r.id === item.id ? { ...r, conditions: newConditions } : r));
+                            }} className="text-[10px] text-accent font-bold hover:underline">+ Adicionar Condição</button>
+                          </div>
                         </>
                       ) : (
                         <div className="flex justify-between items-center">
                           <span className="font-bold text-sm">{item.part_name}</span>
                           <div className="flex items-center gap-3">
                             <span className="text-xs font-mono bg-red-100 text-red-700 px-2 py-1 rounded-lg">
-                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.cost_value || 0)}
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.cost || 0)}
                             </span>
                             <div className="flex gap-1">
                               <button onClick={() => setEditingRepairCost(item.id)} className="text-slate-400 hover:text-slate-600"><Save className="w-4 h-4" /></button>
