@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Car, Phone, Calendar, DollarSign, AlertCircle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw, Pencil, Users, Share2, MessageCircle, ChevronRight, ChevronLeft, Search, Filter, ShieldCheck, Wrench, Wallet, User, UserPlus, Mail, Bell, BellOff, Send, UserCheck } from 'lucide-react';
+import { Car, Phone, Calendar, DollarSign, AlertCircle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw, Pencil, Users, Share2, MessageCircle, ChevronRight, ChevronLeft, Search, Filter, ShieldCheck, Wrench, Wallet, User, UserPlus, Mail, Bell, BellOff, Send, UserCheck, LayoutDashboard, Download, TrendingUp, BarChart3, PieChart } from 'lucide-react';
 import { useAssets } from '../lib/assetsContext';
 import { supabase } from '../lib/supabase';
 import { defaultCards } from '../lib/seedData';
@@ -9,7 +9,7 @@ export default function AdminDashboard() {
   const [leads, setLeads] = useState<any[]>([]);
   const [dbAssets, setDbAssets] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'leads' | 'hero' | 'assets' | 'footer' | 'settings' | 'ai' | 'apis' | 'crm' | 'messages' | 'buyers' | 'tags' | 'users'>('leads');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'leads' | 'hero' | 'assets' | 'footer' | 'settings' | 'ai' | 'apis' | 'crm' | 'messages' | 'buyers' | 'tags' | 'users'>('dashboard');
   const [messageTab, setMessageTab] = useState<'leads' | 'internal'>('leads');
   const [internalConversations, setInternalConversations] = useState<any[]>([]);
   const [selectedInternalChat, setSelectedInternalChat] = useState<string | null>(null);
@@ -223,6 +223,7 @@ export default function AdminDashboard() {
       setInterestedBuyers(buyersData || []);
       setBuyerAuthorizations(authsData || []);
       setSentLeads(sentData || []);
+      fetchInternalConversations();
 
       // Fetch settings from Supabase
       const { data: settingsData, error: settingsError } = await supabase.from('settings').select('*');
@@ -405,7 +406,6 @@ export default function AdminDashboard() {
     if (!currentUser) return;
     
     try {
-      // Buscar todas as mensagens onde o usuário atual é sender ou receiver, ou receiver é null (admin)
       const { data, error } = await supabase
         .from('internal_messages')
         .select('*')
@@ -414,7 +414,10 @@ export default function AdminDashboard() {
 
       if (error) throw error;
 
-      // Agrupar por usuário
+      // Buscar perfis e compradores para os nomes
+      const { data: profiles } = await supabase.from('profiles').select('id, email');
+      const { data: buyers } = await supabase.from('interested_buyers').select('id, name');
+
       const conversationsMap = new Map();
       
       data.forEach((msg: any) => {
@@ -422,8 +425,12 @@ export default function AdminDashboard() {
         if (!otherUserId) return;
         
         if (!conversationsMap.has(otherUserId)) {
+          const profile = profiles?.find(p => p.id === otherUserId);
+          const buyer = buyers?.find(b => b.id === otherUserId);
+          
           conversationsMap.set(otherUserId, {
             userId: otherUserId,
+            userName: buyer?.name || profile?.email || `Usuário ${otherUserId.substring(0, 8)}`,
             lastMessage: msg.content,
             lastMessageTime: msg.created_at,
             unreadCount: 0
@@ -594,6 +601,38 @@ Podemos prosseguir com o agendamento da vistoria?`;
       console.error(err);
       alert('Erro ao atualizar memória da IA.');
     }
+  };
+
+  const handleExportCSV = () => {
+    const headers = ['ID', 'Data', 'Marca', 'Modelo', 'Ano', 'KM', 'Preço', 'Cliente', 'WhatsApp', 'Email', 'Status'];
+    const rows = leads.map(l => [
+      l.vehicle_code,
+      new Date(l.created_at).toLocaleDateString(),
+      l.marca,
+      l.modelo,
+      l.ano,
+      l.quilometragem,
+      l.preco,
+      l.cliente_nome,
+      l.cliente_telefone,
+      l.cliente_email,
+      l.status || 'Novo'
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(r => r.join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `leads_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleLogout = async () => {
@@ -1081,6 +1120,9 @@ _Comissão a combinar após o fechamento._`;
             
             {/* Navigation Menu */}
             <nav className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+              <button onClick={() => setActiveTab('dashboard')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'dashboard' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
+                <LayoutDashboard className="w-3 h-3" /> Início
+              </button>
               <button onClick={() => setActiveTab('leads')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'leads' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
                 <Car className="w-3 h-3" /> Leads
               </button>
@@ -1132,6 +1174,127 @@ _Comissão a combinar após o fechamento._`;
       </header>
 
       <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
+            {activeTab === 'dashboard' && (
+              <div className="space-y-8">
+                {/* Stats Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
+                        <Car className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Total de Leads</p>
+                        <h3 className="text-2xl font-black text-slate-900">{leads.length}</h3>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 text-[10px] text-emerald-500 font-bold">
+                      <TrendingUp className="w-3 h-3" />
+                      <span>+12% este mês</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl">
+                        <DollarSign className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Vendas (Mês)</p>
+                        <h3 className="text-2xl font-black text-slate-900">{leads.filter(l => l.status === 'fechado').length}</h3>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 text-[10px] text-emerald-500 font-bold">
+                      <TrendingUp className="w-3 h-3" />
+                      <span>Meta: 85%</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl">
+                        <MessageCircle className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Conversas Ativas</p>
+                        <h3 className="text-2xl font-black text-slate-900">{conversations.length}</h3>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 text-[10px] text-slate-400 font-bold">
+                      <span>Tempo médio: 4min</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="p-3 bg-purple-50 text-purple-600 rounded-2xl">
+                        <Users className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Compradores</p>
+                        <h3 className="text-2xl font-black text-slate-900">{interestedBuyers.length}</h3>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 text-[10px] text-emerald-500 font-bold">
+                      <TrendingUp className="w-3 h-3" />
+                      <span>+5 novos hoje</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Charts Placeholder */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <div className="bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm">
+                    <div className="flex justify-between items-center mb-8">
+                      <h3 className="text-lg font-bold flex items-center gap-2">
+                        <BarChart3 className="w-5 h-5 text-accent" />
+                        Leads por Canal
+                      </h3>
+                    </div>
+                    <div className="h-64 flex items-end gap-4">
+                      {[60, 45, 80, 55, 90, 70, 40].map((h, i) => (
+                        <div key={i} className="flex-1 flex flex-col items-center gap-2">
+                          <div 
+                            className="w-full bg-slate-100 rounded-t-xl transition-all hover:bg-accent/20 cursor-pointer relative group"
+                            style={{ height: `${h}%` }}
+                          >
+                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                              {h}
+                            </div>
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-bold">D{i+1}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm">
+                    <div className="flex justify-between items-center mb-8">
+                      <h3 className="text-lg font-bold flex items-center gap-2">
+                        <PieChart className="w-5 h-5 text-accent" />
+                        Status dos Leads
+                      </h3>
+                    </div>
+                    <div className="space-y-4">
+                      {[
+                        { label: 'Novos', count: leads.filter(l => !l.status || l.status === 'novo').length, color: 'bg-blue-500' },
+                        { label: 'Em Negociação', count: leads.filter(l => l.status === 'proposta_enviada').length, color: 'bg-amber-500' },
+                        { label: 'Fechados', count: leads.filter(l => l.status === 'fechado').length, color: 'bg-emerald-500' },
+                        { label: 'Recusados', count: leads.filter(l => l.status === 'recusado').length, color: 'bg-red-500' },
+                      ].map((item, i) => (
+                        <div key={i} className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-3 h-3 rounded-full ${item.color}`} />
+                            <span className="text-sm font-medium text-slate-600">{item.label}</span>
+                          </div>
+                          <span className="text-sm font-bold text-slate-900">{item.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {activeTab === 'users' && (
               <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
@@ -1195,7 +1358,16 @@ _Comissão a combinar após o fechamento._`;
               <div className="grid grid-cols-1 gap-6">
                 <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
                   {/* Abas de Status dos Leads */}
-                  <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-100 overflow-x-auto w-full md:w-auto">
+                  <div className="flex items-center gap-4 w-full md:w-auto">
+                    <button 
+                      onClick={handleExportCSV}
+                      className="p-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-all flex items-center gap-2 text-xs font-bold shadow-sm"
+                      title="Exportar Leads para CSV"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span className="hidden sm:inline">Exportar</span>
+                    </button>
+                    <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-100 overflow-x-auto">
                     {[
                       { id: 'novo', label: 'Novos' },
                       { id: 'em_contato', label: 'Em Contato' },
@@ -1841,7 +2013,7 @@ _Comissão a combinar após o fechamento._`;
                     </div>
                   </div>
                 </div>
-                )}
+            )}
 
                 <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm">
                   <div className="overflow-x-auto">
@@ -2210,7 +2382,6 @@ _Comissão a combinar após o fechamento._`;
                     </div>
                   </div>
                 </div>
-              </div>
             ) : activeTab === 'crm' ? (
               <div className="space-y-8">
                 <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm">
@@ -2403,7 +2574,6 @@ _Comissão a combinar após o fechamento._`;
                     </table>
                   </div>
                 </div>
-              </div>
             ) : activeTab === 'messages' ? (
               <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm flex h-[700px]">
                 {/* Lista de Conversas (Esquerda) */}
@@ -2488,7 +2658,7 @@ _Comissão a combinar após o fechamento._`;
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex justify-between items-start">
-                                <h4 className="font-bold text-slate-900 truncate">Usuário {conv.userId.substring(0, 8)}...</h4>
+                                <h4 className="font-bold text-slate-900 truncate">{conv.userName}</h4>
                                 <span className="text-[10px] text-slate-400">{new Date(conv.lastMessageTime).toLocaleDateString()}</span>
                               </div>
                               <p className="text-xs text-slate-500 truncate">{conv.lastMessage}</p>
@@ -3977,6 +4147,7 @@ _Comissão a combinar após o fechamento._`;
               ))}
             </div>
           </div>
+        </div>
         ) : activeTab === 'settings' ? (
           <div className="max-w-2xl space-y-8 pb-20">
             <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm p-8">
