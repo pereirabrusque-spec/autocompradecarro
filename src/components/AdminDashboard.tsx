@@ -1388,6 +1388,7 @@ _Comissão a combinar após o fechamento._`;
                       </button>
                     ))}
                   </div>
+                  </div>
 
                   {/* Filtros */}
                   <div className="flex gap-2 w-full md:w-auto overflow-x-auto p-1">
@@ -2574,6 +2575,7 @@ _Comissão a combinar após o fechamento._`;
                     </table>
                   </div>
                 </div>
+              </div>
             ) : activeTab === 'messages' ? (
               <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm flex h-[700px]">
                 {/* Lista de Conversas (Esquerda) */}
@@ -4147,7 +4149,6 @@ _Comissão a combinar após o fechamento._`;
               ))}
             </div>
           </div>
-        </div>
         ) : activeTab === 'settings' ? (
           <div className="max-w-2xl space-y-8 pb-20">
             <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm p-8">
@@ -4953,7 +4954,7 @@ _Comissão a combinar após o fechamento._`;
               </div>
             </div>
           </div>
-        ) : null}
+        ) : null
         {/* Modal de WhatsApp */}
         {showWhatsAppModal && leadToWhatsApp && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
