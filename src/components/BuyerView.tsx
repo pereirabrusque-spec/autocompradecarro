@@ -22,6 +22,7 @@ export default function BuyerView() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
   const [permissions, setPermissions] = useState({
     show_price: true,
     show_photos: true,
@@ -32,35 +33,89 @@ export default function BuyerView() {
 
   useEffect(() => {
     fetchAuthorizedLeads();
+    checkNotificationStatus();
+    
+    // Heartbeat to update last_seen
+    const updateLastSeen = async () => {
+      if (!user) return;
+      await supabase
+        .from('interested_buyers')
+        .update({ last_seen: new Date().toISOString() })
+        .eq('email', user.email);
+    };
+
+    updateLastSeen();
+    const interval = setInterval(updateLastSeen, 30000); // Every 30s
+    return () => clearInterval(interval);
   }, [user]);
+
+  const checkNotificationStatus = async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('interested_buyers')
+        .select('notifications_enabled')
+        .eq('email', user.email)
+        .single();
+      
+      if (data && data.notifications_enabled === null) {
+        setShowNotificationPrompt(true);
+      }
+    } catch (e) {
+      console.error('Error checking notification status:', e);
+    }
+  };
+
+  const handleAuthorizeNotifications = async (enabled: boolean) => {
+    if (!user) return;
+    try {
+      await supabase
+        .from('interested_buyers')
+        .update({ notifications_enabled: enabled })
+        .eq('email', user.email);
+      
+      setShowNotificationPrompt(false);
+    } catch (e) {
+      console.error('Error updating notification status:', e);
+    }
+  };
 
   const fetchAuthorizedLeads = async () => {
     if (!user) return;
     setIsLoading(true);
     try {
-      // Fetch permissions
-      const { data: settingsData } = await supabase
-        .from('banners')
-        .select('*')
-        .eq('key', 'BUYER_VIEW_PERMISSIONS')
+      // 1. Buscar permissões específicas do usuário
+      const { data: userAuth } = await supabase
+        .from('buyer_authorizations')
+        .select('permissions')
+        .eq('user_id', user.id)
         .single();
-      
-      if (settingsData && settingsData.value) {
-        try {
-          setPermissions(JSON.parse(settingsData.value));
-        } catch (e) {
-          console.error('Error parsing permissions:', e);
+
+      if (userAuth && userAuth.permissions) {
+        setPermissions(userAuth.permissions);
+      } else {
+        // Fallback: Buscar permissões globais
+        const { data: settingsData } = await supabase
+          .from('banners')
+          .select('*')
+          .eq('key', 'BUYER_VIEW_PERMISSIONS')
+          .single();
+        
+        if (settingsData && settingsData.value) {
+          try {
+            setPermissions(JSON.parse(settingsData.value));
+          } catch (e) {
+            console.error('Error parsing global permissions:', e);
+          }
         }
       }
 
-      // Fetch leads that this buyer is authorized to see
+      // 2. Buscar leads
+      // Assumindo que compradores autorizados podem ver todos os leads, mas com campos restritos pelas permissões
       const { data, error } = await supabase
         .from('leads_veiculos')
-        .select(`
-          *,
-          buyer_authorizations!inner(buyer_id)
-        `)
-        .eq('buyer_authorizations.interested_buyers.email', user.email);
+        .select('*')
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       setAuthorizedLeads(data || []);
@@ -337,6 +392,39 @@ export default function BuyerView() {
         leadId={selectedLead?.id} 
         leadTitle={selectedLead ? `${selectedLead.marca} ${selectedLead.modelo}` : 'Atendimento Geral'} 
       />
+
+      {/* Notification Prompt Popup */}
+      {showNotificationPrompt && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="bg-white rounded-[32px] p-8 max-w-md w-full shadow-2xl text-center"
+          >
+            <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <MessageCircle className="w-8 h-8 text-blue-600" />
+            </div>
+            <h3 className="text-2xl font-bold text-slate-900 mb-2">Receber Notificações?</h3>
+            <p className="text-slate-500 mb-8">
+              Deseja receber notificações em tempo real sobre novos leads e oportunidades de investimento?
+            </p>
+            <div className="flex flex-col gap-3">
+              <button 
+                onClick={() => handleAuthorizeNotifications(true)}
+                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all"
+              >
+                Sim, desejo receber
+              </button>
+              <button 
+                onClick={() => handleAuthorizeNotifications(false)}
+                className="w-full py-4 bg-slate-100 text-slate-500 rounded-2xl font-bold hover:bg-slate-200 transition-all"
+              >
+                Agora não
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

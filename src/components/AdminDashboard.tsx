@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Car, Phone, Calendar, DollarSign, AlertCircle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw, Pencil, Users, Share2, MessageCircle, ChevronRight, ChevronLeft, Search, Filter, ShieldCheck, Wrench, Wallet, User, UserPlus } from 'lucide-react';
+import { Car, Phone, Calendar, DollarSign, AlertCircle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw, Pencil, Users, Share2, MessageCircle, ChevronRight, ChevronLeft, Search, Filter, ShieldCheck, Wrench, Wallet, User, UserPlus, Mail, Bell, BellOff, Send, UserCheck } from 'lucide-react';
 import { useAssets } from '../lib/assetsContext';
 import { supabase } from '../lib/supabase';
 import { defaultCards } from '../lib/seedData';
@@ -9,7 +9,12 @@ export default function AdminDashboard() {
   const [leads, setLeads] = useState<any[]>([]);
   const [dbAssets, setDbAssets] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'leads' | 'hero' | 'assets' | 'footer' | 'settings' | 'ai' | 'apis' | 'crm' | 'messages' | 'buyers' | 'tags'>('leads');
+  const [activeTab, setActiveTab] = useState<'leads' | 'hero' | 'assets' | 'footer' | 'settings' | 'ai' | 'apis' | 'crm' | 'messages' | 'buyers' | 'tags' | 'users'>('leads');
+  const [messageTab, setMessageTab] = useState<'leads' | 'internal'>('leads');
+  const [internalConversations, setInternalConversations] = useState<any[]>([]);
+  const [selectedInternalChat, setSelectedInternalChat] = useState<string | null>(null);
+  const [internalChatMessages, setInternalChatMessages] = useState<any[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [googleAnalyticsId, setGoogleAnalyticsId] = useState('');
   const [googleAdsId, setGoogleAdsId] = useState('');
   const [googleAdsConversionLabel, setGoogleAdsConversionLabel] = useState('');
@@ -24,7 +29,7 @@ export default function AdminDashboard() {
   const [showProposalModal, setShowProposalModal] = useState(false);
   const [searchCode, setSearchCode] = useState('');
   const [isSavingBuyer, setIsSavingBuyer] = useState(false);
-  const [newBuyer, setNewBuyer] = useState({ name: '', phone: '', category: ['carro'], type: ['normal'] });
+  const [newBuyer, setNewBuyer] = useState({ name: '', phone: '', email: '', category: ['carro'], type: ['normal'], sub_category: '' });
   const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
   const [savingAsset, setSavingAsset] = useState<string | null>(null);
   const [deletingAsset, setDeletingAsset] = useState<string | null>(null);
@@ -95,6 +100,14 @@ export default function AdminDashboard() {
   const [isSavingKey, setIsSavingKey] = useState(false);
 
   const [activeLeadTab, setActiveLeadTab] = useState<'novo' | 'proposta_enviada' | 'fechado' | 'recusado' | 'sem_interesse'>('novo');
+  const [showBuyerPermissionsModal, setShowBuyerPermissionsModal] = useState(false);
+  const [selectedBuyer, setSelectedBuyer] = useState<any>(null);
+  const [buyerPermissionsForm, setBuyerPermissionsForm] = useState({
+    show_photos: true,
+    show_price: true,
+    show_plate: false,
+    show_details: true
+  });
   const [filterBrand, setFilterBrand] = useState('');
   const [filterYear, setFilterYear] = useState('');
   const [filterMinPrice, setFilterMinPrice] = useState('');
@@ -114,6 +127,7 @@ export default function AdminDashboard() {
     docDebts: number;
     repairDebts: number;
   } | null>(null);
+  const [proposalOverrides, setProposalOverrides] = useState<{ rules: Record<string, number>, repairs: Record<string, number> }>({ rules: {}, repairs: {} });
 
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [avarias, setAvarias] = useState<{id: string, description: string, value: number}[]>([]);
@@ -386,6 +400,115 @@ export default function AdminDashboard() {
       setChatMessages(data || []);
     }
   };
+
+  const fetchInternalConversations = async () => {
+    if (!currentUser) return;
+    
+    try {
+      // Buscar todas as mensagens onde o usuário atual é sender ou receiver, ou receiver é null (admin)
+      const { data, error } = await supabase
+        .from('internal_messages')
+        .select('*')
+        .or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id},receiver_id.is.null`)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Agrupar por usuário
+      const conversationsMap = new Map();
+      
+      data.forEach((msg: any) => {
+        const otherUserId = msg.sender_id === currentUser.id ? msg.receiver_id : msg.sender_id;
+        if (!otherUserId) return;
+        
+        if (!conversationsMap.has(otherUserId)) {
+          conversationsMap.set(otherUserId, {
+            userId: otherUserId,
+            lastMessage: msg.content,
+            lastMessageTime: msg.created_at,
+            unreadCount: 0
+          });
+        }
+      });
+      
+      setInternalConversations(Array.from(conversationsMap.values()));
+    } catch (error) {
+      console.error('Error fetching internal conversations:', error);
+    }
+  };
+
+  const fetchInternalMessages = async (userId: string) => {
+    if (!currentUser) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('internal_messages')
+        .select('*')
+        .or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${userId}),and(sender_id.eq.${userId},or(receiver_id.eq.${currentUser.id},receiver_id.is.null))`)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      
+      setInternalChatMessages(data || []);
+    } catch (error) {
+      console.error('Error fetching internal messages:', error);
+    }
+  };
+
+  const handleSendInternalMessage = async (content: string) => {
+    if (!currentUser || !selectedInternalChat) return;
+    
+    try {
+      const { error } = await supabase.from('internal_messages').insert({
+        sender_id: currentUser.id,
+        receiver_id: selectedInternalChat,
+        content: content
+      });
+      
+      if (error) throw error;
+      
+      await fetchInternalMessages(selectedInternalChat);
+      await fetchInternalConversations(); // Refresh last message
+    } catch (error) {
+      console.error('Error sending internal message:', error);
+      alert('Erro ao enviar mensagem.');
+    }
+  };
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) setCurrentUser(data.user);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'messages' && messageTab === 'internal') {
+      fetchInternalConversations();
+    }
+  }, [activeTab, messageTab, currentUser]);
+
+  useEffect(() => {
+    if (selectedInternalChat) {
+      fetchInternalMessages(selectedInternalChat);
+      
+      const subscription = supabase
+        .channel(`internal_chat:${selectedInternalChat}`)
+        .on('postgres_changes', { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'internal_messages'
+        }, (payload) => {
+          if (payload.new.sender_id === selectedInternalChat || payload.new.receiver_id === selectedInternalChat || (!payload.new.receiver_id && payload.new.sender_id === selectedInternalChat)) {
+             setInternalChatMessages(prev => [...prev, payload.new]);
+          }
+        })
+        .subscribe();
+        
+      return () => {
+        subscription.unsubscribe();
+      };
+    }
+  }, [selectedInternalChat, currentUser]);
 
   const handleSendMessage = async () => {
     if (!selectedConversation || !adminMessage.trim()) return;
@@ -673,7 +796,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
     return labels[s] || s;
   };
 
-  const calculateProposal = (lead: any) => {
+  const calculateProposal = (lead: any, overrides?: { rules: Record<string, number>, repairs: Record<string, number> }) => {
+    const currentOverrides = overrides || proposalOverrides;
     let baseValue = lead.valor_fipe || 0;
     const deductions: { name: string; value: number; type: 'fixed' | 'percent' }[] = [];
 
@@ -684,7 +808,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
         // Tentar encontrar regra no banco
         const rule = fipeRules.find(r => r.condition_name.toLowerCase() === problem.toLowerCase());
         if (rule) {
-          const deductionValue = baseValue * (rule.discount_percentage / 100);
+          const percentage = currentOverrides.rules[rule.id] !== undefined ? currentOverrides.rules[rule.id] : rule.discount_percentage;
+          const deductionValue = baseValue * (percentage / 100);
           deductions.push({ name: problem, value: deductionValue, type: 'percent' });
         } else {
           // Regras padrão caso não encontre no banco
@@ -732,7 +857,12 @@ Podemos prosseguir com o agendamento da vistoria?`;
           }
         }
         
-        const finalCost = cost.cost * itemMultiplier;
+        let baseCost = cost.cost;
+        if (currentOverrides.repairs[cost.id] !== undefined) {
+          baseCost = currentOverrides.repairs[cost.id];
+        }
+
+        const finalCost = baseCost * itemMultiplier;
         repairTotal += finalCost;
         deductions.push({ 
           name: `Avaria: ${cost.part_name} (x${itemMultiplier})`, 
@@ -797,7 +927,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
       const { error } = await supabase
         .from('leads_veiculos')
         .update({
-          detalhes_proposta: proposalCalculator,
+          detalhes_proposta: { ...proposalCalculator, overrides: proposalOverrides },
           suggested_value: proposalCalculator.finalValue,
           fipe_value: proposalCalculator.baseValue,
           payoff_value: proposalCalculator.payoffValue,
@@ -811,17 +941,30 @@ Podemos prosseguir com o agendamento da vistoria?`;
       if (error) throw error;
 
       if (updateGlobal) {
+        // Update global rules (fipeRules)
+        for (const [ruleId, percentage] of Object.entries(proposalOverrides.rules)) {
+          await supabase.from('fipe_rules').update({ discount_percentage: percentage }).eq('id', ruleId);
+        }
+        
+        // Update global repair costs
+        for (const [costId, costValue] of Object.entries(proposalOverrides.repairs)) {
+          await supabase.from('repair_costs').update({ cost: costValue }).eq('id', costId);
+        }
+
         // Update AI rules/memory in settings
-        const newMemory = `${aiMemory}\n\nAtualização de Regras (${new Date().toLocaleDateString()}): ${proposalCalculator.deductions.map(d => `${d.name}: ${d.value}`).join(', ')}`;
+        const newMemory = `${aiMemory}\n\nAtualização de Regras (${new Date().toLocaleDateString()}): ${proposalCalculator.deductions.map((d: any) => `${d.name}: ${d.value}`).join(', ')}`;
         await supabase.from('settings').upsert({ key: 'AI_MEMORY', value: newMemory }, { onConflict: 'key' });
         setAiMemory(newMemory);
+        
+        // Refresh global data
+        await fetchData();
       }
 
       alert('Proposta salva com sucesso!');
       fetchData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving proposal:', error);
-      alert('Erro ao salvar proposta.');
+      alert('Erro ao salvar proposta: ' + error.message);
     }
   };
 
@@ -832,16 +975,14 @@ Podemos prosseguir com o agendamento da vistoria?`;
     }
     setIsSavingBuyer(true);
     try {
-      const buyerData = {
+      const buyerData: any = {
         ...newBuyer,
         category: newBuyer.category.join(','),
         type: newBuyer.type.join(',')
       };
-      delete buyerData.email;
-      delete buyerData.sub_category;
       const { error } = await supabase.from('interested_buyers').insert([buyerData]);
       if (error) throw error;
-      setNewBuyer({ name: '', phone: '', category: ['carro'], type: ['normal'] });
+      setNewBuyer({ name: '', phone: '', email: '', category: ['carro'], type: ['normal'], sub_category: '' });
       fetchData();
       alert('Comprador cadastrado com sucesso!');
     } catch (error: any) {
@@ -954,6 +1095,11 @@ _Comissão a combinar após o fechamento._`;
               </button>
               
               <div className="h-4 w-px bg-slate-200 mx-1"></div>
+
+              <button onClick={() => setActiveTab('settings')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'settings' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
+                <Wrench className="w-3 h-3" /> Config
+              </button>
+              <button onClick={() => setActiveTab('tags')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'tags' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Mkt</button>
               
               <button onClick={() => setActiveTab('hero')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'hero' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Site</button>
               <button onClick={() => setActiveTab('assets')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'assets' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Fotos</button>
@@ -961,10 +1107,6 @@ _Comissão a combinar após o fechamento._`;
               
               <div className="h-4 w-px bg-slate-200 mx-1"></div>
 
-              <button onClick={() => setActiveTab('settings')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'settings' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
-                <Wrench className="w-3 h-3" /> Config
-              </button>
-              <button onClick={() => setActiveTab('tags')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'tags' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Mkt</button>
               <button onClick={() => setActiveTab('ai')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'ai' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>IA</button>
               <button onClick={() => setActiveTab('apis')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'apis' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>APIs</button>
             </nav>
@@ -1008,14 +1150,40 @@ _Comissão a combinar após o fechamento._`;
                     <thead className="text-xs text-slate-500 uppercase bg-slate-50">
                       <tr>
                         <th className="px-6 py-3">Email</th>
-                        <th className="px-6 py-3">Último Login</th>
+                        <th className="px-6 py-3">Status</th>
+                        <th className="px-6 py-3">Ações</th>
                       </tr>
                     </thead>
                     <tbody>
                       {users.filter(u => u.email.includes(filterUser)).map((user) => (
                         <tr key={user.id} className="bg-white border-b hover:bg-slate-50">
                           <td className="px-6 py-4 font-medium text-slate-900">{user.email}</td>
-                          <td className="px-6 py-4">{new Date(user.last_login).toLocaleString()}</td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-2 h-2 rounded-full ${
+                                (new Date().getTime() - new Date(user.last_login).getTime()) < 120000
+                                  ? 'bg-emerald-500 animate-pulse' 
+                                  : 'bg-slate-300'
+                              }`} />
+                              <span className="text-xs text-slate-500">
+                                {(new Date().getTime() - new Date(user.last_login).getTime()) < 120000
+                                  ? 'Online agora' 
+                                  : new Date(user.last_login).toLocaleString()}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <button 
+                              onClick={() => {
+                                setSelectedBuyer(user);
+                                setShowBuyerPermissionsModal(true);
+                              }}
+                              className="px-3 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-accent transition-all flex items-center gap-2"
+                            >
+                              <UserCheck className="w-3 h-3" />
+                              Tornar Comprador
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -1465,7 +1633,26 @@ _Comissão a combinar após o fechamento._`;
                                             className="w-3 h-3 rounded border-slate-300 text-red-500 focus:ring-red-500"
                                           />
                                           <span className={`text-[10px] font-bold ${isSelected ? 'text-red-700' : 'text-slate-600'}`}>{rule.condition_name}</span>
-                                          <span className={`ml-auto text-[9px] font-black ${isSelected ? 'text-red-700' : 'text-slate-400'}`}>-{rule.discount_percentage}%</span>
+                                          <div className="ml-auto flex items-center gap-1">
+                                            <span className={`text-[9px] font-black ${isSelected ? 'text-red-700' : 'text-slate-400'}`}>-</span>
+                                            <input 
+                                              type="number"
+                                              value={proposalOverrides.rules[rule.id] !== undefined ? proposalOverrides.rules[rule.id] : rule.discount_percentage}
+                                              onClick={(e) => e.stopPropagation()}
+                                              onChange={(e) => {
+                                                const newVal = parseFloat(e.target.value);
+                                                const newOverrides = {
+                                                  ...proposalOverrides,
+                                                  rules: { ...proposalOverrides.rules, [rule.id]: newVal }
+                                                };
+                                                setProposalOverrides(newOverrides);
+                                                setProposalCalculator(calculateProposal(selectedLead, newOverrides));
+                                              }}
+                                              className={`w-8 text-right text-[9px] font-black bg-transparent border-b border-transparent focus:border-red-500 outline-none ${isSelected ? 'text-red-700' : 'text-slate-400'}`}
+                                              disabled={!isSelected}
+                                            />
+                                            <span className={`text-[9px] font-black ${isSelected ? 'text-red-700' : 'text-slate-400'}`}>%</span>
+                                          </div>
                                         </label>
                                       );
                                     })}
@@ -1515,7 +1702,25 @@ _Comissão a combinar após o fechamento._`;
                                             className="w-3 h-3 rounded border-slate-300 text-orange-500 focus:ring-orange-500"
                                           />
                                           <span className={`text-[10px] font-bold ${isSelected ? 'text-orange-700' : 'text-slate-600'}`}>{cost.part_name}</span>
-                                          <span className={`ml-auto text-[9px] font-black ${isSelected ? 'text-orange-700' : 'text-slate-400'}`}>-{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(finalCost)}</span>
+                                          <div className="ml-auto flex items-center gap-1">
+                                            <span className={`text-[9px] font-black ${isSelected ? 'text-orange-700' : 'text-slate-400'}`}>-R$</span>
+                                            <input 
+                                              type="number"
+                                              value={proposalOverrides.repairs[cost.id] !== undefined ? (proposalOverrides.repairs[cost.id] * itemMultiplier).toFixed(2) : finalCost.toFixed(2)}
+                                              onClick={(e) => e.stopPropagation()}
+                                              onChange={(e) => {
+                                                const newVal = parseFloat(e.target.value) / itemMultiplier;
+                                                const newOverrides = {
+                                                  ...proposalOverrides,
+                                                  repairs: { ...proposalOverrides.repairs, [cost.id]: newVal }
+                                                };
+                                                setProposalOverrides(newOverrides);
+                                                setProposalCalculator(calculateProposal(selectedLead, newOverrides));
+                                              }}
+                                              className={`w-16 text-right text-[9px] font-black bg-transparent border-b border-transparent focus:border-orange-500 outline-none ${isSelected ? 'text-orange-700' : 'text-slate-400'}`}
+                                              disabled={!isSelected}
+                                            />
+                                          </div>
                                         </label>
                                       );
                                     })}
@@ -1643,6 +1848,7 @@ _Comissão a combinar após o fechamento._`;
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="bg-slate-50 border-b border-slate-200">
+                          <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Status</th>
                           <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Veículo</th>
                           <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Código</th>
                           <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Ano/Modelo</th>
@@ -1668,6 +1874,30 @@ _Comissão a combinar após o fechamento._`;
                             setSelectedBuyers([]);
                             setCurrentPhotoIndex(0);
                           }}>
+                            <td className="px-6 py-4">
+                              <select 
+                                value={lead.status || 'novo'} 
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={async (e) => {
+                                  const newStatus = e.target.value;
+                                  setLeads(leads.map(l => l.id === lead.id ? { ...l, status: newStatus } : l));
+                                  await supabase.from('leads_veiculos').update({ status: newStatus }).eq('id', lead.id);
+                                }}
+                                className={`text-xs font-bold uppercase px-2 py-1 rounded border-none outline-none cursor-pointer ${
+                                  lead.status === 'fechado' ? 'bg-emerald-100 text-emerald-700' :
+                                  lead.status === 'perdido' ? 'bg-red-100 text-red-700' :
+                                  lead.status === 'proposta_enviada' ? 'bg-blue-100 text-blue-700' :
+                                  lead.status === 'em_contato' ? 'bg-amber-100 text-amber-700' :
+                                  'bg-slate-100 text-slate-600'
+                                }`}
+                              >
+                                <option value="novo">Novo</option>
+                                <option value="em_contato">Em Contato</option>
+                                <option value="proposta_enviada">Proposta Enviada</option>
+                                <option value="fechado">Fechado</option>
+                                <option value="perdido">Perdido</option>
+                              </select>
+                            </td>
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-3">
                                 <div className="w-12 h-12 rounded-lg bg-slate-100 overflow-hidden flex-shrink-0">
@@ -2078,13 +2308,32 @@ _Comissão a combinar após o fechamento._`;
                           <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">WhatsApp</th>
                           <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Categoria</th>
                           <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Perfil</th>
+                          <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Notificação</th>
                           <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Ações</th>
                         </tr>
                       </thead>
                       <tbody>
                         {interestedBuyers.map((buyer) => (
                           <tr key={buyer.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                            <td className="px-6 py-4 font-bold text-slate-900">{buyer.name}</td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-2">
+                                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                  buyer.last_seen && (new Date().getTime() - new Date(buyer.last_seen).getTime() < 120000)
+                                    ? 'bg-green-500 animate-pulse' 
+                                    : 'bg-slate-300'
+                                }`} />
+                                <div>
+                                  <p className="font-bold text-slate-900 leading-none mb-1">{buyer.name}</p>
+                                  <p className="text-[9px] text-slate-400 leading-none">
+                                    {buyer.last_seen && (new Date().getTime() - new Date(buyer.last_seen).getTime() < 120000)
+                                      ? 'Online agora'
+                                      : buyer.last_seen 
+                                        ? `Visto ${new Date(buyer.last_seen).toLocaleString()}`
+                                        : 'Nunca logou'}
+                                  </p>
+                                </div>
+                              </div>
+                            </td>
                             <td className="px-6 py-4 text-sm text-slate-600">{buyer.phone}</td>
                             <td className="px-6 py-4">
                               <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded text-[10px] font-bold uppercase">
@@ -2101,17 +2350,52 @@ _Comissão a combinar após o fechamento._`;
                               </span>
                             </td>
                             <td className="px-6 py-4">
-                              <button 
-                                onClick={async () => {
-                                  if (confirm('Excluir este comprador?')) {
-                                    const { error } = await supabase.from('interested_buyers').delete().eq('id', buyer.id);
-                                    if (!error) setInterestedBuyers(prev => prev.filter(b => b.id !== buyer.id));
-                                  }
-                                }}
-                                className="p-2 text-slate-400 hover:text-red-500 transition-colors"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                              <div className="flex items-center gap-2">
+                                {buyer.notifications_enabled === true ? (
+                                  <span className="flex items-center gap-1 text-[10px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full">
+                                    <Bell className="w-3 h-3" /> Ativa
+                                  </span>
+                                ) : buyer.notifications_enabled === false ? (
+                                  <span className="flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-50 px-2 py-1 rounded-full">
+                                    <BellOff className="w-3 h-3" /> Recusada
+                                  </span>
+                                ) : (
+                                  <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-full">
+                                    <Clock className="w-3 h-3" /> Pendente
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-2">
+                                <button 
+                                  onClick={async () => {
+                                    const { error } = await supabase
+                                      .from('interested_buyers')
+                                      .update({ notifications_enabled: true })
+                                      .eq('id', buyer.id);
+                                    if (!error) {
+                                      setInterestedBuyers(prev => prev.map(b => b.id === buyer.id ? {...b, notifications_enabled: true} : b));
+                                    }
+                                  }}
+                                  className="p-2 text-slate-400 hover:text-blue-500 transition-colors"
+                                  title="Forçar Autorização de Notificação"
+                                >
+                                  <Bell className="w-4 h-4" />
+                                </button>
+                                <button 
+                                  onClick={async () => {
+                                    if (confirm('Excluir este comprador?')) {
+                                      const { error } = await supabase.from('interested_buyers').delete().eq('id', buyer.id);
+                                      if (!error) setInterestedBuyers(prev => prev.filter(b => b.id !== buyer.id));
+                                    }
+                                  }}
+                                  className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                                  title="Excluir"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -2125,18 +2409,33 @@ _Comissão a combinar após o fechamento._`;
                 {/* Lista de Conversas (Esquerda) */}
                 <div className="w-1/3 border-r border-slate-100 flex flex-col">
                   <div className="p-6 border-b border-slate-100">
+                    <div className="flex gap-2 mb-4">
+                      <button 
+                        onClick={() => setMessageTab('leads')} 
+                        className={`flex-1 py-2 rounded-xl text-xs font-bold transition-colors ${messageTab === 'leads' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500'}`}
+                      >
+                        Leads
+                      </button>
+                      <button 
+                        onClick={() => setMessageTab('internal')} 
+                        className={`flex-1 py-2 rounded-xl text-xs font-bold transition-colors ${messageTab === 'internal' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500'}`}
+                      >
+                        Suporte Interno
+                      </button>
+                    </div>
                     <h3 className="text-xl font-bold mb-4">Conversas</h3>
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input 
                         type="text" 
-                        placeholder="Buscar cliente..."
+                        placeholder="Buscar..."
                         className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent/20"
                       />
                     </div>
                   </div>
                   <div className="flex-1 overflow-y-auto">
-                    {conversations.map((conv) => (
+                    {messageTab === 'leads' ? (
+                      conversations.map((conv) => (
                       <div 
                         key={conv.lead_id}
                         onClick={() => {
@@ -2163,20 +2462,48 @@ _Comissão a combinar após o fechamento._`;
                           <div className="flex justify-between items-start">
                             <div className="flex flex-col min-w-0">
                               <h4 className="font-bold text-slate-900 truncate">{conv.lead?.cliente_nome || 'Cliente'}</h4>
+                              <p className="text-[10px] text-slate-500 truncate">{conv.lead?.cliente_email || 'Sem email'}</p>
                               <span className="text-[10px] font-mono font-bold text-slate-400">#{conv.lead?.vehicle_code || '----'}</span>
                             </div>
-                            <span className="text-[10px] text-slate-400 whitespace-nowrap">{new Date(conv.last_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            <span className="text-[10px] text-slate-400 whitespace-nowrap">{new Date(conv.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                           </div>
                           <p className="text-xs text-slate-500 truncate">{conv.last_message}</p>
                         </div>
                       </div>
-                    ))}
+                    ))
+                  ) : (
+                      internalConversations.length === 0 ? (
+                        <div className="p-8 text-center text-slate-400 text-sm">
+                          Nenhuma conversa interna encontrada.
+                        </div>
+                      ) : (
+                        internalConversations.map(conv => (
+                          <div 
+                            key={conv.userId}
+                            onClick={() => setSelectedInternalChat(conv.userId)}
+                            className={`p-4 flex items-center gap-4 cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 ${selectedInternalChat === conv.userId ? 'bg-slate-50' : ''}`}
+                          >
+                            <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 font-bold">
+                              {conv.userId.substring(0, 2).toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex justify-between items-start">
+                                <h4 className="font-bold text-slate-900 truncate">Usuário {conv.userId.substring(0, 8)}...</h4>
+                                <span className="text-[10px] text-slate-400">{new Date(conv.lastMessageTime).toLocaleDateString()}</span>
+                              </div>
+                              <p className="text-xs text-slate-500 truncate">{conv.lastMessage}</p>
+                            </div>
+                          </div>
+                        ))
+                      )
+                    )}
                   </div>
                 </div>
 
                 {/* Janela de Chat (Direita) */}
                 <div className="flex-1 flex flex-col bg-slate-50/50">
-                  {selectedConversation ? (
+                  {messageTab === 'leads' ? (
+                    selectedConversation ? (
                     <>
                       {/* Cabeçalho do Chat */}
                       <div className="p-4 bg-white border-b border-slate-100 flex justify-between items-center">
@@ -2196,6 +2523,27 @@ _Comissão a combinar após o fechamento._`;
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
+                          {selectedConversation.lead?.cliente_email && (
+                            <a 
+                              href={`mailto:${selectedConversation.lead.cliente_email}`}
+                              className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
+                              title="Enviar Email"
+                            >
+                              <Mail className="w-4 h-4" />
+                            </a>
+                          )}
+                          {selectedConversation.lead?.cliente_telefone && (
+                            <a 
+                              href={`https://wa.me/${selectedConversation.lead.cliente_telefone.replace(/\D/g, '')}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-2 bg-emerald-100 text-emerald-600 rounded-lg hover:bg-emerald-200 transition-colors"
+                              title="WhatsApp"
+                            >
+                              <MessageCircle className="w-4 h-4" />
+                            </a>
+                          )}
+                          <div className="h-6 w-px bg-slate-200 mx-2" />
                           <button 
                             onClick={handleLearnFromChat}
                             className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl font-bold text-xs hover:bg-slate-200 transition-all flex items-center gap-2"
@@ -2224,7 +2572,7 @@ _Comissão a combinar após o fechamento._`;
                             <div className={`max-w-[70%] p-4 rounded-2xl text-sm shadow-sm ${
                               msg.remetente === 'admin' 
                                 ? 'bg-slate-900 text-white rounded-tr-none' 
-                                : 'bg-white text-slate-700 rounded-tl-none border border-slate-100'
+                                : 'bg-blue-50 text-blue-900 rounded-tl-none border border-blue-100'
                             }`}>
                               <p className="whitespace-pre-wrap">{msg.conteudo}</p>
                               <span className={`text-[9px] mt-1 block ${msg.remetente === 'admin' ? 'text-slate-400' : 'text-slate-400'}`}>
@@ -2269,6 +2617,56 @@ _Comissão a combinar após o fechamento._`;
                       <h3 className="text-xl font-bold text-slate-400">Selecione uma conversa</h3>
                       <p className="text-sm max-w-xs">Escolha um cliente na lista ao lado para visualizar o histórico e assumir o atendimento.</p>
                     </div>
+                  )
+                ) : (
+                    selectedInternalChat ? (
+                      <>
+                        <div className="p-6 bg-white border-b border-slate-100 flex justify-between items-center">
+                          <div>
+                            <h3 className="font-bold text-lg text-slate-900">Chat Interno</h3>
+                            <p className="text-xs text-slate-500">ID: {selectedInternalChat}</p>
+                          </div>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                          {internalChatMessages.map((msg) => (
+                            <div key={msg.id} className={`flex ${msg.sender_id === currentUser?.id ? 'justify-end' : 'justify-start'}`}>
+                              <div className={`max-w-[70%] p-4 rounded-2xl text-sm shadow-sm ${msg.sender_id === currentUser?.id ? 'bg-slate-900 text-white rounded-tr-none' : 'bg-white text-slate-600 border border-slate-100 rounded-tl-none'}`}>
+                                {msg.content}
+                                <p className={`text-[10px] mt-1 text-right ${msg.sender_id === currentUser?.id ? 'text-slate-400' : 'text-slate-300'}`}>
+                                  {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <form 
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            const input = e.currentTarget.elements.namedItem('message') as HTMLInputElement;
+                            if (input.value.trim()) {
+                              handleSendInternalMessage(input.value);
+                              input.value = '';
+                            }
+                          }}
+                          className="p-4 bg-white border-t border-slate-100 flex gap-2"
+                        >
+                          <input 
+                            name="message"
+                            type="text" 
+                            placeholder="Digite sua mensagem..." 
+                            className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent/20"
+                          />
+                          <button type="submit" className="p-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-colors">
+                            <Send className="w-5 h-5" />
+                          </button>
+                        </form>
+                      </>
+                    ) : (
+                      <div className="flex-1 flex items-center justify-center text-slate-400 flex-col gap-4">
+                        <MessageCircle className="w-12 h-12 opacity-20" />
+                        <p>Selecione uma conversa interna para ver as mensagens</p>
+                      </div>
+                    )
                   )}
                 </div>
 
@@ -4321,8 +4719,13 @@ _Comissão a combinar após o fechamento._`;
                           <div className="space-y-2 mt-2 border-t border-slate-200 pt-2">
                             <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Condições de Multiplicação (por valor FIPE)</h4>
                             {(item.conditions || []).map((cond: any, idx: number) => (
-                              <div key={idx} className="flex gap-2 items-center">
-                                <input type="number" placeholder="Min R$" className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs" value={cond.min_value} onChange={e => {
+                              <div key={idx} className="flex gap-2 items-center flex-wrap md:flex-nowrap">
+                                <input type="text" placeholder="Nome (ex: Popular)" className="w-full md:w-1/4 p-2 bg-white border border-slate-200 rounded-lg text-xs" value={cond.name || ''} onChange={e => {
+                                  const newConditions = [...(item.conditions || [])];
+                                  newConditions[idx].name = e.target.value;
+                                  setRepairCosts(prev => prev.map(r => r.id === item.id ? { ...r, conditions: newConditions } : r));
+                                }} />
+                                <input type="number" placeholder="Min R$" className="w-full md:w-1/5 p-2 bg-white border border-slate-200 rounded-lg text-xs" value={cond.min_value} onChange={e => {
                                   const newConditions = [...(item.conditions || [])];
                                   newConditions[idx].min_value = parseFloat(e.target.value);
                                   setRepairCosts(prev => prev.map(r => r.id === item.id ? { ...r, conditions: newConditions } : r));
@@ -4536,6 +4939,87 @@ _Comissão a combinar após o fechamento._`;
           </div>
         )}
       </main>
+      {showBuyerPermissionsModal && selectedBuyer && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-8 max-w-md w-full space-y-6">
+            <h3 className="text-xl font-bold">Permissões para {selectedBuyer.email}</h3>
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+                <span className="font-bold text-sm">Ver Fotos</span>
+                <input 
+                  type="checkbox" 
+                  checked={buyerPermissionsForm.show_photos}
+                  onChange={e => setBuyerPermissionsForm({...buyerPermissionsForm, show_photos: e.target.checked})}
+                  className="w-5 h-5 accent-slate-900"
+                />
+              </div>
+              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+                <span className="font-bold text-sm">Ver Preço</span>
+                <input 
+                  type="checkbox" 
+                  checked={buyerPermissionsForm.show_price}
+                  onChange={e => setBuyerPermissionsForm({...buyerPermissionsForm, show_price: e.target.checked})}
+                  className="w-5 h-5 accent-slate-900"
+                />
+              </div>
+              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+                <span className="font-bold text-sm">Ver Placa</span>
+                <input 
+                  type="checkbox" 
+                  checked={buyerPermissionsForm.show_plate}
+                  onChange={e => setBuyerPermissionsForm({...buyerPermissionsForm, show_plate: e.target.checked})}
+                  className="w-5 h-5 accent-slate-900"
+                />
+              </div>
+              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+                <span className="font-bold text-sm">Ver Detalhes Técnicos</span>
+                <input 
+                  type="checkbox" 
+                  checked={buyerPermissionsForm.show_details}
+                  onChange={e => setBuyerPermissionsForm({...buyerPermissionsForm, show_details: e.target.checked})}
+                  className="w-5 h-5 accent-slate-900"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <button 
+                onClick={async () => {
+                  // Verificar se a tabela existe antes de tentar salvar
+                  const { error } = await supabase
+                    .from('buyer_authorizations')
+                    .upsert({
+                      user_id: selectedBuyer.id,
+                      permissions: buyerPermissionsForm,
+                      updated_at: new Date().toISOString()
+                    }, { onConflict: 'user_id' });
+
+                  if (error) {
+                    if (error.code === '42P01') {
+                      alert('Erro: Tabela de autorizações não encontrada. Execute o script SQL fornecido.');
+                    } else {
+                      alert('Erro: ' + error.message);
+                    }
+                  } else {
+                    alert('Permissões salvas!');
+                    setShowBuyerPermissionsModal(false);
+                  }
+                }}
+                className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-accent transition-all"
+              >
+                Salvar
+              </button>
+              <button 
+                onClick={() => setShowBuyerPermissionsModal(false)}
+                className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

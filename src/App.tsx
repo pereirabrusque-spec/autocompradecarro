@@ -47,6 +47,20 @@ function AppContent() {
   const showTawkTo = primaryContact === 'tawkto' && tawkToEnabled;
 
   useEffect(() => {
+    if (user) {
+      const updateLastLogin = async () => {
+        await supabase
+          .from('profiles')
+          .update({ last_login: new Date().toISOString() })
+          .eq('id', user.id);
+      };
+      updateLastLogin();
+      const interval = setInterval(updateLastLogin, 60000); // Every minute
+      return () => clearInterval(interval);
+    }
+  }, [user]);
+
+  useEffect(() => {
     const checkRoute = () => {
       const path = window.location.pathname;
       
