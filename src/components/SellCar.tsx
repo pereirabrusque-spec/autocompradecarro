@@ -434,11 +434,10 @@ export default function SellCar() {
 
   return (
     <div className="pt-24 pb-24 bg-slate-50 min-h-screen">
-      {isSuccess ? (
-        <div className="pt-10 pb-10 flex items-center justify-center px-4">
-          <div 
-            className="max-w-md w-full bg-white rounded-[40px] p-12 text-center shadow-2xl"
-          >
+      {/* Success Modal */}
+      {isSuccess && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-[40px] p-12 max-w-md w-full text-center shadow-2xl relative animate-in fade-in zoom-in duration-300">
             <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-8">
               <CheckCircle2 className="w-10 h-10" />
             </div>
@@ -446,26 +445,19 @@ export default function SellCar() {
             <p className="text-slate-500 mb-8">
               Recebemos seus dados. Nossa equipe analisará as informações e entrará em contato via WhatsApp em até 24 horas com uma oferta real.
             </p>
-            <div className="space-y-4">
-              <button 
-                onClick={() => window.location.href = '/'}
-                className="w-full py-4 bg-accent text-white rounded-2xl font-bold hover:bg-orange-600 transition-all shadow-lg shadow-accent/20"
-              >
-                Voltar para Home
-              </button>
-              <button 
-                onClick={resetForm}
-                className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all"
-              >
-                Avaliar outro veículo
-              </button>
-            </div>
+            <button 
+              onClick={() => window.location.href = '/'}
+              className="w-full py-4 bg-accent text-white rounded-2xl font-bold hover:bg-orange-600 transition-all shadow-lg shadow-accent/20"
+            >
+              Voltar para Home
+            </button>
           </div>
         </div>
-      ) : (
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Header */}
-          <div className="text-center mb-12">
+      )}
+
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="text-center mb-12">
             <h1 className="font-display text-4xl md:text-5xl font-black mb-4">Avaliação Completa de Veículo</h1>
             <p className="text-lg text-slate-500">Preencha os dados abaixo para receber uma oferta em até 24h.</p>
           </div>
@@ -972,7 +964,7 @@ export default function SellCar() {
             </h3>
             <div className="space-y-4">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-400 ml-1">Quanto você quer no carro? *</label>
+                <label className="text-xs font-bold text-slate-400 ml-1">Quanto você quer no veículo? *</label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">R$</span>
                   <input 
@@ -1130,9 +1122,40 @@ export default function SellCar() {
           </div>
         </form>
       </div>
-      )}
 
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+
+      {/* Error Modal */}
+      {errorModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
+            <button 
+              onClick={() => setErrorModalOpen(false)}
+              className="absolute right-4 top-4 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-6">
+              <AlertCircle className="w-8 h-8" />
+            </div>
+            <h3 className="text-2xl font-black mb-4">Atenção</h3>
+            <div className="space-y-2 mb-8">
+              {errorMessage.map((msg, i) => (
+                <p key={i} className="text-slate-600 flex items-start gap-2">
+                  <span className="text-red-500 mt-1">•</span>
+                  {msg}
+                </p>
+              ))}
+            </div>
+            <button
+              onClick={() => setErrorModalOpen(false)}
+              className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-colors"
+            >
+              Entendi
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
