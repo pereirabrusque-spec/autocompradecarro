@@ -1031,6 +1031,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
     try {
       const buyerData: any = {
         ...newBuyer,
+        email: newBuyer.email.trim() === '' ? null : newBuyer.email.trim(),
         category: newBuyer.category.join(','),
         type: newBuyer.type.join(',')
       };
