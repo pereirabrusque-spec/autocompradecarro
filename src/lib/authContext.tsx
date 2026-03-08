@@ -71,7 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Update profile role if it's not already correct
           const { data: updatedProfile, error: updateError } = await supabase
             .from('profiles')
-            .update({ role: newRole })
+            .update({ role: newRole, last_login: new Date().toISOString() })
             .eq('id', targetUser.id)
             .select()
             .single();
@@ -82,6 +82,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setProfile(data as Profile);
           }
         } else {
+          // Update last_login even if role hasn't changed
+          await supabase
+            .from('profiles')
+            .update({ last_login: new Date().toISOString() })
+            .eq('id', targetUser.id);
           setProfile(data as Profile);
         }
       } else {
@@ -107,7 +112,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           email: targetUser.email,
           role: isAdminEmail ? 'admin' : (isBuyerEmail ? 'buyer' : 'user'),
           full_name: targetUser.user_metadata.full_name || targetUser.email?.split('@')[0],
-          avatar_url: targetUser.user_metadata.avatar_url
+          avatar_url: targetUser.user_metadata.avatar_url,
+          last_login: new Date().toISOString()
         };
         
         const { data: createdProfile, error: createError } = await supabase

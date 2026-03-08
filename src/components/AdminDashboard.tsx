@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Car, Phone, Calendar, DollarSign, AlertCircle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw, Pencil, Users, Share2, MessageCircle, ChevronRight, ChevronLeft, Search, Filter, ShieldCheck, Wrench, Wallet, User, UserPlus, Mail, Bell, BellOff, Send, UserCheck, LayoutDashboard, Download, TrendingUp, BarChart3, PieChart } from 'lucide-react';
+import ChatThemeSettings from './ChatThemeSettings';
 import { useAssets } from '../lib/assetsContext';
 import { supabase } from '../lib/supabase';
 import { defaultCards } from '../lib/seedData';
@@ -579,49 +580,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
         
         alert('Proposta enviada com sucesso!');
         setShowProposalModal(false);
-        await fetchChatMessages(selectedLead.id);
-        await fetchData();
-      } catch (err: any) {
-        console.error(err);
-        alert('Erro ao enviar proposta: ' + err.message);
-      }
-    }
-  };
-
-  const handleSendProposalViaChat = async () => {
-    if (!selectedLead || !proposalCalculator) return;
-
-    const message = `🚀 *PROPOSTA AUTOCOMPRA*
-Olá ${selectedLead.cliente_nome}, analisamos seu ${selectedLead.marca} ${selectedLead.modelo} (${selectedLead.ano_modelo}).
-
-Com base em nossa análise técnica e comercial, nossa proposta final é de:
-💰 *${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}*
-
-Podemos prosseguir com o agendamento da vistoria?`;
-
-    if (confirm(`Deseja enviar a proposta oficial para o cliente via chat?`)) {
-      try {
-        // 1. Salvar mensagem no chat
-        const { error: msgError } = await supabase.from('mensagens').insert([{
-          lead_id: selectedLead.id,
-          remetente: 'admin',
-          conteudo: message
-        }]);
-        if (msgError) throw msgError;
-
-        // 2. Atualizar Lead
-        const { error: leadError } = await supabase
-          .from('leads_veiculos')
-          .update({
-            status: 'proposta_enviada',
-            valor_proposta_final: proposalCalculator.finalValue,
-            detalhes_proposta: proposalCalculator
-          })
-          .eq('id', selectedLead.id);
-        
-        if (leadError) throw leadError;
-        
-        alert('Proposta enviada com sucesso via chat!');
         await fetchChatMessages(selectedLead.id);
         await fetchData();
       } catch (err: any) {
@@ -1397,15 +1355,25 @@ _Comissão a combinar após o fechamento._`;
                 </div>
               </div>
             )}
-
+            {activeTab === 'ai' && (
+              <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+                <h2 className="text-2xl font-bold mb-6">Configurações de IA</h2>
+                <p>Configurações de IA em desenvolvimento.</p>
+              </div>
+            )}
+            {activeTab === 'settings' && (
+              <div className="max-w-xl">
+                <ChatThemeSettings />
+              </div>
+            )}
             {activeTab === 'users' && (
               <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-2xl font-bold">Usuários Logados</h2>
                   <input 
                     type="text" 
-                    placeholder="Filtrar por email..." 
-                    className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                    placeholder="Filtrar por nome, email ou telefone..." 
+                    className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm w-64"
                     value={filterUser}
                     onChange={(e) => setFilterUser(e.target.value)}
                   />
@@ -1414,15 +1382,25 @@ _Comissão a combinar após o fechamento._`;
                   <table className="w-full text-sm text-left">
                     <thead className="text-xs text-slate-500 uppercase bg-slate-50">
                       <tr>
+                        <th className="px-6 py-3">Nome</th>
                         <th className="px-6 py-3">Email</th>
+                        <th className="px-6 py-3">WhatsApp</th>
+                        <th className="px-6 py-3">Data de Cadastro</th>
                         <th className="px-6 py-3">Status</th>
                         <th className="px-6 py-3">Ações</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {users.filter(u => u.email.includes(filterUser)).map((user) => (
+                      {users.filter(u => 
+                        u.email?.toLowerCase().includes(filterUser.toLowerCase()) || 
+                        (u.name && u.name.toLowerCase().includes(filterUser.toLowerCase())) ||
+                        (u.phone && u.phone.includes(filterUser))
+                      ).map((user) => (
                         <tr key={user.id} className="bg-white border-b hover:bg-slate-50">
-                          <td className="px-6 py-4 font-medium text-slate-900">{user.email}</td>
+                          <td className="px-6 py-4 font-medium text-slate-900">{user.name || 'N/A'}</td>
+                          <td className="px-6 py-4 text-slate-600">{user.email}</td>
+                          <td className="px-6 py-4 text-slate-600">{user.phone || 'N/A'}</td>
+                          <td className="px-6 py-4 text-slate-600">{user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}</td>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-2">
                               <div className={`w-2 h-2 rounded-full ${
@@ -1440,8 +1418,8 @@ _Comissão a combinar após o fechamento._`;
                           <td className="px-6 py-4">
                             <button 
                               onClick={() => {
-                                setSelectedBuyer(user);
-                                setShowBuyerPermissionsModal(true);
+                                setBuyerToAuth(user);
+                                setShowAuthModal(true);
                               }}
                               className="px-3 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-accent transition-all flex items-center gap-2"
                             >
