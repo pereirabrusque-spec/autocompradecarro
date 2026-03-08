@@ -49,6 +49,7 @@ export default function SellCar() {
     installmentValue: '',
     installmentsPaid: '',
     installmentsRemaining: '',
+    parcelasAtrasadas: '',
     situacaoFinanceira: '',
     entrada: '',
     
@@ -295,7 +296,7 @@ export default function SellCar() {
       console.log('Enviando dados para Supabase (via API)...');
       
       const leadPayload = {
-        user_id: user.id, // Associate lead with user
+        user_id: user?.id || null, // Associate lead with user if logged in
         cliente_nome: formData.ownerName,
         telefone: formData.ownerPhone,
         email: formData.ownerEmail,
@@ -315,6 +316,7 @@ export default function SellCar() {
         banco_financiamento: formData.bank,
         valor_parcela: parseFloat(formData.installmentValue.replace(/\./g, '').replace(',', '.')) || 0,
         parcelas_pagas: parseInt(formData.installmentsPaid) || 0,
+        parcelas_atrasadas: parseInt(formData.parcelasAtrasadas) || 0,
         total_parcelas: (parseInt(formData.installmentsPaid) || 0) + (parseInt(formData.installmentsRemaining) || 0),
         problemas: problems,
         notifications_enabled: formData.authorizeNotifications,
@@ -384,6 +386,7 @@ export default function SellCar() {
       installmentValue: '',
       installmentsPaid: '',
       installmentsRemaining: '',
+      parcelasAtrasadas: '',
       situacaoFinanceira: '',
       entrada: '',
       hasDelayedFinancing: false,
@@ -867,6 +870,16 @@ export default function SellCar() {
                   placeholder="0"
                   value={formData.installmentsRemaining}
                   onChange={e => setFormData({...formData, installmentsRemaining: e.target.value})}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-400 ml-1">Parcelas Atrasadas</label>
+                <input 
+                  type="number"
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                  placeholder="0"
+                  value={formData.parcelasAtrasadas}
+                  onChange={e => setFormData({...formData, parcelasAtrasadas: e.target.value})}
                 />
               </div>
               <div className="space-y-1">

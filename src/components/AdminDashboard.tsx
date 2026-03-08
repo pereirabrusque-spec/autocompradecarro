@@ -112,6 +112,8 @@ export default function AdminDashboard() {
   const [filterYear, setFilterYear] = useState('');
   const [filterMinPrice, setFilterMinPrice] = useState('');
   const [filterMaxPrice, setFilterMaxPrice] = useState('');
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
   const [leadToWhatsApp, setLeadToWhatsApp] = useState<any>(null);
   const [selectedBuyers, setSelectedBuyers] = useState<string[]>([]);
@@ -1405,6 +1407,14 @@ _Comissão a combinar após o fechamento._`;
 
                   {/* Filtros */}
                   <div className="flex gap-2 w-full md:w-auto overflow-x-auto p-1">
+                    <div className="flex items-center gap-1 border border-slate-200 rounded-lg bg-white px-2">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">De:</span>
+                      <input type="date" className="p-1 bg-transparent text-xs font-bold outline-none" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)} />
+                    </div>
+                    <div className="flex items-center gap-1 border border-slate-200 rounded-lg bg-white px-2">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Até:</span>
+                      <input type="date" className="p-1 bg-transparent text-xs font-bold outline-none" value={filterEndDate} onChange={(e) => setFilterEndDate(e.target.value)} />
+                    </div>
                     <select className="p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold" value={filterBrand} onChange={(e) => setFilterBrand(e.target.value)}>
                       <option value="">Todas as Marcas</option>
                       {[...new Set(leads.map(l => l.marca))].map(brand => <option key={brand} value={brand}>{brand}</option>)}
@@ -1671,6 +1681,20 @@ _Comissão a combinar após o fechamento._`;
                                       onChange={(e) => {
                                         const val = parseInt(e.target.value) || 0;
                                         const updatedLead = { ...selectedLead, parcelas_pagas: val };
+                                        setSelectedLead(updatedLead);
+                                        setProposalCalculator(calculateProposal(updatedLead));
+                                      }}
+                                      className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
+                                    />
+                                  </div>
+                                  <div>
+                                    <p className="text-slate-400 font-bold uppercase text-[9px]">Atrasadas</p>
+                                    <input 
+                                      type="number"
+                                      value={selectedLead.parcelas_atrasadas || 0}
+                                      onChange={(e) => {
+                                        const val = parseInt(e.target.value) || 0;
+                                        const updatedLead = { ...selectedLead, parcelas_atrasadas: val };
                                         setSelectedLead(updatedLead);
                                         setProposalCalculator(calculateProposal(updatedLead));
                                       }}
@@ -2037,6 +2061,7 @@ _Comissão a combinar após o fechamento._`;
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="bg-slate-50 border-b border-slate-200">
+                          <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Data</th>
                           <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Status</th>
                           <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Veículo</th>
                           <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Código</th>
@@ -2056,6 +2081,26 @@ _Comissão a combinar após o fechamento._`;
                           .filter(l => !filterYear || l.ano_modelo === parseInt(filterYear))
                           .filter(l => !filterMinPrice || (l.preco_cliente || 0) >= parseFloat(filterMinPrice))
                           .filter(l => !filterMaxPrice || (l.preco_cliente || 0) <= parseFloat(filterMaxPrice))
+                          .filter(l => {
+                            if (!filterStartDate && !filterEndDate) return true;
+                            const leadDate = new Date(l.created_at);
+                            leadDate.setHours(0, 0, 0, 0);
+                            
+                            if (filterStartDate) {
+                              const start = new Date(filterStartDate);
+                              start.setHours(0, 0, 0, 0);
+                              // Adjust for timezone offset to ensure correct local date comparison
+                              start.setMinutes(start.getMinutes() + start.getTimezoneOffset());
+                              if (leadDate < start) return false;
+                            }
+                            if (filterEndDate) {
+                              const end = new Date(filterEndDate);
+                              end.setHours(0, 0, 0, 0);
+                              end.setMinutes(end.getMinutes() + end.getTimezoneOffset());
+                              if (leadDate > end) return false;
+                            }
+                            return true;
+                          })
                           .map((lead) => (
                           <tr key={lead.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => {
                             setSelectedLead(lead);
@@ -2063,6 +2108,9 @@ _Comissão a combinar após o fechamento._`;
                             setSelectedBuyers([]);
                             setCurrentPhotoIndex(0);
                           }}>
+                            <td className="px-6 py-4 text-xs font-bold text-slate-500">
+                              {new Date(lead.created_at).toLocaleDateString()}
+                            </td>
                             <td className="px-6 py-4">
                               <select 
                                 value={lead.status || 'novo'} 
