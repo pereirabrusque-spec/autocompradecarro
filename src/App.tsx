@@ -29,6 +29,7 @@ import WhatsAppButton from './components/WhatsAppButton';
 import ChatWidget from './components/ChatWidget';
 import AuthModal from './components/AuthModal';
 import { GoogleTags } from './components/GoogleTags';
+import NotificationPermissionModal from './components/NotificationPermissionModal';
 
 function AppContent() {
   const [view, setView] = useState<'home' | 'admin' | 'buyer' | 'login' | 'forgot-password' | 'reset-password' | 'sell' | 'auth-callback'>('home');
@@ -198,6 +199,7 @@ function AppContent() {
       
       <SellModal />
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+      <NotificationPermissionModal />
     </div>
   );
 }

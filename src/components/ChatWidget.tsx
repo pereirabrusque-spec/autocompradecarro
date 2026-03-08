@@ -40,44 +40,63 @@ export default function ChatWidget() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isOpen, activeLead]);
 
-  // Subscribe to new messages for active lead
-  useEffect(() => {
-    if (!activeLead) return;
+  const activeLeadRef = useRef(activeLead);
+  const isOpenRef = useRef(isOpen);
 
-    const channel = supabase
-      .channel(`chat:${activeLead.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'mensagens',
-          filter: `lead_id=eq.${activeLead.id}`
-        },
-        (payload) => {
-          setMessages(prev => [...prev, payload.new]);
-          // Play notification sound if message is from admin
-          if (payload.new.remetente === 'admin') {
-            new Audio('/notification.mp3').play().catch(() => {});
-            
-            if (!isOpen) {
-              setUnreadCount(prev => prev + 1);
-              if (Notification.permission === 'granted') {
-                new Notification('Nova mensagem de AutoCompra', {
-                  body: payload.new.conteudo,
-                  icon: '/favicon.ico'
-                });
+  useEffect(() => {
+    activeLeadRef.current = activeLead;
+  }, [activeLead]);
+
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
+
+  // Subscribe to new messages for ALL leads
+  useEffect(() => {
+    if (leads.length === 0) return;
+
+    const channels = leads.map(lead => {
+      return supabase
+        .channel(`chat:${lead.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'mensagens',
+            filter: `lead_id=eq.${lead.id}`
+          },
+          (payload) => {
+            const newMessage = payload.new;
+
+            // If message is for active lead, update UI
+            if (activeLeadRef.current && newMessage.lead_id === activeLeadRef.current.id) {
+              setMessages(prev => [...prev, newMessage]);
+            }
+
+            // Play notification sound if message is from admin
+            if (newMessage.remetente === 'admin') {
+              new Audio('/notification.mp3').play().catch(() => {});
+              
+              if (!isOpenRef.current || (activeLeadRef.current && newMessage.lead_id !== activeLeadRef.current.id)) {
+                setUnreadCount(prev => prev + 1);
+                if (Notification.permission === 'granted') {
+                  new Notification('Nova mensagem de AutoCompra', {
+                    body: newMessage.conteudo,
+                    icon: '/favicon.ico'
+                  });
+                }
               }
             }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
+    });
 
     return () => {
-      supabase.removeChannel(channel);
+      channels.forEach(channel => supabase.removeChannel(channel));
     };
-  }, [activeLead, isOpen]);
+  }, [leads]);
 
   const fetchLeads = async () => {
     setLoading(true);
