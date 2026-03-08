@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { supabase } from './lib/supabase';
 import { AssetsProvider, useAssets } from './lib/assetsContext';
 import { AuthProvider, useAuth } from './lib/authContext';
 import Navbar from './components/Navbar';

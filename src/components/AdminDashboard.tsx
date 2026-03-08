@@ -2383,6 +2383,7 @@ _Comissão a combinar após o fechamento._`;
                     </div>
                   </div>
                 </div>
+              </div>
             ) : activeTab === 'crm' ? (
               <div className="space-y-8">
                 <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm">
