@@ -126,6 +126,7 @@ export default function AdminDashboard() {
     clientPayoffValue: number;
     docDebts: number;
     repairDebts: number;
+    bankNotRegistered?: boolean;
   } | null>(null);
   const [proposalOverrides, setProposalOverrides] = useState<{ rules: Record<string, number>, repairs: Record<string, number> }>({ rules: {}, repairs: {} });
 
@@ -914,6 +915,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
     // 3. Situação Financeira e Quitação
     let payoffValue = 0;
     let clientPayoffValue = 0;
+    let bankNotRegistered = false;
     
     if (lead.valor_parcela && lead.total_parcelas && lead.parcelas_pagas !== undefined) {
       const remainingInstallments = lead.total_parcelas - lead.parcelas_pagas;
@@ -921,9 +923,14 @@ Podemos prosseguir com o agendamento da vistoria?`;
         const totalRemaining = remainingInstallments * lead.valor_parcela;
         
         // Find bank discount
-        const bankName = lead.banco_financiamento || '';
+        const bankName = lead.banco_financiamento || lead.banco || '';
         const bank = banks.find(b => b.name.toLowerCase() === bankName.toLowerCase());
-        const bankDiscount = bank ? (bank.discount_percentage / 100) : 0.20; // Default 20%
+        
+        if (!bank && bankName) {
+          bankNotRegistered = true;
+        }
+        
+        const bankDiscount = bank ? (bank.discount_percentage / 100) : 0; // Default 0% if not registered
         
         // Calculate payoff for profit (with bank discount)
         payoffValue = totalRemaining * (1 - bankDiscount);
@@ -941,20 +948,26 @@ Podemos prosseguir com o agendamento da vistoria?`;
     const totalDeductions = deductions.reduce((acc, d) => acc + d.value, 0);
     
     // Margem de lucro configurável ou padrão de 20%
-    const profitMargin = baseValue * 0.2; 
+    let profitMargin = baseValue * 0.2; 
     
     // Fórmula final: Lucro = FIPE - (Deduções + Quitação + Documentos + Margem)
     const finalValue = baseValue - totalDeductions - payoffValue - docDebts - profitMargin;
+    
+    // Recalcular a margem de lucro conforme a fórmula do usuário:
+    // VALOR FIP - (PROPOSTA GERADA + VALOR REAL DE QUITAÇÃO)
+    // Assumindo que o usuário quis dizer VALOR FIP - PROPOSTA GERADA - VALOR REAL DE QUITAÇÃO
+    const calculatedProfitMargin = baseValue - finalValue - payoffValue;
 
     return {
       baseValue,
       deductions,
       finalValue,
-      profitMargin,
+      profitMargin: calculatedProfitMargin,
       payoffValue,
       clientPayoffValue,
       docDebts,
-      repairDebts: repairTotal
+      repairDebts: repairTotal,
+      bankNotRegistered
     };
   };
 
@@ -1910,6 +1923,9 @@ _Comissão a combinar após o fechamento._`;
                                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
                                       <p className="text-[10px] font-bold text-slate-400 uppercase">Quitação</p>
                                       <p className="font-black text-slate-700">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.payoffValue)}</p>
+                                      {proposalCalculator.bankNotRegistered && (
+                                        <p className="text-[9px] font-bold text-red-500 mt-1 uppercase">Banco não cadastrado</p>
+                                      )}
                                     </div>
                                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
                                       <p className="text-[10px] font-bold text-slate-400 uppercase">Débitos (Doc/IPVA)</p>
@@ -1921,7 +1937,7 @@ _Comissão a combinar após o fechamento._`;
                                 {/* Resumo Final */}
                                 <div className="pt-6 border-t border-slate-200 space-y-4">
                                   <div className="flex justify-between items-center">
-                                    <span className="text-slate-500 font-bold">Margem de Lucro (20%)</span>
+                                    <span className="text-slate-500 font-bold">Margem de Lucro</span>
                                     <span className="font-bold text-slate-900">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.profitMargin)}</span>
                                   </div>
                                   <div className="p-5 bg-slate-900 rounded-2xl text-white">
@@ -2954,7 +2970,9 @@ _Comissão a combinar após o fechamento._`;
                                 value={proposalCalculator.baseValue}
                                 onChange={(e) => {
                                   const val = parseFloat(e.target.value) || 0;
-                                  setProposalCalculator({...proposalCalculator, baseValue: val, finalValue: val - proposalCalculator.deductions.reduce((acc, d) => acc + d.value, 0) - proposalCalculator.payoffValue - proposalCalculator.docDebts - proposalCalculator.profitMargin});
+                                  const newFinalValue = val - proposalCalculator.deductions.reduce((acc, d) => acc + d.value, 0) - proposalCalculator.payoffValue - proposalCalculator.docDebts - (val * 0.2);
+                                  const newProfitMargin = val - newFinalValue - proposalCalculator.payoffValue;
+                                  setProposalCalculator({...proposalCalculator, baseValue: val, finalValue: newFinalValue, profitMargin: newProfitMargin});
                                 }}
                                 className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold"
                               />
@@ -2966,7 +2984,7 @@ _Comissão a combinar após o fechamento._`;
                                 value={proposalCalculator.profitMargin}
                                 onChange={(e) => {
                                   const val = parseFloat(e.target.value) || 0;
-                                  setProposalCalculator({...proposalCalculator, profitMargin: val, finalValue: proposalCalculator.baseValue - proposalCalculator.deductions.reduce((acc, d) => acc + d.value, 0) - proposalCalculator.payoffValue - proposalCalculator.docDebts - val});
+                                  setProposalCalculator({...proposalCalculator, profitMargin: val, finalValue: proposalCalculator.baseValue - val - proposalCalculator.payoffValue});
                                 }}
                                 className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold"
                               />
@@ -2978,7 +2996,9 @@ _Comissão a combinar após o fechamento._`;
                                 value={proposalCalculator.docDebts}
                                 onChange={(e) => {
                                   const val = parseFloat(e.target.value) || 0;
-                                  setProposalCalculator({...proposalCalculator, docDebts: val, finalValue: proposalCalculator.baseValue - proposalCalculator.deductions.reduce((acc, d) => acc + d.value, 0) - proposalCalculator.payoffValue - val - proposalCalculator.profitMargin});
+                                  const newFinalValue = proposalCalculator.baseValue - proposalCalculator.deductions.reduce((acc, d) => acc + d.value, 0) - proposalCalculator.payoffValue - val - (proposalCalculator.baseValue * 0.2);
+                                  const newProfitMargin = proposalCalculator.baseValue - newFinalValue - proposalCalculator.payoffValue;
+                                  setProposalCalculator({...proposalCalculator, docDebts: val, finalValue: newFinalValue, profitMargin: newProfitMargin});
                                 }}
                                 className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold"
                               />
@@ -2990,7 +3010,9 @@ _Comissão a combinar após o fechamento._`;
                                 value={proposalCalculator.payoffValue}
                                 onChange={(e) => {
                                   const val = parseFloat(e.target.value) || 0;
-                                  setProposalCalculator({...proposalCalculator, payoffValue: val, finalValue: proposalCalculator.baseValue - proposalCalculator.deductions.reduce((acc, d) => acc + d.value, 0) - val - proposalCalculator.docDebts - proposalCalculator.profitMargin});
+                                  const newFinalValue = proposalCalculator.baseValue - proposalCalculator.deductions.reduce((acc, d) => acc + d.value, 0) - val - proposalCalculator.docDebts - (proposalCalculator.baseValue * 0.2);
+                                  const newProfitMargin = proposalCalculator.baseValue - newFinalValue - val;
+                                  setProposalCalculator({...proposalCalculator, payoffValue: val, finalValue: newFinalValue, profitMargin: newProfitMargin});
                                 }}
                                 className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold"
                               />
@@ -2998,6 +3020,9 @@ _Comissão a combinar após o fechamento._`;
                                 <div className="text-[9px] text-slate-400 mt-1">
                                   <p>Custo (Lucro): {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.payoffValue)}</p>
                                   <p>Para Cliente: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.clientPayoffValue || 0)}</p>
+                                  {proposalCalculator.bankNotRegistered && (
+                                    <p className="text-red-500 font-bold uppercase mt-1">Banco não cadastrado</p>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -3018,10 +3043,13 @@ _Comissão a combinar após o fechamento._`;
                                         const newDeductions = [...proposalCalculator.deductions];
                                         newDeductions[idx].value = newVal;
                                         const totalDeductions = newDeductions.reduce((acc, d) => acc + d.value, 0);
+                                        const newFinalValue = proposalCalculator.baseValue - totalDeductions - proposalCalculator.payoffValue - proposalCalculator.docDebts - (proposalCalculator.baseValue * 0.2);
+                                        const newProfitMargin = proposalCalculator.baseValue - newFinalValue - proposalCalculator.payoffValue;
                                         setProposalCalculator({
                                           ...proposalCalculator, 
                                           deductions: newDeductions,
-                                          finalValue: proposalCalculator.baseValue - totalDeductions - proposalCalculator.payoffValue - proposalCalculator.docDebts - proposalCalculator.profitMargin
+                                          finalValue: newFinalValue,
+                                          profitMargin: newProfitMargin
                                         });
                                       }}
                                       className="w-20 p-1 border border-slate-200 rounded text-right font-bold"
@@ -3030,10 +3058,13 @@ _Comissão a combinar após o fechamento._`;
                                       onClick={() => {
                                         const newDeductions = proposalCalculator.deductions.filter((_, i) => i !== idx);
                                         const totalDeductions = newDeductions.reduce((acc, d) => acc + d.value, 0);
+                                        const newFinalValue = proposalCalculator.baseValue - totalDeductions - proposalCalculator.payoffValue - proposalCalculator.docDebts - (proposalCalculator.baseValue * 0.2);
+                                        const newProfitMargin = proposalCalculator.baseValue - newFinalValue - proposalCalculator.payoffValue;
                                         setProposalCalculator({
                                           ...proposalCalculator, 
                                           deductions: newDeductions,
-                                          finalValue: proposalCalculator.baseValue - totalDeductions - proposalCalculator.payoffValue - proposalCalculator.docDebts - proposalCalculator.profitMargin
+                                          finalValue: newFinalValue,
+                                          profitMargin: newProfitMargin
                                         });
                                       }}
                                       className="text-red-400 hover:text-red-600"
@@ -3053,10 +3084,13 @@ _Comissão a combinar após o fechamento._`;
                                       { name, value, type: 'fixed' }
                                     ];
                                     const totalDeductions = newDeductions.reduce((acc, d) => acc + d.value, 0);
+                                    const newFinalValue = proposalCalculator.baseValue - totalDeductions - proposalCalculator.payoffValue - proposalCalculator.docDebts - (proposalCalculator.baseValue * 0.2);
+                                    const newProfitMargin = proposalCalculator.baseValue - newFinalValue - proposalCalculator.payoffValue;
                                     setProposalCalculator({
                                       ...proposalCalculator, 
                                       deductions: newDeductions,
-                                      finalValue: proposalCalculator.baseValue - totalDeductions - proposalCalculator.payoffValue - proposalCalculator.docDebts - proposalCalculator.profitMargin
+                                      finalValue: newFinalValue,
+                                      profitMargin: newProfitMargin
                                     });
                                   }
                                 }}
