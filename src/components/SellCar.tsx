@@ -91,7 +91,7 @@ export default function SellCar() {
     ownerEmail: '',
     ownerEmailConfirm: '',
     ownerLocation: '',
-    authorizeNotifications: false
+    authorizeNotifications: true
   });
 
   useEffect(() => {
@@ -261,7 +261,7 @@ export default function SellCar() {
 
       // Função auxiliar de upload
       const uploadFile = async (file: File, folder: string) => {
-        const fileExt = file.name.split('.').pop();
+        const fileExt = file.name ? file.name.split('.').pop() : 'jpg';
         const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
         const filePath = `${folder}/${fileName}`;
         
@@ -304,20 +304,20 @@ export default function SellCar() {
         modelo: formData.modelName || formData.modelId,
         ano_modelo: formData.yearName || formData.yearId,
         cor: formData.color,
-        quilometragem: parseInt(formData.mileage.replace(/\D/g, '')) || 0,
+        quilometragem: parseInt((formData.mileage || '').replace(/\D/g, '')) || 0,
         placa: '',
         renavam: '',
-        valor_fipe: parseFloat(fipePrice.replace(/[^\d,]/g, '').replace(',', '.')) || 0,
-        preco_cliente: parseFloat(formData.desiredPrice.replace(/\./g, '').replace(',', '.')) || 0,
+        valor_fipe: parseFloat((fipePrice || '').replace(/[^\d,]/g, '').replace(',', '.')) || 0,
+        preco_cliente: parseFloat((formData.desiredPrice || '').replace(/\./g, '').replace(',', '.')) || 0,
         status: 'novo',
-        observacoes: `Localização: ${formData.ownerLocation}. Danos: ${formData.damageType}. Acessórios: ${Object.entries(formData.accessories).filter(([_, v]) => v).map(([k]) => k).join(', ')}`,
-        entrada: parseFloat(formData.entrada.replace(/\./g, '').replace(',', '.')) || 0,
+        observacoes: `Localização: ${formData.ownerLocation}. Danos: ${formData.damageType}. Acessórios: ${Object.entries(formData.accessories || {}).filter(([_, v]) => v).map(([k]) => k).join(', ')}`,
+        entrada: parseFloat((formData.entrada || '').replace(/\./g, '').replace(',', '.')) || 0,
         situacao_financeira: formData.situacaoFinanceira,
         banco_financiamento: formData.bank,
-        valor_parcela: parseFloat(formData.installmentValue.replace(/\./g, '').replace(',', '.')) || 0,
-        parcelas_pagas: parseInt(formData.installmentsPaid) || 0,
-        parcelas_atrasadas: parseInt(formData.parcelasAtrasadas) || 0,
-        total_parcelas: (parseInt(formData.installmentsPaid) || 0) + (parseInt(formData.installmentsRemaining) || 0),
+        valor_parcela: parseFloat((formData.installmentValue || '').replace(/\./g, '').replace(',', '.')) || 0,
+        parcelas_pagas: parseInt(formData.installmentsPaid || '0') || 0,
+        parcelas_atrasadas: parseInt(formData.parcelasAtrasadas || '0') || 0,
+        total_parcelas: (parseInt(formData.installmentsPaid || '0') || 0) + (parseInt(formData.installmentsRemaining || '0') || 0),
         problemas: problems,
         notifications_enabled: formData.authorizeNotifications,
         fotos: uploadedPhotos,
@@ -421,7 +421,7 @@ export default function SellCar() {
       ownerEmail: '',
       ownerEmailConfirm: '',
       ownerLocation: '',
-      authorizeNotifications: false
+      authorizeNotifications: true
     });
     setPhotos([]);
     setVideos([]);
@@ -1043,12 +1043,13 @@ export default function SellCar() {
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="flex items-center gap-3 cursor-pointer p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                <label className="flex items-center gap-3 cursor-not-allowed p-4 bg-slate-50 rounded-2xl border border-slate-200 opacity-80">
                   <input 
                     type="checkbox" 
-                    className="w-5 h-5 accent-accent"
-                    checked={formData.authorizeNotifications}
-                    onChange={e => setFormData({...formData, authorizeNotifications: e.target.checked})}
+                    className="w-5 h-5 accent-accent cursor-not-allowed"
+                    checked={true}
+                    disabled={true}
+                    onChange={() => {}}
                   />
                   <span className="text-sm font-medium text-slate-700">
                     Aceito receber a proposta e notificações através do chat deste site.

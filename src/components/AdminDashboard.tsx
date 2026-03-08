@@ -588,6 +588,92 @@ Podemos prosseguir com o agendamento da vistoria?`;
     }
   };
 
+  const handleSendProposalViaChat = async () => {
+    if (!selectedLead || !proposalCalculator) return;
+
+    const message = `🚀 *PROPOSTA AUTOCOMPRA*
+Olá ${selectedLead.cliente_nome}, analisamos seu ${selectedLead.marca} ${selectedLead.modelo} (${selectedLead.ano_modelo}).
+
+Com base em nossa análise técnica e comercial, nossa proposta final é de:
+💰 *${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}*
+
+Podemos prosseguir com o agendamento da vistoria?`;
+
+    if (confirm(`Deseja enviar a proposta oficial para o cliente via chat?`)) {
+      try {
+        // 1. Salvar mensagem no chat
+        const { error: msgError } = await supabase.from('mensagens').insert([{
+          lead_id: selectedLead.id,
+          remetente: 'admin',
+          conteudo: message
+        }]);
+        if (msgError) throw msgError;
+
+        // 2. Atualizar Lead
+        const { error: leadError } = await supabase
+          .from('leads_veiculos')
+          .update({
+            status: 'proposta_enviada',
+            valor_proposta_final: proposalCalculator.finalValue,
+            detalhes_proposta: proposalCalculator
+          })
+          .eq('id', selectedLead.id);
+        
+        if (leadError) throw leadError;
+        
+        alert('Proposta enviada com sucesso via chat!');
+        await fetchChatMessages(selectedLead.id);
+        await fetchData();
+      } catch (err: any) {
+        console.error(err);
+        alert('Erro ao enviar proposta: ' + err.message);
+      }
+    }
+  };
+
+  const handleSendProposalViaChat = async () => {
+    if (!selectedLead || !proposalCalculator) return;
+
+    const message = `🚀 *PROPOSTA AUTOCOMPRA*
+Olá ${selectedLead.cliente_nome}, analisamos seu ${selectedLead.marca} ${selectedLead.modelo} (${selectedLead.ano_modelo}).
+
+Com base em nossa análise técnica e comercial, nossa proposta final é de:
+💰 *${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}*
+
+Podemos prosseguir com o agendamento da vistoria?`;
+
+    if (confirm(`Deseja enviar a proposta oficial para o cliente via chat?`)) {
+      try {
+        // 1. Salvar mensagem no chat
+        const { error: msgError } = await supabase.from('mensagens').insert([{
+          lead_id: selectedLead.id,
+          remetente: 'admin',
+          conteudo: message
+        }]);
+        if (msgError) throw msgError;
+
+        // 2. Atualizar Lead
+        const { error: leadError } = await supabase
+          .from('leads_veiculos')
+          .update({
+            status: 'proposta_enviada',
+            valor_proposta_final: proposalCalculator.finalValue,
+            detalhes_proposta: proposalCalculator
+          })
+          .eq('id', selectedLead.id);
+        
+        if (leadError) throw leadError;
+        
+        alert('Proposta enviada com sucesso via chat!');
+        await fetchChatMessages(selectedLead.id);
+        await fetchData();
+      } catch (err: any) {
+        console.error(err);
+        alert('Erro ao enviar proposta: ' + err.message);
+      }
+    }
+  };
+
   const handleLearnFromChat = async () => {
     if (!selectedConversation || chatMessages.length === 0) return;
 
@@ -2302,6 +2388,78 @@ _Comissão a combinar após o fechamento._`;
                     {isSavingBuyer ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                     Cadastrar Comprador e Autorizar Acesso
                   </button>
+                </div>
+
+                <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm">
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-bold flex items-center gap-2">
+                      <Users className="w-6 h-6 text-accent" />
+                      Usuários Logados (Potenciais Compradores)
+                    </h3>
+                    <input 
+                      type="text" 
+                      placeholder="Filtrar por email..." 
+                      className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                      value={filterUser}
+                      onChange={(e) => setFilterUser(e.target.value)}
+                    />
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                      <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                        <tr>
+                          <th className="px-6 py-4 font-black tracking-widest">Nome / Email</th>
+                          <th className="px-6 py-4 font-black tracking-widest">Telefone</th>
+                          <th className="px-6 py-4 font-black tracking-widest">Status</th>
+                          <th className="px-6 py-4 font-black tracking-widest">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {users.filter(u => u.email.includes(filterUser)).map((user) => (
+                          <tr key={user.id} className="bg-white border-b hover:bg-slate-50 transition-colors">
+                            <td className="px-6 py-4">
+                              <p className="font-bold text-slate-900">{user.full_name || 'Sem nome'}</p>
+                              <p className="text-[10px] text-slate-400">{user.email}</p>
+                            </td>
+                            <td className="px-6 py-4 text-slate-600 font-mono text-xs">
+                              {user.phone || 'Não informado'}
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-2">
+                                <div className={`w-2 h-2 rounded-full ${
+                                  (new Date().getTime() - new Date(user.last_login).getTime()) < 120000
+                                    ? 'bg-emerald-500 animate-pulse' 
+                                    : 'bg-slate-300'
+                                }`} />
+                                <span className="text-xs text-slate-500">
+                                  {(new Date().getTime() - new Date(user.last_login).getTime()) < 120000
+                                    ? 'Online agora' 
+                                    : new Date(user.last_login).toLocaleString()}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <button 
+                                onClick={() => {
+                                  setNewBuyer({
+                                    ...newBuyer,
+                                    name: user.full_name || '',
+                                    email: user.email || '',
+                                    phone: user.phone || ''
+                                  });
+                                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                                }}
+                                className="px-3 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-accent transition-all flex items-center gap-2"
+                              >
+                                <UserCheck className="w-3 h-3" />
+                                Definir como Comprador
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
