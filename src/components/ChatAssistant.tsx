@@ -77,7 +77,7 @@ export default function ChatAssistant() {
       if (initialMessage) {
         setMessages(prev => [...prev, { role: 'user', text: initialMessage }]);
         // Opcional: disparar o envio automaticamente
-        // setTimeout(() => handleSend(), 500); 
+        setTimeout(() => handleSend(), 500); 
       }
       
       // Get user and create/get lead

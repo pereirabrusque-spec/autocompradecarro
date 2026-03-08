@@ -1356,14 +1356,78 @@ _Comissão a combinar após o fechamento._`;
               </div>
             )}
             {activeTab === 'ai' && (
-              <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
-                <h2 className="text-2xl font-bold mb-6">Configurações de IA</h2>
-                <p>Configurações de IA em desenvolvimento.</p>
+              <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 space-y-6">
+                <h2 className="text-2xl font-bold">Configurações de IA</h2>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase">System Prompt</label>
+                  <textarea 
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none h-48"
+                    value={aiSystemPrompt}
+                    onChange={(e) => setAiSystemPrompt(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase">Memória da IA</label>
+                  <textarea 
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none h-48"
+                    value={aiMemory}
+                    onChange={(e) => setAiMemory(e.target.value)}
+                  />
+                </div>
+                <button 
+                  onClick={handleSaveSettings}
+                  className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all"
+                >
+                  Salvar Configurações
+                </button>
               </div>
             )}
             {activeTab === 'settings' && (
-              <div className="max-w-xl">
-                <ChatThemeSettings />
+              <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 space-y-6">
+                <h2 className="text-2xl font-bold">Configurações Gerais</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Google Analytics ID</label>
+                    <input 
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none"
+                      value={googleAnalyticsId}
+                      onChange={(e) => setGoogleAnalyticsId(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Google Ads ID</label>
+                    <input 
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none"
+                      value={googleAdsId}
+                      onChange={(e) => setGoogleAdsId(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Google Ads Conversion Label</label>
+                    <input 
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none"
+                      value={googleAdsConversionLabel}
+                      onChange={(e) => setGoogleAdsConversionLabel(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Email de Contato</label>
+                    <input 
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none"
+                      value={contactEmail}
+                      onChange={(e) => setContactEmail(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <button 
+                  onClick={handleSaveSettings}
+                  className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all"
+                >
+                  Salvar Configurações
+                </button>
+                <div className="border-t pt-6">
+                  <ChatThemeSettings />
+                </div>
               </div>
             )}
             {activeTab === 'users' && (
