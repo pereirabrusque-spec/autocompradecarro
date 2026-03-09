@@ -1,15 +1,45 @@
 -- 1. Ensure all columns exist in leads_veiculos
 ALTER TABLE public.leads_veiculos ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id);
+ALTER TABLE public.leads_veiculos ADD COLUMN IF NOT EXISTS cliente_nome TEXT;
+ALTER TABLE public.leads_veiculos ADD COLUMN IF NOT EXISTS telefone TEXT;
+ALTER TABLE public.leads_veiculos ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE public.leads_veiculos ADD COLUMN IF NOT EXISTS marca TEXT;
+ALTER TABLE public.leads_veiculos ADD COLUMN IF NOT EXISTS modelo TEXT;
+ALTER TABLE public.leads_veiculos ADD COLUMN IF NOT EXISTS ano_modelo TEXT;
+ALTER TABLE public.leads_veiculos ADD COLUMN IF NOT EXISTS cor TEXT;
 ALTER TABLE public.leads_veiculos ADD COLUMN IF NOT EXISTS quilometragem NUMERIC;
+ALTER TABLE public.leads_veiculos ADD COLUMN IF NOT EXISTS placa TEXT;
+ALTER TABLE public.leads_veiculos ADD COLUMN IF NOT EXISTS renavam TEXT;
+ALTER TABLE public.leads_veiculos ADD COLUMN IF NOT EXISTS valor_fipe NUMERIC;
+ALTER TABLE public.leads_veiculos ADD COLUMN IF NOT EXISTS preco_cliente NUMERIC;
+ALTER TABLE public.leads_veiculos ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'novo';
+ALTER TABLE public.leads_veiculos ADD COLUMN IF NOT EXISTS observacoes TEXT;
+ALTER TABLE public.leads_veiculos ADD COLUMN IF NOT EXISTS entrada NUMERIC DEFAULT 0;
+ALTER TABLE public.leads_veiculos ADD COLUMN IF NOT EXISTS situacao_financeira TEXT;
+ALTER TABLE public.leads_veiculos ADD COLUMN IF NOT EXISTS banco_financiamento TEXT;
+ALTER TABLE public.leads_veiculos ADD COLUMN IF NOT EXISTS valor_parcela NUMERIC DEFAULT 0;
+ALTER TABLE public.leads_veiculos ADD COLUMN IF NOT EXISTS parcelas_pagas INTEGER DEFAULT 0;
 ALTER TABLE public.leads_veiculos ADD COLUMN IF NOT EXISTS parcelas_atrasadas INTEGER DEFAULT 0;
 ALTER TABLE public.leads_veiculos ADD COLUMN IF NOT EXISTS total_parcelas INTEGER DEFAULT 0;
 ALTER TABLE public.leads_veiculos ADD COLUMN IF NOT EXISTS problemas TEXT[] DEFAULT '{}';
 ALTER TABLE public.leads_veiculos ADD COLUMN IF NOT EXISTS notifications_enabled BOOLEAN DEFAULT true;
 ALTER TABLE public.leads_veiculos ADD COLUMN IF NOT EXISTS fotos TEXT[] DEFAULT '{}';
 ALTER TABLE public.leads_veiculos ADD COLUMN IF NOT EXISTS videos TEXT[] DEFAULT '{}';
-ALTER TABLE public.leads_veiculos ADD COLUMN IF NOT EXISTS banco_financiamento TEXT;
-ALTER TABLE public.leads_veiculos ADD COLUMN IF NOT EXISTS parcelas_pagas INTEGER DEFAULT 0;
 ALTER TABLE public.leads_veiculos ADD COLUMN IF NOT EXISTS mileage NUMERIC;
+
+-- 1.1 Create Storage Bucket (Run this in the Supabase Dashboard -> Storage if it fails here)
+-- Note: SQL bucket creation requires the 'storage' schema to be active and permissions granted.
+-- It is safer to create the bucket 'veiculos' manually in the Supabase Dashboard.
+INSERT INTO storage.buckets (id, name, public)
+SELECT 'veiculos', 'veiculos', true
+WHERE NOT EXISTS (
+    SELECT 1 FROM storage.buckets WHERE id = 'veiculos'
+);
+
+-- Allow public uploads to the 'veiculos' bucket
+DROP POLICY IF EXISTS "Public Access" ON storage.objects;
+CREATE POLICY "Public Access" ON storage.objects FOR SELECT USING (bucket_id = 'veiculos');
+CREATE POLICY "Public Upload" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'veiculos');
 
 -- 2. Ensure profiles table and columns exist
 CREATE TABLE IF NOT EXISTS public.profiles (

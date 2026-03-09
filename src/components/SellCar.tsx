@@ -398,7 +398,9 @@ export default function SellCar() {
               valor_fipe: leadPayload.valor_fipe,
               preco_cliente: leadPayload.preco_cliente,
               status: leadPayload.status,
-              observacoes: leadPayload.observacoes
+              observacoes: leadPayload.observacoes,
+              fotos: leadPayload.fotos,
+              videos: leadPayload.videos
             };
             
             const { error: simpleError } = await supabase
@@ -514,7 +516,7 @@ export default function SellCar() {
       {/* Success Modal */}
       {isSuccess && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-[40px] p-12 max-w-md w-full text-center shadow-2xl relative animate-in fade-in zoom-in duration-300">
+          <div className="bg-white rounded-[40px] p-12 max-w-md w-full text-center shadow-2xl relative animate-in fade-in zoom-in duration-300" translate="no">
             <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-8">
               <CheckCircle2 className="w-10 h-10" />
             </div>
@@ -656,10 +658,10 @@ export default function SellCar() {
               </div>
               <p className="text-sm text-slate-400 mb-8">Adicione até 10 fotos do seu veículo (frente, traseira, laterais, interior e avarias se houver).</p>
               
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4" translate="no">
                 {photoPreviews.map((preview, index) => (
                   <div key={index} className="relative aspect-square rounded-2xl overflow-hidden border border-slate-200">
-                    <img src={preview} alt={`Foto ${index + 1}`} className="w-full h-full object-cover" />
+                    <img src={preview} alt={`Foto ${index + 1}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     <button 
                       type="button"
                       onClick={() => setPhotos(photos.filter((_, i) => i !== index))}
@@ -700,7 +702,7 @@ export default function SellCar() {
               </div>
               <p className="text-sm text-slate-400 mb-8">Adicione até 5 vídeos do seu veículo (máximo 20 segundos cada).</p>
               
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4" translate="no">
                 {videoPreviews.map((preview, index) => (
                   <div key={index} className="relative aspect-square rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 flex items-center justify-center">
                     <video 
@@ -1206,7 +1208,7 @@ export default function SellCar() {
       {/* Error Modal */}
       {errorModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
+          <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl relative" translate="no">
             <button 
               onClick={() => setErrorModalOpen(false)}
               className="absolute right-4 top-4 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"

@@ -73,6 +73,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
       <div 
         className="bg-white rounded-[32px] w-full max-w-md p-8 shadow-2xl animate-in zoom-in-95 duration-300 relative overflow-hidden"
         onClick={e => e.stopPropagation()}
+        translate="no"
       >
         <button 
           onClick={onClose}
