@@ -61,105 +61,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (data) {
-        // 2. Check roles (with error handling for missing tables)
-        const adminEmails = ['pereira.brusque@gmail.com'];
-        let shouldBeAdmin = adminEmails.includes(targetUser.email || '');
-        let shouldBeBuyer = false;
-
-        // Only query tables if not already determined by hardcoded list
-        if (!shouldBeAdmin) {
-          try {
-            const { data: adminData, error: adminErr } = await supabase
-              .from('admin_users')
-              .select('email')
-              .eq('email', targetUser.email)
-              .maybeSingle(); // Use maybeSingle to avoid 406/PGRST116 errors
-            
-            if (!adminErr && adminData) shouldBeAdmin = true;
-          } catch (e) {
-            // Silent fail
-          }
-        }
-
-        try {
-          const { data: buyerData, error: buyerErr } = await supabase
-            .from('interested_buyers')
-            .select('email')
-            .eq('email', targetUser.email)
-            .maybeSingle(); // Use maybeSingle
-          
-          if (!buyerErr && buyerData) shouldBeBuyer = true;
-        } catch (e) {
-          // Silent fail
-        }
+        setProfile(data as Profile);
         
-        let newRole: 'admin' | 'user' | 'buyer' = data.role;
-        if (shouldBeAdmin) newRole = 'admin';
-        else if (shouldBeBuyer) newRole = 'buyer';
-        else newRole = 'user';
-
-        if (newRole !== data.role) {
-          // Update profile role if it's not already correct
+        // 2. Optional: Sync roles only if it's the super admin or if we really need to check
+        // This avoids 406 errors on every load for normal users
+        const isSuperAdmin = targetUser.email === 'pereira.brusque@gmail.com';
+        
+        if (isSuperAdmin && data.role !== 'admin') {
           try {
-            const { data: updatedProfile, error: updateError } = await supabase
+            await supabase
               .from('profiles')
-              .update({ role: newRole, last_login: new Date().toISOString() })
-              .eq('id', targetUser.id)
-              .select()
-              .single();
-            
-            if (!updateError && updatedProfile) {
-              setProfile(updatedProfile as Profile);
-            } else {
-              setProfile(data as Profile);
-            }
-          } catch (e) {
-            console.warn('Silent failure updating profile role:', e);
-            setProfile(data as Profile);
-          }
+              .update({ role: 'admin', last_login: new Date().toISOString() })
+              .eq('id', targetUser.id);
+            setProfile({ ...data, role: 'admin' } as Profile);
+          } catch (e) {}
         } else {
-          // Update last_login even if role hasn't changed
+          // Just update last login
           try {
             await supabase
               .from('profiles')
               .update({ last_login: new Date().toISOString() })
               .eq('id', targetUser.id);
-          } catch (e) {
-            console.warn('Silent failure updating last_login:', e);
-          }
-          setProfile(data as Profile);
-        }
-      } else {
-        // Profile doesn't exist, try to create it
-        const adminEmails = ['pereira.brusque@gmail.com'];
-        let isAdminEmail = adminEmails.includes(targetUser.email || '');
-        let isBuyerEmail = false;
-
-        if (!isAdminEmail) {
-          try {
-            const { data: adminData } = await supabase
-              .from('admin_users')
-              .select('email')
-              .eq('email', targetUser.email)
-              .maybeSingle();
-            if (adminData) isAdminEmail = true;
           } catch (e) {}
         }
-
-        try {
-          const { data: buyerData } = await supabase
-            .from('interested_buyers')
-            .select('email')
-            .eq('email', targetUser.email)
-            .maybeSingle();
-          if (buyerData) isBuyerEmail = true;
-        } catch (e) {}
-
-        // If profile doesn't exist, create it
+      } else {
+        // Profile doesn't exist, create a default one
+        const isSuperAdmin = targetUser.email === 'pereira.brusque@gmail.com';
+        
         const newProfile = {
           id: targetUser.id,
           email: targetUser.email,
-          role: isAdminEmail ? 'admin' : (isBuyerEmail ? 'buyer' : 'user'),
+          role: isSuperAdmin ? 'admin' : 'user',
           full_name: targetUser.user_metadata.full_name || targetUser.email?.split('@')[0],
           avatar_url: targetUser.user_metadata.avatar_url,
           last_login: new Date().toISOString()
