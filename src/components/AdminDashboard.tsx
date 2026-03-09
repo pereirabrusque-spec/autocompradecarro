@@ -42,6 +42,7 @@ export default function AdminDashboard() {
   const [newProviderSlug, setNewProviderSlug] = useState('');
   const [isSavingProvider, setIsSavingProvider] = useState(false);
   const [newApiKey, setNewApiKey] = useState('');
+  const [isDeletingLead, setIsDeletingLead] = useState<string | null>(null);
   const [newApiProvider, setNewApiProvider] = useState<any>('gemini');
   const [newApiModel, setNewApiModel] = useState('gemini-1.5-flash');
   const [testedModels, setTestedModels] = useState<Record<string, string[]>>({});
@@ -883,6 +884,29 @@ Podemos prosseguir com o agendamento da vistoria?`;
     return labels[s] || s;
   };
 
+  const handleDeleteLead = async (id: string) => {
+    if (!window.confirm('Tem certeza que deseja excluir este lead permanentemente?')) return;
+
+    setIsDeletingLead(id);
+    try {
+      const { error } = await supabase
+        .from('leads_veiculos')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setLeads(prev => prev.filter(l => l.id !== id));
+      if (selectedLead?.id === id) setSelectedLead(null);
+      alert('Lead excluído com sucesso!');
+    } catch (error: any) {
+      console.error('Error deleting lead:', error);
+      alert('Erro ao excluir lead: ' + error.message);
+    } finally {
+      setIsDeletingLead(null);
+    }
+  };
+
   const calculateProposal = (lead: any, overrides?: { rules: Record<string, number>, repairs: Record<string, number> }) => {
     const currentOverrides = overrides || proposalOverrides;
     let baseValue = lead.valor_fipe || 0;
@@ -916,7 +940,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
     // 2. Avarias (Deduções por Valor Fixo)
     let repairTotal = 0;
-    const allText = `${lead.observacoes || ''} ${lead.problemas?.join(' ') || ''}`.toLowerCase();
     
     // Usar avarias do lead ou do estado global se disponível
     const avariasSelecionadas = lead.avarias || [];
@@ -973,11 +996,17 @@ Podemos prosseguir com o agendamento da vistoria?`;
         const bankName = lead.banco_financiamento || lead.banco || '';
         const bank = banks.find(b => b.name.toLowerCase() === bankName.toLowerCase());
         
+        let bankDiscount = 0;
+
         if (!bank && bankName) {
           bankNotRegistered = true;
+          // Auto-register logic (handled outside calculation to avoid side effects during render)
+          // For now, use default logic: 100% for cooperativa, 35% for others
+          const isCooperativa = bankName.toLowerCase().includes('coop') || bankName.toLowerCase().includes('sicredi') || bankName.toLowerCase().includes('sicoob');
+          bankDiscount = isCooperativa ? 0 : 0.35; // 0% discount (100% payoff) for coop, 35% discount for others
+        } else if (bank) {
+          bankDiscount = (bank.discount_percentage / 100);
         }
-        
-        const bankDiscount = bank ? (bank.discount_percentage / 100) : 0; // Default 0% if not registered
         
         // Calculate payoff for profit (with bank discount)
         payoffValue = totalRemaining * (1 - bankDiscount);
@@ -998,12 +1027,18 @@ Podemos prosseguir com o agendamento da vistoria?`;
     let profitMargin = baseValue * 0.2; 
     
     // Fórmula final: Lucro = FIPE - (Deduções + Quitação + Documentos + Margem)
-    const finalValue = baseValue - totalDeductions - payoffValue - docDebts - profitMargin;
-    
+    let finalValue = baseValue - totalDeductions - payoffValue - docDebts - profitMargin;
+
+    // Logic: Never offer more than desired price
+    if (lead.preco_cliente && finalValue > lead.preco_cliente) {
+      finalValue = lead.preco_cliente;
+    }
+
+    if (finalValue < 0) finalValue = 0;
+
     // Recalcular a margem de lucro conforme a fórmula do usuário:
     // VALOR FIP - (PROPOSTA GERADA + VALOR REAL DE QUITAÇÃO)
-    // Assumindo que o usuário quis dizer VALOR FIP - PROPOSTA GERADA - VALOR REAL DE QUITAÇÃO
-    const calculatedProfitMargin = baseValue - finalValue - payoffValue;
+    const calculatedProfitMargin = baseValue - finalValue - payoffValue - totalDeductions - docDebts;
 
     return {
       baseValue,
@@ -1879,6 +1914,72 @@ _Comissão a combinar após o fechamento._`;
                                   />
                                 </div>
                               </div>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <p className="text-slate-400 font-bold uppercase text-[10px]">Marca</p>
+                                  <input 
+                                    className="w-full p-1 text-xs font-bold bg-white border border-slate-200 rounded"
+                                    value={selectedLead.marca || ''}
+                                    onChange={(e) => setSelectedLead({...selectedLead, marca: e.target.value})}
+                                  />
+                                </div>
+                                <div>
+                                  <p className="text-slate-400 font-bold uppercase text-[10px]">Modelo</p>
+                                  <input 
+                                    className="w-full p-1 text-xs font-bold bg-white border border-slate-200 rounded"
+                                    value={selectedLead.modelo || ''}
+                                    onChange={(e) => setSelectedLead({...selectedLead, modelo: e.target.value})}
+                                  />
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <p className="text-slate-400 font-bold uppercase text-[10px]">Ano/Modelo</p>
+                                  <input 
+                                    type="number"
+                                    className="w-full p-1 text-xs font-bold bg-white border border-slate-200 rounded"
+                                    value={selectedLead.ano_modelo || ''}
+                                    onChange={(e) => setSelectedLead({...selectedLead, ano_modelo: parseInt(e.target.value)})}
+                                  />
+                                </div>
+                                <div>
+                                  <p className="text-slate-400 font-bold uppercase text-[10px]">FIPE</p>
+                                  <input 
+                                    type="number"
+                                    className="w-full p-1 text-xs font-bold bg-white border border-slate-200 rounded"
+                                    value={selectedLead.valor_fipe || ''}
+                                    onChange={(e) => {
+                                      const updatedLead = {...selectedLead, valor_fipe: parseFloat(e.target.value)};
+                                      setSelectedLead(updatedLead);
+                                      setProposalCalculator(calculateProposal(updatedLead));
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <p className="text-slate-400 font-bold uppercase text-[10px]">Desejado Cliente</p>
+                                  <input 
+                                    type="number"
+                                    className="w-full p-1 text-xs font-bold bg-white border border-slate-200 rounded"
+                                    value={selectedLead.preco_cliente || ''}
+                                    onChange={(e) => {
+                                      const updatedLead = {...selectedLead, preco_cliente: parseFloat(e.target.value)};
+                                      setSelectedLead(updatedLead);
+                                      setProposalCalculator(calculateProposal(updatedLead));
+                                    }}
+                                  />
+                                </div>
+                                <div>
+                                  <p className="text-slate-400 font-bold uppercase text-[10px]">Quilometragem</p>
+                                  <input 
+                                    type="number"
+                                    className="w-full p-1 text-xs font-bold bg-white border border-slate-200 rounded"
+                                    value={selectedLead.quilometragem || ''}
+                                    onChange={(e) => setSelectedLead({...selectedLead, quilometragem: parseInt(e.target.value)})}
+                                  />
+                                </div>
+                              </div>
                               {selectedLead.problemas && selectedLead.problemas.length > 0 && (
                                 <div>
                                   <p className="text-slate-400 font-bold uppercase text-[10px]">Histórico / Problemas</p>
@@ -2093,12 +2194,35 @@ _Comissão a combinar após o fechamento._`;
                                       <p className="text-[10px] font-bold text-slate-400 uppercase">Quitação</p>
                                       <p className="font-black text-slate-700">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.payoffValue)}</p>
                                       {proposalCalculator.bankNotRegistered && (
-                                        <p className="text-[9px] font-bold text-red-500 mt-1 uppercase">Banco não cadastrado</p>
+                                        <div className="flex flex-col gap-1 mt-1">
+                                          <p className="text-[9px] font-bold text-red-500 uppercase">Banco não cadastrado: {selectedLead.banco_financiamento || selectedLead.banco}</p>
+                                          <button 
+                                            onClick={async () => {
+                                              const bankName = selectedLead.banco_financiamento || selectedLead.banco;
+                                              const isCooperativa = bankName.toLowerCase().includes('coop') || bankName.toLowerCase().includes('sicredi') || bankName.toLowerCase().includes('sicoob');
+                                              const discount = isCooperativa ? 0 : 35;
+                                              const { error } = await supabase.from('banks').insert({ name: bankName, discount_percentage: discount });
+                                              if (!error) {
+                                                alert(`Banco ${bankName} cadastrado com ${discount}% de desconto!`);
+                                                fetchData();
+                                              }
+                                            }}
+                                            className="text-[8px] bg-red-500 text-white px-2 py-0.5 rounded hover:bg-red-600 w-fit"
+                                          >
+                                            CADASTRAR AGORA
+                                          </button>
+                                        </div>
                                       )}
                                     </div>
                                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
                                       <p className="text-[10px] font-bold text-slate-400 uppercase">Débitos (Doc/IPVA)</p>
                                       <p className="font-black text-slate-700">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.docDebts)}</p>
+                                    </div>
+                                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                                      <p className="text-[10px] font-bold text-slate-400 uppercase">Parcelas Atrasadas</p>
+                                      <p className={`font-black ${selectedLead.parcelas_atrasadas > 0 ? 'text-red-500' : 'text-slate-700'}`}>
+                                        {selectedLead.parcelas_atrasadas || 0} parcelas
+                                      </p>
                                     </div>
                                   </div>
                                 </div>
@@ -2207,8 +2331,19 @@ _Comissão a combinar após o fechamento._`;
                 </div>
             )}
 
-                <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm">
-                  <div className="overflow-x-auto">
+                <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm relative">
+                  {/* Barra de rolagem superior simulada */}
+                  <div className="overflow-x-auto h-2 bg-slate-50 border-b border-slate-100" onScroll={(e) => {
+                    const tableContainer = e.currentTarget.nextElementSibling;
+                    if (tableContainer) tableContainer.scrollLeft = e.currentTarget.scrollLeft;
+                  }}>
+                    <div style={{ width: '2000px', height: '1px' }}></div>
+                  </div>
+                  
+                  <div className="overflow-x-auto" onScroll={(e) => {
+                    const scrollBar = e.currentTarget.previousElementSibling;
+                    if (scrollBar) scrollBar.scrollLeft = e.currentTarget.scrollLeft;
+                  }}>
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="bg-slate-50 border-b border-slate-200">
@@ -2341,9 +2476,30 @@ _Comissão a combinar após o fechamento._`;
                               </div>
                             </td>
                             <td className="px-6 py-4">
-                              <button className="p-2 hover:bg-slate-200 rounded-lg transition-colors">
-                                <Pencil className="w-4 h-4 text-slate-400" />
-                              </button>
+                              <div className="flex items-center gap-2">
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedLead(lead);
+                                    setProposalCalculator(calculateProposal(lead));
+                                  }}
+                                  className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-accent transition-colors"
+                                  title="Editar"
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </button>
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteLead(lead.id);
+                                  }}
+                                  disabled={isDeletingLead === lead.id}
+                                  className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                                  title="Excluir"
+                                >
+                                  {isDeletingLead === lead.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))}

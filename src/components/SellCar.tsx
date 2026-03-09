@@ -22,6 +22,7 @@ export default function SellCar() {
   const [errorMessage, setErrorMessage] = useState<string[]>([]);
   const [photos, setPhotos] = useState<File[]>([]);
   const [videos, setVideos] = useState<File[]>([]);
+  const [showIpvaModal, setShowIpvaModal] = useState(false);
   
   const [formData, setFormData] = useState({
     vehicleType: 'Carros',
@@ -57,6 +58,7 @@ export default function SellCar() {
     hasDelayedFinancing: false,
     hasBuscaApreensao: false,
     hasDelayedIpva: false,
+    ipvaValue: '',
     hasRenajud: false,
     hasBlownEngine: false,
     hasGearboxIssue: false,
@@ -347,6 +349,7 @@ export default function SellCar() {
         parcelas_pagas: parseInt(formData.installmentsPaid || '0') || 0,
         parcelas_atrasadas: parseInt(formData.parcelasAtrasadas || '0') || 0,
         total_parcelas: (parseInt(formData.installmentsPaid || '0') || 0) + (parseInt(formData.installmentsRemaining || '0') || 0),
+        multas: parseFloat((formData.ipvaValue || '').replace(/[^\d,]/g, '').replace(',', '.')) || 0,
         problemas: problems,
         notifications_enabled: formData.authorizeNotifications,
         fotos: uploadedPhotos,
@@ -471,6 +474,7 @@ export default function SellCar() {
       hasDelayedFinancing: false,
       hasBuscaApreensao: false,
       hasDelayedIpva: false,
+      ipvaValue: '',
       hasRenajud: false,
       hasBlownEngine: false,
       hasGearboxIssue: false,
@@ -513,6 +517,59 @@ export default function SellCar() {
 
   return (
     <div className="pt-24 pb-24 bg-slate-50 min-h-screen">
+      {/* Modal IPVA/Multas */}
+      {showIpvaModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-[32px] w-full max-w-md p-8 shadow-2xl">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center">
+                <AlertCircle className="w-6 h-6 text-amber-600" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">IPVA e Multas</h3>
+                <p className="text-xs text-slate-400">Informe o valor total de débitos</p>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-400 ml-1">Valor Total de Débitos *</label>
+                <input 
+                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-accent/20 text-lg font-bold"
+                  placeholder="R$ 0,00"
+                  value={formData.ipvaValue}
+                  onChange={e => handleCurrencyChange('ipvaValue', e.target.value)}
+                  autoFocus
+                />
+              </div>
+              
+              <button 
+                onClick={() => {
+                  if (!formData.ipvaValue || formData.ipvaValue === 'R$ 0,00') {
+                    alert('Por favor, informe o valor dos débitos.');
+                    return;
+                  }
+                  setShowIpvaModal(false);
+                }}
+                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20"
+              >
+                Confirmar Valor
+              </button>
+              
+              <button 
+                onClick={() => {
+                  setFormData({...formData, hasDelayedIpva: false, ipvaValue: ''});
+                  setShowIpvaModal(false);
+                }}
+                className="w-full py-2 text-slate-400 text-xs font-bold hover:text-slate-600 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Success Modal */}
       {isSuccess && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -990,7 +1047,12 @@ export default function SellCar() {
                     type="checkbox" 
                     className="w-5 h-5 accent-accent"
                     checked={(formData as any)[item.id]}
-                    onChange={e => setFormData({...formData, [item.id]: e.target.checked})}
+                    onChange={e => {
+                      setFormData({...formData, [item.id]: e.target.checked});
+                      if (item.id === 'hasDelayedIpva' && e.target.checked) {
+                        setShowIpvaModal(true);
+                      }
+                    }}
                   />
                   <span className="text-sm font-medium">{item.label}</span>
                 </label>
