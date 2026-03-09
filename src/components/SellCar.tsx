@@ -285,24 +285,29 @@ export default function SellCar() {
 
       // Função auxiliar de upload
       const uploadFile = async (file: File, folder: string) => {
-        const fileExt = file.name ? file.name.split('.').pop() : 'jpg';
-        const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
-        const filePath = `${folder}/${fileName}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from('veiculos')
-          .upload(filePath, file);
+        try {
+          const fileExt = file.name ? file.name.split('.').pop() : 'jpg';
+          const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+          const filePath = `${folder}/${fileName}`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from('veiculos')
+            .upload(filePath, file);
 
-        if (uploadError) {
-          console.error(`Erro ao fazer upload de ${file.name}:`, uploadError);
+          if (uploadError) {
+            console.error(`Erro ao fazer upload de ${file.name}:`, uploadError);
+            return null;
+          }
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('veiculos')
+            .getPublicUrl(filePath);
+            
+          return publicUrl;
+        } catch (e) {
+          console.error('Erro no upload:', e);
           return null;
         }
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('veiculos')
-          .getPublicUrl(filePath);
-          
-        return publicUrl;
       };
 
       // Upload Fotos
@@ -319,8 +324,8 @@ export default function SellCar() {
 
       console.log('Enviando dados para Supabase (via API)...');
       
-      const leadPayload = {
-        user_id: user?.id || null, // Associate lead with user if logged in
+      const leadPayload: any = {
+        user_id: user?.id || null,
         cliente_nome: formData.ownerName,
         telefone: formData.ownerPhone,
         email: formData.ownerEmail,
@@ -349,28 +354,71 @@ export default function SellCar() {
       };
 
       // Tentar via API Backend (Bypass RLS)
-      const response = await fetch('/api/leads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(leadPayload)
-      });
+      let apiSuccess = false;
+      try {
+        const response = await fetch('/api/leads', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(leadPayload)
+        });
 
-      const result = await response.json();
+        const result = await response.json();
 
-      if (!response.ok) {
-        // Se falhar no backend (ex: falta chave), tentar direto no Supabase (Client) como fallback
-        console.warn('Falha na API Backend, tentando direto no Supabase...', result.error);
-        
-        const { data: insertData, error: insertError } = await supabase.from('leads_veiculos').insert([leadPayload]).select();
-        
-        if (insertError) throw insertError;
-        console.log('Lead inserido com sucesso (Client):', insertData);
-      } else {
-        console.log('Lead inserido com sucesso (API):', result);
+        if (response.ok) {
+          console.log('Lead inserido com sucesso (API):', result);
+          apiSuccess = true;
+        } else {
+          console.warn('Falha na API Backend, tentando direto no Supabase...', result.error);
+        }
+      } catch (apiErr) {
+        console.warn('Erro ao chamar API Backend:', apiErr);
       }
 
-      setIsSuccess(true);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // Se a API falhou, tenta direto no Supabase (Client)
+      if (!apiSuccess) {
+        // Tenta primeiro com o payload completo
+        const { data: insertData, error: insertError } = await supabase
+          .from('leads_veiculos')
+          .insert([leadPayload])
+          .select();
+        
+        if (insertError) {
+          console.error('Erro no insert completo:', insertError);
+          
+          // Se falhou por colunas inexistentes, tenta um payload simplificado (compatibilidade)
+          if (insertError.message?.includes('column') || insertError.code === 'PGRST204') {
+            console.log('Tentando insert simplificado...');
+            const simplifiedPayload = {
+              cliente_nome: leadPayload.cliente_nome,
+              telefone: leadPayload.telefone,
+              email: leadPayload.email,
+              marca: leadPayload.marca,
+              modelo: leadPayload.modelo,
+              ano_modelo: leadPayload.ano_modelo,
+              cor: leadPayload.cor,
+              valor_fipe: leadPayload.valor_fipe,
+              preco_cliente: leadPayload.preco_cliente,
+              status: leadPayload.status,
+              observacoes: leadPayload.observacoes
+            };
+            
+            const { error: simpleError } = await supabase
+              .from('leads_veiculos')
+              .insert([simplifiedPayload]);
+            
+            if (simpleError) throw simpleError;
+          } else {
+            throw insertError;
+          }
+        }
+        console.log('Lead inserido com sucesso (Client)');
+      }
+
+      // Se chegou aqui, deu certo
+      setTimeout(() => {
+        setIsSuccess(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 100);
     } catch (error: any) {
       console.error('Erro detalhado:', error);
       let msg = `Erro ao enviar avaliação: ${error.message || 'Tente novamente.'}`;

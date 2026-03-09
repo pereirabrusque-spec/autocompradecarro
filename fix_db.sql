@@ -56,9 +56,38 @@ CREATE POLICY "Admins can view all profiles" ON public.profiles
         ) OR (auth.jwt() ->> 'email' = 'pereira.brusque@gmail.com')
     );
 
--- Ensure RLS is enabled
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.leads_veiculos ENABLE ROW LEVEL SECURITY;
+-- Create admin_users table if it doesn't exist
+CREATE TABLE IF NOT EXISTS public.admin_users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email TEXT UNIQUE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- Create interested_buyers table if it doesn't exist
+CREATE TABLE IF NOT EXISTS public.interested_buyers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email TEXT UNIQUE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- Ensure RLS is enabled on these tables
+ALTER TABLE public.admin_users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.interested_buyers ENABLE ROW LEVEL SECURITY;
+
+-- Policies for admin_users and interested_buyers
+DROP POLICY IF EXISTS "Admins can view admin_users" ON public.admin_users;
+CREATE POLICY "Admins can view admin_users" ON public.admin_users
+    FOR SELECT USING (
+        (auth.jwt() ->> 'email' = 'pereira.brusque@gmail.com') OR
+        EXISTS (SELECT 1 FROM public.admin_users au WHERE au.email = auth.jwt() ->> 'email')
+    );
+
+DROP POLICY IF EXISTS "Admins can view interested_buyers" ON public.interested_buyers;
+CREATE POLICY "Admins can view interested_buyers" ON public.interested_buyers
+    FOR SELECT USING (
+        (auth.jwt() ->> 'email' = 'pereira.brusque@gmail.com') OR
+        EXISTS (SELECT 1 FROM public.admin_users au WHERE au.email = auth.jwt() ->> 'email')
+    );
 
 -- Policy for leads_veiculos: Anyone can insert (for the form)
 DROP POLICY IF EXISTS "Anyone can insert leads" ON public.leads_veiculos;

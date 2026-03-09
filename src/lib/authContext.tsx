@@ -35,32 +35,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     setIsProfileLoading(true);
     try {
+      // 1. Fetch profile
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', targetUser.id)
         .single();
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching profile:', error);
+      // Handle missing table or recursion error
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // Profile not found, will create below
+        } else if (error.code === '42P17' || error.message?.includes('recursion')) {
+          console.error('Recursion detected in profiles policy. Please fix DB policies.');
+          // Don't crash, but we can't do much more with profiles
+          setIsLoading(false);
+          return;
+        } else if (error.code === '42P01') {
+          console.warn('Profiles table missing or inaccessible.');
+          setIsLoading(false);
+          return;
+        } else {
+          console.error('Error fetching profile:', error);
+        }
       }
 
       if (data) {
-        // Check if user is in admin_users table to ensure role is up to date
-        const { data: adminData } = await supabase
-          .from('admin_users')
-          .select('email')
-          .eq('email', targetUser.email)
-          .single();
+        // 2. Check roles (with error handling for missing tables)
+        let shouldBeAdmin = targetUser.email === 'pereira.brusque@gmail.com';
+        let shouldBeBuyer = false;
 
-        const { data: buyerData } = await supabase
-          .from('interested_buyers')
-          .select('email')
-          .eq('email', targetUser.email)
-          .single();
+        try {
+          const { data: adminData, error: adminErr } = await supabase
+            .from('admin_users')
+            .select('email')
+            .eq('email', targetUser.email)
+            .single();
+          
+          if (!adminErr && adminData) shouldBeAdmin = true;
+        } catch (e) {
+          console.warn('Could not check admin_users table');
+        }
 
-        const shouldBeAdmin = !!adminData || targetUser.email === 'pereira.brusque@gmail.com';
-        const shouldBeBuyer = !!buyerData;
+        try {
+          const { data: buyerData, error: buyerErr } = await supabase
+            .from('interested_buyers')
+            .select('email')
+            .eq('email', targetUser.email)
+            .single();
+          
+          if (!buyerErr && buyerData) shouldBeBuyer = true;
+        } catch (e) {
+          console.warn('Could not check interested_buyers table');
+        }
         
         let newRole: 'admin' | 'user' | 'buyer' = data.role;
         if (shouldBeAdmin) newRole = 'admin';
@@ -99,21 +126,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setProfile(data as Profile);
         }
       } else {
-        // Check if user is in admin_users table
-        const { data: adminData } = await supabase
-          .from('admin_users')
-          .select('email')
-          .eq('email', targetUser.email)
-          .single();
+        // Profile doesn't exist, try to create it
+        let isAdminEmail = targetUser.email === 'pereira.brusque@gmail.com';
+        let isBuyerEmail = false;
 
-        const { data: buyerData } = await supabase
-          .from('interested_buyers')
-          .select('email')
-          .eq('email', targetUser.email)
-          .single();
+        try {
+          const { data: adminData } = await supabase
+            .from('admin_users')
+            .select('email')
+            .eq('email', targetUser.email)
+            .single();
+          if (adminData) isAdminEmail = true;
+        } catch (e) {}
 
-        const isAdminEmail = !!adminData || targetUser.email === 'pereira.brusque@gmail.com';
-        const isBuyerEmail = !!buyerData;
+        try {
+          const { data: buyerData } = await supabase
+            .from('interested_buyers')
+            .select('email')
+            .eq('email', targetUser.email)
+            .single();
+          if (buyerData) isBuyerEmail = true;
+        } catch (e) {}
 
         // If profile doesn't exist, create it
         const newProfile = {
@@ -125,14 +158,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           last_login: new Date().toISOString()
         };
         
-        const { data: createdProfile, error: createError } = await supabase
-          .from('profiles')
-          .insert([newProfile])
-          .select()
-          .single();
-          
-        if (!createError && createdProfile) {
-          setProfile(createdProfile as Profile);
+        try {
+          const { data: createdProfile, error: createError } = await supabase
+            .from('profiles')
+            .insert([newProfile])
+            .select()
+            .single();
+            
+          if (!createError && createdProfile) {
+            setProfile(createdProfile as Profile);
+          }
+        } catch (e) {
+          console.error('Failed to create profile:', e);
         }
       }
     } catch (error) {
