@@ -56,7 +56,8 @@ async function startServer() {
   // FIPE Proxy Routes (using public API)
   app.get('/api/fipe/brands', async (req, res) => {
     try {
-      const response = await fetch('https://parallelum.com.br/fipe/api/v1/carros/marcas');
+      const type = (req.query.type as string) || 'carros';
+      const response = await fetch(`https://parallelum.com.br/fipe/api/v1/${type}/marcas`);
       const data = await response.json();
       res.json(data);
     } catch (error) {
@@ -66,7 +67,8 @@ async function startServer() {
 
   app.get('/api/fipe/models/:brandId', async (req, res) => {
     try {
-      const response = await fetch(`https://parallelum.com.br/fipe/api/v1/carros/marcas/${req.params.brandId}/modelos`);
+      const type = (req.query.type as string) || 'carros';
+      const response = await fetch(`https://parallelum.com.br/fipe/api/v1/${type}/marcas/${req.params.brandId}/modelos`);
       const data = await response.json();
       res.json(data);
     } catch (error) {
@@ -76,7 +78,8 @@ async function startServer() {
 
   app.get('/api/fipe/years/:brandId/:modelId', async (req, res) => {
     try {
-      const response = await fetch(`https://parallelum.com.br/fipe/api/v1/carros/marcas/${req.params.brandId}/modelos/${req.params.modelId}/anos`);
+      const type = (req.query.type as string) || 'carros';
+      const response = await fetch(`https://parallelum.com.br/fipe/api/v1/${type}/marcas/${req.params.brandId}/modelos/${req.params.modelId}/anos`);
       const data = await response.json();
       res.json(data);
     } catch (error) {
@@ -86,7 +89,8 @@ async function startServer() {
 
   app.get('/api/fipe/price/:brandId/:modelId/:yearId', async (req, res) => {
     try {
-      const response = await fetch(`https://parallelum.com.br/fipe/api/v1/carros/marcas/${req.params.brandId}/modelos/${req.params.modelId}/anos/${req.params.yearId}`);
+      const type = (req.query.type as string) || 'carros';
+      const response = await fetch(`https://parallelum.com.br/fipe/api/v1/${type}/marcas/${req.params.brandId}/modelos/${req.params.modelId}/anos/${req.params.yearId}`);
       const data = await response.json();
       res.json(data);
     } catch (error) {

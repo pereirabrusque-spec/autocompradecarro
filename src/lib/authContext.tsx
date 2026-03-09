@@ -69,24 +69,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (newRole !== data.role) {
           // Update profile role if it's not already correct
-          const { data: updatedProfile, error: updateError } = await supabase
-            .from('profiles')
-            .update({ role: newRole, last_login: new Date().toISOString() })
-            .eq('id', targetUser.id)
-            .select()
-            .single();
-          
-          if (!updateError && updatedProfile) {
-            setProfile(updatedProfile as Profile);
-          } else {
+          try {
+            const { data: updatedProfile, error: updateError } = await supabase
+              .from('profiles')
+              .update({ role: newRole, last_login: new Date().toISOString() })
+              .eq('id', targetUser.id)
+              .select()
+              .single();
+            
+            if (!updateError && updatedProfile) {
+              setProfile(updatedProfile as Profile);
+            } else {
+              setProfile(data as Profile);
+            }
+          } catch (e) {
+            console.warn('Silent failure updating profile role:', e);
             setProfile(data as Profile);
           }
         } else {
           // Update last_login even if role hasn't changed
-          await supabase
-            .from('profiles')
-            .update({ last_login: new Date().toISOString() })
-            .eq('id', targetUser.id);
+          try {
+            await supabase
+              .from('profiles')
+              .update({ last_login: new Date().toISOString() })
+              .eq('id', targetUser.id);
+          } catch (e) {
+            console.warn('Silent failure updating last_login:', e);
+          }
           setProfile(data as Profile);
         }
       } else {

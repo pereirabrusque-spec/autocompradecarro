@@ -187,6 +187,7 @@ export default function SellCar() {
   const validateForm = () => {
     const errors: string[] = [];
     
+    // Required fields validation
     if (!formData.brandId) errors.push("Tipo de Veículo (Marca)");
     if (!formData.modelId) errors.push("Tipo de Veículo (Modelo)");
     if (!formData.yearId) errors.push("Tipo de Veículo (Ano)");
@@ -197,6 +198,29 @@ export default function SellCar() {
     if (!formData.ownerPhone) errors.push("Seus Dados (Telefone)");
     if (!formData.ownerEmail) errors.push("Seus Dados (Email)");
     if (!formData.ownerLocation) errors.push("Seus Dados (Cidade/Estado)");
+    
+    // Format validations
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (formData.ownerEmail && !emailRegex.test(formData.ownerEmail)) {
+      errors.push("Formato de Email inválido");
+    }
+
+    const phoneRegex = /^\(?\d{2}\)?\s?\d{4,5}-?\d{4}$/;
+    const cleanPhone = formData.ownerPhone.replace(/\D/g, '');
+    if (formData.ownerPhone && cleanPhone.length < 10) {
+      errors.push("Telefone inválido (mínimo 10 dígitos)");
+    }
+
+    // Numeric validations
+    const cleanMileage = parseInt(formData.mileage.replace(/\D/g, ''));
+    if (formData.mileage && isNaN(cleanMileage)) {
+      errors.push("Quilometragem deve ser um número válido");
+    }
+
+    const cleanPrice = parseFloat(formData.desiredPrice.replace(/\./g, '').replace(',', '.'));
+    if (formData.desiredPrice && (isNaN(cleanPrice) || cleanPrice <= 0)) {
+      errors.push("Valor Desejado deve ser um número válido maior que zero");
+    }
     
     if (photos.length < 5) errors.push("Fotos do Veículo (Mínimo 5)");
     
@@ -607,12 +631,12 @@ export default function SellCar() {
                       }}
                     />
                     <Camera className="w-6 h-6 text-slate-300 group-hover:text-accent transition-colors" />
-                    <span className="text-[10px] font-bold text-slate-400 uppercase text-center px-2">Adicionar Foto</span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase text-center px-2">Adicionar Foto *</span>
                   </label>
                 )}
                 <div className="col-span-full text-right">
                   <span className={`text-[10px] font-bold uppercase ${photos.length >= 5 ? 'text-green-500' : 'text-red-500'}`}>
-                    {photos.length}/10 fotos adicionadas (Mínimo 5)
+                    {photos.length}/10 fotos adicionadas (Mínimo 5 *)
                   </span>
                 </div>
               </div>
@@ -963,19 +987,19 @@ export default function SellCar() {
               Valor Desejado
             </h3>
             <div className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-400 ml-1">Quanto você quer no veículo? *</label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">R$</span>
-                  <input 
-                    className="w-full p-4 pl-12 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-xl text-slate-900"
-                    placeholder="0,00"
-                    value={formData.desiredPrice}
-                    onChange={e => handleCurrencyChange('desiredPrice', e.target.value)}
-                  />
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-400 ml-1">Quanto você quer no veículo? *</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">R$</span>
+                    <input 
+                      className="w-full p-4 pl-12 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-xl text-slate-900 focus:ring-2 focus:ring-accent/20"
+                      placeholder="0,00"
+                      value={formData.desiredPrice}
+                      onChange={e => handleCurrencyChange('desiredPrice', e.target.value)}
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400 font-medium ml-1">Lembre-se: descontaremos o valor das dívidas e reparos necessários.</p>
                 </div>
-                <p className="text-[10px] text-slate-400 font-medium ml-1">Lembre-se: descontaremos o valor das dívidas e reparos necessários.</p>
-              </div>
             </div>
           </div>
 
