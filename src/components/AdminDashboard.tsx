@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Car, Phone, Calendar, DollarSign, AlertCircle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw, Pencil, Users, Share2, MessageCircle, ChevronRight, ChevronLeft, Search, Filter, ShieldCheck, Wrench, Wallet, User, UserPlus, Mail, Bell, BellOff, Send, UserCheck, LayoutDashboard, Download, TrendingUp, BarChart3, PieChart } from 'lucide-react';
+import { Car, Phone, Calendar, DollarSign, AlertCircle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw, Pencil, Users, Share2, MessageCircle, ChevronRight, ChevronLeft, Search, Filter, ShieldCheck, Wrench, Wallet, User, UserPlus, Mail, Bell, BellOff, Send, UserCheck, LayoutDashboard, Download, TrendingUp, BarChart3, PieChart, Info, X } from 'lucide-react';
 import ChatThemeSettings from './ChatThemeSettings';
 import { useAssets } from '../lib/assetsContext';
 import { supabase } from '../lib/supabase';
@@ -138,6 +138,7 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState<any[]>([]);
   const [filterUser, setFilterUser] = useState('');
   const [showAvariasModal, setShowAvariasModal] = useState(false);
+  const [showProposalDetails, setShowProposalDetails] = useState(false);
 
   const [buyerPermissions, setBuyerPermissions] = useState({
     show_price: true,
@@ -1902,6 +1903,21 @@ _Comissão a combinar após o fechamento._`;
                                   </div>
                                 </div>
                               )}
+                              
+                              {/* Display Accessories parsed from observacoes */}
+                              {selectedLead.observacoes && selectedLead.observacoes.includes('Acessórios:') && (
+                                <div>
+                                  <p className="text-slate-400 font-bold uppercase text-[10px]">Acessórios (Formulário)</p>
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {selectedLead.observacoes.match(/Acessórios: (.*?)(\.|$)/)?.[1]?.split(', ').filter(Boolean).map((item: string, i: number) => (
+                                      <span key={i} className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded text-[10px] font-bold uppercase">
+                                        {item}
+                                      </span>
+                                    )) || <span className="text-xs text-slate-400">Nenhum acessório identificado.</span>}
+                                  </div>
+                                </div>
+                              )}
+
                               {selectedLead.observacoes && (
                                 <div>
                                   <p className="text-slate-400 font-bold uppercase text-[10px]">Observações do Cliente</p>
@@ -2133,8 +2149,14 @@ _Comissão a combinar após o fechamento._`;
                               <p><strong>Ano:</strong> {selectedLead.ano_modelo}</p>
                               <p><strong>FIPE:</strong> {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.valor_fipe || 0)}</p>
                               <p><strong>Desejado:</strong> {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.preco_cliente || 0)}</p>
-                              <div className="pt-2 border-t border-slate-200">
-                                <p className="font-bold text-accent">Sugerido: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.suggested_value || 0)}</p>
+                              <div 
+                                className="pt-2 border-t border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors rounded-lg p-1"
+                                onClick={() => setShowProposalDetails(true)}
+                              >
+                                <p className="font-bold text-accent flex items-center justify-between">
+                                  <span>Sugerido: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.suggested_value || 0)}</span>
+                                  <Info className="w-4 h-4" />
+                                </p>
                               </div>
                             </div>
                             
@@ -4526,6 +4548,63 @@ _Comissão a combinar após o fechamento._`;
               >
                 Salvar e Deduzir
               </button>
+            </div>
+          </div>
+        )}
+
+        {showProposalDetails && proposalCalculator && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <div className="bg-white rounded-[32px] w-full max-w-lg p-8 shadow-2xl">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-2xl font-bold">Detalhamento da Proposta</h3>
+                <button onClick={() => setShowProposalDetails(false)} className="p-2 hover:bg-slate-100 rounded-full">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <div className="space-y-4 text-sm">
+                <div className="flex justify-between items-center p-3 bg-slate-50 rounded-xl">
+                  <span className="font-bold text-slate-600">Valor Base (FIPE)</span>
+                  <span className="font-black text-lg">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.baseValue)}</span>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Deduções</p>
+                  {proposalCalculator.deductions.length === 0 && <p className="text-slate-400 italic">Nenhuma dedução aplicada.</p>}
+                  {proposalCalculator.deductions.map((d: any, i: number) => (
+                    <div key={i} className="flex justify-between items-center text-red-600">
+                      <span>{d.name}</span>
+                      <span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {proposalCalculator.payoffValue > 0 && (
+                   <div className="flex justify-between items-center text-red-600">
+                      <span>Quitação (Estimada)</span>
+                      <span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.payoffValue)}</span>
+                    </div>
+                )}
+
+                {proposalCalculator.docDebts > 0 && (
+                   <div className="flex justify-between items-center text-red-600">
+                      <span>Débitos (Multas/IPVA)</span>
+                      <span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.docDebts)}</span>
+                    </div>
+                )}
+
+                 <div className="flex justify-between items-center text-slate-500">
+                    <span>Margem de Lucro (Estimada)</span>
+                    <span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.profitMargin)}</span>
+                  </div>
+
+                <div className="pt-4 border-t border-slate-200 mt-4">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-xl text-slate-900">Valor Final</span>
+                    <span className="font-black text-2xl text-accent">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
