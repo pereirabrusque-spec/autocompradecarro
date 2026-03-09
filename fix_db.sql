@@ -66,6 +66,7 @@ CREATE POLICY "Admins can view all profiles" ON public.profiles
 -- ADMIN_USERS Policies (The tricky one)
 DROP POLICY IF EXISTS "Admins can view admin_users" ON public.admin_users;
 DROP POLICY IF EXISTS "Users can view own admin entry" ON public.admin_users;
+DROP POLICY IF EXISTS "Authenticated users can read admin list" ON public.admin_users;
 
 -- Allow any authenticated user to read the admin list to check their own status
 -- This is the simplest way to avoid recursion and is safe as it only contains emails
@@ -75,6 +76,7 @@ CREATE POLICY "Authenticated users can read admin list" ON public.admin_users
 -- INTERESTED_BUYERS Policies
 DROP POLICY IF EXISTS "Admins can view interested_buyers" ON public.interested_buyers;
 DROP POLICY IF EXISTS "Users can view own buyer entry" ON public.interested_buyers;
+DROP POLICY IF EXISTS "Admins can view all interested_buyers" ON public.interested_buyers;
 
 CREATE POLICY "Admins can view all interested_buyers" ON public.interested_buyers
     FOR SELECT USING (

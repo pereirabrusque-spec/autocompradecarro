@@ -428,6 +428,8 @@ export default function SellCar() {
       
       if (error.code === '42501' || error.message?.includes('row-level security')) {
         msg = 'Erro de Permissão: O sistema de segurança do banco de dados bloqueou o envio. É necessário configurar as políticas de segurança (RLS) no Supabase para permitir inserções públicas na tabela "leads_veiculos".';
+      } else if (error.code === '42P01') {
+        msg = 'Erro de Banco de Dados: A tabela "leads_veiculos" não foi encontrada. Por favor, execute o script SQL fornecido no painel do Supabase para criar as tabelas necessárias.';
       }
       
       setErrorMessage([msg]);

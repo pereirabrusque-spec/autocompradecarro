@@ -62,19 +62,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (data) {
         // 2. Check roles (with error handling for missing tables)
-        let shouldBeAdmin = targetUser.email === 'pereira.brusque@gmail.com';
+        const adminEmails = ['pereira.brusque@gmail.com'];
+        let shouldBeAdmin = adminEmails.includes(targetUser.email || '');
         let shouldBeBuyer = false;
 
-        try {
-          const { data: adminData, error: adminErr } = await supabase
-            .from('admin_users')
-            .select('email')
-            .eq('email', targetUser.email)
-            .single();
-          
-          if (!adminErr && adminData) shouldBeAdmin = true;
-        } catch (e) {
-          console.warn('Could not check admin_users table');
+        // Only query tables if not already determined by hardcoded list
+        if (!shouldBeAdmin) {
+          try {
+            const { data: adminData, error: adminErr } = await supabase
+              .from('admin_users')
+              .select('email')
+              .eq('email', targetUser.email)
+              .maybeSingle(); // Use maybeSingle to avoid 406/PGRST116 errors
+            
+            if (!adminErr && adminData) shouldBeAdmin = true;
+          } catch (e) {
+            // Silent fail
+          }
         }
 
         try {
@@ -82,11 +86,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .from('interested_buyers')
             .select('email')
             .eq('email', targetUser.email)
-            .single();
+            .maybeSingle(); // Use maybeSingle
           
           if (!buyerErr && buyerData) shouldBeBuyer = true;
         } catch (e) {
-          console.warn('Could not check interested_buyers table');
+          // Silent fail
         }
         
         let newRole: 'admin' | 'user' | 'buyer' = data.role;
@@ -127,24 +131,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } else {
         // Profile doesn't exist, try to create it
-        let isAdminEmail = targetUser.email === 'pereira.brusque@gmail.com';
+        const adminEmails = ['pereira.brusque@gmail.com'];
+        let isAdminEmail = adminEmails.includes(targetUser.email || '');
         let isBuyerEmail = false;
 
-        try {
-          const { data: adminData } = await supabase
-            .from('admin_users')
-            .select('email')
-            .eq('email', targetUser.email)
-            .single();
-          if (adminData) isAdminEmail = true;
-        } catch (e) {}
+        if (!isAdminEmail) {
+          try {
+            const { data: adminData } = await supabase
+              .from('admin_users')
+              .select('email')
+              .eq('email', targetUser.email)
+              .maybeSingle();
+            if (adminData) isAdminEmail = true;
+          } catch (e) {}
+        }
 
         try {
           const { data: buyerData } = await supabase
             .from('interested_buyers')
             .select('email')
             .eq('email', targetUser.email)
-            .single();
+            .maybeSingle();
           if (buyerData) isBuyerEmail = true;
         } catch (e) {}
 
