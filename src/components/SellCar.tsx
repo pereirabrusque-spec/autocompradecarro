@@ -543,7 +543,7 @@ export default function SellCar() {
           <div className="bg-white rounded-3xl border border-slate-200 p-6 mb-8 shadow-sm">
             <div className="flex justify-between items-center mb-4">
               <span className="text-xs font-black uppercase tracking-widest text-slate-400">Progresso da Avaliação</span>
-              <span className="text-sm font-bold text-slate-900">{calculateProgress()}%</span>
+              <span className="text-sm font-bold text-slate-900" translate="no">{calculateProgress()}%</span>
             </div>
             <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
               <div 
@@ -585,7 +585,7 @@ export default function SellCar() {
                     onChange={e => handleBrandChange(e.target.value)}
                   >
                     <option value="">Selecione</option>
-                    {brands.map(b => <option key={b.codigo} value={b.codigo}>{b.nome}</option>)}
+                    {brands.map(b => <option key={b.codigo} value={b.codigo} translate="no">{b.nome}</option>)}
                   </select>
                 </div>
                 <div className="space-y-1">
@@ -597,7 +597,7 @@ export default function SellCar() {
                     onChange={e => handleModelChange(e.target.value)}
                   >
                     <option value="">Selecione</option>
-                    {models.map(m => <option key={m.codigo} value={m.codigo}>{m.nome}</option>)}
+                    {models.map(m => <option key={m.codigo} value={m.codigo} translate="no">{m.nome}</option>)}
                   </select>
                 </div>
                 <div className="space-y-1">
@@ -616,7 +616,7 @@ export default function SellCar() {
                     }}
                   >
                     <option value="">Selecione</option>
-                    {years.map(y => <option key={y.codigo} value={y.codigo}>{y.nome}</option>)}
+                    {years.map(y => <option key={y.codigo} value={y.codigo} translate="no">{y.nome}</option>)}
                   </select>
                 </div>
               </div>
@@ -626,7 +626,7 @@ export default function SellCar() {
                   className="mt-6 p-6 bg-accent/5 border border-accent/10 rounded-2xl text-center animate-in fade-in slide-in-from-bottom-4 duration-500"
                 >
                   <p className="text-xs font-bold text-accent uppercase tracking-widest mb-1">Valor FIPE</p>
-                  <h4 className="text-3xl font-black text-slate-900">{fipePrice}</h4>
+                  <h4 className="text-3xl font-black text-slate-900" translate="no">{fipePrice}</h4>
                 </div>
               )}
             </div>
