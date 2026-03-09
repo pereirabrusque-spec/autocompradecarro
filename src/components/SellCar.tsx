@@ -377,16 +377,15 @@ export default function SellCar() {
       // Se a API falhou, tenta direto no Supabase (Client)
       if (!apiSuccess) {
         // Tenta primeiro com o payload completo
-        const { data: insertData, error: insertError } = await supabase
+        const { error: insertError } = await supabase
           .from('leads_veiculos')
-          .insert([leadPayload])
-          .select();
+          .insert([leadPayload]);
         
         if (insertError) {
           console.error('Erro no insert completo:', insertError);
           
           // Se falhou por colunas inexistentes, tenta um payload simplificado (compatibilidade)
-          if (insertError.message?.includes('column') || insertError.code === 'PGRST204') {
+          if (insertError.message?.includes('column') || insertError.code === 'PGRST204' || insertError.code === '42703') {
             console.log('Tentando insert simplificado...');
             const simplifiedPayload = {
               cliente_nome: leadPayload.cliente_nome,
@@ -414,12 +413,16 @@ export default function SellCar() {
         console.log('Lead inserido com sucesso (Client)');
       }
 
-      // Se chegou aqui, deu certo
+      // IMPORTANTE: Primeiro desativa o loading, depois mostra o sucesso
+      // Isso ajuda a evitar erros de sincronização do React DOM
+      setIsSubmitting(false);
+      
       setTimeout(() => {
         setIsSuccess(true);
         window.scrollTo({ top: 0, behavior: 'smooth' });
-      }, 100);
+      }, 50);
     } catch (error: any) {
+      setIsSubmitting(false);
       console.error('Erro detalhado:', error);
       let msg = `Erro ao enviar avaliação: ${error.message || 'Tente novamente.'}`;
       
