@@ -940,31 +940,50 @@ Podemos prosseguir com o agendamento da vistoria?`;
     // 1. Procedência / Histórico (Deduções por Porcentagem)
     const problemasSelecionados = lead.problemas || [];
     if (problemasSelecionados.length > 0) {
+      let maxPercentage = 0;
+      let maxProblem: { name: string; value: number; type: 'percent' } | null = null;
+
       problemasSelecionados.forEach((problem: string) => {
         // Tentar encontrar regra no banco
         const rule = fipeRules.find(r => r.condition_name.toLowerCase() === problem.toLowerCase());
+        let percentage = 0;
         if (rule) {
-          const percentage = currentOverrides.rules[rule.id] !== undefined ? currentOverrides.rules[rule.id] : rule.discount_percentage;
-          const deductionValue = baseValue * (percentage / 100);
-          deductions.push({ name: problem, value: deductionValue, type: 'percent' });
+          percentage = currentOverrides.rules[rule.id] !== undefined ? currentOverrides.rules[rule.id] : rule.discount_percentage;
         } else {
           // Regras padrão caso não encontre no banco
-          let discount = 0;
           const p = problem.toLowerCase();
-          if (p.includes('sinistro')) discount = 0.30; // 30%
-          else if (p.includes('leilao') || p.includes('leilão')) discount = 0.25; // 25%
-          else if (p.includes('recuperado')) discount = 0.20; // 20%
-          else if (p.includes('furto')) discount = 0.15; // 15%
-          
-          if (discount > 0) {
-            deductions.push({ name: problem, value: baseValue * discount, type: 'percent' });
-          }
+          if (p.includes('sinistro')) percentage = 30; // 30%
+          else if (p.includes('leilao') || p.includes('leilão')) percentage = 25; // 25%
+          else if (p.includes('recuperado')) percentage = 20; // 20%
+          else if (p.includes('furto')) percentage = 15; // 15%
+        }
+
+        if (percentage > maxPercentage) {
+          maxPercentage = percentage;
+          maxProblem = { name: problem, value: baseValue * (percentage / 100), type: 'percent' };
         }
       });
+
+      if (maxProblem) {
+        deductions.push(maxProblem);
+      }
     }
 
     // 2. Avarias (Deduções por Valor Fixo)
     let repairTotal = 0;
+    
+    if (lead.motor_reparo) {
+      repairTotal += lead.motor_reparo;
+      deductions.push({ name: 'Motor Fundido / Batendo', value: lead.motor_reparo, type: 'fixed' });
+    }
+    if (lead.cambio_reparo) {
+      repairTotal += lead.cambio_reparo;
+      deductions.push({ name: 'Câmbio com Defeito', value: lead.cambio_reparo, type: 'fixed' });
+    }
+    if (lead.batido_reparo) {
+      repairTotal += lead.batido_reparo;
+      deductions.push({ name: 'Batido / Avariado', value: lead.batido_reparo, type: 'fixed' });
+    }
     
     // Usar avarias do lead ou do estado global se disponível
     const avariasSelecionadas = lead.avarias || [];
@@ -1054,9 +1073,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
     // Fórmula final: Lucro = FIPE - (Deduções + Quitação + Documentos + Margem)
     let finalValue = baseValue - totalDeductions - payoffValue - docDebts - profitMargin;
 
-    // Logic: Never offer more than desired price
+    // Logic: If proposal is higher than desired price, offer 40% less than desired price
     if (lead.preco_cliente && finalValue > lead.preco_cliente) {
-      finalValue = lead.preco_cliente;
+      finalValue = lead.preco_cliente * 0.60;
     }
 
     if (finalValue < 0) finalValue = 0;
@@ -1614,6 +1633,75 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 </button>
                 <div className="border-t pt-6">
                   <ChatThemeSettings />
+                </div>
+                <div className="border-t pt-6 space-y-4">
+                  <h3 className="text-xl font-bold">Regras de Desconto (Porcentagem)</h3>
+                  <p className="text-sm text-slate-500">Configure as porcentagens de desconto para o histórico e procedência do veículo.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {fipeRules.map(rule => (
+                      <div key={rule.id} className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-between">
+                        <span className="font-bold text-sm text-slate-700">{rule.condition_name}</span>
+                        <div className="flex items-center gap-2">
+                          <input 
+                            type="number" 
+                            className="w-20 p-2 border border-slate-200 rounded-lg text-sm text-center font-bold"
+                            value={rule.discount_percentage}
+                            onChange={async (e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setFipeRules(prev => prev.map(r => r.id === rule.id ? { ...r, discount_percentage: val } : r));
+                              await supabase.from('fipe_rules').update({ discount_percentage: val }).eq('id', rule.id);
+                            }}
+                          />
+                          <span className="text-slate-400 font-bold">%</span>
+                          <button 
+                            onClick={async () => {
+                              if (confirm('Excluir esta regra?')) {
+                                await supabase.from('fipe_rules').delete().eq('id', rule.id);
+                                setFipeRules(prev => prev.filter(r => r.id !== rule.id));
+                              }
+                            }}
+                            className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-2 mt-4">
+                    <input 
+                      type="text" 
+                      placeholder="Nova Regra (ex: Leilão)" 
+                      className="p-3 border border-slate-200 rounded-xl text-sm flex-1"
+                      id="newRuleName"
+                    />
+                    <input 
+                      type="number" 
+                      placeholder="%" 
+                      className="p-3 border border-slate-200 rounded-xl text-sm w-24 text-center"
+                      id="newRulePercentage"
+                    />
+                    <button 
+                      onClick={async () => {
+                        const nameInput = document.getElementById('newRuleName') as HTMLInputElement;
+                        const percInput = document.getElementById('newRulePercentage') as HTMLInputElement;
+                        if (nameInput.value && percInput.value) {
+                          const { data, error } = await supabase.from('fipe_rules').insert({
+                            condition_name: nameInput.value,
+                            discount_percentage: parseFloat(percInput.value)
+                          }).select().single();
+                          if (!error && data) {
+                            setFipeRules(prev => [...prev, data]);
+                            nameInput.value = '';
+                            percInput.value = '';
+                          }
+                        }
+                      }}
+                      className="px-6 py-3 bg-accent text-white rounded-xl font-bold hover:bg-accent/90 transition-all"
+                    >
+                      Adicionar
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -2382,11 +2470,19 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 {/* Resumo Final */}
                                 <div className="pt-6 border-t border-slate-200 space-y-4">
                                   <div className="flex justify-between items-center">
+                                    <span className="text-slate-500 font-bold">Valor da FIPE</span>
+                                    <span className="font-bold text-slate-900">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.baseValue)}</span>
+                                  </div>
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-slate-500 font-bold">Valor Desejado</span>
+                                    <span className="font-bold text-slate-900">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.preco_cliente || 0)}</span>
+                                  </div>
+                                  <div className="flex justify-between items-center">
                                     <span className="text-slate-500 font-bold">Margem de Lucro</span>
                                     <span className="font-bold text-slate-900">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.profitMargin)}</span>
                                   </div>
                                   <div className="p-5 bg-slate-900 rounded-2xl text-white">
-                                    <p className="text-xs font-bold uppercase text-slate-400 mb-1">Valor Sugerido de Compra</p>
+                                    <p className="text-xs font-bold uppercase text-slate-400 mb-1">Valor da Proposta (Sugerido)</p>
                                     <p className="text-3xl font-black text-accent">
                                       {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}
                                     </p>
@@ -2430,7 +2526,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 onClick={() => setShowProposalDetails(true)}
                               >
                                 <p className="font-bold text-accent flex items-center justify-between">
-                                  <span>Sugerido: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.suggested_value || 0)}</span>
+                                  <span>Sugerido: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}</span>
                                   <Info className="w-4 h-4" />
                                 </p>
                               </div>

@@ -545,10 +545,10 @@ export default function SellCar() {
             
             <div className="space-y-4">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-400 ml-1">Valor Total de Débitos *</label>
+                <label className="text-xs font-bold text-slate-400 ml-1">ADICIONE O ORÇAMENTO *</label>
                 <input 
                   className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-accent/20 text-lg font-bold"
-                  placeholder="R$ 0,00"
+                  placeholder="ADICIONE O ORÇAMENTO"
                   value={formData.ipvaValue}
                   onChange={e => handleCurrencyChange('ipvaValue', e.target.value)}
                   autoFocus
@@ -598,10 +598,10 @@ export default function SellCar() {
             
             <div className="space-y-4">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-400 ml-1">Valor do Orçamento *</label>
+                <label className="text-xs font-bold text-slate-400 ml-1">ADICIONE O ORÇAMENTO *</label>
                 <input 
                   className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-accent/20 text-lg font-bold"
-                  placeholder="R$ 0,00"
+                  placeholder="ADICIONE O ORÇAMENTO"
                   value={formData.engineRepairValue}
                   onChange={e => handleCurrencyChange('engineRepairValue', e.target.value)}
                   autoFocus
