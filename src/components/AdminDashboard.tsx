@@ -30,7 +30,7 @@ export default function AdminDashboard() {
   const [showProposalModal, setShowProposalModal] = useState(false);
   const [searchCode, setSearchCode] = useState('');
   const [isSavingBuyer, setIsSavingBuyer] = useState(false);
-  const [newBuyer, setNewBuyer] = useState({ name: '', phone: '', email: '', category: ['carro'], type: ['normal'], sub_category: '' });
+  const [newBuyer, setNewBuyer] = useState<{id?: string, name: string, phone: string, email: string, category: string[], type: string[], sub_category: string, status: string}>({ name: '', phone: '', email: '', category: ['carro'], type: ['normal'], sub_category: '', status: 'pendente' });
   const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
   const [savingAsset, setSavingAsset] = useState<string | null>(null);
   const [deletingAsset, setDeletingAsset] = useState<string | null>(null);
@@ -1110,16 +1110,27 @@ Podemos prosseguir com o agendamento da vistoria?`;
     setIsSavingBuyer(true);
     try {
       const buyerData: any = {
-        ...newBuyer,
+        name: newBuyer.name,
+        phone: newBuyer.phone,
         email: newBuyer.email.trim() === '' ? null : newBuyer.email.trim(),
         category: newBuyer.category.join(','),
-        type: newBuyer.type.join(',')
+        type: newBuyer.type.join(','),
+        sub_category: newBuyer.sub_category,
+        status: newBuyer.status
       };
-      const { error } = await supabase.from('interested_buyers').insert([buyerData]);
-      if (error) throw error;
-      setNewBuyer({ name: '', phone: '', email: '', category: ['carro'], type: ['normal'], sub_category: '' });
+      
+      if (newBuyer.id) {
+        const { error } = await supabase.from('interested_buyers').update(buyerData).eq('id', newBuyer.id);
+        if (error) throw error;
+        alert('Comprador atualizado com sucesso!');
+      } else {
+        const { error } = await supabase.from('interested_buyers').insert([buyerData]);
+        if (error) throw error;
+        alert('Comprador cadastrado com sucesso!');
+      }
+      
+      setNewBuyer({ name: '', phone: '', email: '', category: ['carro'], type: ['normal'], sub_category: '', status: 'pendente' });
       fetchData();
-      alert('Comprador cadastrado com sucesso!');
     } catch (error: any) {
       console.error('Error saving buyer:', error);
       alert('Erro ao salvar comprador: ' + error.message);
@@ -2511,10 +2522,20 @@ _Comissão a combinar após o fechamento._`;
             ) : activeTab === 'buyers' ? (
               <div className="space-y-8">
                 <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm">
-                  <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-                    <UserPlus className="w-6 h-6 text-accent" />
-                    Cadastrar Novo Comprador (Investidor)
-                  </h3>
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-bold flex items-center gap-2">
+                      <UserPlus className="w-6 h-6 text-accent" />
+                      {newBuyer.id ? 'Editar Comprador' : 'Cadastrar Novo Comprador (Investidor)'}
+                    </h3>
+                    {newBuyer.id && (
+                      <button 
+                        onClick={() => setNewBuyer({ name: '', phone: '', email: '', category: ['carro'], type: ['normal'], sub_category: '', status: 'pendente' })}
+                        className="text-sm text-slate-500 hover:text-slate-700 font-bold"
+                      >
+                        Cancelar Edição
+                      </button>
+                    )}
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nome Completo</label>
@@ -2599,6 +2620,17 @@ _Comissão a combinar após o fechamento._`;
                         ))}
                       </div>
                     </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</label>
+                      <select 
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-accent/20"
+                        value={newBuyer.status}
+                        onChange={(e) => setNewBuyer({...newBuyer, status: e.target.value})}
+                      >
+                        <option value="pendente">Pendente</option>
+                        <option value="autorizado">Autorizado</option>
+                      </select>
+                    </div>
                   </div>
                   <button 
                     onClick={handleSaveBuyer}
@@ -2606,7 +2638,7 @@ _Comissão a combinar após o fechamento._`;
                     className="mt-6 w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     {isSavingBuyer ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                    Cadastrar Comprador e Autorizar Acesso
+                    {newBuyer.id ? 'Salvar Alterações' : 'Cadastrar Comprador e Autorizar Acesso'}
                   </button>
                 </div>
 
@@ -2724,6 +2756,25 @@ _Comissão a combinar após o fechamento._`;
                               </td>
                               <td className="px-6 py-4">
                                 <div className="flex items-center gap-2">
+                                  <button 
+                                    onClick={() => {
+                                      setNewBuyer({
+                                        id: buyer.id,
+                                        name: buyer.name,
+                                        phone: buyer.phone,
+                                        email: buyer.email || '',
+                                        category: buyer.category ? buyer.category.split(',') : ['carro'],
+                                        type: buyer.type ? buyer.type.split(',') : ['normal'],
+                                        sub_category: buyer.sub_category || '',
+                                        status: buyer.status || 'pendente'
+                                      });
+                                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                                    }}
+                                    className="p-2 text-slate-400 hover:text-accent transition-colors"
+                                    title="Editar"
+                                  >
+                                    <Pencil className="w-4 h-4" />
+                                  </button>
                                   <button 
                                     onClick={() => {
                                       setBuyerToAuth(buyer);
