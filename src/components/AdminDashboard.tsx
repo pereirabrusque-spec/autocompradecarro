@@ -914,19 +914,24 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
     setIsDeletingLead(id);
     try {
+      console.log(`Attempting to delete lead ${id}...`);
       const { error } = await supabase
         .from('leads_veiculos')
         .delete()
         .eq('id', id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase delete error:', error);
+        throw error;
+      }
 
+      console.log(`Lead ${id} deleted successfully from DB.`);
       setLeads(prev => prev.filter(l => l.id !== id));
       if (selectedLead?.id === id) setSelectedLead(null);
       alert('Lead excluído com sucesso!');
     } catch (error: any) {
       console.error('Error deleting lead:', error);
-      alert('Erro ao excluir lead: ' + error.message);
+      alert('Erro ao excluir lead: ' + (error.message || JSON.stringify(error)));
     } finally {
       setIsDeletingLead(null);
     }
@@ -941,7 +946,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
     const problemasSelecionados = lead.problemas || [];
     if (problemasSelecionados.length > 0) {
       let maxPercentage = 0;
-      let maxProblem: { name: string; value: number; type: 'percent' } | null = null;
+      let maxProblemName = '';
 
       problemasSelecionados.forEach((problem: string) => {
         // Tentar encontrar regra no banco
@@ -952,20 +957,29 @@ Podemos prosseguir com o agendamento da vistoria?`;
         } else {
           // Regras padrão caso não encontre no banco
           const p = problem.toLowerCase();
-          if (p.includes('sinistro')) percentage = 30; // 30%
-          else if (p.includes('leilao') || p.includes('leilão')) percentage = 25; // 25%
-          else if (p.includes('recuperado')) percentage = 20; // 20%
-          else if (p.includes('furto')) percentage = 15; // 15%
+          if (p.includes('sinistro')) percentage = 30;
+          else if (p.includes('leilao') || p.includes('leilão')) percentage = 25;
+          else if (p.includes('recuperado')) percentage = 20;
+          else if (p.includes('furto')) percentage = 15;
+          else if (p.includes('renajud')) percentage = 50;
+          else if (p.includes('financiamento')) percentage = 35;
+          else if (p.includes('cooperativa')) percentage = 80;
+          else if (p.includes('bloqueio')) percentage = 50;
+          else if (p.includes('busca')) percentage = 60;
         }
 
         if (percentage > maxPercentage) {
           maxPercentage = percentage;
-          maxProblem = { name: problem, value: baseValue * (percentage / 100), type: 'percent' };
+          maxProblemName = problem;
         }
       });
 
-      if (maxProblem) {
-        deductions.push(maxProblem);
+      if (maxPercentage > 0) {
+        deductions.push({ 
+          name: `Histórico: ${maxProblemName} (${maxPercentage}%)`, 
+          value: baseValue * (maxPercentage / 100), 
+          type: 'percent' 
+        });
       }
     }
 
@@ -1062,7 +1076,14 @@ Podemos prosseguir com o agendamento da vistoria?`;
       }
     }
     
-    const docDebts = lead.multas || 0;
+    // IPVA e Multas (Dívidas de Documentação)
+    let docDebts = lead.multas || 0;
+    if (currentOverrides.repairs['doc_debts'] !== undefined) {
+      docDebts = currentOverrides.repairs['doc_debts'];
+    }
+    if (docDebts > 0) {
+      deductions.push({ name: 'IPVA e Multas Atrasadas', value: docDebts, type: 'fixed' });
+    }
 
     // 4. Cálculo de Lucro (FIPE - Deduções - Quitação - Documentos - Margem)
     const totalDeductions = deductions.reduce((acc, d) => acc + d.value, 0);
@@ -2456,13 +2477,38 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                     </div>
                                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
                                       <p className="text-[10px] font-bold text-slate-400 uppercase">Débitos (Doc/IPVA)</p>
-                                      <p className="font-black text-slate-700">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.docDebts)}</p>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-bold text-slate-400">R$</span>
+                                        <input 
+                                          type="number"
+                                          value={proposalOverrides.repairs['doc_debts'] !== undefined ? proposalOverrides.repairs['doc_debts'] : (selectedLead.multas || 0)}
+                                          onChange={(e) => {
+                                            const newVal = parseFloat(e.target.value);
+                                            const newOverrides = {
+                                              ...proposalOverrides,
+                                              repairs: { ...proposalOverrides.repairs, 'doc_debts': newVal }
+                                            };
+                                            setProposalOverrides(newOverrides);
+                                            setProposalCalculator(calculateProposal(selectedLead, newOverrides));
+                                          }}
+                                          className="w-full bg-transparent font-black text-slate-700 outline-none border-b border-transparent focus:border-accent"
+                                        />
+                                      </div>
                                     </div>
                                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
                                       <p className="text-[10px] font-bold text-slate-400 uppercase">Parcelas Atrasadas</p>
-                                      <p className={`font-black ${selectedLead.parcelas_atrasadas > 0 ? 'text-red-500' : 'text-slate-700'}`}>
-                                        {selectedLead.parcelas_atrasadas || 0} parcelas
-                                      </p>
+                                      <div className="mt-1 space-y-1">
+                                        <p className={`font-black ${selectedLead.parcelas_atrasadas > 0 ? 'text-red-500' : 'text-slate-700'}`}>
+                                          {selectedLead.parcelas_atrasadas || 0} parcelas
+                                        </p>
+                                        {selectedLead.parcelas_atrasadas > 0 && (
+                                          <div className="text-[9px] text-slate-500 space-y-0.5">
+                                            <p>Valor/Parc: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.valor_parcela || 0)}</p>
+                                            <p>Juros: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((selectedLead.valor_parcela * selectedLead.parcelas_atrasadas * (jurosAtraso / 100)) || 0)}</p>
+                                            <p className="font-bold text-red-600">Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((selectedLead.valor_parcela * selectedLead.parcelas_atrasadas * (1 + jurosAtraso / 100)) || 0)}</p>
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
@@ -2581,8 +2627,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
             )}
 
                 <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm relative">
-                  {/* Barra de rolagem superior simulada */}
-                  <div className="overflow-x-auto h-2 bg-slate-50 border-b border-slate-100" onScroll={(e) => {
+                  {/* Barra de rolagem superior simulada - Sticky */}
+                  <div className="sticky top-0 z-20 overflow-x-auto h-3 bg-slate-50 border-b border-slate-100" onScroll={(e) => {
                     const tableContainer = e.currentTarget.nextElementSibling;
                     if (tableContainer) tableContainer.scrollLeft = e.currentTarget.scrollLeft;
                   }}>
