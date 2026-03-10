@@ -30,7 +30,7 @@ export default function AdminDashboard() {
   const [showProposalModal, setShowProposalModal] = useState(false);
   const [searchCode, setSearchCode] = useState('');
   const [isSavingBuyer, setIsSavingBuyer] = useState(false);
-  const [newBuyer, setNewBuyer] = useState<{id?: string, name: string, phone: string, email: string, category: string[], type: string[], sub_category: string, status: string}>({ name: '', phone: '', email: '', category: ['carro'], type: ['normal'], sub_category: '', status: 'pendente' });
+  const [newBuyer, setNewBuyer] = useState({ name: '', phone: '', email: '', category: ['carro'], type: ['normal'], sub_category: '' });
   const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
   const [savingAsset, setSavingAsset] = useState<string | null>(null);
   const [deletingAsset, setDeletingAsset] = useState<string | null>(null);
@@ -149,6 +149,19 @@ export default function AdminDashboard() {
     show_history: false
   });
 
+  const [buyerSendSettings, setBuyerSendSettings] = useState({
+    fipe: true,
+    banco: false,
+    crlv: false,
+    historico: true,
+    midias: true,
+    detalhes_veiculo: true,
+    opcionais: true,
+    avarias: true,
+    proposta: true,
+    observacoes: false
+  });
+
   const fetchData = async () => {
     setIsLoading(true);
     try {
@@ -207,14 +220,7 @@ export default function AdminDashboard() {
       }
 
       if (assetsData) {
-        const permissions = assetsData.find((a: any) => a.key === 'BUYER_VIEW_PERMISSIONS');
-        if (permissions && permissions.value) {
-          try {
-            setBuyerPermissions(JSON.parse(permissions.value));
-          } catch (e) {
-            console.error('Error parsing buyer permissions:', e);
-          }
-        }
+        // No longer load permissions from assetsData
       }
 
       setConversations(groupedConversations);
@@ -370,6 +376,24 @@ export default function AdminDashboard() {
 
         const socialLinkedinSetting = settingsData.find((s: any) => s.key === 'SOCIAL_LINKEDIN');
         if (socialLinkedinSetting) setSocialLinkedin(socialLinkedinSetting.value);
+
+        const buyerPermissionsSetting = settingsData.find((s: any) => s.key === 'BUYER_VIEW_PERMISSIONS');
+        if (buyerPermissionsSetting) {
+          try {
+            setBuyerPermissions(JSON.parse(buyerPermissionsSetting.value));
+          } catch (e) {
+            console.error('Error parsing buyer permissions:', e);
+          }
+        }
+
+        const buyerSendSettingsSetting = settingsData.find((s: any) => s.key === 'BUYER_SEND_SETTINGS');
+        if (buyerSendSettingsSetting) {
+          try {
+            setBuyerSendSettings(JSON.parse(buyerSendSettingsSetting.value));
+          } catch (e) {
+            console.error('Error parsing buyer send settings:', e);
+          }
+        }
       }
     } catch (error) {
       console.error('Error fetching admin data:', error);
@@ -851,6 +875,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
         { key: 'CHAT_AVATAR_URL', value: chatAvatarUrl },
         { key: 'BANNER_HEIGHT', value: bannerHeight },
         { key: 'BUYER_VIEW_PERMISSIONS', value: JSON.stringify(buyerPermissions) },
+        { key: 'BUYER_SEND_SETTINGS', value: JSON.stringify(buyerSendSettings) },
       ];
 
       console.log('settingsToSave:', settingsToSave);
@@ -1110,33 +1135,107 @@ Podemos prosseguir com o agendamento da vistoria?`;
     setIsSavingBuyer(true);
     try {
       const buyerData: any = {
-        name: newBuyer.name,
-        phone: newBuyer.phone,
+        ...newBuyer,
         email: newBuyer.email.trim() === '' ? null : newBuyer.email.trim(),
         category: newBuyer.category.join(','),
-        type: newBuyer.type.join(','),
-        sub_category: newBuyer.sub_category,
-        status: newBuyer.status
+        type: newBuyer.type.join(',')
       };
-      
-      if (newBuyer.id) {
-        const { error } = await supabase.from('interested_buyers').update(buyerData).eq('id', newBuyer.id);
-        if (error) throw error;
-        alert('Comprador atualizado com sucesso!');
-      } else {
-        const { error } = await supabase.from('interested_buyers').insert([buyerData]);
-        if (error) throw error;
-        alert('Comprador cadastrado com sucesso!');
-      }
-      
-      setNewBuyer({ name: '', phone: '', email: '', category: ['carro'], type: ['normal'], sub_category: '', status: 'pendente' });
+      const { error } = await supabase.from('interested_buyers').insert([buyerData]);
+      if (error) throw error;
+      setNewBuyer({ name: '', phone: '', email: '', category: ['carro'], type: ['normal'], sub_category: '' });
       fetchData();
+      alert('Comprador cadastrado com sucesso!');
     } catch (error: any) {
       console.error('Error saving buyer:', error);
       alert('Erro ao salvar comprador: ' + error.message);
     } finally {
       setIsSavingBuyer(false);
     }
+  };
+
+  const generateBuyerMessage = (lead: any, settings: any, buyerName: string) => {
+    let msg = `🚀 *OPORTUNIDADE AUTOCOMPRA*\n`;
+    msg += `Olá ${buyerName}! Temos um novo veículo que pode te interessar:\n\n`;
+    
+    if (settings.detalhes_veiculo) {
+      msg += `🚗 *${lead.marca} ${lead.modelo}*\n`;
+      msg += `📅 Ano: ${lead.ano_fabricacao}/${lead.ano_modelo}\n`;
+      msg += `⚙️ Câmbio: ${lead.cambio}\n`;
+      msg += `⛽ Combustível: ${lead.combustivel}\n`;
+      msg += `🛣️ KM: ${lead.quilometragem}\n`;
+      msg += `🎨 Cor: ${lead.cor}\n\n`;
+    }
+
+    if (settings.fipe) {
+      msg += `💰 *Valores:*\n`;
+      msg += `FIPE: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.valor_fipe || 0)}\n`;
+      if (settings.proposta) {
+        msg += `Sugestão de Compra: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.suggested_value || 0)}\n`;
+      }
+      msg += `\n`;
+    }
+
+    if (settings.banco && lead.financiado === 'sim') {
+      msg += `🏦 *Financiamento:*\n`;
+      msg += `Banco: ${lead.banco_financiamento || lead.banco}\n`;
+      msg += `Parcelas Restantes: ${lead.parcelas_restantes}\n`;
+      msg += `Valor da Parcela: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.valor_parcela || 0)}\n\n`;
+    }
+
+    if (settings.crlv) {
+      msg += `📄 *Documentação:*\n`;
+      msg += `IPVA/Multas: ${lead.ipva_multas === 'sim' ? 'Sim' : 'Não'}\n`;
+      msg += `Autuação: ${lead.autuacao === 'sim' ? 'Sim' : 'Não'}\n`;
+      msg += `Licenciamento: ${lead.licenciamento === 'sim' ? 'Atrasado' : 'Em dia'}\n\n`;
+    }
+
+    if (settings.historico) {
+      msg += `📋 *Histórico:*\n`;
+      msg += `Leilão: ${lead.leilao === 'sim' ? 'Sim' : 'Não'}\n`;
+      msg += `Sinistro: ${lead.sinistro === 'sim' ? 'Sim' : 'Não'}\n`;
+      msg += `RS: ${lead.rs === 'sim' ? 'Sim' : 'Não'}\n`;
+      msg += `Locadora: ${lead.locadora === 'sim' ? 'Sim' : 'Não'}\n\n`;
+    }
+
+    if (settings.avarias) {
+      msg += `🔧 *Avarias/Reparos:*\n`;
+      msg += `Motor: ${lead.motor === 'sim' ? 'Problema' : 'OK'}\n`;
+      msg += `Câmbio: ${lead.cambio_problema === 'sim' ? 'Problema' : 'OK'}\n`;
+      msg += `Batido/Avariado: ${lead.batido === 'sim' ? 'Sim' : 'Não'}\n`;
+      msg += `Pneus: ${lead.pneus}\n`;
+      msg += `Pintura: ${lead.pintura}\n`;
+      msg += `Mecânica: ${lead.mecanica}\n`;
+      msg += `Painel: ${lead.painel}\n\n`;
+    }
+
+    if (settings.opcionais) {
+      msg += `✨ *Opcionais:*\n`;
+      msg += `Ar Condicionado: ${lead.ar_condicionado === 'sim' ? 'Sim' : 'Não'}\n`;
+      msg += `Direção: ${lead.direcao === 'sim' ? 'Sim' : 'Não'}\n`;
+      msg += `Vidros: ${lead.vidros === 'sim' ? 'Sim' : 'Não'}\n`;
+      msg += `Travas: ${lead.travas === 'sim' ? 'Sim' : 'Não'}\n`;
+      msg += `Alarme: ${lead.alarme === 'sim' ? 'Sim' : 'Não'}\n`;
+      msg += `Som: ${lead.som === 'sim' ? 'Sim' : 'Não'}\n`;
+      msg += `Rodas: ${lead.rodas === 'sim' ? 'Sim' : 'Não'}\n`;
+      msg += `Bancos: ${lead.bancos === 'sim' ? 'Sim' : 'Não'}\n\n`;
+    }
+
+    if (settings.midias && lead.fotos && lead.fotos.length > 0) {
+      msg += `📸 *Fotos do Veículo:*\n`;
+      lead.fotos.forEach((foto: string, index: number) => {
+        msg += `Foto ${index + 1}: ${foto}\n`;
+      });
+      msg += `\n`;
+    }
+
+    if (settings.observacoes && lead.observacoes) {
+      msg += `📝 *Observações:*\n${lead.observacoes}\n\n`;
+    }
+
+    msg += `Até que valor você acha que pode chegar para fecharmos negócio?\n`;
+    msg += `_Comissão a combinar após o fechamento._`;
+    
+    return msg;
   };
 
   const handleSendToWhatsApp = (lead: any, buyers: any[]) => {
@@ -1158,17 +1257,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
         }
       }
 
-      const message = `🚀 *OPORTUNIDADE AUTOCOMPRA*
-Olá ${buyer.name}! Temos um novo veículo que pode te interessar:
-
-🚗 *${lead.marca} ${lead.modelo}*
-📅 Ano: ${lead.ano_modelo}
-💰 FIPE: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.valor_fipe || 0)}
-🔥 Sugestão de Compra: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.suggested_value || 0)}
-
-Até que valor você acha que pode chegar para fecharmos negócio?
-_Comissão a combinar após o fechamento._`;
-
+      const message = generateBuyerMessage(lead, buyerSendSettings, buyer.name);
       const encodedMessage = encodeURIComponent(message);
       const whatsappUrl = `https://wa.me/55${buyer.phone.replace(/\D/g, '')}?text=${encodedMessage}`;
       
@@ -1182,6 +1271,57 @@ _Comissão a combinar após o fechamento._`;
     });
 
     fetchData();
+  };
+
+  const handleSendToChat = async (lead: any, buyers: any[]) => {
+    if (buyers.length === 0) {
+      alert('Selecione pelo menos um comprador.');
+      return;
+    }
+
+    if (!currentUser) {
+      alert('Erro: Usuário não autenticado.');
+      return;
+    }
+
+    let successCount = 0;
+
+    for (const buyer of buyers) {
+      // Check for duplicate
+      const isDuplicate = sentLeads.some(s => s.lead_id === lead.id && s.buyer_id === buyer.id);
+      if (isDuplicate) {
+        if (!confirm(`O lead ${lead.vehicle_code} já foi enviado para ${buyer.name}. Deseja enviar novamente?`)) {
+          continue;
+        }
+      }
+
+      // Find user profile for this buyer (assuming buyer has user_id or email matching profile)
+      const { data: profile } = await supabase.from('profiles').select('id').eq('email', buyer.email).single();
+      
+      if (profile) {
+        const message = generateBuyerMessage(lead, buyerSendSettings, buyer.name);
+        
+        const { error } = await supabase.from('internal_messages').insert({
+          sender_id: currentUser.id,
+          receiver_id: profile.id,
+          content: message
+        });
+
+        if (!error) {
+          successCount++;
+          // Track sent lead
+          await supabase.from('sent_leads').insert({ lead_id: lead.id, buyer_id: buyer.id });
+          setSentLeads(prev => [...prev, { lead_id: lead.id, buyer_id: buyer.id }]);
+        }
+      } else {
+        alert(`Não foi possível enviar para ${buyer.name}: Perfil de usuário não encontrado.`);
+      }
+    }
+
+    if (successCount > 0) {
+      alert(`Enviado com sucesso para ${successCount} comprador(es) via Chat Interno!`);
+      fetchData();
+    }
   };
 
   const handleSeedCards = async () => {
@@ -1624,10 +1764,10 @@ _Comissão a combinar após o fechamento._`;
                 {selectedLead && (
                   <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setSelectedLead(null)}>
                     <div 
-                      className="bg-white rounded-[32px] w-full max-w-6xl max-h-[95vh] overflow-y-auto p-8 shadow-2xl animate-in zoom-in-95 duration-300"
+                      className="bg-white rounded-[32px] w-full max-w-6xl max-h-[95vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden"
                       onClick={e => e.stopPropagation()}
                     >
-                      <div className="flex justify-between items-center mb-8">
+                      <div className="flex justify-between items-center p-8 pb-4 border-b border-slate-100 bg-white z-10 sticky top-0">
                         <div>
                           <div className="flex items-center gap-3 mb-2">
                             <span className="px-3 py-1 bg-slate-900 text-white rounded-full text-xs font-mono font-bold tracking-widest">
@@ -1676,7 +1816,8 @@ _Comissão a combinar após o fechamento._`;
                         </button>
                       </div>
 
-                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                      <div className="overflow-y-auto p-8 pt-4">
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                         {/* Coluna Esquerda: Fotos e Dados */}
                         <div className="lg:col-span-5 space-y-6">
                           {/* Carrossel de Fotos */}
@@ -2340,6 +2481,7 @@ _Comissão a combinar após o fechamento._`;
                     </div>
                   </div>
                 </div>
+              </div>
             )}
 
                 <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm relative">
@@ -2522,20 +2664,10 @@ _Comissão a combinar após o fechamento._`;
             ) : activeTab === 'buyers' ? (
               <div className="space-y-8">
                 <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm">
-                  <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-bold flex items-center gap-2">
-                      <UserPlus className="w-6 h-6 text-accent" />
-                      {newBuyer.id ? 'Editar Comprador' : 'Cadastrar Novo Comprador (Investidor)'}
-                    </h3>
-                    {newBuyer.id && (
-                      <button 
-                        onClick={() => setNewBuyer({ name: '', phone: '', email: '', category: ['carro'], type: ['normal'], sub_category: '', status: 'pendente' })}
-                        className="text-sm text-slate-500 hover:text-slate-700 font-bold"
-                      >
-                        Cancelar Edição
-                      </button>
-                    )}
-                  </div>
+                  <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+                    <UserPlus className="w-6 h-6 text-accent" />
+                    Cadastrar Novo Comprador (Investidor)
+                  </h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nome Completo</label>
@@ -2620,17 +2752,6 @@ _Comissão a combinar após o fechamento._`;
                         ))}
                       </div>
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</label>
-                      <select 
-                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-accent/20"
-                        value={newBuyer.status}
-                        onChange={(e) => setNewBuyer({...newBuyer, status: e.target.value})}
-                      >
-                        <option value="pendente">Pendente</option>
-                        <option value="autorizado">Autorizado</option>
-                      </select>
-                    </div>
                   </div>
                   <button 
                     onClick={handleSaveBuyer}
@@ -2638,7 +2759,7 @@ _Comissão a combinar após o fechamento._`;
                     className="mt-6 w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     {isSavingBuyer ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                    {newBuyer.id ? 'Salvar Alterações' : 'Cadastrar Comprador e Autorizar Acesso'}
+                    Cadastrar Comprador e Autorizar Acesso
                   </button>
                 </div>
 
@@ -2758,25 +2879,6 @@ _Comissão a combinar após o fechamento._`;
                                 <div className="flex items-center gap-2">
                                   <button 
                                     onClick={() => {
-                                      setNewBuyer({
-                                        id: buyer.id,
-                                        name: buyer.name,
-                                        phone: buyer.phone,
-                                        email: buyer.email || '',
-                                        category: buyer.category ? buyer.category.split(',') : ['carro'],
-                                        type: buyer.type ? buyer.type.split(',') : ['normal'],
-                                        sub_category: buyer.sub_category || '',
-                                        status: buyer.status || 'pendente'
-                                      });
-                                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                                    }}
-                                    className="p-2 text-slate-400 hover:text-accent transition-colors"
-                                    title="Editar"
-                                  >
-                                    <Pencil className="w-4 h-4" />
-                                  </button>
-                                  <button 
-                                    onClick={() => {
                                       setBuyerToAuth(buyer);
                                       setShowAuthModal(true);
                                     }}
@@ -2876,6 +2978,50 @@ _Comissão a combinar após o fechamento._`;
                       )}
                     </div>
                   </div>
+                </div>
+
+                <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm">
+                  <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+                    <Send className="w-6 h-6 text-accent" />
+                    Configurações Padrão de Envio (WhatsApp/Chat)
+                  </h3>
+                  <p className="text-sm text-slate-500 mb-6">
+                    Selecione quais informações do formulário serão enviadas por padrão para os compradores ao compartilhar um lead.
+                  </p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {[
+                      { key: 'fipe', label: 'Tabela FIPE' },
+                      { key: 'banco', label: 'Dados Bancários' },
+                      { key: 'crlv', label: 'CRLV / Débitos' },
+                      { key: 'historico', label: 'Histórico de Procedência' },
+                      { key: 'midias', label: 'Mídias (Fotos/Vídeos)' },
+                      { key: 'detalhes_veiculo', label: 'Detalhes do Veículo' },
+                      { key: 'opcionais', label: 'Opcionais' },
+                      { key: 'avarias', label: 'Avarias / Reparos' },
+                      { key: 'proposta', label: 'Proposta Final' },
+                      { key: 'observacoes', label: 'Observações Internas' }
+                    ].map((item) => (
+                      <label key={item.key} className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
+                        <input 
+                          type="checkbox" 
+                          checked={(buyerSendSettings as any)[item.key]}
+                          onChange={(e) => setBuyerSendSettings({...buyerSendSettings, [item.key]: e.target.checked})}
+                          className="w-5 h-5 rounded border-slate-300 text-accent focus:ring-accent"
+                        />
+                        <span className="font-bold text-slate-700">{item.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                  
+                  <button 
+                    onClick={handleSaveSettings}
+                    disabled={savingSettings}
+                    className="mt-6 px-6 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {savingSettings ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                    Salvar Configurações de Envio
+                  </button>
                 </div>
               </div>
             ) : activeTab === 'crm' ? (
@@ -4636,18 +4782,34 @@ _Comissão a combinar após o fechamento._`;
                 ))}
               </div>
 
-              <button 
-                onClick={() => {
-                  const buyers = interestedBuyers.filter(b => selectedBuyers.includes(b.id));
-                  handleSendToWhatsApp(leadToWhatsApp, buyers);
-                  setShowWhatsAppModal(false);
-                  setSelectedBuyers([]);
-                }}
-                disabled={selectedBuyers.length === 0}
-                className="w-full py-4 bg-accent text-white rounded-xl font-bold hover:bg-orange-600 transition-all disabled:opacity-50"
-              >
-                Enviar WhatsApp ({selectedBuyers.length})
-              </button>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => {
+                    const buyers = interestedBuyers.filter(b => selectedBuyers.includes(b.id));
+                    handleSendToWhatsApp(leadToWhatsApp, buyers);
+                    setShowWhatsAppModal(false);
+                    setSelectedBuyers([]);
+                  }}
+                  disabled={selectedBuyers.length === 0}
+                  className="flex-1 py-4 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <MessageCircle className="w-5 h-5" />
+                  WhatsApp ({selectedBuyers.length})
+                </button>
+                <button 
+                  onClick={() => {
+                    const buyers = interestedBuyers.filter(b => selectedBuyers.includes(b.id));
+                    handleSendToChat(leadToWhatsApp, buyers);
+                    setShowWhatsAppModal(false);
+                    setSelectedBuyers([]);
+                  }}
+                  disabled={selectedBuyers.length === 0}
+                  className="flex-1 py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <MessageCircle className="w-5 h-5" />
+                  Chat do Site ({selectedBuyers.length})
+                </button>
+              </div>
             </div>
           </div>
         )}

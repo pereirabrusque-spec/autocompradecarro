@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { 
   Search, Car, Calculator, ArrowRight, Loader2, CheckCircle2, 
   Camera, FileText, AlertCircle, ShieldCheck, Info, Bike, Truck,
-  Check, X, Video
+  Check, X, Video, Wrench
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/authContext';

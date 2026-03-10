@@ -11,13 +11,24 @@ export default function InternalChat({ leadId, leadTitle }: { leadId?: string, l
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const [unreadCount, setUnreadCount] = useState(0);
+
   useEffect(() => {
-    if (isOpen && user) {
-      fetchMessages();
+    if (user) {
+      // Fetch initial unread count (assuming we don't have a read status yet, we just count all messages from admin)
+      // For a real app, we'd need an 'is_read' column. For now, we'll just increment the badge on new messages when closed.
+      
       const subscription = supabase
-        .channel('internal_messages')
+        .channel('internal_messages_global')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'internal_messages' }, (payload) => {
-          if (payload.new.sender_id === user.id || payload.new.receiver_id === user.id) {
+          if (payload.new.receiver_id === user.id) {
+            if (isOpen) {
+              setMessages(prev => [...prev, payload.new]);
+              scrollToBottom();
+            } else {
+              setUnreadCount(prev => prev + 1);
+            }
+          } else if (payload.new.sender_id === user.id && isOpen) {
             setMessages(prev => [...prev, payload.new]);
             scrollToBottom();
           }
@@ -27,6 +38,13 @@ export default function InternalChat({ leadId, leadTitle }: { leadId?: string, l
       return () => {
         subscription.unsubscribe();
       };
+    }
+  }, [user, isOpen]);
+
+  useEffect(() => {
+    if (isOpen && user) {
+      setUnreadCount(0);
+      fetchMessages();
     }
   }, [isOpen, user]);
 
@@ -74,10 +92,15 @@ export default function InternalChat({ leadId, leadTitle }: { leadId?: string, l
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 bg-slate-900 text-white p-4 rounded-full shadow-lg hover:bg-slate-800 transition-all z-50 flex items-center gap-2"
+        className="fixed bottom-6 right-6 bg-slate-900 text-white p-4 rounded-full shadow-lg hover:bg-slate-800 transition-all z-50 flex items-center gap-2 relative"
       >
         <MessageCircle className="w-6 h-6" />
         <span className="font-bold text-sm hidden md:inline">Falar com Admin</span>
+        {unreadCount > 0 && (
+          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center animate-bounce">
+            {unreadCount}
+          </span>
+        )}
       </button>
 
       {isOpen && (
