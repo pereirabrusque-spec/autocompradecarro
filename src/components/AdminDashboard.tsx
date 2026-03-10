@@ -2513,22 +2513,22 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                   </div>
                                 </div>
 
-                                {/* Resumo Final */}
+                                {/* Resumo Final - Organizado */}
                                 <div className="pt-6 border-t border-slate-200 space-y-4">
                                   <div className="flex justify-between items-center">
-                                    <span className="text-slate-500 font-bold">Valor da FIPE</span>
+                                    <span className="text-slate-500 font-bold">Tabela FIPE</span>
                                     <span className="font-bold text-slate-900">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.baseValue)}</span>
                                   </div>
                                   <div className="flex justify-between items-center">
-                                    <span className="text-slate-500 font-bold">Valor Desejado</span>
+                                    <span className="text-slate-500 font-bold">Valor Desejado pelo Cliente</span>
                                     <span className="font-bold text-slate-900">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.preco_cliente || 0)}</span>
                                   </div>
                                   <div className="flex justify-between items-center">
-                                    <span className="text-slate-500 font-bold">Margem de Lucro</span>
+                                    <span className="text-slate-500 font-bold">Margem de Lucro (Estimada)</span>
                                     <span className="font-bold text-slate-900">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.profitMargin)}</span>
                                   </div>
                                   <div className="p-5 bg-slate-900 rounded-2xl text-white">
-                                    <p className="text-xs font-bold uppercase text-slate-400 mb-1">Valor da Proposta (Sugerido)</p>
+                                    <p className="text-xs font-bold uppercase text-slate-400 mb-1">Valor Sugerido</p>
                                     <p className="text-3xl font-black text-accent">
                                       {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}
                                     </p>
@@ -2557,7 +2557,17 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
                           {/* Seção de Envio e Compradores (Agora na mesma coluna) */}
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                                <button 
+                                 onClick={handleSendProposalViaChat}
+                                 className="px-6 py-4 bg-accent text-white rounded-2xl font-bold hover:bg-accent/90 transition-all flex items-center justify-center gap-2"
+                                 title="Enviar Proposta via Chat do Site"
+                               >
+                                 <Send className="w-5 h-5" />
+                               </button>
+                             </div>
+                           </div>
+
+                           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
                               <h3 className="font-bold mb-4 flex items-center gap-2">
                                 <Share2 className="w-5 h-5 text-accent" />
                                 Resumo para Envio
@@ -2583,7 +2593,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 const buyers = interestedBuyers.filter(b => selectedBuyers.includes(b.id));
                                 handleSendToWhatsApp(selectedLead, buyers);
                               }}
-                              className="w-full py-4 bg-green-600 text-white rounded-2xl font-bold hover:bg-green-700 transition-all flex items-center justify-center gap-2"
+                              className="flex-1 py-4 bg-green-600 text-white rounded-2xl font-bold hover:bg-green-700 transition-all flex items-center justify-center gap-2"
                             >
                               <MessageCircle className="w-5 h-5" />
                               Enviar para WhatsApp
