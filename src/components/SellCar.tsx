@@ -23,6 +23,9 @@ export default function SellCar() {
   const [photos, setPhotos] = useState<File[]>([]);
   const [videos, setVideos] = useState<File[]>([]);
   const [showIpvaModal, setShowIpvaModal] = useState(false);
+  const [showEngineModal, setShowEngineModal] = useState(false);
+  const [showBodyModal, setShowBodyModal] = useState(false);
+  const [showGearboxModal, setShowGearboxModal] = useState(false);
   
   const [formData, setFormData] = useState({
     vehicleType: 'Carros',
@@ -61,8 +64,11 @@ export default function SellCar() {
     ipvaValue: '',
     hasRenajud: false,
     hasBlownEngine: false,
+    engineRepairValue: '',
     hasGearboxIssue: false,
+    gearboxRepairValue: '',
     hasCrashDamage: false,
+    bodyRepairValue: '',
     hasSinistradoLeilao: false,
     
     // Accessories
@@ -336,8 +342,8 @@ export default function SellCar() {
         ano_modelo: formData.yearName || formData.yearId,
         cor: formData.color,
         quilometragem: parseInt((formData.mileage || '').replace(/\D/g, '')) || 0,
-        placa: '',
-        renavam: '',
+        placa: formData.plate,
+        renavam: formData.renavam,
         valor_fipe: parseFloat((fipePrice || '').replace(/[^\d,]/g, '').replace(',', '.')) || 0,
         preco_cliente: parseFloat((formData.desiredPrice || '').replace(/\./g, '').replace(',', '.')) || 0,
         status: 'novo',
@@ -350,6 +356,9 @@ export default function SellCar() {
         parcelas_atrasadas: parseInt(formData.parcelasAtrasadas || '0') || 0,
         total_parcelas: (parseInt(formData.installmentsPaid || '0') || 0) + (parseInt(formData.installmentsRemaining || '0') || 0),
         multas: parseFloat((formData.ipvaValue || '').replace(/[^\d,]/g, '').replace(',', '.')) || 0,
+        motor_reparo: parseFloat((formData.engineRepairValue || '').replace(/[^\d,]/g, '').replace(',', '.')) || 0,
+        cambio_reparo: parseFloat((formData.gearboxRepairValue || '').replace(/[^\d,]/g, '').replace(',', '.')) || 0,
+        batido_reparo: parseFloat((formData.bodyRepairValue || '').replace(/[^\d,]/g, '').replace(',', '.')) || 0,
         problemas: problems,
         notifications_enabled: formData.authorizeNotifications,
         fotos: uploadedPhotos,
@@ -477,8 +486,11 @@ export default function SellCar() {
       ipvaValue: '',
       hasRenajud: false,
       hasBlownEngine: false,
+      engineRepairValue: '',
       hasGearboxIssue: false,
+      gearboxRepairValue: '',
       hasCrashDamage: false,
+      bodyRepairValue: '',
       hasSinistradoLeilao: false,
       accessories: {
         ac: false,
@@ -527,7 +539,7 @@ export default function SellCar() {
               </div>
               <div>
                 <h3 className="text-xl font-bold text-slate-900">IPVA e Multas</h3>
-                <p className="text-xs text-slate-400">Informe o valor total de débitos</p>
+                <p className="text-xs text-slate-400">Informe o valor total de débitos para análise da proposta</p>
               </div>
             </div>
             
@@ -560,6 +572,171 @@ export default function SellCar() {
                 onClick={() => {
                   setFormData({...formData, hasDelayedIpva: false, ipvaValue: ''});
                   setShowIpvaModal(false);
+                }}
+                className="w-full py-2 text-slate-400 text-xs font-bold hover:text-slate-600 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Motor Fundido */}
+      {showEngineModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-[32px] w-full max-w-md p-8 shadow-2xl">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center">
+                <Wrench className="w-6 h-6 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Motor Fundido / Batendo</h3>
+                <p className="text-xs text-slate-400">Informe o valor do orçamento para reparo</p>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-400 ml-1">Valor do Orçamento *</label>
+                <input 
+                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-accent/20 text-lg font-bold"
+                  placeholder="R$ 0,00"
+                  value={formData.engineRepairValue}
+                  onChange={e => handleCurrencyChange('engineRepairValue', e.target.value)}
+                  autoFocus
+                />
+              </div>
+              
+              <button 
+                onClick={() => {
+                  if (!formData.engineRepairValue || formData.engineRepairValue === 'R$ 0,00') {
+                    alert('Por favor, informe o valor do orçamento.');
+                    return;
+                  }
+                  setShowEngineModal(false);
+                }}
+                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20"
+              >
+                Confirmar Valor
+              </button>
+              
+              <button 
+                onClick={() => {
+                  setFormData({...formData, hasBlownEngine: false, engineRepairValue: ''});
+                  setShowEngineModal(false);
+                }}
+                className="w-full py-2 text-slate-400 text-xs font-bold hover:text-slate-600 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Câmbio */}
+      {showGearboxModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-[32px] w-full max-w-md p-8 shadow-2xl">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center">
+                <Wrench className="w-6 h-6 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Câmbio com Defeito</h3>
+                <p className="text-xs text-slate-400">Informe o valor do orçamento</p>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl">
+                <p className="text-xs text-blue-700 font-medium">Se o câmbio já foi arrumado, coloque 0,00.</p>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-400 ml-1">Valor do Orçamento *</label>
+                <input 
+                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-accent/20 text-lg font-bold"
+                  placeholder="R$ 0,00"
+                  value={formData.gearboxRepairValue}
+                  onChange={e => handleCurrencyChange('gearboxRepairValue', e.target.value)}
+                  autoFocus
+                />
+              </div>
+              
+              <button 
+                onClick={() => {
+                  if (!formData.gearboxRepairValue) {
+                    alert('Por favor, informe o valor do orçamento.');
+                    return;
+                  }
+                  setShowGearboxModal(false);
+                }}
+                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20"
+              >
+                Confirmar Valor
+              </button>
+              
+              <button 
+                onClick={() => {
+                  setFormData({...formData, hasGearboxIssue: false, gearboxRepairValue: ''});
+                  setShowGearboxModal(false);
+                }}
+                className="w-full py-2 text-slate-400 text-xs font-bold hover:text-slate-600 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Batido / Avariado */}
+      {showBodyModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-[32px] w-full max-w-md p-8 shadow-2xl">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center">
+                <AlertCircle className="w-6 h-6 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Batido / Avariado</h3>
+                <p className="text-xs text-slate-400">Informe o valor do orçamento para reparo</p>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl">
+                <p className="text-xs text-amber-700 font-medium">Aviso: Se o veículo já foi arrumado, coloque 0,00.</p>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-400 ml-1">Valor do Orçamento *</label>
+                <input 
+                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-accent/20 text-lg font-bold"
+                  placeholder="R$ 0,00"
+                  value={formData.bodyRepairValue}
+                  onChange={e => handleCurrencyChange('bodyRepairValue', e.target.value)}
+                  autoFocus
+                />
+              </div>
+              
+              <button 
+                onClick={() => {
+                  if (!formData.bodyRepairValue) {
+                    alert('Por favor, informe o valor do orçamento.');
+                    return;
+                  }
+                  setShowBodyModal(false);
+                }}
+                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20"
+              >
+                Confirmar Valor
+              </button>
+              
+              <button 
+                onClick={() => {
+                  setFormData({...formData, hasCrashDamage: false, bodyRepairValue: ''});
+                  setShowBodyModal(false);
                 }}
                 className="w-full py-2 text-slate-400 text-xs font-bold hover:text-slate-600 transition-colors"
               >
@@ -839,7 +1016,7 @@ export default function SellCar() {
               <span className="w-6 h-6 bg-slate-100 text-slate-900 rounded-full flex items-center justify-center text-xs">2</span>
               Identificação
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-400 ml-1">Marca *</label>
                 <select 
@@ -881,6 +1058,16 @@ export default function SellCar() {
                   <option value="">Selecione</option>
                   {years.map(y => <option key={y.codigo} value={y.codigo}>{y.nome}</option>)}
                 </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-400 ml-1">Placa *</label>
+                <input 
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none uppercase"
+                  placeholder="Ex: ABC1234"
+                  maxLength={7}
+                  value={formData.plate}
+                  onChange={e => setFormData({...formData, plate: e.target.value.toUpperCase()})}
+                />
               </div>
             </div>
           </div>
@@ -1049,8 +1236,11 @@ export default function SellCar() {
                     checked={(formData as any)[item.id]}
                     onChange={e => {
                       setFormData({...formData, [item.id]: e.target.checked});
-                      if (item.id === 'hasDelayedIpva' && e.target.checked) {
-                        setShowIpvaModal(true);
+                      if (e.target.checked) {
+                        if (item.id === 'hasDelayedIpva') setShowIpvaModal(true);
+                        if (item.id === 'hasBlownEngine') setShowEngineModal(true);
+                        if (item.id === 'hasGearboxIssue') setShowGearboxModal(true);
+                        if (item.id === 'hasCrashDamage') setShowBodyModal(true);
                       }
                     }}
                   />
