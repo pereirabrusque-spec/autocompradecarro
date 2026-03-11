@@ -68,7 +68,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
       discounts.push({ name: 'Cooperativa', pct, value: fipe * pct });
     }
     
-    const discountValue = discounts.reduce((acc, d) => acc + d.value, 0);
+    const discountValue = discounts.length > 0 ? Math.max(...discounts.map(d => d.value)) : 0;
 
     // 2. Custos Fixos e Avarias
     const fixedCosts = 
@@ -87,13 +87,18 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     const atrasadas = (parseInt(currentLead.parcelas_atrasadas) || 0);
     const valorParcela = (parseFloat(currentLead.valor_parcela) || 0);
     
-    const payoff = (valorParcela * remaining * (1 + (0.02 * remaining))) + (atrasadas * valorParcela * jurosAtraso);
+    const payoffBreakdown = {
+        parcelas: valorParcela * remaining,
+        jurosParcelas: valorParcela * remaining * (0.02 * remaining),
+        atrasadas: atrasadas * valorParcela * jurosAtraso
+    };
+    const payoff = payoffBreakdown.parcelas + payoffBreakdown.jurosParcelas + payoffBreakdown.atrasadas;
 
     // 4. Proposta Final
     const finalProposal = fipe - discountValue - fixedCosts - payoff;
     const profit = fipe - finalProposal; // Lucro = FIPE - Proposta Final (que já inclui descontos, custos e quitação)
 
-    return { fipe, discountValue, discounts, fixedCosts, payoff, finalProposal, profit };
+    return { fipe, discountValue, discounts, fixedCosts, payoff, payoffBreakdown, finalProposal, profit };
   };
 
   const calc = calculateProposal();
@@ -116,6 +121,9 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
             </div>
           </div>
           <div className="flex gap-2 items-center">
+            <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-full text-sm font-bold text-white flex items-center gap-2">
+              <Save className="w-4 h-4" /> {showForm ? 'Fechar Edição' : 'Editar Lead'}
+            </button>
             <button onClick={() => window.open(`https://wa.me/${currentLead.telefone?.replace(/\D/g, '')}`, '_blank')} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-full text-sm font-bold text-white flex items-center gap-2">
               <MessageCircle className="w-4 h-4" /> WhatsApp
             </button>
@@ -126,11 +134,32 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
             <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full"><X className="w-6 h-6" /></button>
           </div>
         </div>
-        
         <div className="overflow-y-auto p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            {/* Coluna Esquerda: Formulário Fiel */}
-            <div className="lg:col-span-12 space-y-6">
+          {showForm && (
+            <div className="bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm space-y-4">
+              <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest">Editar Lead</h3>
+              <div className="grid grid-cols-2 gap-4">
+                {['cliente_nome', 'telefone', 'marca', 'modelo', 'ano_modelo', 'cor', 'quilometragem', 'placa', 'valor_fipe', 'desired_value'].map(field => (
+                  <div key={field} className="space-y-1">
+                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{field.replace('_', ' ')}</label>
+                    <input 
+                      type="text"
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all" 
+                      value={currentLead[field] || ''} 
+                      onChange={e => handleFieldChange(field, e.target.value)} 
+                    />
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => { onSave(currentLead); setShowForm(false); }} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-full text-sm font-bold text-white flex items-center gap-2">
+                <Save className="w-4 h-4" /> Salvar Alterações
+              </button>
+            </div>
+          )}
+          {!showForm && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              {/* Coluna Esquerda: Formulário Fiel */}
+              <div className="lg:col-span-12 space-y-6">
               {/* Carrossel de Mídia */}
               {currentLead.midias && currentLead.midias.length > 0 && (
                 <div className="bg-slate-900 p-4 rounded-[32px] relative">
@@ -185,7 +214,24 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                       ))}
                     </div>
                   </div>
-                  <div className="flex justify-between text-red-500"><span>Quitação Estimada</span><span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}</span></div>
+                  <div className="flex justify-between text-red-500 group cursor-pointer relative">
+                    <span>Quitação Estimada</span>
+                    <span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}</span>
+                    <div className="absolute right-0 top-full bg-white border border-slate-200 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
+                        <div className="flex justify-between text-xs text-slate-600 mb-1">
+                            <span>Parcelas</span>
+                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.parcelas)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-slate-600 mb-1">
+                            <span>Juros Parcelas</span>
+                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.jurosParcelas)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-slate-600 mb-1">
+                            <span>Parcelas Atrasadas</span>
+                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.atrasadas)}</span>
+                        </div>
+                    </div>
+                  </div>
                   <div className="pt-4 border-t border-slate-200 flex justify-between font-bold text-lg"><span>Proposta Final</span><span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalProposal)}</span></div>
                   <div className="flex justify-between text-emerald-600 font-medium"><span>Margem de Lucro (15%)</span><span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.profit)}</span></div>
                 </div>
@@ -197,12 +243,12 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                 <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                   {[
                     { label: 'Multas', key: 'multas' },
-                    { label: 'Valor Licenciamento', key: 'valor_licenciamento' },
+                    { label: 'IPVA', key: 'valor_ipva' },
+                    { label: 'Licenciamento', key: 'valor_licenciamento' },
                     { label: 'Valor Motor', key: 'motor_reparo' },
                     { label: 'Valor Câmbio', key: 'cambio_reparo' },
                     { label: 'Valor Batido', key: 'batido_reparo' },
                     { label: 'Valor Pneus', key: 'valor_pneus' },
-                    { label: 'Valor Documento', key: 'valor_documento' },
                   ].map(field => (
                     <div key={field.key} className="space-y-1">
                       <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{field.label}</label>
@@ -235,7 +281,22 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                     </div>
                   </div>
                   <div className="flex justify-between text-red-400"><span className="text-white/60">Custos Fixos/Avarias</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fixedCosts)}</span></div>
-                  <div className="flex justify-between text-red-400"><span className="text-white/60">Quitação</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}</span></div>
+                  <div className="flex justify-between text-red-400 group cursor-pointer relative"><span className="text-white/60">Quitação</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}</span>
+                    <div className="absolute right-0 top-full bg-slate-800 border border-white/10 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
+                        <div className="flex justify-between text-xs text-white/60 mb-1">
+                            <span>Parcelas</span>
+                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.parcelas)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-white/60 mb-1">
+                            <span>Juros Parcelas</span>
+                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.jurosParcelas)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-white/60 mb-1">
+                            <span>Parcelas Atrasadas</span>
+                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.atrasadas)}</span>
+                        </div>
+                    </div>
+                  </div>
                   <div className="pt-6 border-t border-white/10 flex justify-between items-center">
                     <span className="text-accent font-bold">PROPOSTA FINAL</span>
                     <span className="text-2xl font-bold font-display">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalProposal)}</span>
@@ -244,6 +305,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
               </div>
             </div>
           </div>
+          )}
         </div>
       </div>
     </div>

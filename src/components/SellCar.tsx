@@ -356,7 +356,6 @@ export default function SellCar() {
         parcelas_atrasadas: parseInt(formData.parcelasAtrasadas || '0') || 0,
         total_parcelas: (parseInt(formData.installmentsPaid || '0') || 0) + (parseInt(formData.installmentsRemaining || '0') || 0),
         multas: parseFloat((formData.ipvaValue || '').replace(/[^\d,]/g, '').replace(',', '.')) || 0,
-        multas: parseFloat((formData.ipvaValue || '').replace(/[^\d,]/g, '').replace(',', '.')) || 0,
         motor_reparo: parseFloat((formData.engineRepairValue || '').replace(/[^\d,]/g, '').replace(',', '.')) || 0,
         cambio_reparo: parseFloat((formData.gearboxRepairValue || '').replace(/[^\d,]/g, '').replace(',', '.')) || 0,
         batido_reparo: parseFloat((formData.bodyRepairValue || '').replace(/[^\d,]/g, '').replace(',', '.')) || 0,

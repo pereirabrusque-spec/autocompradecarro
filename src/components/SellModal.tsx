@@ -57,7 +57,11 @@ export default function SellModal() {
     desired_price: '',
     entrada: '',
     situation: 'normal',
-    media_urls: []
+    media_urls: [],
+    multas: '',
+    motor_reparo: '',
+    cambio_reparo: '',
+    batido_reparo: ''
   });
 
   useEffect(() => {
