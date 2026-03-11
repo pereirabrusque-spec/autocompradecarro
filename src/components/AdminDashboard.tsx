@@ -3787,15 +3787,22 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         {chatMessages.map((msg) => (
                           <div 
                             key={msg.id}
-                            className={`flex ${msg.remetente === 'admin' ? 'justify-end' : 'justify-start'}`}
+                            className={`flex ${msg.remetente === 'admin' || msg.remetente === 'bot' ? 'justify-end' : 'justify-start'}`}
                           >
                             <div className={`max-w-[70%] p-4 rounded-2xl text-sm shadow-sm ${
                               msg.remetente === 'admin' 
                                 ? 'bg-slate-900 text-white rounded-tr-none' 
+                                : msg.remetente === 'bot'
+                                ? 'bg-indigo-600 text-white rounded-tr-none'
                                 : 'bg-blue-50 text-blue-900 rounded-tl-none border border-blue-100'
                             }`}>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-[10px] font-bold uppercase opacity-70">
+                                  {msg.remetente === 'admin' ? 'Humano' : msg.remetente === 'bot' ? 'IA' : 'Cliente'}
+                                </span>
+                              </div>
                               <p className="whitespace-pre-wrap">{msg.conteudo}</p>
-                              <span className={`text-[9px] mt-1 block ${msg.remetente === 'admin' ? 'text-slate-400' : 'text-slate-400'}`}>
+                              <span className={`text-[9px] mt-1 block opacity-70`}>
                                 {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </span>
                             </div>

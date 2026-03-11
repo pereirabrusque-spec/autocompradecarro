@@ -98,15 +98,15 @@ export default function ChatAssistant() {
 
           // Carregar mensagens anteriores
           const { data: history } = await supabase
-            .from('chat_messages')
+            .from('mensagens')
             .select('*')
             .eq('lead_id', existingLead.id)
             .order('created_at', { ascending: true });
 
           if (history && history.length > 0) {
             const formattedHistory: Message[] = history.map((msg: any) => ({
-              role: (msg.sender_type === 'cliente' ? 'user' : 'bot') as 'user' | 'bot',
-              text: msg.message
+              role: (msg.remetente === 'cliente' ? 'user' : 'bot') as 'user' | 'bot',
+              text: msg.conteudo
             }));
             // Se houver mensagem inicial do evento, adiciona ao final, pois o setMessages vai sobrescrever o estado atual
             if (initialMessage) {
@@ -191,10 +191,10 @@ export default function ChatAssistant() {
     
     // Salvar mensagem do usuário
     if (leadId) {
-      await supabase.from('chat_messages').insert({
+      await supabase.from('mensagens').insert({
         lead_id: leadId,
-        sender_type: 'cliente',
-        message: userText
+        remetente: 'cliente',
+        conteudo: userText
       });
     }
 
@@ -401,10 +401,10 @@ export default function ChatAssistant() {
       
       // Salvar resposta do bot
       if (leadId) {
-        await supabase.from('chat_messages').insert({
+        await supabase.from('mensagens').insert({
           lead_id: leadId,
-          sender_type: 'admin',
-          message: botText
+          remetente: 'bot',
+          conteudo: botText
         });
       }
     } catch (error) {
