@@ -109,6 +109,19 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                 </div>
               </div>
 
+              {/* Detalhamento da Proposta */}
+              <div className="bg-slate-50 p-8 rounded-[32px] space-y-4">
+                <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest border-b border-slate-200 pb-4">Detalhamento da Proposta</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between"><span>Tabela FIPE</span><span className="font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fipe)}</span></div>
+                  <div className="flex justify-between text-red-500"><span>Descontos Aplicados</span><span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.discountValue)}</span></div>
+                  <div className="flex justify-between text-red-500"><span>Custos Fixos/Avarias</span><span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fixedCosts)}</span></div>
+                  <div className="flex justify-between text-red-500"><span>Quitação Estimada</span><span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}</span></div>
+                  <div className="pt-4 border-t border-slate-200 flex justify-between font-bold text-lg"><span>Proposta Final</span><span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalProposal)}</span></div>
+                  <div className="flex justify-between text-emerald-600 font-medium"><span>Margem de Lucro (15%)</span><span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.profit)}</span></div>
+                </div>
+              </div>
+
               {/* Gestão de Custos Fixos */}
               <div className="bg-slate-50 p-8 rounded-[32px] space-y-6">
                 <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest border-b border-slate-200 pb-4">Custos Fixos e Avarias</h3>
