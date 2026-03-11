@@ -83,27 +83,31 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     // 3. Quitação
     const totalParcelas = (parseInt(currentLead.total_parcelas) || 0);
     const parcelasPagas = (parseInt(currentLead.parcelas_pagas) || 0);
-    const remaining = Math.max(0, totalParcelas - parcelasPagas);
-    const valorParcela = (parseFloat(currentLead.valor_parcela) || 0);
     const atrasadas = (parseInt(currentLead.parcelas_atrasadas) || 0);
+    
+    // Parcelas a vencer: Total - Pagas - Atrasadas
+    const aVencer = Math.max(0, totalParcelas - parcelasPagas - atrasadas);
+    const valorParcela = (parseFloat(currentLead.valor_parcela) || 0);
     const jurosAtrasoPct = (parseFloat(currentLead.juros_atraso) || 2) / 100;
     
-    // JUROS: O usuário quer ver: valor da parcela, quantidade, juros aplicados
-    const jurosParcelas = valorParcela * remaining * 0.02; // Exemplo: 2% sobre o total restante
-    const valorAtrasadas = atrasadas * valorParcela * (1 + jurosAtrasoPct); 
+    // Cálculos
+    const valorAVencer = aVencer * valorParcela;
+    const valorAtrasadasBase = atrasadas * valorParcela;
+    const jurosAtrasadas = valorAtrasadasBase * jurosAtrasoPct;
+    const totalAtrasadas = valorAtrasadasBase + jurosAtrasadas;
     
     const payoffBreakdown = {
-        qtdParcelas: remaining,
-        valorParcela: valorParcela,
-        jurosParcelas: jurosParcelas,
-        atrasadas: valorAtrasadas
+        qtdAVencer: aVencer,
+        valorAVencer: valorAVencer,
+        qtdAtrasadas: atrasadas,
+        valorAtrasadasBase: valorAtrasadasBase,
+        jurosAtrasadas: jurosAtrasadas,
+        totalAtrasadas: totalAtrasadas
     };
-    const payoff = (valorParcela * remaining) + jurosParcelas + valorAtrasadas;
+    const payoff = valorAVencer + totalAtrasadas;
 
     // 4. Proposta Final
     const finalProposal = fipe - discountValue - fixedCosts - payoff;
-    // Lucro = FIPE - (Todos os custos)
-    // Se finalProposal for negativo, o lucro é 0 (prejuízo)
     const profit = Math.max(0, finalProposal); 
 
     return { fipe, discountValue, discounts, fixedCosts, payoff, payoffBreakdown, finalProposal, profit };
@@ -118,8 +122,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-white rounded-[32px] w-full max-w-6xl max-h-[95vh] flex flex-col shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
-        {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-white sticky top-0 z-10">
+        <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-white sticky top-0 z-20">
           <div>
             <div className="flex items-center gap-3">
               <span className="px-3 py-1 bg-slate-900 text-white rounded-full text-[10px] font-bold tracking-widest">
@@ -141,23 +144,37 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
             <button onClick={onClose} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-full text-sm font-bold text-slate-700">
               Voltar
             </button>
-            <button onClick={onRefresh} className="p-2 hover:bg-slate-100 rounded-full text-slate-600" title="Atualizar"><RefreshCw className="w-5 h-5" /></button>
-            <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full"><X className="w-6 h-6" /></button>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 scroll-pt-20">
           {showForm && (
-            <div className="bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm space-y-4">
+            <div className="bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm space-y-4 mb-6">
               <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest">Editar Lead</h3>
               <div className="grid grid-cols-2 gap-4">
-                {['cliente_nome', 'telefone', 'marca', 'modelo', 'ano_modelo', 'cor', 'quilometragem', 'placa', 'valor_fipe', 'desired_value'].map(field => (
-                  <div key={field} className="space-y-1">
-                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{field.replace('_', ' ')}</label>
+                {[
+                  { label: 'Cliente', key: 'cliente_nome' },
+                  { label: 'Telefone', key: 'telefone' },
+                  { label: 'Marca', key: 'marca' },
+                  { label: 'Modelo', key: 'modelo' },
+                  { label: 'Ano Modelo', key: 'ano_modelo' },
+                  { label: 'Cor', key: 'cor' },
+                  { label: 'Quilometragem', key: 'quilometragem' },
+                  { label: 'Placa', key: 'placa' },
+                  { label: 'Valor FIPE', key: 'valor_fipe' },
+                  { label: 'Valor Desejado', key: 'desired_value' },
+                  { label: 'Total Parcelas', key: 'total_parcelas' },
+                  { label: 'Parcelas Pagas', key: 'parcelas_pagas' },
+                  { label: 'Parcelas Atrasadas', key: 'parcelas_atrasadas' },
+                  { label: 'Valor Parcela', key: 'valor_parcela' },
+                  { label: 'Juros Atraso (%)', key: 'juros_atraso' },
+                ].map(field => (
+                  <div key={field.key} className="space-y-1">
+                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{field.label}</label>
                     <input 
                       type="text"
                       className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all" 
-                      value={currentLead[field] || ''} 
-                      onChange={e => handleFieldChange(field, e.target.value)} 
+                      value={currentLead[field.key] || ''} 
+                      onChange={e => handleFieldChange(field.key, e.target.value)} 
                     />
                   </div>
                 ))}
@@ -234,20 +251,24 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                     <span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}</span>
                     <div className="absolute right-0 top-full bg-white border border-slate-200 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
                         <div className="flex justify-between text-xs text-slate-600 mb-1">
-                            <span>Qtd Parcelas</span>
-                            <span>{calc.payoffBreakdown.qtdParcelas}</span>
+                            <span>Qtd a Vencer</span>
+                            <span>{calc.payoffBreakdown.qtdAVencer}</span>
                         </div>
                         <div className="flex justify-between text-xs text-slate-600 mb-1">
-                            <span>Valor Parcela</span>
-                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.valorParcela)}</span>
+                            <span>Valor a Vencer</span>
+                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.valorAVencer)}</span>
                         </div>
                         <div className="flex justify-between text-xs text-slate-600 mb-1">
-                            <span>Juros Parcelas</span>
-                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.jurosParcelas)}</span>
+                            <span>Qtd Atrasadas</span>
+                            <span>{calc.payoffBreakdown.qtdAtrasadas}</span>
                         </div>
                         <div className="flex justify-between text-xs text-slate-600 mb-1">
-                            <span>Parcelas Atrasadas</span>
-                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.atrasadas)}</span>
+                            <span>Juros Atrasadas</span>
+                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.jurosAtrasadas)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-slate-600 mb-1">
+                            <span>Total Atrasadas</span>
+                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.totalAtrasadas)}</span>
                         </div>
                     </div>
                   </div>

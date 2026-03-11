@@ -98,66 +98,84 @@ async function startServer() {
     }
   });
 
+  async function testApiKey(provider: string, key: string) {
+    const trimmedKey = key?.trim();
+    if (provider === 'gemini') {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${trimmedKey}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error?.message || 'Chave Gemini inválida');
+      return data.models
+        ?.filter((m: any) => 
+          m.supportedGenerationMethods.includes('generateContent') && 
+          !m.name.includes('embedding') && 
+          !m.name.includes('text-to-speech') &&
+          !m.name.includes('speech-to-text')
+        )
+        .map((m: any) => m.name.replace('models/', '')) || [];
+    } else if (provider === 'openai') {
+      const response = await fetch('https://api.openai.com/v1/models', {
+        headers: { 'Authorization': `Bearer ${trimmedKey}` }
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error?.message || 'Chave OpenAI inválida');
+      return data.data
+        ?.filter((m: any) => 
+          (m.id.includes('gpt') || m.id.includes('o1') || m.id.includes('o3')) && 
+          !m.id.includes('instruct') && 
+          !m.id.includes('vision')
+        )
+        .map((m: any) => m.id) || [];
+    } else if (provider === 'grok') {
+      const response = await fetch('https://api.x.ai/v1/models', {
+        headers: { 'Authorization': `Bearer ${trimmedKey}` }
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error?.message || 'Chave Grok inválida');
+      return data.data
+        ?.filter((m: any) => m.id.includes('grok'))
+        .map((m: any) => m.id) || [];
+    }
+    throw new Error('Provedor não suportado');
+  }
+
   app.post('/api/test-api-key', async (req, res) => {
     const { provider, key } = req.body;
-    const trimmedKey = key?.trim();
-    
     try {
-      if (provider === 'gemini') {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${trimmedKey}`);
-        const data = await response.json();
-        if (response.ok) {
-          // Filter to show only useful models for chat
-          const models = data.models
-            ?.filter((m: any) => 
-              m.supportedGenerationMethods.includes('generateContent') && 
-              !m.name.includes('embedding') && 
-              !m.name.includes('text-to-speech') &&
-              !m.name.includes('speech-to-text')
-            )
-            .map((m: any) => m.name.replace('models/', '')) || [];
-          res.json({ success: true, models });
-        } else {
-          res.status(400).json({ error: data.error?.message || 'Chave Gemini inválida' });
-        }
-      } else if (provider === 'openai') {
-        const response = await fetch('https://api.openai.com/v1/models', {
-          headers: { 'Authorization': `Bearer ${trimmedKey}` }
-        });
-        const data = await response.json();
-        if (response.ok) {
-          const models = data.data
-            ?.filter((m: any) => 
-              (m.id.includes('gpt') || m.id.includes('o1') || m.id.includes('o3')) && 
-              !m.id.includes('instruct') && 
-              !m.id.includes('vision') // Prefer standard models that have vision built-in (like gpt-4o)
-            )
-            .map((m: any) => m.id) || [];
-          res.json({ success: true, models });
-        } else {
-          res.status(400).json({ error: data.error?.message || 'Chave OpenAI inválida' });
-        }
-      } else if (provider === 'grok') {
-        const response = await fetch('https://api.x.ai/v1/models', {
-          headers: { 'Authorization': `Bearer ${trimmedKey}` }
-        });
-        const data = await response.json();
-        if (response.ok) {
-          const models = data.data
-            ?.filter((m: any) => m.id.includes('grok'))
-            .map((m: any) => m.id) || [];
-          res.json({ success: true, models });
-        } else {
-          res.status(400).json({ error: data.error?.message || 'Chave Grok inválida' });
-        }
-      } else {
-        res.status(400).json({ error: 'Provedor não suportado para teste automático' });
-      }
+      const models = await testApiKey(provider, key);
+      res.json({ success: true, models });
     } catch (error: any) {
       console.error('Erro no teste de API:', error);
-      res.status(500).json({ error: 'Erro de conexão com o provedor' });
+      res.status(400).json({ error: error.message || 'Erro de conexão com o provedor' });
     }
   });
+
+  // Health check
+  async function runHealthCheck() {
+    console.log('Running API health check...');
+    if (!supabaseAdmin) return;
+
+    const { data: keys, error } = await supabaseAdmin.from('api_keys').select('*');
+    if (error) return;
+
+    let hasFailed = false;
+    for (const apiKey of keys) {
+      try {
+        await testApiKey(apiKey.provider, apiKey.key);
+        await supabaseAdmin.from('api_keys').update({ status: 'ok' }).eq('id', apiKey.id);
+      } catch (e) {
+        console.error(`Health check failed for ${apiKey.provider}:`, e);
+        hasFailed = true;
+        await supabaseAdmin.from('api_keys').update({ status: 'disconnected' }).eq('id', apiKey.id);
+      }
+    }
+
+    if (hasFailed) {
+      // Force re-test all (already done in the loop)
+    }
+  }
+
+  setInterval(runHealthCheck, 4 * 60 * 60 * 1000);
+  runHealthCheck(); // Run on startup
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
