@@ -35,7 +35,14 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     const valorParcela = Number(currentLead.valor_parcela) || 0;
     const jurosAtrasoPct = Number(currentLead.juros_atraso) || 0;
 
-    const fixedCosts = ipvaMulta + multas + motorReparo + cambioReparo + batidoReparo + valorPneus + valorDocumento;
+    // Descontos: Aqui definimos a lógica de descontos baseada nos campos do formulário
+    // Exemplo: Se houver avarias, aplicamos como desconto
+    const discountValue = motorReparo + cambioReparo + batidoReparo + valorPneus + valorDocumento;
+    const discounts = [
+        { name: 'Avarias/Reparos', value: discountValue }
+    ];
+
+    const fixedCosts = ipvaMulta + multas;
     
     const qtdAVencer = Math.max(0, totalParcelas - parcelasPagas - parcelasAtrasadas);
     const valorAVencer = qtdAVencer * valorParcela;
@@ -45,20 +52,20 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     
     const payoff = valorAVencer + totalAtrasadas;
     
-    // Fórmula baseada na lógica do usuário: FIPE - Custos - Quitação
-    const finalProposal = fipe - fixedCosts - payoff;
+    // Fórmula: FIPE - Descontos - Custos Fixos - Quitação
+    const finalProposal = fipe - discountValue - fixedCosts - payoff;
     const profit = finalProposal * 0.15; // Margem de 15%
     
     return {
         fipe,
-        discountValue: 0, // Precisa definir como calcular descontos
-        discounts: [],
+        discountValue,
+        discounts,
         fixedCosts,
         payoff,
         payoffBreakdown: {
             qtdParcelas: totalParcelas,
             valorParcela,
-            jurosParcelas: 0, // Precisa calcular
+            jurosParcelas: 0,
             atrasadas: parcelasAtrasadas,
             qtdAVencer,
             valorAVencer,
@@ -173,6 +180,13 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
               {/* Coluna Esquerda: Formulário Fiel */}
               <div className="lg:col-span-12 space-y-6">
+                {/* Ações Rápidas */}
+                <div className="flex gap-4">
+                  <button onClick={() => setShowDataModal(true)} className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold flex items-center justify-center gap-2">
+                    <FileText className="w-4 h-4" /> Avaliar Veículo (Formulário Completo)
+                  </button>
+                </div>
+
                 {/* Carrossel de Mídia */}
                 {currentLead.midias && currentLead.midias.length > 0 && (
                   <div className="bg-slate-900 p-4 rounded-[32px] relative">
@@ -372,7 +386,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                       <div className="absolute right-0 top-full bg-white border border-slate-200 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
                         {calc.discounts.map((d, i) => (
                           <div key={i} className="flex justify-between text-xs text-slate-600 mb-1">
-                            <span>{d.name} ({Math.round(d.pct * 100)}%)</span>
+                            <span>{d.name}</span>
                             <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
                           </div>
                         ))}
@@ -456,7 +470,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                       <div className="absolute right-0 top-full bg-slate-800 border border-white/10 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
                         {calc.discounts.map((d, i) => (
                           <div key={i} className="flex justify-between text-xs text-white/60 mb-1">
-                            <span>{d.name} ({Math.round(d.pct * 100)}%)</span>
+                            <span>{d.name}</span>
                             <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
                           </div>
                         ))}
