@@ -2030,22 +2030,26 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   </div>
 
                   {/* Filtros */}
-                  <div className="flex gap-2 w-full md:w-auto overflow-x-auto p-1">
-                    <div className="flex items-center gap-1 border border-slate-200 rounded-lg bg-white px-2">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">De:</span>
-                      <input type="date" className="p-1 bg-transparent text-xs font-bold outline-none" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)} />
+                  <div className="flex flex-col gap-2 w-full md:w-auto p-1">
+                    <div className="flex gap-2 overflow-x-auto">
+                      <div className="flex items-center gap-1 border border-slate-200 rounded-lg bg-white px-2">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">De:</span>
+                        <input type="date" className="p-1 bg-transparent text-xs font-bold outline-none" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)} />
+                      </div>
+                      <div className="flex items-center gap-1 border border-slate-200 rounded-lg bg-white px-2">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">Até:</span>
+                        <input type="date" className="p-1 bg-transparent text-xs font-bold outline-none" value={filterEndDate} onChange={(e) => setFilterEndDate(e.target.value)} />
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1 border border-slate-200 rounded-lg bg-white px-2">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">Até:</span>
-                      <input type="date" className="p-1 bg-transparent text-xs font-bold outline-none" value={filterEndDate} onChange={(e) => setFilterEndDate(e.target.value)} />
+                    <div className="flex gap-2 overflow-x-auto">
+                      <select className="p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold" value={filterBrand} onChange={(e) => setFilterBrand(e.target.value)}>
+                        <option value="">Todas as Marcas</option>
+                        {[...new Set(leads.map(l => l.marca))].map(brand => <option key={brand} value={brand}>{brand}</option>)}
+                      </select>
+                      <input type="number" placeholder="Ano" className="p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold w-20" value={filterYear} onChange={(e) => setFilterYear(e.target.value)} />
+                      <input type="number" placeholder="Min R$" className="p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold w-24" value={filterMinPrice} onChange={(e) => setFilterMinPrice(e.target.value)} />
+                      <input type="number" placeholder="Max R$" className="p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold w-24" value={filterMaxPrice} onChange={(e) => setFilterMaxPrice(e.target.value)} />
                     </div>
-                    <select className="p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold" value={filterBrand} onChange={(e) => setFilterBrand(e.target.value)}>
-                      <option value="">Todas as Marcas</option>
-                      {[...new Set(leads.map(l => l.marca))].map(brand => <option key={brand} value={brand}>{brand}</option>)}
-                    </select>
-                    <input type="number" placeholder="Ano" className="p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold w-20" value={filterYear} onChange={(e) => setFilterYear(e.target.value)} />
-                    <input type="number" placeholder="Min R$" className="p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold w-24" value={filterMinPrice} onChange={(e) => setFilterMinPrice(e.target.value)} />
-                    <input type="number" placeholder="Max R$" className="p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold w-24" value={filterMaxPrice} onChange={(e) => setFilterMaxPrice(e.target.value)} />
                   </div>
 
                   <div className="flex items-center gap-2 w-full md:w-auto">
