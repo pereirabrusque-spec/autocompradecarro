@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, RefreshCw, Save, Trash2, ShieldCheck, Wallet, ImageIcon, ChevronLeft, ChevronRight, Calculator, MessageCircle, Send } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 interface LeadDetailsCardProps {
   lead: any;
@@ -12,6 +13,16 @@ interface LeadDetailsCardProps {
 
 export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRefresh, fipeRules }: LeadDetailsCardProps) {
   const [currentLead, setCurrentLead] = useState(lead || {});
+  const [buyers, setBuyers] = useState<any[]>([]);
+  const [selectedBuyers, setSelectedBuyers] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchBuyers = async () => {
+      const { data, error } = await supabase.from('interested_buyers').select('*');
+      if (data) setBuyers(data);
+    };
+    fetchBuyers();
+  }, []);
 
   React.useEffect(() => {
     if (lead) {
@@ -236,14 +247,32 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
               {showBuyerModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowBuyerModal(false)}>
                   <div className="bg-white p-8 rounded-[32px] w-full max-w-2xl shadow-2xl max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                    <h3 className="text-xl font-bold mb-4">Selecionar Comprador</h3>
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-xl font-bold">Selecionar Compradores</h3>
+                      <button onClick={() => setSelectedBuyers(buyers.map(b => b.id))} className="text-xs font-bold text-blue-600">Selecionar Todos</button>
+                    </div>
                     <div className="space-y-2">
-                        {['Comprador A', 'Comprador B', 'Comprador C'].map(buyer => (
-                            <button key={buyer} onClick={() => { setSelectedBuyer(buyer); setShowBuyerModal(false); setShowBuyerConfigModal(true); }} className="w-full p-4 text-left border border-slate-200 rounded-xl hover:bg-slate-50 font-bold">
-                                {buyer}
-                            </button>
+                        {buyers.map(buyer => (
+                            <label key={buyer.id} className="flex items-center gap-3 p-4 border border-slate-200 rounded-xl hover:bg-slate-50 font-bold cursor-pointer">
+                                <input 
+                                  type="checkbox" 
+                                  checked={selectedBuyers.includes(buyer.id)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) setSelectedBuyers([...selectedBuyers, buyer.id]);
+                                    else setSelectedBuyers(selectedBuyers.filter(id => id !== buyer.id));
+                                  }}
+                                />
+                                {buyer.name}
+                            </label>
                         ))}
                     </div>
+                    <button 
+                      onClick={() => { setShowBuyerModal(false); setShowBuyerConfigModal(true); }} 
+                      className="w-full mt-4 py-3 bg-slate-900 text-white rounded-xl font-bold"
+                      disabled={selectedBuyers.length === 0}
+                    >
+                      Continuar ({selectedBuyers.length} selecionados)
+                    </button>
                   </div>
                 </div>
               )}
@@ -263,7 +292,23 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                         <label className="flex items-center gap-2"><input type="checkbox" /> E-mail</label>
                         <label className="flex items-center gap-2"><input type="checkbox" /> WhatsApp</label>
                         
-                        <button onClick={() => { setShowBuyerConfigModal(false); setShowSuccessPopup(true); }} className="w-full py-3 bg-emerald-500 text-white rounded-xl font-bold">Enviar Relatório</button>
+                        <button 
+                          onClick={async () => { 
+                            // Send messages to all selected buyers
+                            for (const buyerId of selectedBuyers) {
+                              await supabase.from('internal_messages').insert({
+                                sender_id: (await supabase.auth.getUser()).data.user?.id,
+                                receiver_id: buyerId,
+                                content: `Proposta para o veículo: ${currentLead.marca} ${currentLead.modelo} - ${currentLead.vehicle_code}`
+                              });
+                            }
+                            setShowBuyerConfigModal(false); 
+                            setShowSuccessPopup(true); 
+                          }} 
+                          className="w-full py-3 bg-emerald-500 text-white rounded-xl font-bold"
+                        >
+                          Enviar Relatório
+                        </button>
                     </div>
                   </div>
                 </div>
