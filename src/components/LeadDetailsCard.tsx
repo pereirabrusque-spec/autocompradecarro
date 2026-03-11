@@ -19,17 +19,59 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showUserModal, setShowUserModal] = useState(false);
 
-  // Mock calculation for demo purposes, should be replaced with actual logic
-  const calc = {
-    fipe: 50000,
-    discountValue: 2000,
-    discounts: [{ name: 'Pintura', pct: 0.02, value: 1000 }, { name: 'Pneus', pct: 0.02, value: 1000 }],
-    fixedCosts: 1500,
-    payoff: 5000,
-    payoffBreakdown: { qtdParcelas: 48, valorParcela: 1000, jurosParcelas: 200, atrasadas: 500, qtdAVencer: 30, valorAVencer: 30000, qtdAtrasadas: 2, jurosAtrasadas: 100, totalAtrasadas: 2100 },
-    finalProposal: 41500,
-    profit: 6225
+  const calculateFinance = () => {
+    const fipe = Number(currentLead.valor_fipe) || 0;
+    const ipvaMulta = Number(currentLead.valor_ipva_multa) || 0;
+    const multas = Number(currentLead.multas) || 0;
+    const motorReparo = Number(currentLead.motor_reparo) || 0;
+    const cambioReparo = Number(currentLead.cambio_reparo) || 0;
+    const batidoReparo = Number(currentLead.batido_reparo) || 0;
+    const valorPneus = Number(currentLead.valor_pneus) || 0;
+    const valorDocumento = Number(currentLead.valor_documento) || 0;
+    
+    const totalParcelas = Number(currentLead.total_parcelas) || 0;
+    const parcelasPagas = Number(currentLead.parcelas_pagas) || 0;
+    const parcelasAtrasadas = Number(currentLead.parcelas_atrasadas) || 0;
+    const valorParcela = Number(currentLead.valor_parcela) || 0;
+    const jurosAtrasoPct = Number(currentLead.juros_atraso) || 0;
+
+    const fixedCosts = ipvaMulta + multas + motorReparo + cambioReparo + batidoReparo + valorPneus + valorDocumento;
+    
+    const qtdAVencer = Math.max(0, totalParcelas - parcelasPagas - parcelasAtrasadas);
+    const valorAVencer = qtdAVencer * valorParcela;
+    
+    const jurosAtrasadas = (parcelasAtrasadas * valorParcela) * (jurosAtrasoPct / 100);
+    const totalAtrasadas = (parcelasAtrasadas * valorParcela) + jurosAtrasadas;
+    
+    const payoff = valorAVencer + totalAtrasadas;
+    
+    // Fórmula baseada na lógica do usuário: FIPE - Custos - Quitação
+    const finalProposal = fipe - fixedCosts - payoff;
+    const profit = finalProposal * 0.15; // Margem de 15%
+    
+    return {
+        fipe,
+        discountValue: 0, // Precisa definir como calcular descontos
+        discounts: [],
+        fixedCosts,
+        payoff,
+        payoffBreakdown: {
+            qtdParcelas: totalParcelas,
+            valorParcela,
+            jurosParcelas: 0, // Precisa calcular
+            atrasadas: parcelasAtrasadas,
+            qtdAVencer,
+            valorAVencer,
+            qtdAtrasadas: parcelasAtrasadas,
+            jurosAtrasadas,
+            totalAtrasadas
+        },
+        finalProposal,
+        profit
+    };
   };
+
+  const calc = calculateFinance();
 
   useEffect(() => {
     const fetchBuyers = async () => {
@@ -89,20 +131,27 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                 {[
                   { label: 'Cliente', key: 'cliente_nome' },
                   { label: 'Telefone', key: 'telefone' },
+                  { label: 'E-mail', key: 'email' },
                   { label: 'Marca', key: 'marca' },
                   { label: 'Modelo', key: 'modelo' },
                   { label: 'Ano Modelo', key: 'ano_modelo' },
                   { label: 'Cor', key: 'cor' },
                   { label: 'Quilometragem', key: 'quilometragem' },
                   { label: 'Placa', key: 'placa' },
-                  { label: 'Valor FIPE', key: 'valor_fipe' },
-                  { label: 'Valor Desejado', key: 'desired_value' },
+                  { label: 'Valor FIPE', key: 'valor_fipe', type: 'number' },
+                  { label: 'Valor Desejado', key: 'desired_value', type: 'number' },
                   { label: 'IPVA/Multa', key: 'valor_ipva_multa', type: 'number' },
-                  { label: 'Total Parcelas', key: 'total_parcelas' },
-                  { label: 'Parcelas Pagas', key: 'parcelas_pagas' },
-                  { label: 'Parcelas Atrasadas', key: 'parcelas_atrasadas' },
-                  { label: 'Valor Parcela', key: 'valor_parcela' },
-                  { label: 'Juros Atraso (%)', key: 'juros_atraso' },
+                  { label: 'Total Parcelas', key: 'total_parcelas', type: 'number' },
+                  { label: 'Parcelas Pagas', key: 'parcelas_pagas', type: 'number' },
+                  { label: 'Parcelas Atrasadas', key: 'parcelas_atrasadas', type: 'number' },
+                  { label: 'Valor Parcela', key: 'valor_parcela', type: 'number' },
+                  { label: 'Juros Atraso (%)', key: 'juros_atraso', type: 'number' },
+                  { label: 'Multas', key: 'multas', type: 'number' },
+                  { label: 'Valor Motor', key: 'motor_reparo', type: 'number' },
+                  { label: 'Valor Câmbio', key: 'cambio_reparo', type: 'number' },
+                  { label: 'Valor Batido', key: 'batido_reparo', type: 'number' },
+                  { label: 'Valor Pneus', key: 'valor_pneus', type: 'number' },
+                  { label: 'Valor Documento', key: 'valor_documento', type: 'number' },
                 ].map(field => (
                   <div key={field.key} className="space-y-1">
                     <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{field.label}</label>
