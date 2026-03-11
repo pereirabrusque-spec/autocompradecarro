@@ -71,6 +71,9 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
             </div>
           </div>
           <div className="flex gap-2">
+            <button onClick={onClose} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-full text-sm font-bold text-slate-700">
+              Voltar para Lista
+            </button>
             <button onClick={onRefresh} className="p-2 hover:bg-slate-100 rounded-full text-slate-600" title="Atualizar"><RefreshCw className="w-5 h-5" /></button>
             <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full"><X className="w-6 h-6" /></button>
           </div>
@@ -96,6 +99,12 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                     { label: 'Modelo', key: 'modelo' },
                     { label: 'Ano Fabricação', key: 'ano_fabricacao' },
                     { label: 'Ano Modelo', key: 'ano_modelo' },
+                    { label: 'Financiado', key: 'financiado' },
+                    { label: 'Renajud', key: 'renajud' },
+                    { label: 'Banco', key: 'banco_financiamento' },
+                    { label: 'Total Parcelas', key: 'total_parcelas', type: 'number' },
+                    { label: 'Parcelas Pagas', key: 'parcelas_pagas', type: 'number' },
+                    { label: 'Valor Parcela', key: 'valor_parcela', type: 'number' },
                   ].map(field => (
                     <div key={field.key} className="space-y-1">
                       <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{field.label}</label>
