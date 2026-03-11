@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
-import { Car, Phone, Calendar, DollarSign, AlertCircle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw, Pencil, Users, Share2, MessageCircle, ChevronRight, ChevronLeft, Search, Filter, ShieldCheck, Wrench, Wallet, User, UserPlus, Mail, Bell, BellOff, Send, UserCheck, LayoutDashboard, Download, TrendingUp, BarChart3, PieChart, Info, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { GoogleGenAI } from "@google/genai";
+import { Car, Phone, Calendar, DollarSign, AlertCircle, AlertTriangle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw, Pencil, Users, Share2, MessageCircle, ChevronRight, ChevronLeft, Search, Filter, ShieldCheck, Wrench, Wallet, User, UserPlus, Mail, Bell, BellOff, Send, UserCheck, LayoutDashboard, Download, TrendingUp, BarChart3, PieChart, Info, X } from 'lucide-react';
 import ChatThemeSettings from './ChatThemeSettings';
 import { useAssets } from '../lib/assetsContext';
 import { supabase } from '../lib/supabase';
@@ -94,6 +95,7 @@ export default function AdminDashboard() {
   const [autoProposalEnabled, setAutoProposalEnabled] = useState(false);
   const [chatAvatarUrl, setChatAvatarUrl] = useState('');
   const [bannerHeight, setBannerHeight] = useState('100vh');
+  const [profitMarginPercentage, setProfitMarginPercentage] = useState(20);
   const [savingSettings, setSavingSettings] = useState(false);
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const { refreshAssets } = useAssets();
@@ -140,6 +142,8 @@ export default function AdminDashboard() {
   const [filterUser, setFilterUser] = useState('');
   const [showAvariasModal, setShowAvariasModal] = useState(false);
   const [showProposalDetails, setShowProposalDetails] = useState(false);
+  const [confirmDeleteLeadId, setConfirmDeleteLeadId] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const [buyerPermissions, setBuyerPermissions] = useState({
     show_price: true,
@@ -208,12 +212,15 @@ export default function AdminDashboard() {
         messagesData.forEach((msg: any) => {
           if (!leadIds.has(msg.lead_id)) {
             leadIds.add(msg.lead_id);
+            const leadMessages = messagesData.filter((m: any) => m.lead_id === msg.lead_id);
+            const unreadCount = leadMessages.filter((m: any) => !m.lida && m.remetente === 'cliente').length;
             groupedConversations.push({
               lead_id: msg.lead_id,
               last_message: msg.conteudo,
               last_time: msg.created_at,
+              last_message_at: msg.created_at,
               lead: msg.leads_veiculos,
-              unread: 0 // Placeholder for unread logic if needed
+              unread: unreadCount
             });
           }
         });
@@ -350,6 +357,9 @@ export default function AdminDashboard() {
         const bannerHeightSetting = settingsData.find((s: any) => s.key === 'BANNER_HEIGHT');
         if (bannerHeightSetting) setBannerHeight(bannerHeightSetting.value);
 
+        const profitMarginSetting = settingsData.find((s: any) => s.key === 'PROFIT_MARGIN_PERCENTAGE');
+        if (profitMarginSetting) setProfitMarginPercentage(parseFloat(profitMarginSetting.value) || 20);
+
         const footerTextSetting = settingsData.find((s: any) => s.key === 'FOOTER_TEXT');
         if (footerTextSetting) setFooterText(footerTextSetting.value);
 
@@ -429,6 +439,16 @@ export default function AdminDashboard() {
     
     if (!error) {
       setChatMessages(data || []);
+      // Marcar como lidas
+      await supabase
+        .from('mensagens')
+        .update({ lida: true })
+        .eq('lead_id', leadId)
+        .eq('remetente', 'cliente')
+        .eq('lida', false);
+      
+      // Atualizar contador local
+      setConversations(prev => prev.map(c => c.lead_id === leadId ? { ...c, unread: 0 } : c));
     }
   };
 
@@ -663,13 +683,33 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
     try {
       const chatHistory = chatMessages.map(m => `${m.remetente === 'admin' ? 'Humano' : 'Cliente'}: ${m.conteudo}`).join('\n');
-      const newMemory = `${aiMemory}\n\n--- Aprendizado de Conversa (${new Date().toLocaleDateString()}) ---\n${chatHistory}\n`;
+      
+      // Use Gemini to extract triggers
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `Analise a conversa abaixo e extraia apenas os gatilhos de venda, informações técnicas do veículo e condições comerciais mencionadas. Ignore saudações e conversas genéricas.
+        
+        Conversa:
+        ${chatHistory}`,
+        config: {
+          systemInstruction: "Você é um assistente especializado em extrair informações estratégicas de vendas de veículos de conversas de chat. Retorne apenas os pontos relevantes encontrados de forma concisa.",
+        }
+      });
+      
+      const extractedInfo = response.text;
+      if (!extractedInfo || extractedInfo.trim().length < 10) {
+        alert('Nenhuma informação relevante de venda encontrada nesta conversa.');
+        return;
+      }
+
+      const newMemory = `${aiMemory}\n\n--- Aprendizado de Gatilhos (${new Date().toLocaleDateString()}) ---\n${extractedInfo}\n`;
       
       const { error } = await supabase.from('settings').upsert({ key: 'AI_MEMORY', value: newMemory }, { onConflict: 'key' });
       if (error) throw error;
       
       setAiMemory(newMemory);
-      alert('A IA aprendeu com o histórico desta conversa!');
+      alert('A IA extraiu e aprendeu novos gatilhos desta conversa!');
     } catch (err) {
       console.error(err);
       alert('Erro ao atualizar memória da IA.');
@@ -874,6 +914,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
         { key: 'AUTO_PROPOSAL_ENABLED', value: autoProposalEnabled ? 'true' : 'false' },
         { key: 'CHAT_AVATAR_URL', value: chatAvatarUrl },
         { key: 'BANNER_HEIGHT', value: bannerHeight },
+        { key: 'PROFIT_MARGIN_PERCENTAGE', value: profitMarginPercentage.toString() },
         { key: 'BUYER_VIEW_PERMISSIONS', value: JSON.stringify(buyerPermissions) },
         { key: 'BUYER_SEND_SETTINGS', value: JSON.stringify(buyerSendSettings) },
       ];
@@ -910,8 +951,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
   };
 
   const handleDeleteLead = async (id: string) => {
-    if (!window.confirm('Tem certeza que deseja excluir este lead permanentemente?')) return;
-
     setIsDeletingLead(id);
     try {
       console.log(`Attempting to delete lead ${id}...`);
@@ -928,12 +967,15 @@ Podemos prosseguir com o agendamento da vistoria?`;
       console.log(`Lead ${id} deleted successfully from DB.`);
       setLeads(prev => prev.filter(l => l.id !== id));
       if (selectedLead?.id === id) setSelectedLead(null);
-      alert('Lead excluído com sucesso!');
+      setToast({ message: 'Lead excluído com sucesso!', type: 'success' });
+      setTimeout(() => setToast(null), 3000);
     } catch (error: any) {
       console.error('Error deleting lead:', error);
-      alert('Erro ao excluir lead: ' + (error.message || JSON.stringify(error)));
+      setToast({ message: 'Erro ao excluir lead: ' + (error.message || 'Erro desconhecido'), type: 'error' });
+      setTimeout(() => setToast(null), 5000);
     } finally {
       setIsDeletingLead(null);
+      setConfirmDeleteLeadId(null);
     }
   };
 
@@ -961,11 +1003,12 @@ Podemos prosseguir com o agendamento da vistoria?`;
           else if (p.includes('leilao') || p.includes('leilão')) percentage = 25;
           else if (p.includes('recuperado')) percentage = 20;
           else if (p.includes('furto')) percentage = 15;
-          else if (p.includes('renajud')) percentage = 50;
+          else if (p.includes('renajud') || p.includes('bloqueio judicial')) percentage = 50;
           else if (p.includes('financiamento')) percentage = 35;
           else if (p.includes('cooperativa')) percentage = 80;
-          else if (p.includes('bloqueio')) percentage = 50;
-          else if (p.includes('busca')) percentage = 60;
+          else if (p.includes('busca') || p.includes('apreensão')) percentage = 60;
+          else if (p.includes('nome jurídico')) percentage = 10;
+          else if (p.includes('cobertura')) percentage = 15;
         }
 
         if (percentage > maxPercentage) {
@@ -1088,8 +1131,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
     // 4. Cálculo de Lucro (FIPE - Deduções - Quitação - Documentos - Margem)
     const totalDeductions = deductions.reduce((acc, d) => acc + d.value, 0);
     
-    // Margem de lucro configurável ou padrão de 20%
-    let profitMargin = baseValue * 0.2; 
+    // Margem de lucro configurável
+    let profitMargin = baseValue * (profitMarginPercentage / 100); 
     
     // Fórmula final: Lucro = FIPE - (Deduções + Quitação + Documentos + Margem)
     let finalValue = baseValue - totalDeductions - payoffValue - docDebts - profitMargin;
@@ -1413,8 +1456,14 @@ Podemos prosseguir com o agendamento da vistoria?`;
               <button onClick={() => setActiveTab('leads')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'leads' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
                 <Car className="w-3 h-3" /> Leads
               </button>
-              <button onClick={() => setActiveTab('messages')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'messages' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
-                <MessageCircle className="w-3 h-3" /> Mensagens
+              <button onClick={() => setActiveTab('messages')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap flex items-center gap-2 relative ${activeTab === 'messages' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
+                <MessageCircle className="w-3 h-3" /> 
+                Mensagens
+                {conversations.reduce((acc, curr) => acc + (curr.unread || 0), 0) > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[8px] flex items-center justify-center rounded-full border-2 border-white">
+                    {conversations.reduce((acc, curr) => acc + (curr.unread || 0), 0)}
+                  </span>
+                )}
               </button>
               <button onClick={() => setActiveTab('buyers')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'buyers' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
                 <Users className="w-3 h-3" /> Compradores
@@ -1638,6 +1687,15 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     />
                   </div>
                   <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Margem de Lucro (%)</label>
+                    <input 
+                      type="number"
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none font-bold"
+                      value={profitMarginPercentage}
+                      onChange={(e) => setProfitMarginPercentage(parseFloat(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div className="space-y-2">
                     <label className="text-xs font-bold text-slate-500 uppercase">Email de Contato</label>
                     <input 
                       className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none"
@@ -1656,24 +1714,78 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   <ChatThemeSettings />
                 </div>
                 <div className="border-t pt-6 space-y-4">
+                  <h3 className="text-xl font-bold">Permissões de Visualização do Comprador</h3>
+                  <p className="text-sm text-slate-500">Configure o que os compradores podem ver nos anúncios.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <label className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-all">
+                      <input 
+                        type="checkbox" 
+                        className="w-5 h-5 accent-accent"
+                        checked={buyerPermissions.show_photos}
+                        onChange={(e) => setBuyerPermissions(prev => ({ ...prev, show_photos: e.target.checked }))}
+                      />
+                      <span className="text-sm font-bold text-slate-700">Mostrar Fotos</span>
+                    </label>
+                    <label className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-all">
+                      <input 
+                        type="checkbox" 
+                        className="w-5 h-5 accent-accent"
+                        checked={buyerPermissions.show_price}
+                        onChange={(e) => setBuyerPermissions(prev => ({ ...prev, show_price: e.target.checked }))}
+                      />
+                      <span className="text-sm font-bold text-slate-700">Mostrar Preço</span>
+                    </label>
+                    <label className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-all">
+                      <input 
+                        type="checkbox" 
+                        className="w-5 h-5 accent-accent"
+                        checked={buyerPermissions.show_plate}
+                        onChange={(e) => setBuyerPermissions(prev => ({ ...prev, show_plate: e.target.checked }))}
+                      />
+                      <span className="text-sm font-bold text-slate-700">Mostrar Placa</span>
+                    </label>
+                    <label className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-all">
+                      <input 
+                        type="checkbox" 
+                        className="w-5 h-5 accent-accent"
+                        checked={buyerPermissions.show_details}
+                        onChange={(e) => setBuyerPermissions(prev => ({ ...prev, show_details: e.target.checked }))}
+                      />
+                      <span className="text-sm font-bold text-slate-700">Mostrar Detalhes</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="border-t pt-6 space-y-4">
                   <h3 className="text-xl font-bold">Regras de Desconto (Porcentagem)</h3>
                   <p className="text-sm text-slate-500">Configure as porcentagens de desconto para o histórico e procedência do veículo.</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {fipeRules.map(rule => (
-                      <div key={rule.id} className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-between">
-                        <span className="font-bold text-sm text-slate-700">{rule.condition_name}</span>
-                        <div className="flex items-center gap-2">
-                          <input 
-                            type="number" 
-                            className="w-20 p-2 border border-slate-200 rounded-lg text-sm text-center font-bold"
-                            value={rule.discount_percentage}
-                            onChange={async (e) => {
-                              const val = parseFloat(e.target.value) || 0;
-                              setFipeRules(prev => prev.map(r => r.id === rule.id ? { ...r, discount_percentage: val } : r));
-                              await supabase.from('fipe_rules').update({ discount_percentage: val }).eq('id', rule.id);
-                            }}
-                          />
-                          <span className="text-slate-400 font-bold">%</span>
+                      <div key={rule.id} className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col gap-3">
+                        <input 
+                          type="text"
+                          className="font-bold text-sm text-slate-700 bg-transparent border-none outline-none focus:ring-1 focus:ring-accent/20 rounded px-1"
+                          value={rule.condition_name}
+                          onChange={async (e) => {
+                            const val = e.target.value;
+                            setFipeRules(prev => prev.map(r => r.id === rule.id ? { ...r, condition_name: val } : r));
+                            await supabase.from('fipe_rules').update({ condition_name: val }).eq('id', rule.id);
+                          }}
+                        />
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <input 
+                              type="number" 
+                              className="w-20 p-2 border border-slate-200 rounded-lg text-sm text-center font-bold"
+                              value={rule.discount_percentage}
+                              onChange={async (e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                setFipeRules(prev => prev.map(r => r.id === rule.id ? { ...r, discount_percentage: val } : r));
+                                await supabase.from('fipe_rules').update({ discount_percentage: val }).eq('id', rule.id);
+                              }}
+                            />
+                            <span className="text-slate-400 font-bold">%</span>
+                          </div>
                           <button 
                             onClick={async () => {
                               if (confirm('Excluir esta regra?')) {
@@ -1724,6 +1836,87 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     </button>
                   </div>
                 </div>
+
+                <div className="border-t pt-6 space-y-4">
+                  <h3 className="text-xl font-bold">Custos de Reparo (Valor Fixo)</h3>
+                  <p className="text-sm text-slate-500">Configure os valores fixos para reparos de peças e avarias.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {repairCosts.map(cost => (
+                      <div key={cost.id} className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col gap-3">
+                        <input 
+                          type="text"
+                          className="font-bold text-sm text-slate-700 bg-transparent border-none outline-none focus:ring-1 focus:ring-accent/20 rounded px-1"
+                          value={cost.part_name}
+                          onChange={async (e) => {
+                            const val = e.target.value;
+                            setRepairCosts(prev => prev.map(c => c.id === cost.id ? { ...c, part_name: val } : c));
+                            await supabase.from('repair_costs').update({ part_name: val }).eq('id', cost.id);
+                          }}
+                        />
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-slate-400 font-bold text-xs">R$</span>
+                            <input 
+                              type="number" 
+                              className="w-24 p-2 border border-slate-200 rounded-lg text-sm text-center font-bold"
+                              value={cost.cost}
+                              onChange={async (e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                setRepairCosts(prev => prev.map(c => c.id === cost.id ? { ...c, cost: val } : c));
+                                await supabase.from('repair_costs').update({ cost: val }).eq('id', cost.id);
+                              }}
+                            />
+                          </div>
+                          <button 
+                            onClick={async () => {
+                              if (confirm('Excluir este custo de reparo?')) {
+                                await supabase.from('repair_costs').delete().eq('id', cost.id);
+                                setRepairCosts(prev => prev.filter(c => c.id !== cost.id));
+                              }
+                            }}
+                            className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-2 mt-4">
+                    <input 
+                      type="text" 
+                      placeholder="Nova Peça (ex: Pintura Parachoque)" 
+                      className="p-3 border border-slate-200 rounded-xl text-sm flex-1"
+                      id="newRepairName"
+                    />
+                    <input 
+                      type="number" 
+                      placeholder="R$" 
+                      className="p-3 border border-slate-200 rounded-xl text-sm w-32 text-center"
+                      id="newRepairCost"
+                    />
+                    <button 
+                      onClick={async () => {
+                        const nameInput = document.getElementById('newRepairName') as HTMLInputElement;
+                        const costInput = document.getElementById('newRepairCost') as HTMLInputElement;
+                        if (nameInput.value && costInput.value) {
+                          const { data, error } = await supabase.from('repair_costs').insert({
+                            part_name: nameInput.value,
+                            cost: parseFloat(costInput.value)
+                          }).select().single();
+                          if (!error && data) {
+                            setRepairCosts(prev => [...prev, data]);
+                            nameInput.value = '';
+                            costInput.value = '';
+                          }
+                        }
+                      }}
+                      className="px-6 py-3 bg-accent text-white rounded-xl font-bold hover:bg-accent/90 transition-all"
+                    >
+                      Adicionar
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
             {activeTab === 'users' && (
@@ -1740,7 +1933,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm text-left">
-                    <thead className="text-xs text-slate-500 uppercase bg-slate-50">
+                    <thead className="text-xs text-slate-500 uppercase bg-slate-50 sticky top-0 z-10 shadow-sm">
                       <tr>
                         <th className="px-6 py-3">Nome</th>
                         <th className="px-6 py-3">Email</th>
@@ -1794,7 +1987,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 </div>
               </div>
             )}
-            {activeTab === 'leads' ? (
+            {activeTab === 'leads' && (
               <div className="grid grid-cols-1 gap-6">
                 <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
                   {/* Abas de Status dos Leads */}
@@ -1973,16 +2166,30 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 <ShieldCheck className="w-5 h-5 text-accent" />
                                 Dados do Veículo
                               </span>
-                              <button 
-                                onClick={async () => {
-                                  const { error } = await supabase.from('leads_veiculos').update(selectedLead).eq('id', selectedLead.id);
-                                  if (error) alert('Erro ao salvar: ' + error.message);
-                                  else alert('Dados salvos!');
-                                }}
-                                className="text-[10px] bg-accent text-white px-2 py-1 rounded hover:bg-orange-600"
-                              >
-                                SALVAR
-                              </button>
+                              <div className="flex gap-2">
+                                <button 
+                                  onClick={async () => {
+                                    const { error } = await supabase.from('leads_veiculos').update(selectedLead).eq('id', selectedLead.id);
+                                    if (error) {
+                                      setToast({ message: 'Erro ao salvar: ' + error.message, type: 'error' });
+                                      setTimeout(() => setToast(null), 5000);
+                                    } else {
+                                      setToast({ message: 'Dados salvos!', type: 'success' });
+                                      setTimeout(() => setToast(null), 3000);
+                                    }
+                                  }}
+                                  className="text-[10px] bg-accent text-white px-2 py-1 rounded hover:bg-orange-600 font-bold"
+                                >
+                                  SALVAR
+                                </button>
+                                <button 
+                                  onClick={() => setConfirmDeleteLeadId(selectedLead.id)}
+                                  className="text-[10px] bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 font-bold flex items-center gap-1"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                  EXCLUIR
+                                </button>
+                              </div>
                             </h3>
                             <div className="grid grid-cols-2 gap-4 text-sm">
                               <div>
@@ -1995,11 +2202,29 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 />
                               </div>
                               <div>
+                                <p className="text-slate-400 font-bold uppercase text-[10px]">Email</p>
+                                <input 
+                                  type="text"
+                                  value={selectedLead.cliente_email || ''}
+                                  onChange={(e) => setSelectedLead({...selectedLead, cliente_email: e.target.value})}
+                                  className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
+                                />
+                              </div>
+                              <div>
                                 <p className="text-slate-400 font-bold uppercase text-[10px]">Telefone</p>
                                 <input 
                                   type="text"
                                   value={selectedLead.telefone || ''}
                                   onChange={(e) => setSelectedLead({...selectedLead, telefone: e.target.value})}
+                                  className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
+                                />
+                              </div>
+                              <div>
+                                <p className="text-slate-400 font-bold uppercase text-[10px]">Placa</p>
+                                <input 
+                                  type="text"
+                                  value={selectedLead.placa || ''}
+                                  onChange={(e) => setSelectedLead({...selectedLead, placa: e.target.value.toUpperCase()})}
                                   className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
                                 />
                               </div>
@@ -2045,24 +2270,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                   type="number"
                                   value={selectedLead.quilometragem || 0}
                                   onChange={(e) => setSelectedLead({...selectedLead, quilometragem: parseFloat(e.target.value)})}
-                                  className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
-                                />
-                              </div>
-                              <div>
-                                <p className="text-slate-400 font-bold uppercase text-[10px]">FIPE</p>
-                                <input 
-                                  type="number"
-                                  value={selectedLead.valor_fipe || 0}
-                                  onChange={(e) => setSelectedLead({...selectedLead, valor_fipe: parseFloat(e.target.value)})}
-                                  className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
-                                />
-                              </div>
-                              <div className="col-span-2">
-                                <p className="text-slate-400 font-bold uppercase text-[10px]">Placa</p>
-                                <input 
-                                  type="text"
-                                  value={selectedLead.placa || ''}
-                                  onChange={(e) => setSelectedLead({...selectedLead, placa: e.target.value})}
                                   className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
                                 />
                               </div>
@@ -2141,23 +2348,42 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                       className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
                                     />
                                   </div>
-                                  <div className="col-span-2">
-                                    <p className="text-slate-400 font-bold uppercase text-[9px]">Parcelas Atrasadas</p>
-                                    <input 
-                                      type="number"
-                                      value={selectedLead.parcelas_atrasadas || 0}
-                                      onChange={(e) => {
-                                        const val = parseInt(e.target.value) || 0;
-                                        const updatedLead = { ...selectedLead, parcelas_atrasadas: val };
-                                        setSelectedLead(updatedLead);
-                                        setProposalCalculator(calculateProposal(updatedLead));
-                                      }}
-                                      className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
-                                    />
-                                  </div>
                                 </div>
                               )}
                               
+                              <div>
+                                <p className="text-slate-400 font-bold uppercase text-[10px]">FIPE</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-xs font-bold text-slate-500">R$</span>
+                                  <input 
+                                    type="number"
+                                    value={selectedLead.valor_fipe || 0}
+                                    onChange={(e) => {
+                                      const val = parseFloat(e.target.value) || 0;
+                                      const updatedLead = { ...selectedLead, valor_fipe: val };
+                                      setSelectedLead(updatedLead);
+                                      setProposalCalculator(calculateProposal(updatedLead));
+                                    }}
+                                    className="flex-1 p-2 border border-slate-200 rounded-lg text-xs font-bold bg-white"
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <p className="text-slate-400 font-bold uppercase text-[10px]">Desejado pelo Cliente</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-xs font-bold text-slate-500">R$</span>
+                                  <input 
+                                    type="number"
+                                    value={selectedLead.valor_desejado || 0}
+                                    onChange={(e) => {
+                                      const val = parseFloat(e.target.value) || 0;
+                                      const updatedLead = { ...selectedLead, valor_desejado: val };
+                                      setSelectedLead(updatedLead);
+                                    }}
+                                    className="flex-1 p-2 border border-slate-200 rounded-lg text-xs font-bold bg-white"
+                                  />
+                                </div>
+                              </div>
                               <div>
                                 <p className="text-slate-400 font-bold uppercase text-[10px]">Débitos (Multas/IPVA)</p>
                                 <div className="flex items-center gap-2 mt-1">
@@ -2217,7 +2443,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                   />
                                 </div>
                               </div>
-                              <div className="grid grid-cols-2 gap-3">
+                              <div className="grid grid-cols-3 gap-3">
                                 <div>
                                   <p className="text-slate-400 font-bold uppercase text-[10px]">Desejado Cliente</p>
                                   <input 
@@ -2230,6 +2456,12 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                       setProposalCalculator(calculateProposal(updatedLead));
                                     }}
                                   />
+                                </div>
+                                <div>
+                                  <p className="text-slate-400 font-bold uppercase text-[10px]">Valor Sugerido</p>
+                                  <div className="p-1 text-xs font-bold bg-slate-100 border border-slate-200 rounded text-accent">
+                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculateProposal(selectedLead).finalValue)}
+                                  </div>
                                 </div>
                                 <div>
                                   <p className="text-slate-400 font-bold uppercase text-[10px]">Quilometragem</p>
@@ -2632,26 +2864,23 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            )}
-
-                <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm relative">
-                  {/* Barra de rolagem superior simulada - Sticky */}
-                  <div className="sticky top-0 z-20 overflow-x-auto h-3 bg-slate-50 border-b border-slate-100" onScroll={(e) => {
+                )}
+                <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm relative">
+                  {/* Barra de rolagem superior simulada - Sticky below navbar (64px) */}
+                  <div className="sticky top-[64px] z-30 overflow-x-auto h-3 bg-slate-50 border-b border-slate-100 rounded-t-[32px]" onScroll={(e) => {
                     const tableContainer = e.currentTarget.nextElementSibling;
                     if (tableContainer) tableContainer.scrollLeft = e.currentTarget.scrollLeft;
                   }}>
                     <div style={{ width: '2000px', height: '1px' }}></div>
                   </div>
                   
-                  <div className="overflow-x-auto" onScroll={(e) => {
+                  <div className="overflow-x-auto border border-slate-200 rounded-b-[32px]" onScroll={(e) => {
                     const scrollBar = e.currentTarget.previousElementSibling;
                     if (scrollBar) scrollBar.scrollLeft = e.currentTarget.scrollLeft;
                   }}>
                     <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-slate-50 border-b border-slate-200">
+                      <thead className="sticky top-[76px] z-20 bg-slate-50 shadow-sm">
+                        <tr className="border-b border-slate-200">
                           <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Data</th>
                           <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Status</th>
                           <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Veículo</th>
@@ -2756,7 +2985,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                               {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.preco_cliente || 0)}
                             </td>
                             <td className="px-6 py-4 text-sm font-bold text-accent">
-                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.suggested_value || 0)}
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.suggested_value || calculateProposal(lead).finalValue)}
                             </td>
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-2">
@@ -2796,7 +3025,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 <button 
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleDeleteLead(lead.id);
+                                    setConfirmDeleteLeadId(lead.id);
                                   }}
                                   disabled={isDeletingLead === lead.id}
                                   className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50"
@@ -2813,7 +3042,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   </div>
                 </div>
               </div>
-            ) : activeTab === 'buyers' ? (
+            )}
+
+            {activeTab === 'buyers' && (
               <div className="space-y-8">
                 <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm">
                   <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
@@ -3028,30 +3259,44 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 </div>
                               </td>
                               <td className="px-6 py-4">
-                                <div className="flex items-center gap-2">
-                                  <button 
-                                    onClick={() => {
-                                      setBuyerToAuth(buyer);
-                                      setShowAuthModal(true);
-                                    }}
-                                    className="p-2 text-slate-400 hover:text-accent transition-colors"
-                                    title="Autorizar Acesso"
-                                  >
-                                    <ShieldCheck className="w-4 h-4" />
-                                  </button>
-                                  <button 
-                                    onClick={async () => {
-                                      if (confirm('Excluir este comprador?')) {
-                                        const { error } = await supabase.from('interested_buyers').delete().eq('id', buyer.id);
-                                        if (!error) setInterestedBuyers(prev => prev.filter(b => b.id !== buyer.id));
+                              <div className="flex items-center gap-2">
+                                <button 
+                                  onClick={() => {
+                                    setBuyerPermissionsForm(buyer.permissions || { show_photos: true, show_price: true, show_plate: false, show_details: true });
+                                    setSelectedBuyer(buyer);
+                                    setShowBuyerPermissionsModal(true);
+                                  }}
+                                  className="p-2 text-slate-400 hover:text-accent transition-colors"
+                                  title="Permissões de Visualização"
+                                >
+                                  <Settings className="w-4 h-4" />
+                                </button>
+                                <button 
+                                  onClick={() => {
+                                    setBuyerToAuth(buyer);
+                                    setShowAuthModal(true);
+                                  }}
+                                  className="p-2 text-slate-400 hover:text-accent transition-colors"
+                                  title="Autorizar Leads Específicos"
+                                >
+                                  <ShieldCheck className="w-4 h-4" />
+                                </button>
+                                <button 
+                                  onClick={async () => {
+                                    if (confirm('Excluir este comprador?')) {
+                                      const { error } = await supabase.from('interested_buyers').delete().eq('id', buyer.id);
+                                      if (!error) {
+                                        setInterestedBuyers(prev => prev.filter(b => b.id !== buyer.id));
+                                        alert('Comprador excluído!');
                                       }
-                                    }}
-                                    className="p-2 text-slate-400 hover:text-red-500 transition-colors"
-                                    title="Excluir"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                                </div>
+                                    }
+                                  }}
+                                  className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                                  title="Excluir"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
                               </td>
                             </tr>
                           ))}
@@ -3176,7 +3421,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   </button>
                 </div>
               </div>
-            ) : activeTab === 'crm' ? (
+            )}
+
+            {activeTab === 'crm' && (
               <div className="space-y-8">
                 <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm">
                   <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
@@ -3369,7 +3616,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   </div>
                 </div>
               </div>
-            ) : activeTab === 'messages' ? (
+            )}
+
+            {activeTab === 'messages' && (
               <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm flex h-[700px]">
                 {/* Lista de Conversas (Esquerda) */}
                 <div className="w-1/3 border-r border-slate-100 flex flex-col">
@@ -3746,7 +3995,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 value={proposalCalculator.baseValue}
                                 onChange={(e) => {
                                   const val = parseFloat(e.target.value) || 0;
-                                  const newFinalValue = val - proposalCalculator.deductions.reduce((acc, d) => acc + d.value, 0) - proposalCalculator.payoffValue - proposalCalculator.docDebts - (val * 0.2);
+                                  const newFinalValue = val - proposalCalculator.deductions.reduce((acc, d) => acc + d.value, 0) - proposalCalculator.payoffValue - proposalCalculator.docDebts - (val * (profitMarginPercentage / 100));
                                   const newProfitMargin = val - newFinalValue - proposalCalculator.payoffValue;
                                   setProposalCalculator({...proposalCalculator, baseValue: val, finalValue: newFinalValue, profitMargin: newProfitMargin});
                                 }}
@@ -3772,7 +4021,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 value={proposalCalculator.docDebts}
                                 onChange={(e) => {
                                   const val = parseFloat(e.target.value) || 0;
-                                  const newFinalValue = proposalCalculator.baseValue - proposalCalculator.deductions.reduce((acc, d) => acc + d.value, 0) - proposalCalculator.payoffValue - val - (proposalCalculator.baseValue * 0.2);
+                                  const newFinalValue = proposalCalculator.baseValue - proposalCalculator.deductions.reduce((acc, d) => acc + d.value, 0) - proposalCalculator.payoffValue - val - (proposalCalculator.baseValue * (profitMarginPercentage / 100));
                                   const newProfitMargin = proposalCalculator.baseValue - newFinalValue - proposalCalculator.payoffValue;
                                   setProposalCalculator({...proposalCalculator, docDebts: val, finalValue: newFinalValue, profitMargin: newProfitMargin});
                                 }}
@@ -3786,7 +4035,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 value={proposalCalculator.payoffValue}
                                 onChange={(e) => {
                                   const val = parseFloat(e.target.value) || 0;
-                                  const newFinalValue = proposalCalculator.baseValue - proposalCalculator.deductions.reduce((acc, d) => acc + d.value, 0) - val - proposalCalculator.docDebts - (proposalCalculator.baseValue * 0.2);
+                                  const newFinalValue = proposalCalculator.baseValue - proposalCalculator.deductions.reduce((acc, d) => acc + d.value, 0) - val - proposalCalculator.docDebts - (proposalCalculator.baseValue * (profitMarginPercentage / 100));
                                   const newProfitMargin = proposalCalculator.baseValue - newFinalValue - val;
                                   setProposalCalculator({...proposalCalculator, payoffValue: val, finalValue: newFinalValue, profitMargin: newProfitMargin});
                                 }}
@@ -3819,7 +4068,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                         const newDeductions = [...proposalCalculator.deductions];
                                         newDeductions[idx].value = newVal;
                                         const totalDeductions = newDeductions.reduce((acc, d) => acc + d.value, 0);
-                                        const newFinalValue = proposalCalculator.baseValue - totalDeductions - proposalCalculator.payoffValue - proposalCalculator.docDebts - (proposalCalculator.baseValue * 0.2);
+                                        const newFinalValue = proposalCalculator.baseValue - totalDeductions - proposalCalculator.payoffValue - proposalCalculator.docDebts - (proposalCalculator.baseValue * (profitMarginPercentage / 100));
                                         const newProfitMargin = proposalCalculator.baseValue - newFinalValue - proposalCalculator.payoffValue;
                                         setProposalCalculator({
                                           ...proposalCalculator, 
@@ -3834,7 +4083,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                       onClick={() => {
                                         const newDeductions = proposalCalculator.deductions.filter((_, i) => i !== idx);
                                         const totalDeductions = newDeductions.reduce((acc, d) => acc + d.value, 0);
-                                        const newFinalValue = proposalCalculator.baseValue - totalDeductions - proposalCalculator.payoffValue - proposalCalculator.docDebts - (proposalCalculator.baseValue * 0.2);
+                                        const newFinalValue = proposalCalculator.baseValue - totalDeductions - proposalCalculator.payoffValue - proposalCalculator.docDebts - (proposalCalculator.baseValue * (profitMarginPercentage / 100));
                                         const newProfitMargin = proposalCalculator.baseValue - newFinalValue - proposalCalculator.payoffValue;
                                         setProposalCalculator({
                                           ...proposalCalculator, 
@@ -3860,7 +4109,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                       { name, value, type: 'fixed' }
                                     ];
                                     const totalDeductions = newDeductions.reduce((acc, d) => acc + d.value, 0);
-                                    const newFinalValue = proposalCalculator.baseValue - totalDeductions - proposalCalculator.payoffValue - proposalCalculator.docDebts - (proposalCalculator.baseValue * 0.2);
+                                    const newFinalValue = proposalCalculator.baseValue - totalDeductions - proposalCalculator.payoffValue - proposalCalculator.docDebts - (proposalCalculator.baseValue * (profitMarginPercentage / 100));
                                     const newProfitMargin = proposalCalculator.baseValue - newFinalValue - proposalCalculator.payoffValue;
                                     setProposalCalculator({
                                       ...proposalCalculator, 
@@ -3913,8 +4162,10 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   </div>
                 )}
               </div>
-            ) : activeTab === 'hero' ? (
-          <div className="space-y-6">
+            )}
+
+            {activeTab === 'hero' && (
+              <div className="space-y-6">
         <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm mb-8">
               <h3 className="text-xl font-bold mb-4">Configurações de Automação</h3>
               <div className="flex items-center justify-between gap-4">
@@ -4057,7 +4308,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
               ))}
             </div>
           </div>
-        ) : activeTab === 'assets' ? (
+        )}
+
+        {activeTab === 'assets' && (
           <div className="space-y-8">
             <div className="flex justify-between items-center">
               <h2 className="text-3xl font-black text-slate-900">Gerenciar Assets</h2>
@@ -4135,7 +4388,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
               ))}
             </div>
           </div>
-        ) : activeTab === 'tags' ? (
+        )}
+
+        {activeTab === 'tags' && (
           <div className="space-y-8">
             <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm">
               <h2 className="text-2xl font-bold mb-6">Tags & Marketing (Google Ads / Analytics)</h2>
@@ -4188,7 +4443,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
               </div>
             </div>
           </div>
-        ) : activeTab === 'apis' ? (
+        )}
+
+        {activeTab === 'apis' && (
           <div className="space-y-8">
             <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm">
               <h2 className="text-2xl font-bold mb-6">Gerenciamento de APIs & Chaves</h2>
@@ -4660,7 +4917,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
               </div>
             </div>
           </div>
-        ) : activeTab === 'footer' ? (
+        )}
+
+        {activeTab === 'footer' && (
           <div className="space-y-8">
             <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm">
               <h3 className="text-xl font-bold mb-6">Informações de Contato e Rodapé</h3>
@@ -4898,7 +5157,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
               ))}
             </div>
           </div>
-        ) : null}
+        )}
       </main>
 
         {/* Modal de WhatsApp */}
@@ -5129,6 +5388,171 @@ Podemos prosseguir com o agendamento da vistoria?`;
             </div>
           </div>
         )}
-    </div>
-  );
+      {showBuyerPermissionsModal && selectedBuyer && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-8 max-w-md w-full space-y-6">
+            <h3 className="text-xl font-bold">Permissões para {selectedBuyer.email}</h3>
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+                <span className="font-bold text-sm">Ver Fotos</span>
+                <input 
+                  type="checkbox" 
+                  checked={buyerPermissionsForm.show_photos}
+                  onChange={e => setBuyerPermissionsForm({...buyerPermissionsForm, show_photos: e.target.checked})}
+                  className="w-5 h-5 accent-slate-900"
+                />
+              </div>
+              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+                <span className="font-bold text-sm">Ver Preço</span>
+                <input 
+                  type="checkbox" 
+                  checked={buyerPermissionsForm.show_price}
+                  onChange={e => setBuyerPermissionsForm({...buyerPermissionsForm, show_price: e.target.checked})}
+                  className="w-5 h-5 accent-slate-900"
+                />
+              </div>
+              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+                <span className="font-bold text-sm">Ver Placa</span>
+                <input 
+                  type="checkbox" 
+                  checked={buyerPermissionsForm.show_plate}
+                  onChange={e => setBuyerPermissionsForm({...buyerPermissionsForm, show_plate: e.target.checked})}
+                  className="w-5 h-5 accent-slate-900"
+                />
+              </div>
+              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+                <span className="font-bold text-sm">Ver Detalhes Técnicos</span>
+                <input 
+                  type="checkbox" 
+                  checked={buyerPermissionsForm.show_details}
+                  onChange={e => setBuyerPermissionsForm({...buyerPermissionsForm, show_details: e.target.checked})}
+                  className="w-5 h-5 accent-slate-900"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <button 
+                onClick={async () => {
+                  // Tentar encontrar o user_id do comprador pelo email se não tiver
+                  let targetUserId = selectedBuyer.user_id || selectedBuyer.id;
+                  
+                  // Se o ID não parecer um UUID, tentar buscar no profiles pelo email
+                  if (targetUserId && targetUserId.length < 30) {
+                    const { data: profile } = await supabase
+                      .from('profiles')
+                      .select('id')
+                      .eq('email', selectedBuyer.email)
+                      .single();
+                    if (profile) targetUserId = profile.id;
+                  }
+
+                  const { error } = await supabase
+                    .from('buyer_authorizations')
+                    .upsert({
+                      user_id: targetUserId,
+                      permissions: buyerPermissionsForm,
+                      updated_at: new Date().toISOString()
+                    }, { onConflict: 'user_id' });
+
+                  if (error) {
+                    if (error.code === '42P01') {
+                      alert('Erro: Tabela de autorizações não encontrada. Execute o script SQL fornecido.');
+                    } else {
+                      alert('Erro: ' + error.message);
+                    }
+                  } else {
+                    alert('Permissões salvas!');
+                    setShowBuyerPermissionsModal(false);
+                  }
+                }}
+                className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-accent transition-all"
+              >
+                Salvar
+              </button>
+              <button 
+                onClick={() => setShowBuyerPermissionsModal(false)}
+                className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Botão de Chat Flutuante */}
+      <button 
+        onClick={() => setActiveTab('chat')}
+        className="fixed bottom-8 right-8 w-16 h-16 bg-accent text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-40 group"
+      >
+        <MessageCircle className="w-8 h-8" />
+        {chats.reduce((acc, c) => acc + (c.unread || 0), 0) > 0 && (
+          <span className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white animate-bounce">
+            {chats.reduce((acc, c) => acc + (c.unread || 0), 0)}
+          </span>
+        )}
+        <div className="absolute right-20 bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-xl">
+          Conversas Ativas
+        </div>
+      </button>
+
+      {/* Modal de Confirmação de Exclusão */}
+      <AnimatePresence>
+        {confirmDeleteLeadId && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-[32px] p-8 max-w-md w-full shadow-2xl text-center"
+            >
+              <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Trash2 className="w-10 h-10 text-red-600" />
+              </div>
+              <h3 className="text-2xl font-bold mb-2">Excluir Lead?</h3>
+              <p className="text-slate-500 mb-8">
+                Tem certeza que deseja excluir este lead permanentemente? Esta ação não pode ser desfeita.
+              </p>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setConfirmDeleteLeadId(null)}
+                  className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={() => handleDeleteLead(confirmDeleteLeadId)}
+                  disabled={isDeletingLead === confirmDeleteLeadId}
+                  className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-bold hover:bg-red-700 transition-all flex items-center justify-center gap-2"
+                >
+                  {isDeletingLead === confirmDeleteLeadId ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
+                  Excluir Agora
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Toast Notifications */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-[110] px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 font-bold text-white ${
+              toast.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'
+            }`}
+          >
+            {toast.type === 'success' ? <ShieldCheck className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
+            {toast.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </main>
+  </div>
+);
 }
