@@ -26,7 +26,10 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
   const [showForm, setShowForm] = useState(false);
   const [showUserModal, setShowUserModal] = useState(false);
   const [showBuyerModal, setShowBuyerModal] = useState(false);
+  const [showBuyerConfigModal, setShowBuyerConfigModal] = useState(false);
+  const [selectedBuyer, setSelectedBuyer] = useState<any>(null);
   const [showDataModal, setShowDataModal] = useState(false);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
 
   // Cálculo dinâmico baseado nos campos do formulário e regras do banco
@@ -226,7 +229,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                   <div className="bg-white p-8 rounded-[32px] w-full max-w-lg shadow-2xl" onClick={e => e.stopPropagation()}>
                     <h3 className="text-xl font-bold mb-4">Enviar Proposta ao Usuário</h3>
                     <p className="text-sm text-slate-600 mb-4">Olá {currentLead.cliente_nome}, temos uma proposta para o seu veículo {currentLead.marca} {currentLead.modelo}. O valor é de {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalProposal)}. Vamos fechar negócio?</p>
-                    <button onClick={() => setShowUserModal(false)} className="w-full py-3 bg-emerald-500 text-white rounded-xl font-bold">Enviar Mensagem</button>
+                    <button onClick={() => { setShowUserModal(false); setShowSuccessPopup(true); }} className="w-full py-3 bg-emerald-500 text-white rounded-xl font-bold">Enviar Mensagem</button>
                   </div>
                 </div>
               )}
@@ -234,10 +237,36 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowBuyerModal(false)}>
                   <div className="bg-white p-8 rounded-[32px] w-full max-w-2xl shadow-2xl max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                     <h3 className="text-xl font-bold mb-4">Selecionar Comprador</h3>
-                    <div className="space-y-4">
-                        <p>Lista de compradores filtrada por categoria e ranking...</p>
-                        <button onClick={() => setShowBuyerModal(false)} className="w-full py-3 bg-emerald-500 text-white rounded-xl font-bold">Enviar Relatório Selecionado</button>
+                    <div className="space-y-2">
+                        {['Comprador A', 'Comprador B', 'Comprador C'].map(buyer => (
+                            <button key={buyer} onClick={() => { setSelectedBuyer(buyer); setShowBuyerModal(false); setShowBuyerConfigModal(true); }} className="w-full p-4 text-left border border-slate-200 rounded-xl hover:bg-slate-50 font-bold">
+                                {buyer}
+                            </button>
+                        ))}
                     </div>
+                  </div>
+                </div>
+              )}
+              {showBuyerConfigModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowBuyerConfigModal(false)}>
+                  <div className="bg-white p-8 rounded-[32px] w-full max-w-2xl shadow-2xl max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                    <h3 className="text-xl font-bold mb-4">Configurar Envio para {selectedBuyer}</h3>
+                    <div className="space-y-4">
+                        <label className="flex items-center gap-2"><input type="checkbox" defaultChecked /> Dados do Veículo</label>
+                        <label className="flex items-center gap-2"><input type="checkbox" defaultChecked /> Avarias</label>
+                        <label className="flex items-center gap-2"><input type="checkbox" defaultChecked /> Documentos</label>
+                        <label className="flex items-center gap-2"><input type="checkbox" defaultChecked /> Fotos e Vídeos</label>
+                        <button onClick={() => { setShowBuyerConfigModal(false); setShowSuccessPopup(true); }} className="w-full py-3 bg-emerald-500 text-white rounded-xl font-bold">Enviar Relatório</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {showSuccessPopup && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowSuccessPopup(false)}>
+                  <div className="bg-white p-8 rounded-[32px] w-full max-w-sm shadow-2xl text-center" onClick={e => e.stopPropagation()}>
+                    <h3 className="text-xl font-bold mb-2">Sucesso!</h3>
+                    <p className="text-sm text-slate-600 mb-6">Informações enviadas com sucesso.</p>
+                    <button onClick={() => setShowSuccessPopup(false)} className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold">Fechar</button>
                   </div>
                 </div>
               )}
