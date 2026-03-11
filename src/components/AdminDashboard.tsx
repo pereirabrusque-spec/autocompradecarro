@@ -951,7 +951,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
   };
 
   const handleDeleteLead = async (id: string) => {
-    console.log('ID do lead a ser excluído:', id);
+    console.log('ID do lead a ser excluído:', id, 'Tipo:', typeof id);
     setIsDeletingLead(id);
     try {
       console.log(`Attempting to delete lead ${id}...`);
@@ -961,6 +961,15 @@ Podemos prosseguir com o agendamento da vistoria?`;
       await supabase.from('mensagens').delete().eq('lead_id', id);
       
       // 2. Delete the lead
+      const { data: leadToDelete, error: fetchError } = await supabase
+        .from('leads_veiculos')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      console.log('Lead to delete:', leadToDelete);
+      if (fetchError) console.error('Error fetching lead to delete:', fetchError);
+
       const { data, error } = await supabase
         .from('leads_veiculos')
         .delete()
