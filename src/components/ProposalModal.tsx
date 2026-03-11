@@ -78,23 +78,26 @@ export const ProposalModal: React.FC<ProposalModalProps> = ({
               Valores da Proposta
             </h4>
             <div className="space-y-4 text-sm">
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center">
                 <span>FIPE:</span>
-                <span className="font-bold">{formatCurrency(selectedLead.valor_fipe)}</span>
+                <input type="number" defaultValue={selectedLead.valor_fipe} className="w-32 p-2 rounded-lg border border-slate-200" />
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center">
                 <span>Valor Desejado:</span>
-                <span className="font-bold">{formatCurrency(selectedLead.valor_desejado)}</span>
+                <input type="number" defaultValue={selectedLead.valor_desejado} className="w-32 p-2 rounded-lg border border-slate-200" />
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center">
                 <span>Valor Sugerido:</span>
-                <span className="font-bold">{formatCurrency(proposalCalculator.suggestedValue)}</span>
+                <input type="number" defaultValue={proposalCalculator.suggestedValue} className="w-32 p-2 rounded-lg border border-slate-200" />
               </div>
-              <div className="flex justify-between p-3 bg-white rounded-xl border border-slate-200">
+              <div className="flex justify-between items-center p-3 bg-white rounded-xl border border-slate-200">
                 <span className="font-bold">Valor Desejado Cliente:</span>
-                <span className="font-black text-lg text-accent">{formatCurrency(selectedLead.preco_cliente)}</span>
+                <input type="number" defaultValue={selectedLead.preco_cliente} className="w-32 p-2 rounded-lg border border-slate-200 font-black text-accent" />
               </div>
             </div>
+            <button className="w-full mt-6 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all">
+              Salvar e Atualizar Proposta
+            </button>
           </div>
         </div>
       </div>

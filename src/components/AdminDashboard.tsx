@@ -5237,7 +5237,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
         {/* Modal de WhatsApp */}
         {showWhatsAppModal && leadToWhatsApp && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-[32px] w-full max-w-2xl p-8 shadow-2xl">
+            <div className="bg-white rounded-[32px] w-full max-w-4xl p-8 shadow-2xl">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-2xl font-bold">Enviar para Compradores</h3>
                 <button onClick={() => setShowWhatsAppModal(false)} className="p-2 hover:bg-slate-100 rounded-full">
@@ -5245,7 +5245,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 </button>
               </div>
 
-              <div className="space-y-4 max-h-[60vh] overflow-y-auto mb-6">
+              <div className="space-y-4 max-h-[80vh] overflow-y-auto mb-6">
                 {interestedBuyers.map(buyer => (
                   <label key={buyer.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
                     <div className="flex items-center gap-3">
