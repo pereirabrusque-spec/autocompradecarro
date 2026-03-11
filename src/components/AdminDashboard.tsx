@@ -3118,9 +3118,10 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   </div>
                 </div>
               </div>
-            )}
+            </div>
+          )}
 
-            {activeTab === 'buyers' && (
+          {activeTab === 'buyers' && (
               <div className="space-y-8">
                 <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm">
                   <h3 className="text-xl font-bold mb-6 flex items-center gap-2">

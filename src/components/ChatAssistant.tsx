@@ -14,9 +14,14 @@ interface Message {
   image?: string;
 }
 
-export default function ChatAssistant() {
+interface ChatAssistantProps {
+  isOpen: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+}
+
+export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistantProps) {
   const { settings } = useAssets();
-  const [isOpen, setIsOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [leadId, setLeadId] = useState<string | null>(null);
   const [isFormFilled, setIsFormFilled] = useState(false);
@@ -72,7 +77,7 @@ export default function ChatAssistant() {
 
   useEffect(() => {
     const handleOpenChat = async (event: any) => {
-      setIsOpen(true);
+      onOpen();
       const initialMessage = event.detail?.message;
       if (initialMessage) {
         setMessages(prev => [...prev, { role: 'user', text: initialMessage }]);
@@ -453,12 +458,12 @@ export default function ChatAssistant() {
               </div>
               <div className="flex items-center gap-2">
                 <button 
-                  onClick={() => setIsOpen(false)} 
+                  onClick={onClose} 
                   className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors"
                 >
                   Recolher
                 </button>
-                <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-white/10 rounded-xl transition-colors">
+                <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl transition-colors">
                   <X className="w-6 h-6" />
                 </button>
               </div>

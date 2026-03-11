@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { MessageCircle } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { AssetsProvider, useAssets } from './lib/assetsContext';
 import { AuthProvider, useAuth } from './lib/authContext';
@@ -194,7 +195,7 @@ function AppContent() {
       {view !== 'admin' && view !== 'buyer' && <Footer />}
       
       {/* Contact Widgets */}
-      {showChat && <ChatAssistant isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />}
+      {showChat && <ChatAssistant isOpen={isChatOpen} onOpen={() => setIsChatOpen(true)} onClose={() => setIsChatOpen(false)} />}
       {showWhatsApp && <WhatsAppButton />}
       {showTawkTo && <TawkTo />}
       
