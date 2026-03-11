@@ -951,6 +951,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
   };
 
   const handleDeleteLead = async (id: string) => {
+    console.log('ID do lead a ser excluído:', id);
     setIsDeletingLead(id);
     try {
       console.log(`Attempting to delete lead ${id}...`);
@@ -960,18 +961,19 @@ Podemos prosseguir com o agendamento da vistoria?`;
       await supabase.from('mensagens').delete().eq('lead_id', id);
       
       // 2. Delete the lead
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('leads_veiculos')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .select();
 
       if (error) {
         console.error('Supabase delete error:', error);
         throw error;
       }
 
-      console.log(`Lead ${id} deleted successfully from DB.`);
-      setLeads(prev => prev.filter(l => l.id !== id));
+      console.log(`Lead ${id} deleted successfully from DB. Result:`, data);
+      await fetchData();
       if (selectedLead?.id === id) setSelectedLead(null);
       setToast({ message: 'Lead excluído com sucesso!', type: 'success' });
       setTimeout(() => setToast(null), 3000);
