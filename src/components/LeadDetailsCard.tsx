@@ -7,38 +7,43 @@ interface LeadDetailsCardProps {
   onSave: (updatedLead: any) => void;
   onDelete: (leadId: string) => void;
   onRefresh: () => void;
+  fipeRules: any[];
 }
 
-export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRefresh }: LeadDetailsCardProps) {
+export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRefresh, fipeRules }: LeadDetailsCardProps) {
   const [currentLead, setCurrentLead] = useState(lead);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showForm, setShowForm] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
 
-  // Cálculo dinâmico baseado nos campos do formulário
+  // Cálculo dinâmico baseado nos campos do formulário e regras do banco
   const calculateProposal = () => {
     const fipe = parseFloat(currentLead.valor_fipe) || 0;
     
-    // 1. Descontos (Regras baseadas na imagem e solicitação)
-    // Regras: Cooperativa -> 90%, Financiado -> 50%, Outros -> conforme histórico
-    const discountRules: Record<string, number> = { 
-      cooperativa: 0.90,
-      financiado: 0.50,
-      renajud: 0.20,
-      sinistro: 0.35,
-      leilao: 0.35,
-      busca: 0.50,
-      nome_juridico: 0.70
-    };
-    
     let maxDiscountPct = 0;
     
-    // Verifica problemas/histórico
+    // 1. Descontos (Regras dinâmicas do banco)
     const problemas = Array.isArray(currentLead.problemas) ? currentLead.problemas : (currentLead.problemas ? [currentLead.problemas] : []);
     problemas.forEach((p: string) => {
-      const pKey = p.toLowerCase().replace(/ /g, '_');
-      const pct = discountRules[pKey] || 0;
-      if (pct > maxDiscountPct) maxDiscountPct = pct;
+      const rule = fipeRules.find(r => r.condition_name.toLowerCase() === p.toLowerCase());
+      if (rule) {
+        const pct = parseFloat(rule.discount_percentage) / 100;
+        if (pct > maxDiscountPct) maxDiscountPct = pct;
+      } else {
+        // Fallback para regras fixas se não encontrar no banco
+        const pKey = p.toLowerCase().replace(/ /g, '_');
+        const fallbackRules: Record<string, number> = { 
+          cooperativa: 0.90,
+          financiado: 0.50,
+          renajud: 0.20,
+          sinistro: 0.35,
+          leilao: 0.35,
+          busca: 0.50,
+          nome_juridico: 0.70
+        };
+        const pct = fallbackRules[pKey] || 0;
+        if (pct > maxDiscountPct) maxDiscountPct = pct;
+      }
     });
 
     // Verifica campos específicos de financiamento/cooperativa

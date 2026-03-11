@@ -2142,6 +2142,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     }}
                     onDelete={handleDeleteLead}
                     onRefresh={fetchData}
+                    fipeRules={fipeRules}
                   />
                 )}
                 {false && selectedLead && (
