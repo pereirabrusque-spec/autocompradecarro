@@ -9,6 +9,7 @@ import { defaultCards } from '../lib/seedData';
 import { ProposalModal } from './ProposalModal';
 import { LeadCard } from './LeadCard';
 import LeadDetailsCard from './LeadDetailsCard';
+import AdminMessages from './AdminMessages';
 
 export default function AdminDashboard() {
   const [leads, setLeads] = useState<any[]>([]);
