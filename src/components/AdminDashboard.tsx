@@ -106,6 +106,7 @@ export default function AdminDashboard() {
   const [isSavingKey, setIsSavingKey] = useState(false);
 
   const [activeLeadTab, setActiveLeadTab] = useState<'novo' | 'proposta_enviada' | 'fechado' | 'recusado' | 'sem_interesse'>('novo');
+  const [leadsViewMode, setLeadsViewMode] = useState<'grid' | 'list'>('list');
   const [showBuyerPermissionsModal, setShowBuyerPermissionsModal] = useState(false);
   const [selectedBuyer, setSelectedBuyer] = useState<any>(null);
   const [buyerPermissionsForm, setBuyerPermissionsForm] = useState({
@@ -2092,6 +2093,26 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent/20"
                       />
                     </div>
+                    
+                    <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-100">
+                      <button 
+                        onClick={() => setLeadsViewMode('list')}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all ${leadsViewMode === 'list' ? 'bg-slate-900 text-white' : 'text-slate-400 hover:bg-slate-50'}`}
+                        title="Visualização em Lista"
+                      >
+                        <BarChart3 className="w-4 h-4" />
+                        <span className="text-[10px] font-bold uppercase">Lista</span>
+                      </button>
+                      <button 
+                        onClick={() => setLeadsViewMode('grid')}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all ${leadsViewMode === 'grid' ? 'bg-slate-900 text-white' : 'text-slate-400 hover:bg-slate-50'}`}
+                        title="Visualização em Cards"
+                      >
+                        <LayoutDashboard className="w-4 h-4" />
+                        <span className="text-[10px] font-bold uppercase">Cards</span>
+                      </button>
+                    </div>
+
                     <button 
                       onClick={fetchData}
                       className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-colors text-sm"
@@ -2876,27 +2897,29 @@ Podemos prosseguir com o agendamento da vistoria?`;
                               <Users className="w-5 h-5 text-accent" />
                               Selecionar Compradores
                             </h3>
-                            <div className="max-h-64 overflow-y-auto space-y-2">
-                              {interestedBuyers.map(buyer => (
-                                <label key={buyer.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
-                                  <input 
-                                    type="checkbox" 
-                                    checked={selectedBuyers.includes(buyer.id)}
-                                    onChange={(e) => {
-                                      if (e.target.checked) setSelectedBuyers([...selectedBuyers, buyer.id]);
-                                      else setSelectedBuyers(selectedBuyers.filter(id => id !== buyer.id));
-                                    }}
-                                    className="w-4 h-4 rounded border-slate-300 text-accent focus:ring-accent"
-                                  />
-                                  <div className="flex-grow">
-                                    <p className="text-xs font-bold">{buyer.name}</p>
-                                    <p className="text-[10px] text-slate-400">{buyer.category} - {buyer.type}</p>
-                                  </div>
-                                  {sentLeads.some(s => s.lead_id === selectedLead.id && s.buyer_id === buyer.id) && (
-                                    <div className="w-2 h-2 rounded-full bg-red-500" title="Já enviado" />
-                                  )}
-                                </label>
-                              ))}
+                            <div className="max-h-80 overflow-y-auto pr-2">
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                {interestedBuyers.map(buyer => (
+                                  <label key={buyer.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors border border-slate-100">
+                                    <input 
+                                      type="checkbox" 
+                                      checked={selectedBuyers.includes(buyer.id)}
+                                      onChange={(e) => {
+                                        if (e.target.checked) setSelectedBuyers([...selectedBuyers, buyer.id]);
+                                        else setSelectedBuyers(selectedBuyers.filter(id => id !== buyer.id));
+                                      }}
+                                      className="w-4 h-4 rounded border-slate-300 text-accent focus:ring-accent"
+                                    />
+                                    <div className="flex-grow">
+                                      <p className="text-[11px] font-bold leading-tight">{buyer.name}</p>
+                                      <p className="text-[9px] text-slate-400">{buyer.category}</p>
+                                    </div>
+                                    {sentLeads.some(s => s.lead_id === selectedLead.id && s.buyer_id === buyer.id) && (
+                                      <div className="w-2 h-2 rounded-full bg-red-500" title="Já enviado" />
+                                    )}
+                                  </label>
+                                ))}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -2904,221 +2927,229 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     </div>
                   </div>
                 )}
-                <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm relative">
-                  {/* Barra de rolagem superior simulada - Sticky below navbar (64px) */}
-                  <div className="sticky top-[64px] z-30 overflow-x-auto h-3 bg-slate-50 border-b border-slate-100 rounded-t-[32px]" onScroll={(e) => {
-                    const tableContainer = e.currentTarget.nextElementSibling;
-                    if (tableContainer) tableContainer.scrollLeft = e.currentTarget.scrollLeft;
-                  }}>
-                    <div style={{ width: '2000px', height: '1px' }}></div>
-                  </div>
-                  
-                  <div className="overflow-x-auto border border-slate-200 rounded-b-[32px]" onScroll={(e) => {
-                    const scrollBar = e.currentTarget.previousElementSibling;
-                    if (scrollBar) scrollBar.scrollLeft = e.currentTarget.scrollLeft;
-                  }}>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
-                    {leads
-                      .filter(l => l.status === activeLeadTab)
-                      .filter(l => !searchCode || (l.vehicle_code && l.vehicle_code.includes(searchCode)))
-                      .filter(l => !filterBrand || l.marca === filterBrand)
-                      .filter(l => !filterYear || l.ano_modelo === parseInt(filterYear))
-                      .filter(l => !filterMinPrice || (l.preco_cliente || 0) >= parseFloat(filterMinPrice))
-                      .filter(l => !filterMaxPrice || (l.preco_cliente || 0) <= parseFloat(filterMaxPrice))
-                      .filter(l => {
-                        if (!filterStartDate && !filterEndDate) return true;
-                        const leadDate = new Date(l.created_at);
-                        leadDate.setHours(0, 0, 0, 0);
-                        
-                        if (filterStartDate) {
-                          const start = new Date(filterStartDate);
-                          start.setHours(0, 0, 0, 0);
-                          start.setMinutes(start.getMinutes() + start.getTimezoneOffset());
-                          if (leadDate < start) return false;
-                        }
-                        if (filterEndDate) {
-                          const end = new Date(filterEndDate);
-                          end.setHours(0, 0, 0, 0);
-                          end.setMinutes(end.getMinutes() + end.getTimezoneOffset());
-                          if (leadDate > end) return false;
-                        }
-                        return true;
-                      })
-                      .map((lead) => (
-                        <LeadCard key={lead.id} lead={lead} onClick={() => {
-                          setSelectedLead(lead);
-                          setProposalCalculator(calculateProposal(lead));
-                          setSelectedBuyers([]);
-                          setCurrentPhotoIndex(0);
-                        }} />
-                      ))}
-                  </div>
-                  <div className="hidden">
-                    <table className="w-full text-left border-collapse">
-                      <thead className="sticky top-0 z-20 bg-slate-50 shadow-sm">
-                        <tr className="border-b border-slate-200">
-                          <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Data</th>
-                          <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Status</th>
-                          <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Veículo</th>
-                          <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Código</th>
-                          <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Ano/Modelo</th>
-                          <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">FIPE</th>
-                          <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Desejado</th>
-                          <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Sugerido</th>
-                          <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Contato</th>
-                          <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Ações</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {leads
-                          .filter(l => l.status === activeLeadTab)
-                          .filter(l => !searchCode || (l.vehicle_code && l.vehicle_code.includes(searchCode)))
-                          .filter(l => !filterBrand || l.marca === filterBrand)
-                          .filter(l => !filterYear || l.ano_modelo === parseInt(filterYear))
-                          .filter(l => !filterMinPrice || (l.preco_cliente || 0) >= parseFloat(filterMinPrice))
-                          .filter(l => !filterMaxPrice || (l.preco_cliente || 0) <= parseFloat(filterMaxPrice))
-                          .filter(l => {
-                            if (!filterStartDate && !filterEndDate) return true;
-                            const leadDate = new Date(l.created_at);
-                            leadDate.setHours(0, 0, 0, 0);
-                            
-                            if (filterStartDate) {
-                              const start = new Date(filterStartDate);
-                              start.setHours(0, 0, 0, 0);
-                              // Adjust for timezone offset to ensure correct local date comparison
-                              start.setMinutes(start.getMinutes() + start.getTimezoneOffset());
-                              if (leadDate < start) return false;
-                            }
-                            if (filterEndDate) {
-                              const end = new Date(filterEndDate);
-                              end.setHours(0, 0, 0, 0);
-                              end.setMinutes(end.getMinutes() + end.getTimezoneOffset());
-                              if (leadDate > end) return false;
-                            }
-                            return true;
-                          })
-                          .map((lead) => (
-                          <tr key={lead.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => {
-                            setSelectedLead(lead);
-                            setProposalCalculator(calculateProposal(lead));
-                            setSelectedBuyers([]);
-                            setCurrentPhotoIndex(0);
-                          }}>
-                            <td className="px-6 py-4 text-xs font-bold text-slate-500">
-                              {new Date(lead.created_at).toLocaleDateString()}
-                            </td>
-                            <td className="px-6 py-4">
-                              <select 
-                                value={lead.status || 'novo'} 
-                                onClick={(e) => e.stopPropagation()}
-                                onChange={async (e) => {
-                                  const newStatus = e.target.value;
-                                  setLeads(leads.map(l => l.id === lead.id ? { ...l, status: newStatus } : l));
-                                  await supabase.from('leads_veiculos').update({ status: newStatus }).eq('id', lead.id);
-                                }}
-                                className={`text-xs font-bold uppercase px-2 py-1 rounded border-none outline-none cursor-pointer ${
-                                  lead.status === 'fechado' ? 'bg-emerald-100 text-emerald-700' :
-                                  lead.status === 'perdido' ? 'bg-red-100 text-red-700' :
-                                  lead.status === 'proposta_enviada' ? 'bg-blue-100 text-blue-700' :
-                                  lead.status === 'em_contato' ? 'bg-amber-100 text-amber-700' :
-                                  'bg-slate-100 text-slate-600'
-                                }`}
-                              >
-                                <option value="novo">Novo</option>
-                                <option value="em_contato">Em Contato</option>
-                                <option value="proposta_enviada">Proposta Enviada</option>
-                                <option value="fechado">Fechado</option>
-                                <option value="perdido">Perdido</option>
-                              </select>
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 rounded-lg bg-slate-100 overflow-hidden flex-shrink-0">
-                                  {lead.fotos && lead.fotos[0] ? (
-                                    <img src={lead.fotos[0]} alt="Veículo" className="w-full h-full object-cover" />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-slate-300">
-                                      <ImageIcon className="w-6 h-6" />
-                                    </div>
-                                  )}
-                                </div>
-                                <div>
-                                  <p className="font-bold text-slate-900">{lead.marca} {lead.modelo}</p>
-                                  <p className="text-xs text-slate-400">{lead.cliente_nome}</p>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded text-xs font-mono font-bold">
-                                {lead.vehicle_code || '----'}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-sm text-slate-600">{lead.ano_modelo}</td>
-                            <td className="px-6 py-4 text-sm font-bold text-slate-900">
-                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.valor_fipe || 0)}
-                            </td>
-                            <td className="px-6 py-4 text-sm font-bold text-green-600">
-                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.preco_cliente || 0)}
-                            </td>
-                            <td className="px-6 py-4 text-sm font-bold text-accent">
-                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.suggested_value || calculateProposal(lead).finalValue)}
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="flex items-center gap-2">
-                                {lead.telefone && (
-                                  <button 
-                                    onClick={(e) => { 
-                                      e.stopPropagation(); 
-                                      setLeadToWhatsApp(lead); 
-                                      setShowWhatsAppModal(true); 
-                                    }} 
-                                    className="p-2 bg-green-50 hover:bg-green-100 rounded-lg transition-colors text-green-600" 
-                                    title="WhatsApp"
-                                  >
-                                    <Phone className="w-4 h-4" />
-                                  </button>
-                                )}
-                                {lead.email && (
-                                  <a href={`mailto:${lead.email}`} className="p-2 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors text-blue-600" onClick={(e) => e.stopPropagation()} title="E-mail">
-                                    <MessageCircle className="w-4 h-4" />
-                                  </a>
-                                )}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="flex items-center gap-2">
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedLead(lead);
-                                    setProposalCalculator(calculateProposal(lead));
-                                  }}
-                                  className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-accent transition-colors"
-                                  title="Editar"
-                                >
-                                  <Pencil className="w-4 h-4" />
-                                </button>
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setConfirmDeleteLeadId(lead.id);
-                                  }}
-                                  disabled={isDeletingLead === lead.id}
-                                  className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50"
-                                  title="Excluir"
-                                >
-                                  {isDeletingLead === lead.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
+                <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm relative overflow-hidden">
+                  {leadsViewMode === 'grid' ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
+                      {leads
+                        .filter(l => l.status === activeLeadTab)
+                        .filter(l => !searchCode || (l.vehicle_code && l.vehicle_code.includes(searchCode)))
+                        .filter(l => !filterBrand || l.marca === filterBrand)
+                        .filter(l => !filterYear || l.ano_modelo === parseInt(filterYear))
+                        .filter(l => !filterMinPrice || (l.preco_cliente || 0) >= parseFloat(filterMinPrice))
+                        .filter(l => !filterMaxPrice || (l.preco_cliente || 0) <= parseFloat(filterMaxPrice))
+                        .filter(l => {
+                          if (!filterStartDate && !filterEndDate) return true;
+                          const leadDate = new Date(l.created_at);
+                          leadDate.setHours(0, 0, 0, 0);
+                          
+                          if (filterStartDate) {
+                            const start = new Date(filterStartDate);
+                            start.setHours(0, 0, 0, 0);
+                            start.setMinutes(start.getMinutes() + start.getTimezoneOffset());
+                            if (leadDate < start) return false;
+                          }
+                          if (filterEndDate) {
+                            const end = new Date(filterEndDate);
+                            end.setHours(0, 0, 0, 0);
+                            end.setMinutes(end.getMinutes() + end.getTimezoneOffset());
+                            if (leadDate > end) return false;
+                          }
+                          return true;
+                        })
+                        .map((lead) => (
+                          <LeadCard 
+                            key={lead.id} 
+                            lead={lead} 
+                            suggestedValue={calculateProposal(lead).finalValue}
+                            onClick={() => {
+                              setSelectedLead(lead);
+                              setProposalCalculator(calculateProposal(lead));
+                              setSelectedBuyers([]);
+                              setCurrentPhotoIndex(0);
+                            }} 
+                          />
                         ))}
-                      </tbody>
-                    </table>
-                  </div>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Barra de rolagem superior simulada - Sticky below navbar (64px) */}
+                      <div className="sticky top-[64px] z-30 overflow-x-auto h-3 bg-slate-50 border-b border-slate-100" onScroll={(e) => {
+                        const tableContainer = e.currentTarget.nextElementSibling;
+                        if (tableContainer) tableContainer.scrollLeft = e.currentTarget.scrollLeft;
+                      }}>
+                        <div style={{ width: '2000px', height: '1px' }}></div>
+                      </div>
+                      
+                      <div className="overflow-x-auto" onScroll={(e) => {
+                        const scrollBar = e.currentTarget.previousElementSibling;
+                        if (scrollBar) scrollBar.scrollLeft = e.currentTarget.scrollLeft;
+                      }}>
+                        <table className="w-full text-left border-collapse">
+                          <thead className="sticky top-0 z-20 bg-slate-50 shadow-sm">
+                            <tr className="border-b border-slate-200">
+                              <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Data</th>
+                              <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Status</th>
+                              <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Veículo</th>
+                              <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Código</th>
+                              <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Ano/Modelo</th>
+                              <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">FIPE</th>
+                              <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Desejado</th>
+                              <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Sugerido</th>
+                              <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Contato</th>
+                              <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Ações</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {leads
+                              .filter(l => l.status === activeLeadTab)
+                              .filter(l => !searchCode || (l.vehicle_code && l.vehicle_code.includes(searchCode)))
+                              .filter(l => !filterBrand || l.marca === filterBrand)
+                              .filter(l => !filterYear || l.ano_modelo === parseInt(filterYear))
+                              .filter(l => !filterMinPrice || (l.preco_cliente || 0) >= parseFloat(filterMinPrice))
+                              .filter(l => !filterMaxPrice || (l.preco_cliente || 0) <= parseFloat(filterMaxPrice))
+                              .filter(l => {
+                                if (!filterStartDate && !filterEndDate) return true;
+                                const leadDate = new Date(l.created_at);
+                                leadDate.setHours(0, 0, 0, 0);
+                                
+                                if (filterStartDate) {
+                                  const start = new Date(filterStartDate);
+                                  start.setHours(0, 0, 0, 0);
+                                  // Adjust for timezone offset to ensure correct local date comparison
+                                  start.setMinutes(start.getMinutes() + start.getTimezoneOffset());
+                                  if (leadDate < start) return false;
+                                }
+                                if (filterEndDate) {
+                                  const end = new Date(filterEndDate);
+                                  end.setHours(0, 0, 0, 0);
+                                  end.setMinutes(end.getMinutes() + end.getTimezoneOffset());
+                                  if (leadDate > end) return false;
+                                }
+                                return true;
+                              })
+                              .map((lead) => (
+                              <tr key={lead.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => {
+                                setSelectedLead(lead);
+                                setProposalCalculator(calculateProposal(lead));
+                                setSelectedBuyers([]);
+                                setCurrentPhotoIndex(0);
+                              }}>
+                                <td className="px-6 py-4 text-xs font-bold text-slate-500">
+                                  {new Date(lead.created_at).toLocaleDateString()}
+                                </td>
+                                <td className="px-6 py-4">
+                                  <select 
+                                    value={lead.status || 'novo'} 
+                                    onClick={(e) => e.stopPropagation()}
+                                    onChange={async (e) => {
+                                      const newStatus = e.target.value;
+                                      setLeads(leads.map(l => l.id === lead.id ? { ...l, status: newStatus } : l));
+                                      await supabase.from('leads_veiculos').update({ status: newStatus }).eq('id', lead.id);
+                                    }}
+                                    className={`text-xs font-bold uppercase px-2 py-1 rounded border-none outline-none cursor-pointer ${
+                                      lead.status === 'fechado' ? 'bg-emerald-100 text-emerald-700' :
+                                      lead.status === 'perdido' ? 'bg-red-100 text-red-700' :
+                                      lead.status === 'proposta_enviada' ? 'bg-blue-100 text-blue-700' :
+                                      lead.status === 'em_contato' ? 'bg-amber-100 text-amber-700' :
+                                      'bg-slate-100 text-slate-600'
+                                    }`}
+                                  >
+                                    <option value="novo">Novo</option>
+                                    <option value="em_contato">Em Contato</option>
+                                    <option value="proposta_enviada">Proposta Enviada</option>
+                                    <option value="fechado">Fechado</option>
+                                    <option value="perdido">Perdido</option>
+                                  </select>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-12 h-12 rounded-lg bg-slate-100 overflow-hidden flex-shrink-0">
+                                      {lead.fotos && lead.fotos[0] ? (
+                                        <img src={lead.fotos[0]} alt="Veículo" className="w-full h-full object-cover" />
+                                      ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                          <ImageIcon className="w-6 h-6" />
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <p className="font-bold text-slate-900">{lead.marca} {lead.modelo}</p>
+                                      <p className="text-xs text-slate-400">{lead.cliente_nome}</p>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded text-xs font-mono font-bold">
+                                    {lead.vehicle_code || '----'}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 text-sm text-slate-600">{lead.ano_modelo}</td>
+                                <td className="px-6 py-4 text-sm font-bold text-slate-900">
+                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.valor_fipe || 0)}
+                                </td>
+                                <td className="px-6 py-4 text-sm font-bold text-green-600">
+                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.preco_cliente || 0)}
+                                </td>
+                                <td className="px-6 py-4 text-sm font-bold text-accent">
+                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.suggested_value || calculateProposal(lead).finalValue)}
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="flex items-center gap-2">
+                                    {lead.telefone && (
+                                      <button 
+                                        onClick={(e) => { 
+                                          e.stopPropagation(); 
+                                          setLeadToWhatsApp(lead); 
+                                          setShowWhatsAppModal(true); 
+                                        }} 
+                                        className="p-2 bg-green-50 hover:bg-green-100 rounded-lg transition-colors text-green-600" 
+                                        title="WhatsApp"
+                                      >
+                                        <Phone className="w-4 h-4" />
+                                      </button>
+                                    )}
+                                    {lead.email && (
+                                      <a href={`mailto:${lead.email}`} className="p-2 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors text-blue-600" onClick={(e) => e.stopPropagation()} title="E-mail">
+                                        <MessageCircle className="w-4 h-4" />
+                                      </a>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="flex items-center gap-2">
+                                    <button 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedLead(lead);
+                                        setProposalCalculator(calculateProposal(lead));
+                                      }}
+                                      className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-accent transition-colors"
+                                      title="Editar"
+                                    >
+                                      <Pencil className="w-4 h-4" />
+                                    </button>
+                                    <button 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setConfirmDeleteLeadId(lead.id);
+                                      }}
+                                      disabled={isDeletingLead === lead.id}
+                                      className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                                      title="Excluir"
+                                    >
+                                      {isDeletingLead === lead.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
-            </div>
           )}
 
           {activeTab === 'buyers' && (
@@ -5284,26 +5315,28 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 </button>
               </div>
 
-              <div className="space-y-4 max-h-[80vh] overflow-y-auto mb-6">
-                {interestedBuyers.map(buyer => (
-                  <label key={buyer.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <input 
-                        type="checkbox" 
-                        checked={selectedBuyers.includes(buyer.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) setSelectedBuyers([...selectedBuyers, buyer.id]);
-                          else setSelectedBuyers(selectedBuyers.filter(id => id !== buyer.id));
-                        }}
-                        className="w-5 h-5 rounded border-slate-300 text-accent focus:ring-accent"
-                      />
-                      <div>
-                        <p className="font-bold text-slate-900">{buyer.name}</p>
-                        <p className="text-xs text-slate-500">{buyer.phone}</p>
+              <div className="space-y-4 max-h-[60vh] overflow-y-auto mb-6 pr-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {interestedBuyers.map(buyer => (
+                    <label key={buyer.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors border border-slate-200">
+                      <div className="flex items-center gap-3">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedBuyers.includes(buyer.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedBuyers([...selectedBuyers, buyer.id]);
+                            else setSelectedBuyers(selectedBuyers.filter(id => id !== buyer.id));
+                          }}
+                          className="w-5 h-5 rounded border-slate-300 text-accent focus:ring-accent"
+                        />
+                        <div>
+                          <p className="font-bold text-slate-900">{buyer.name}</p>
+                          <p className="text-xs text-slate-500">{buyer.phone}</p>
+                        </div>
                       </div>
-                    </div>
-                  </label>
-                ))}
+                    </label>
+                  ))}
+                </div>
               </div>
 
               <div className="flex gap-4">
@@ -5348,36 +5381,39 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 </button>
               </div>
 
-              <div className="space-y-4 max-h-[60vh] overflow-y-auto mb-6">
-                {leads.map(lead => {
-                  const isAuthorized = buyerAuthorizations.some(a => a.buyer_id === buyerToAuth.id && a.lead_id === lead.id);
-                  return (
-                    <label key={lead.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <input 
-                          type="checkbox" 
-                          checked={isAuthorized}
-                          onChange={async (e) => {
-                            if (e.target.checked) {
-                              const { data, error } = await supabase.from('buyer_authorizations').insert({
-                                buyer_id: buyerToAuth.id,
-                                lead_id: lead.id
-                              }).select().single();
-                              if (!error) setBuyerAuthorizations(prev => [...prev, data]);
-                            } else {
-                              const { error } = await supabase.from('buyer_authorizations').delete().eq('buyer_id', buyerToAuth.id).eq('lead_id', lead.id);
-                              if (!error) setBuyerAuthorizations(prev => prev.filter(a => !(a.buyer_id === buyerToAuth.id && a.lead_id === lead.id)));
-                            }
-                          }}
-                          className="w-5 h-5 rounded border-slate-300 text-accent focus:ring-accent"
-                        />
-                        <div>
-                          <p className="font-bold text-slate-900">#{lead.vehicle_code} - {lead.marca} {lead.modelo}</p>
+              <div className="space-y-4 max-h-[60vh] overflow-y-auto mb-6 pr-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {leads.map(lead => {
+                    const isAuthorized = buyerAuthorizations.some(a => a.buyer_id === buyerToAuth.id && a.lead_id === lead.id);
+                    return (
+                      <label key={lead.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors border border-slate-200">
+                        <div className="flex items-center gap-3">
+                          <input 
+                            type="checkbox" 
+                            checked={isAuthorized}
+                            onChange={async (e) => {
+                              if (e.target.checked) {
+                                const { data, error } = await supabase.from('buyer_authorizations').insert({
+                                  buyer_id: buyerToAuth.id,
+                                  lead_id: lead.id
+                                }).select().single();
+                                if (!error) setBuyerAuthorizations(prev => [...prev, data]);
+                              } else {
+                                const { error } = await supabase.from('buyer_authorizations').delete().eq('buyer_id', buyerToAuth.id).eq('lead_id', lead.id);
+                                if (!error) setBuyerAuthorizations(prev => prev.filter(a => !(a.buyer_id === buyerToAuth.id && a.lead_id === lead.id)));
+                              }
+                            }}
+                            className="w-5 h-5 rounded border-slate-300 text-accent focus:ring-accent"
+                          />
+                          <div>
+                            <p className="font-bold text-slate-900 text-xs">#{lead.vehicle_code}</p>
+                            <p className="text-[10px] text-slate-500">{lead.marca} {lead.modelo}</p>
+                          </div>
                         </div>
-                      </div>
-                    </label>
-                  );
-                })}
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
 
               <button 
