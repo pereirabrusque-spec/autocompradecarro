@@ -11,11 +11,8 @@ interface LeadDetailsCardProps {
 }
 
 export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRefresh, fipeRules }: LeadDetailsCardProps) {
+  console.log('Lead recebido no LeadDetailsCard (JSON completo):', JSON.stringify(lead, null, 2));
   const [currentLead, setCurrentLead] = useState(lead || {});
-  
-  console.log('Lead recebido no LeadDetailsCard:', lead);
-  console.log('Chaves do lead:', lead ? Object.keys(lead) : 'Lead nulo');
-  console.log('Estado atual do lead (currentLead):', currentLead);
 
   React.useEffect(() => {
     setCurrentLead(lead);
