@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GoogleGenAI } from "@google/genai";
-import { Car, Phone, Calendar, DollarSign, AlertCircle, AlertTriangle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw, Pencil, Users, Share2, MessageCircle, ChevronRight, ChevronLeft, Search, Filter, ShieldCheck, Wrench, Wallet, User, UserPlus, Mail, Bell, BellOff, Send, UserCheck, LayoutDashboard, Download, TrendingUp, BarChart3, PieChart, Info, X } from 'lucide-react';
+import { Car, Phone, Calendar, DollarSign, AlertCircle, AlertTriangle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw, Pencil, Users, Share2, MessageCircle, ChevronRight, ChevronLeft, Search, Filter, ShieldCheck, Wrench, Wallet, User, UserPlus, Mail, Bell, BellOff, Send, UserCheck, LayoutDashboard, Download, TrendingUp, BarChart3, PieChart, Info, X, Settings } from 'lucide-react';
 import ChatThemeSettings from './ChatThemeSettings';
 import { useAssets } from '../lib/assetsContext';
 import { supabase } from '../lib/supabase';
@@ -1043,10 +1043,11 @@ Podemos prosseguir com o agendamento da vistoria?`;
     }
     
     // Usar avarias do lead ou do estado global se disponível
-    const avariasSelecionadas = lead.avarias || [];
+    const allText = `${lead.observacoes || ''} ${lead.problemas?.join(' ') || ''}`.toLowerCase();
+    const avariasSelecionadas = lead.avarias || lead.detalhes_proposta?.avarias || repairCosts.filter(c => allText.includes(c.part_name.toLowerCase())).map(c => c.id);
     
     // Deduções manuais do modal de avarias
-    const avariasManuais = lead.avarias_manuais || [];
+    const avariasManuais = lead.avarias_manuais || lead.detalhes_proposta?.avarias_manuais || [];
     avariasManuais.forEach((avaria: { description: string, value: number }) => {
       repairTotal += avaria.value;
       deductions.push({ 
@@ -1146,7 +1147,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
     // Recalcular a margem de lucro conforme a fórmula do usuário:
     // VALOR FIP - (PROPOSTA GERADA + VALOR REAL DE QUITAÇÃO)
-    const calculatedProfitMargin = baseValue - finalValue - payoffValue - totalDeductions - docDebts;
+    const calculatedProfitMargin = baseValue - (finalValue + payoffValue);
 
     return {
       baseValue,
@@ -1169,7 +1170,12 @@ Podemos prosseguir com o agendamento da vistoria?`;
       const { error } = await supabase
         .from('leads_veiculos')
         .update({
-          detalhes_proposta: { ...proposalCalculator, overrides: proposalOverrides },
+          detalhes_proposta: { 
+            ...proposalCalculator, 
+            overrides: proposalOverrides,
+            avarias: selectedLead.avarias || [],
+            avarias_manuais: selectedLead.avarias_manuais || []
+          },
           suggested_value: proposalCalculator.finalValue,
           fipe_value: proposalCalculator.baseValue,
           payoff_value: proposalCalculator.payoffValue,
@@ -2617,7 +2623,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                   <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-2">
                                     {repairCosts.map((cost) => {
                                       const allText = `${selectedLead.observacoes || ''} ${selectedLead.problemas?.join(' ') || ''}`.toLowerCase();
-                                      const avariasSelecionadas = selectedLead.avarias || repairCosts.filter(c => allText.includes(c.part_name.toLowerCase())).map(c => c.id);
+                                      const avariasSelecionadas = selectedLead.avarias || selectedLead.detalhes_proposta?.avarias || repairCosts.filter(c => allText.includes(c.part_name.toLowerCase())).map(c => c.id);
                                       const isSelected = avariasSelecionadas.includes(cost.id);
                                       
                                       // Find multiplier
@@ -3936,7 +3942,10 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 <CheckCircle className="w-4 h-4 text-accent" />
                                 Resumo para o Cliente (Selecionáveis)
                               </div>
-                              <button onClick={() => setShowAvariasModal(true)} className="text-xs text-accent font-bold hover:underline">
+                              <button onClick={() => {
+                                setAvarias(selectedLead.avarias_manuais || selectedLead.detalhes_proposta?.avarias_manuais || []);
+                                setShowAvariasModal(true);
+                              }} className="text-xs text-accent font-bold hover:underline">
                                 + Avarias/Problemas
                               </button>
                             </h4>
@@ -5482,22 +5491,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
         </div>
       )}
 
-      {/* Botão de Chat Flutuante */}
-      <button 
-        onClick={() => setActiveTab('chat')}
-        className="fixed bottom-8 right-8 w-16 h-16 bg-accent text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-40 group"
-      >
-        <MessageCircle className="w-8 h-8" />
-        {chats.reduce((acc, c) => acc + (c.unread || 0), 0) > 0 && (
-          <span className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white animate-bounce">
-            {chats.reduce((acc, c) => acc + (c.unread || 0), 0)}
-          </span>
-        )}
-        <div className="absolute right-20 bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-xl">
-          Conversas Ativas
-        </div>
-      </button>
-
       {/* Modal de Confirmação de Exclusão */}
       <AnimatePresence>
         {confirmDeleteLeadId && (
@@ -5552,7 +5545,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
           </motion.div>
         )}
       </AnimatePresence>
-    </main>
-  </div>
-);
+    </div>
+  );
 }
