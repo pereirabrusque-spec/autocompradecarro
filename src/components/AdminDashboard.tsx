@@ -1396,10 +1396,11 @@ Podemos prosseguir com o agendamento da vistoria?`;
       if (profile) {
         const message = generateBuyerMessage(lead, buyerSendSettings, buyer.name);
         
-        const { error } = await supabase.from('internal_messages').insert({
-          sender_id: currentUser.id,
-          receiver_id: profile.id,
-          content: message
+        const { error } = await supabase.from('mensagens').insert({
+          lead_id: lead.id,
+          conteudo: message,
+          remetente: 'admin',
+          lida: false
         });
 
         if (!error) {
