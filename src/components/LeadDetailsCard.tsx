@@ -82,17 +82,23 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
       ((currentLead.avarias || []).reduce((acc: number, av: any) => acc + (parseFloat(av.valor) || 0), 0));
 
     // 3. Quitação
-    const remaining = (parseInt(currentLead.total_parcelas) || 0) - (parseInt(currentLead.parcelas_pagas) || 0);
-    const jurosAtraso = (parseFloat(currentLead.juros_atraso) || 0) / 100;
+    const totalParcelas = (parseInt(currentLead.total_parcelas) || 0);
+    const parcelasPagas = (parseInt(currentLead.parcelas_pagas) || 0);
+    const remaining = Math.max(0, totalParcelas - parcelasPagas);
+    const jurosAtrasoPct = (parseFloat(currentLead.juros_atraso) || 2) / 100;
     const atrasadas = (parseInt(currentLead.parcelas_atrasadas) || 0);
     const valorParcela = (parseFloat(currentLead.valor_parcela) || 0);
     
+    // JUROS: O usuário quer ver: valor da parcela, quantidade, juros aplicados
+    const jurosParcelas = valorParcela * remaining * 0.02; // Exemplo: 2% sobre o total restante
+    
     const payoffBreakdown = {
-        parcelas: valorParcela * remaining,
-        jurosParcelas: valorParcela * remaining * (0.02 * remaining),
-        atrasadas: atrasadas * valorParcela * jurosAtraso
+        qtdParcelas: remaining,
+        valorParcela: valorParcela,
+        jurosParcelas: jurosParcelas,
+        atrasadas: atrasadas * valorParcela * jurosAtrasoPct
     };
-    const payoff = payoffBreakdown.parcelas + payoffBreakdown.jurosParcelas + payoffBreakdown.atrasadas;
+    const payoff = (valorParcela * remaining) + jurosParcelas + payoffBreakdown.atrasadas;
 
     // 4. Proposta Final
     const finalProposal = fipe - discountValue - fixedCosts - payoff;
@@ -127,14 +133,17 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
             <button onClick={() => window.open(`https://wa.me/${currentLead.telefone?.replace(/\D/g, '')}`, '_blank')} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-full text-sm font-bold text-white flex items-center gap-2">
               <MessageCircle className="w-4 h-4" /> WhatsApp
             </button>
+            <button className="px-4 py-2 bg-sky-500 hover:bg-sky-600 rounded-full text-sm font-bold text-white flex items-center gap-2">
+              <Send className="w-4 h-4" /> Chat
+            </button>
             <button onClick={onClose} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-full text-sm font-bold text-slate-700">
-              Voltar para Lista
+              Voltar
             </button>
             <button onClick={onRefresh} className="p-2 hover:bg-slate-100 rounded-full text-slate-600" title="Atualizar"><RefreshCw className="w-5 h-5" /></button>
             <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full"><X className="w-6 h-6" /></button>
           </div>
         </div>
-        <div className="overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6">
           {showForm && (
             <div className="bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm space-y-4">
               <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest">Editar Lead</h3>
@@ -188,6 +197,10 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
               {/* Detalhamento da Proposta */}
               <div className="bg-slate-50 p-8 rounded-[32px] space-y-4">
                 <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest border-b border-slate-200 pb-4">Detalhamento da Proposta</h3>
+                <div className="flex gap-4 mb-4">
+                  <button className="px-4 py-2 bg-slate-900 text-white rounded-full text-xs font-bold">Enviar para Usuário</button>
+                  <button className="px-4 py-2 bg-slate-200 text-slate-700 rounded-full text-xs font-bold">Enviar para Comprador</button>
+                </div>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between"><span>Tabela FIPE</span><span className="font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fipe)}</span></div>
                   <div className="flex justify-between text-red-500 group cursor-pointer relative">
@@ -219,8 +232,12 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                     <span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}</span>
                     <div className="absolute right-0 top-full bg-white border border-slate-200 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
                         <div className="flex justify-between text-xs text-slate-600 mb-1">
-                            <span>Parcelas</span>
-                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.parcelas)}</span>
+                            <span>Qtd Parcelas</span>
+                            <span>{calc.payoffBreakdown.qtdParcelas}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-slate-600 mb-1">
+                            <span>Valor Parcela</span>
+                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.valorParcela)}</span>
                         </div>
                         <div className="flex justify-between text-xs text-slate-600 mb-1">
                             <span>Juros Parcelas</span>
@@ -284,8 +301,12 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                   <div className="flex justify-between text-red-400 group cursor-pointer relative"><span className="text-white/60">Quitação</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}</span>
                     <div className="absolute right-0 top-full bg-slate-800 border border-white/10 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
                         <div className="flex justify-between text-xs text-white/60 mb-1">
-                            <span>Parcelas</span>
-                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.parcelas)}</span>
+                            <span>Qtd Parcelas</span>
+                            <span>{calc.payoffBreakdown.qtdParcelas}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-white/60 mb-1">
+                            <span>Valor Parcela</span>
+                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.valorParcela)}</span>
                         </div>
                         <div className="flex justify-between text-xs text-white/60 mb-1">
                             <span>Juros Parcelas</span>
