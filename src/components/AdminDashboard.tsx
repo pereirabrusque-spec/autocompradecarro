@@ -1469,7 +1469,16 @@ Podemos prosseguir com o agendamento da vistoria?`;
       <header className="bg-white border-b border-slate-200 sticky top-0 z-[100] shadow-sm">
         <div className="w-full px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h1 className="font-display text-xl font-bold text-slate-900 hidden md:block">Painel Administrativo</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="font-display text-xl font-bold text-slate-900 hidden md:block">Painel Administrativo</h1>
+              <button 
+                onClick={fetchData}
+                className="p-1.5 text-slate-400 hover:text-slate-900 transition-colors"
+                title="Atualizar Dados"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
+            </div>
             <div className="h-6 w-px bg-slate-200 hidden md:block"></div>
             
             {/* Navigation Menu */}
