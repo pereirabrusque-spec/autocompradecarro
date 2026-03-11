@@ -1001,7 +1001,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
     }
   };
 
-  const calculateProposal = (lead: any, overrides?: { rules: Record<string, number>, repairs: Record<string, number> }) => {
+  const calculateProposal = (lead: any, overrides?: { rules: Record<string, number>, repairs: Record<string, number> }, entryValue: number = 0) => {
     const currentOverrides = overrides || proposalOverrides;
     let baseValue = lead.valor_fipe || 0;
     const deductions: { name: string; value: number; type: 'fixed' | 'percent' }[] = [];
