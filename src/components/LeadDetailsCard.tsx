@@ -11,11 +11,16 @@ interface LeadDetailsCardProps {
 }
 
 export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRefresh, fipeRules }: LeadDetailsCardProps) {
-  console.log('Lead recebido no LeadDetailsCard (JSON completo):', JSON.stringify(lead, null, 2));
   const [currentLead, setCurrentLead] = useState(lead || {});
 
   React.useEffect(() => {
-    setCurrentLead(lead);
+    if (lead) {
+      console.log('--- MAPEAMENTO DE CAMPOS ---');
+      console.log('Chaves disponíveis no banco:', Object.keys(lead));
+      console.log('Objeto Lead completo:', lead);
+      console.log('----------------------------');
+      setCurrentLead(lead);
+    }
   }, [lead]);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showForm, setShowForm] = useState(false);
@@ -167,6 +172,13 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                       { label: 'Ano Modelo', key: 'ano_modelo' },
                       { label: 'Cor', key: 'cor' },
                       { label: 'Quilometragem (km)', key: 'quilometragem', type: 'number' },
+                      { label: 'Valor Desejado', key: 'desired_value', type: 'number' },
+                      { label: 'Valor Entrada', key: 'entrada', type: 'number' },
+                      { label: 'Banco Financiador', key: 'banco_financiamento' },
+                      { label: 'Total Parcelas', key: 'total_parcelas', type: 'number' },
+                      { label: 'Parcelas Pagas', key: 'parcelas_pagas', type: 'number' },
+                      { label: 'Parcelas Atrasadas', key: 'parcelas_atrasadas', type: 'number' },
+                      { label: 'Valor Parcela', key: 'valor_parcela', type: 'number' },
                       { label: 'Ar Condicionado', key: 'ar_condicionado', type: 'select' },
                       { label: 'Direção Hidráulica', key: 'direcao_hidraulica', type: 'select' },
                       { label: 'Vidros Elétricos', key: 'vidros_eletricos', type: 'select' },
@@ -182,15 +194,8 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                       { label: 'Chave Reserva', key: 'chave_reserva', type: 'select' },
                       { label: 'Revisões em dia', key: 'revisoes_dia', type: 'select' },
                       { label: 'Estado Pneus', key: 'estado_pneus', type: 'select' },
-                      { label: 'Valor Desejado', key: 'valor_desejado', type: 'number' },
                       { label: 'Financiado', key: 'financiado', type: 'select' },
                       { label: 'Renajud', key: 'renajud', type: 'select' },
-                      { label: 'Banco Financiador', key: 'banco_financiamento' },
-                      { label: 'Total Parcelas', key: 'total_parcelas', type: 'number' },
-                      { label: 'Parcelas Pagas', key: 'parcelas_pagas', type: 'number' },
-                      { label: 'Parcelas Atrasadas', key: 'parcelas_atrasadas', type: 'number' },
-                      { label: 'Valor Parcela', key: 'valor_parcela', type: 'number' },
-                      { label: 'Valor Entrada', key: 'valor_entrada', type: 'number' },
                       { label: 'Juros Atraso (%)', key: 'juros_atraso', type: 'number' },
                       { label: 'Cidade / Estado', key: 'cidade_estado' },
                     ].map(field => (
