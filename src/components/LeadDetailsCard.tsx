@@ -33,14 +33,14 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     let maxDiscountPct = 0;
     
     // 1. Descontos (Regras dinâmicas do banco)
+    const discounts: { name: string, pct: number, value: number }[] = [];
     const problemas = Array.isArray(currentLead.problemas) ? currentLead.problemas : (currentLead.problemas ? [currentLead.problemas] : []);
     problemas.forEach((p: string) => {
       const rule = fipeRules.find(r => r.condition_name.toLowerCase() === p.toLowerCase());
       if (rule) {
         const pct = parseFloat(rule.discount_percentage) / 100;
-        if (pct > maxDiscountPct) maxDiscountPct = pct;
+        discounts.push({ name: rule.condition_name, pct, value: fipe * pct });
       } else {
-        // Fallback para regras fixas se não encontrar no banco
         const pKey = p.toLowerCase().replace(/ /g, '_');
         const fallbackRules: Record<string, number> = { 
           cooperativa: 0.90,
@@ -52,21 +52,23 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
           nome_juridico: 0.70
         };
         const pct = fallbackRules[pKey] || 0;
-        if (pct > maxDiscountPct) maxDiscountPct = pct;
+        if (pct > 0) discounts.push({ name: p, pct, value: fipe * pct });
       }
     });
 
     // Verifica campos específicos de financiamento/cooperativa
     if (currentLead.financiado === 'sim') {
-      if (maxDiscountPct < 0.50) maxDiscountPct = 0.50;
+      const pct = 0.50;
+      discounts.push({ name: 'Financiado', pct, value: fipe * pct });
     }
     if (currentLead.banco_financiamento?.toLowerCase().includes('coop') || 
         currentLead.banco_financiamento?.toLowerCase().includes('sicredi') || 
         currentLead.banco_financiamento?.toLowerCase().includes('sicoob')) {
-      maxDiscountPct = 0.90;
+      const pct = 0.90;
+      discounts.push({ name: 'Cooperativa', pct, value: fipe * pct });
     }
     
-    const discountValue = fipe * maxDiscountPct;
+    const discountValue = discounts.reduce((acc, d) => acc + d.value, 0);
 
     // 2. Custos Fixos e Avarias
     const fixedCosts = 
@@ -91,7 +93,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     const finalProposal = fipe - discountValue - fixedCosts - payoff;
     const profit = fipe - finalProposal; // Lucro = FIPE - Proposta Final (que já inclui descontos, custos e quitação)
 
-    return { fipe, discountValue, fixedCosts, payoff, finalProposal, profit };
+    return { fipe, discountValue, discounts, fixedCosts, payoff, finalProposal, profit };
   };
 
   const calc = calculateProposal();
@@ -144,92 +146,14 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                 </div>
               )}
 
-              {/* Formulário Fiel (Acordeão) */}
-              <div className="bg-white border border-slate-200 p-6 rounded-[32px] shadow-sm space-y-4">
-                <button 
-                  onClick={() => setShowForm(!showForm)} 
-                  className="w-full flex justify-between items-center font-bold text-slate-900 uppercase text-xs tracking-widest"
-                >
-                  <span>Formulário Completo de Avaliação</span>
-                  <span>{showForm ? '▲' : '▼'}</span>
-                </button>
-                
-                {showForm && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4 pt-4 border-t border-slate-100">
-                    {[
-                      { label: 'Data Negociação', key: 'data_negociacao', type: 'date' },
-                      { label: 'Cliente Nome', key: 'cliente_nome' },
-                      { label: 'Telefone', key: 'telefone' },
-                      { label: 'Email', key: 'email' },
-                      { label: 'CPF', key: 'cpf' },
-                      { label: 'Placa', key: 'placa' },
-                      { label: 'Renavam', key: 'renavam' },
-                      { label: 'Chassi', key: 'chassi' },
-                      { label: 'Marca', key: 'marca' },
-                      { label: 'Modelo', key: 'modelo' },
-                      { label: 'Ano Fabricação', key: 'ano_fabricacao' },
-                      { label: 'Ano Modelo', key: 'ano_modelo' },
-                      { label: 'Cor', key: 'cor' },
-                      { label: 'Quilometragem (km)', key: 'quilometragem', type: 'number' },
-                      { label: 'Valor Desejado', key: 'desired_value', type: 'number' },
-                      { label: 'Valor Entrada', key: 'entrada', type: 'number' },
-                      { label: 'Banco Financiador', key: 'banco_financiamento' },
-                      { label: 'Total Parcelas', key: 'total_parcelas', type: 'number' },
-                      { label: 'Parcelas Pagas', key: 'parcelas_pagas', type: 'number' },
-                      { label: 'Parcelas Atrasadas', key: 'parcelas_atrasadas', type: 'number' },
-                      { label: 'Valor Parcela', key: 'valor_parcela', type: 'number' },
-                      { label: 'Ar Condicionado', key: 'ar_condicionado', type: 'select' },
-                      { label: 'Direção Hidráulica', key: 'direcao_hidraulica', type: 'select' },
-                      { label: 'Vidros Elétricos', key: 'vidros_eletricos', type: 'select' },
-                      { label: 'Travas Elétricas', key: 'travas_eletricas', type: 'select' },
-                      { label: 'Alarme', key: 'alarme', type: 'select' },
-                      { label: 'Som / Multimídia', key: 'som_multimidia', type: 'select' },
-                      { label: 'Bancos de Couro', key: 'bancos_couro', type: 'select' },
-                      { label: 'Rodas de Liga Leve', key: 'rodas_liga_leve', type: 'select' },
-                      { label: 'Sensor de Ré', key: 'sensor_re', type: 'select' },
-                      { label: 'Câmera de Ré', key: 'camera_re', type: 'select' },
-                      { label: 'Teto Solar', key: 'teto_solar', type: 'select' },
-                      { label: 'Airbag', key: 'airbag', type: 'select' },
-                      { label: 'Chave Reserva', key: 'chave_reserva', type: 'select' },
-                      { label: 'Revisões em dia', key: 'revisoes_dia', type: 'select' },
-                      { label: 'Estado Pneus', key: 'estado_pneus', type: 'select' },
-                      { label: 'Financiado', key: 'financiado', type: 'select' },
-                      { label: 'Renajud', key: 'renajud', type: 'select' },
-                      { label: 'Juros Atraso (%)', key: 'juros_atraso', type: 'number' },
-                      { label: 'Cidade / Estado', key: 'cidade_estado' },
-                    ].map(field => (
-                      <div key={field.key} className="space-y-1">
-                        <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{field.label}</label>
-                        {field.type === 'select' ? (
-                          <select
-                            className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all"
-                            value={currentLead[field.key] || ''}
-                            onChange={e => handleFieldChange(field.key, e.target.value)}
-                          >
-                            <option value="">Selecione...</option>
-                            <option value="sim">Sim</option>
-                            <option value="nao">Não</option>
-                            {field.key === 'estado_pneus' && (
-                              <>
-                                <option value="novos">Novos</option>
-                                <option value="bom">Bom</option>
-                                <option value="regular">Regular</option>
-                              </>
-                            )}
-                          </select>
-                        ) : (
-                          <input 
-                            type={field.type || 'text'}
-                            className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all" 
-                            value={currentLead[field.key] || ''} 
-                            placeholder="Sem preenchimento"
-                            onChange={e => handleFieldChange(field.key, e.target.value)} 
-                          />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
+              {/* Benefícios */}
+              <div className="bg-white border border-slate-200 p-6 rounded-[32px] shadow-sm">
+                <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest mb-4">Benefícios do Veículo</h3>
+                <div className="flex flex-wrap gap-2">
+                  {['ar_condicionado', 'direcao_hidraulica', 'bancos_couro', 'vidros_eletricos', 'travas_eletricas', 'alarme', 'som_multimidia', 'rodas_liga_leve', 'sensor_re', 'camera_re', 'teto_solar', 'airbag', 'chave_reserva', 'revisoes_dia'].map(key => currentLead[key] === 'sim' && (
+                    <span key={key} className="px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-bold capitalize">{key.replace('_', ' ')}</span>
+                  ))}
+                </div>
               </div>
 
               {/* Detalhamento da Proposta */}
@@ -237,8 +161,30 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                 <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest border-b border-slate-200 pb-4">Detalhamento da Proposta</h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between"><span>Tabela FIPE</span><span className="font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fipe)}</span></div>
-                  <div className="flex justify-between text-red-500"><span>Descontos Aplicados</span><span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.discountValue)}</span></div>
-                  <div className="flex justify-between text-red-500"><span>Custos Fixos/Avarias</span><span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fixedCosts)}</span></div>
+                  <div className="flex justify-between text-red-500 group cursor-pointer relative">
+                    <span>Descontos Aplicados</span>
+                    <span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.discountValue)}</span>
+                    <div className="absolute right-0 top-full bg-white border border-slate-200 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
+                      {calc.discounts.map((d, i) => (
+                        <div key={i} className="flex justify-between text-xs text-slate-600 mb-1">
+                          <span>{d.name} ({Math.round(d.pct * 100)}%)</span>
+                          <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex justify-between text-red-500 group cursor-pointer relative">
+                    <span>Custos Fixos/Avarias</span>
+                    <span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fixedCosts)}</span>
+                    <div className="absolute right-0 top-full bg-white border border-slate-200 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
+                      {['multas', 'valor_licenciamento', 'motor_reparo', 'cambio_reparo', 'batido_reparo', 'valor_pneus', 'valor_documento'].map(key => currentLead[key] > 0 && (
+                        <div key={key} className="flex justify-between text-xs text-slate-600 mb-1">
+                          <span className="capitalize">{key.replace('_', ' ')}</span>
+                          <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(currentLead[key])}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                   <div className="flex justify-between text-red-500"><span>Quitação Estimada</span><span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}</span></div>
                   <div className="pt-4 border-t border-slate-200 flex justify-between font-bold text-lg"><span>Proposta Final</span><span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalProposal)}</span></div>
                   <div className="flex justify-between text-emerald-600 font-medium"><span>Margem de Lucro (15%)</span><span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.profit)}</span></div>
@@ -278,7 +224,16 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                 <h3 className="font-bold uppercase text-xs tracking-widest text-white/60 border-b border-white/10 pb-4">Análise Financeira</h3>
                 <div className="space-y-4 text-sm">
                   <div className="flex justify-between"><span className="text-white/60">FIPE</span><span className="font-mono">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fipe)}</span></div>
-                  <div className="flex justify-between text-red-400"><span className="text-white/60">Descontos</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.discountValue)}</span></div>
+                  <div className="flex justify-between text-red-400 group cursor-pointer relative"><span className="text-white/60">Descontos</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.discountValue)}</span>
+                    <div className="absolute right-0 top-full bg-slate-800 border border-white/10 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
+                      {calc.discounts.map((d, i) => (
+                        <div key={i} className="flex justify-between text-xs text-white/60 mb-1">
+                          <span>{d.name} ({Math.round(d.pct * 100)}%)</span>
+                          <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                   <div className="flex justify-between text-red-400"><span className="text-white/60">Custos Fixos/Avarias</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fixedCosts)}</span></div>
                   <div className="flex justify-between text-red-400"><span className="text-white/60">Quitação</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}</span></div>
                   <div className="pt-6 border-t border-white/10 flex justify-between items-center">

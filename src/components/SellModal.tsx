@@ -47,6 +47,12 @@ export default function SellModal() {
     has_chave: false,
     has_revisoes: false,
     estado_pneus: 'bom',
+    hist_procedencia: '',
+    sinistro: '',
+    recup_banco: '',
+    leilao: '',
+    furto_roubo: '',
+    busca_apreensao: '',
     fipe_price: 0,
     desired_price: '',
     entrada: '',
@@ -116,6 +122,10 @@ export default function SellModal() {
         cpf: formData.cpf,
         chassi: formData.chassi,
         ano_fabricacao: formData.year,
+        multas: parseFloat(formData.multas) || 0,
+        motor_reparo: parseFloat(formData.motor_reparo) || 0,
+        cambio_reparo: parseFloat(formData.cambio_reparo) || 0,
+        batido_reparo: parseFloat(formData.batido_reparo) || 0,
         ar_condicionado: formData.has_ac ? 'sim' : 'nao',
         direcao_hidraulica: formData.has_steering ? 'sim' : 'nao',
         bancos_couro: formData.has_leather ? 'sim' : 'nao',
@@ -131,6 +141,14 @@ export default function SellModal() {
         chave_reserva: formData.has_chave ? 'sim' : 'nao',
         revisoes_dia: formData.has_revisoes ? 'sim' : 'nao',
         estado_pneus: formData.estado_pneus,
+        hist_procedencia: formData.hist_procedencia,
+        sinistro: formData.sinistro,
+        recup_banco: formData.recup_banco,
+        leilao: formData.leilao,
+        furto_roubo: formData.furto_roubo,
+        busca_apreensao: formData.busca_apreensao,
+        data_negociacao: new Date().toISOString(),
+        juros_atraso: 2,
       }]);
 
       if (error) throw error;
@@ -357,19 +375,47 @@ export default function SellModal() {
                         </div>
                       </div>
                       <div className="space-y-1">
-                        <label className="text-xs font-bold text-slate-400 uppercase ml-1">Situação do Veículo</label>
-                        <select 
-                          className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
-                          value={formData.situation}
-                          onChange={e => setFormData({...formData, situation: e.target.value})}
-                        >
-                          <option value="normal">Normal (Sem dívidas ou problemas)</option>
-                          <option value="debt">Financiamento Atrasado</option>
-                          <option value="renajud">RENAJUD / Bloqueio Judicial</option>
-                          <option value="busca_apreensao">Busca e Apreensão</option>
-                          <option value="engine_blown">Motor Estourado / Problema Mecânico</option>
-                          <option value="maintenance_needed">Manutenção Pendente</option>
-                          <option value="future_payoff">Futura Quitação</option>
+                        <label className="text-xs font-bold text-slate-400 uppercase ml-1">Histórico de Procedência</label>
+                        <select className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" value={formData.hist_procedencia} onChange={e => setFormData({...formData, hist_procedencia: e.target.value})}>
+                          <option value="">Selecione...</option>
+                          <option value="unico_dono">Único Dono</option>
+                          <option value="segundo_dono">Segundo Dono</option>
+                          <option value="terceiro_dono">Terceiro Dono ou mais</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400 uppercase ml-1">Sinistro</label>
+                        <select className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" value={formData.sinistro} onChange={e => setFormData({...formData, sinistro: e.target.value})}>
+                          <option value="nao">Não</option>
+                          <option value="sim">Sim</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400 uppercase ml-1">Recuperação de Banco</label>
+                        <select className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" value={formData.recup_banco} onChange={e => setFormData({...formData, recup_banco: e.target.value})}>
+                          <option value="nao">Não</option>
+                          <option value="sim">Sim</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400 uppercase ml-1">Passagem por Leilão</label>
+                        <select className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" value={formData.leilao} onChange={e => setFormData({...formData, leilao: e.target.value})}>
+                          <option value="nao">Não</option>
+                          <option value="sim">Sim</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400 uppercase ml-1">Histórico de Furto ou Roubo</label>
+                        <select className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" value={formData.furto_roubo} onChange={e => setFormData({...formData, furto_roubo: e.target.value})}>
+                          <option value="nao">Não</option>
+                          <option value="sim">Sim</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400 uppercase ml-1">Busca e Apreensão</label>
+                        <select className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" value={formData.busca_apreensao} onChange={e => setFormData({...formData, busca_apreensao: e.target.value})}>
+                          <option value="nao">Não</option>
+                          <option value="sim">Sim</option>
                         </select>
                       </div>
                       {formData.situation !== 'normal' && (
