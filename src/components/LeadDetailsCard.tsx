@@ -77,7 +77,11 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
 
     // 3. Quitação
     const remaining = (parseInt(currentLead.total_parcelas) || 0) - (parseInt(currentLead.parcelas_pagas) || 0);
-    const payoff = (parseFloat(currentLead.valor_parcela) || 0) * remaining * (1 + (0.02 * remaining));
+    const jurosAtraso = (parseFloat(currentLead.juros_atraso) || 0) / 100;
+    const atrasadas = (parseInt(currentLead.parcelas_atrasadas) || 0);
+    const valorParcela = (parseFloat(currentLead.valor_parcela) || 0);
+    
+    const payoff = (valorParcela * remaining * (1 + (0.02 * remaining))) + (atrasadas * valorParcela * jurosAtraso);
 
     // 4. Proposta Final
     const finalProposal = fipe - discountValue - fixedCosts - payoff;
@@ -121,6 +125,21 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             {/* Coluna Esquerda: Formulário Fiel */}
             <div className="lg:col-span-12 space-y-6">
+              {/* Carrossel de Mídia */}
+              {currentLead.midias && currentLead.midias.length > 0 && (
+                <div className="bg-slate-900 p-4 rounded-[32px] relative">
+                  <div className="aspect-video bg-black rounded-2xl overflow-hidden flex items-center justify-center">
+                    {currentLead.midias[currentPhotoIndex].type === 'video' ? (
+                      <video src={currentLead.midias[currentPhotoIndex].url} controls className="w-full h-full object-contain" />
+                    ) : (
+                      <img src={currentLead.midias[currentPhotoIndex].url} alt="Mídia" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                    )}
+                  </div>
+                  <button onClick={() => setCurrentPhotoIndex((prev) => (prev === 0 ? currentLead.midias.length - 1 : prev - 1))} className="absolute left-6 top-1/2 -translate-y-1/2 p-2 bg-white/20 hover:bg-white/40 rounded-full text-white"><ChevronLeft /></button>
+                  <button onClick={() => setCurrentPhotoIndex((prev) => (prev === currentLead.midias.length - 1 ? 0 : prev + 1))} className="absolute right-6 top-1/2 -translate-y-1/2 p-2 bg-white/20 hover:bg-white/40 rounded-full text-white"><ChevronRight /></button>
+                </div>
+              )}
+
               <div className="bg-slate-50 p-8 rounded-[32px] space-y-6">
                 <div className="flex justify-between items-center border-b border-slate-200 pb-4">
                   <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest">Formulário de Avaliação</h3>
@@ -169,6 +188,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                       { label: 'Parcelas Atrasadas', key: 'parcelas_atrasadas', type: 'number' },
                       { label: 'Valor Parcela', key: 'valor_parcela', type: 'number' },
                       { label: 'Valor Entrada', key: 'valor_entrada', type: 'number' },
+                      { label: 'Juros Atraso (%)', key: 'juros_atraso', type: 'number' },
                       { label: 'Cidade / Estado', key: 'cidade_estado' },
                     ].map(field => (
                       <div key={field.key} className="space-y-1">
