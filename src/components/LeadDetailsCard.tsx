@@ -81,7 +81,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
 
     // 4. Proposta Final
     const finalProposal = fipe - discountValue - fixedCosts - payoff;
-    const profit = fipe * 0.15;
+    const profit = fipe - finalProposal; // Lucro = FIPE - Proposta Final (que já inclui descontos, custos e quitação)
 
     return { fipe, discountValue, fixedCosts, payoff, finalProposal, profit };
   };
@@ -122,7 +122,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                 <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest border-b border-slate-200 pb-4">Dados do Veículo</h3>
                 <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                   {[
-                    { label: 'Data Negociação', key: 'data_negociacao' },
+                    { label: 'Data Negociação', key: 'data_negociacao', type: 'date' },
                     { label: 'Cliente Nome', key: 'cliente_nome' },
                     { label: 'Telefone', key: 'telefone' },
                     { label: 'Email', key: 'email' },
@@ -134,21 +134,59 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                     { label: 'Modelo', key: 'modelo' },
                     { label: 'Ano Fabricação', key: 'ano_fabricacao' },
                     { label: 'Ano Modelo', key: 'ano_modelo' },
-                    { label: 'Financiado', key: 'financiado' },
-                    { label: 'Renajud', key: 'renajud' },
+                    { label: 'Ar Condicionado', key: 'ar_condicionado', type: 'select' },
+                    { label: 'Direção Hidráulica', key: 'direcao_hidraulica', type: 'select' },
+                    { label: 'Vidros Elétricos', key: 'vidros_eletricos', type: 'select' },
+                    { label: 'Travas Elétricas', key: 'travas_eletricas', type: 'select' },
+                    { label: 'Alarme', key: 'alarme', type: 'select' },
+                    { label: 'Som / Multimídia', key: 'som_multimidia', type: 'select' },
+                    { label: 'Bancos de Couro', key: 'bancos_couro', type: 'select' },
+                    { label: 'Rodas de Liga Leve', key: 'rodas_liga_leve', type: 'select' },
+                    { label: 'Sensor de Ré', key: 'sensor_re', type: 'select' },
+                    { label: 'Câmera de Ré', key: 'camera_re', type: 'select' },
+                    { label: 'Teto Solar', key: 'teto_solar', type: 'select' },
+                    { label: 'Airbag', key: 'airbag', type: 'select' },
+                    { label: 'Chave Reserva', key: 'chave_reserva', type: 'select' },
+                    { label: 'Revisões em dia', key: 'revisoes_dia', type: 'select' },
+                    { label: 'Estado Pneus', key: 'estado_pneus', type: 'select' },
+                    { label: 'Valor Desejado', key: 'valor_desejado', type: 'number' },
+                    { label: 'Financiado', key: 'financiado', type: 'select' },
+                    { label: 'Renajud', key: 'renajud', type: 'select' },
                     { label: 'Banco', key: 'banco_financiamento' },
                     { label: 'Total Parcelas', key: 'total_parcelas', type: 'number' },
                     { label: 'Parcelas Pagas', key: 'parcelas_pagas', type: 'number' },
+                    { label: 'Parcelas Atrasadas', key: 'parcelas_atrasadas', type: 'number' },
                     { label: 'Valor Parcela', key: 'valor_parcela', type: 'number' },
+                    { label: 'Valor Entrada', key: 'valor_entrada', type: 'number' },
                   ].map(field => (
                     <div key={field.key} className="space-y-1">
                       <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{field.label}</label>
-                      <input 
-                        type={field.type || 'text'}
-                        className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all" 
-                        value={currentLead[field.key] || ''} 
-                        onChange={e => handleFieldChange(field.key, e.target.value)} 
-                      />
+                      {field.type === 'select' ? (
+                        <select
+                          className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all"
+                          value={currentLead[field.key] || ''}
+                          onChange={e => handleFieldChange(field.key, e.target.value)}
+                        >
+                          <option value="">Selecione...</option>
+                          <option value="sim">Sim</option>
+                          <option value="nao">Não</option>
+                          {field.key === 'estado_pneus' && (
+                            <>
+                              <option value="novos">Novos</option>
+                              <option value="bom">Bom</option>
+                              <option value="regular">Regular</option>
+                            </>
+                          )}
+                        </select>
+                      ) : (
+                        <input 
+                          type={field.type || 'text'}
+                          className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all" 
+                          value={currentLead[field.key] || 'Sem preenchimento'} 
+                          onChange={e => handleFieldChange(field.key, e.target.value)} 
+                          onFocus={(e) => e.target.value === 'Sem preenchimento' && handleFieldChange(field.key, '')}
+                        />
+                      )}
                     </div>
                   ))}
                 </div>
