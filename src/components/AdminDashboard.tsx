@@ -6,6 +6,7 @@ import ChatThemeSettings from './ChatThemeSettings';
 import { useAssets } from '../lib/assetsContext';
 import { supabase } from '../lib/supabase';
 import { defaultCards } from '../lib/seedData';
+import { ProposalModal } from './ProposalModal';
 
 export default function AdminDashboard() {
   const [leads, setLeads] = useState<any[]>([]);
