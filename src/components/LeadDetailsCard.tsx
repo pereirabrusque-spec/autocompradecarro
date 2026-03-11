@@ -73,11 +73,10 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     // 2. Custos Fixos e Avarias
     const fixedCosts = 
       (parseFloat(currentLead.multas) || 0) +
-      (parseFloat(currentLead.valor_licenciamento) || 0) +
+      (parseFloat(currentLead.valor_ipva) || 0) +
       (parseFloat(currentLead.motor_reparo) || 0) + 
       (parseFloat(currentLead.cambio_reparo) || 0) + 
       (parseFloat(currentLead.batido_reparo) || 0) +
-      (parseFloat(currentLead.valor_pneus) || 0) +
       (parseFloat(currentLead.valor_documento) || 0) +
       ((currentLead.avarias || []).reduce((acc: number, av: any) => acc + (parseFloat(av.valor) || 0), 0));
 
@@ -85,24 +84,27 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     const totalParcelas = (parseInt(currentLead.total_parcelas) || 0);
     const parcelasPagas = (parseInt(currentLead.parcelas_pagas) || 0);
     const remaining = Math.max(0, totalParcelas - parcelasPagas);
-    const jurosAtrasoPct = (parseFloat(currentLead.juros_atraso) || 2) / 100;
-    const atrasadas = (parseInt(currentLead.parcelas_atrasadas) || 0);
     const valorParcela = (parseFloat(currentLead.valor_parcela) || 0);
+    const atrasadas = (parseInt(currentLead.parcelas_atrasadas) || 0);
+    const jurosAtrasoPct = (parseFloat(currentLead.juros_atraso) || 2) / 100;
     
     // JUROS: O usuário quer ver: valor da parcela, quantidade, juros aplicados
     const jurosParcelas = valorParcela * remaining * 0.02; // Exemplo: 2% sobre o total restante
+    const valorAtrasadas = atrasadas * valorParcela * (1 + jurosAtrasoPct); 
     
     const payoffBreakdown = {
         qtdParcelas: remaining,
         valorParcela: valorParcela,
         jurosParcelas: jurosParcelas,
-        atrasadas: atrasadas * valorParcela * jurosAtrasoPct
+        atrasadas: valorAtrasadas
     };
-    const payoff = (valorParcela * remaining) + jurosParcelas + payoffBreakdown.atrasadas;
+    const payoff = (valorParcela * remaining) + jurosParcelas + valorAtrasadas;
 
     // 4. Proposta Final
     const finalProposal = fipe - discountValue - fixedCosts - payoff;
-    const profit = fipe - finalProposal; // Lucro = FIPE - Proposta Final (que já inclui descontos, custos e quitação)
+    // Lucro = FIPE - (Todos os custos)
+    // Se finalProposal for negativo, o lucro é 0 (prejuízo)
+    const profit = Math.max(0, finalProposal); 
 
     return { fipe, discountValue, discounts, fixedCosts, payoff, payoffBreakdown, finalProposal, profit };
   };
@@ -260,12 +262,10 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                 <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                   {[
                     { label: 'Multas', key: 'multas' },
-                    { label: 'IPVA', key: 'valor_ipva' },
-                    { label: 'Licenciamento', key: 'valor_licenciamento' },
+                    { label: 'IPVA/Multa', key: 'valor_ipva' },
                     { label: 'Valor Motor', key: 'motor_reparo' },
                     { label: 'Valor Câmbio', key: 'cambio_reparo' },
                     { label: 'Valor Batido', key: 'batido_reparo' },
-                    { label: 'Valor Pneus', key: 'valor_pneus' },
                   ].map(field => (
                     <div key={field.key} className="space-y-1">
                       <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{field.label}</label>
