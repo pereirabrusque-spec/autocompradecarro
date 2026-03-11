@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GoogleGenAI } from "@google/genai";
-import { Car, Phone, Calendar, DollarSign, AlertCircle, AlertTriangle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw, Pencil, Users, Share2, MessageCircle, ChevronRight, ChevronLeft, Search, Filter, ShieldCheck, Wrench, Wallet, User, UserPlus, Mail, Bell, BellOff, Send, UserCheck, LayoutDashboard, Download, TrendingUp, BarChart3, PieChart, Info, X, Settings } from 'lucide-react';
+import { Car, Phone, Calendar, DollarSign, AlertCircle, AlertTriangle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw, Pencil, Users, Share2, MessageCircle, ChevronRight, ChevronLeft, Search, Filter, ShieldCheck, Wrench, Wallet, User, UserPlus, Mail, Bell, BellOff, Send, UserCheck, LayoutDashboard, Download, TrendingUp, BarChart3, PieChart, Info, X, Settings, Maximize2 } from 'lucide-react';
 import ChatThemeSettings from './ChatThemeSettings';
 import { useAssets } from '../lib/assetsContext';
 import { supabase } from '../lib/supabase';
@@ -140,6 +140,7 @@ export default function AdminDashboard() {
   const [proposalOverrides, setProposalOverrides] = useState<{ rules: Record<string, number>, repairs: Record<string, number> }>({ rules: {}, repairs: {} });
 
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null);
   const [avarias, setAvarias] = useState<{id: string, description: string, value: number}[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [filterUser, setFilterUser] = useState('');
@@ -2183,7 +2184,11 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         {/* Coluna Esquerda: Fotos e Dados */}
                         <div className="lg:col-span-5 space-y-6">
                           {/* Carrossel de Fotos */}
-                          <div className="relative aspect-video rounded-2xl overflow-hidden bg-slate-100 group">
+                          <div className="relative aspect-[4/3] rounded-2xl overflow-hidden bg-slate-100 group cursor-pointer" onClick={() => {
+                            if (selectedLead.fotos && selectedLead.fotos.length > 0) {
+                              setExpandedPhoto(selectedLead.fotos[currentPhotoIndex]);
+                            }
+                          }}>
                             {selectedLead.fotos && selectedLead.fotos.length > 0 ? (
                               <>
                                 <img 
@@ -2191,16 +2196,19 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                   alt="Veículo" 
                                   className="w-full h-full object-cover"
                                 />
+                                <div className="absolute top-2 right-2 p-2 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Maximize2 className="w-4 h-4" />
+                                </div>
                                 {selectedLead.fotos.length > 1 && (
                                   <>
                                     <button 
-                                      onClick={() => setCurrentPhotoIndex(prev => (prev === 0 ? selectedLead.fotos.length - 1 : prev - 1))}
+                                      onClick={(e) => { e.stopPropagation(); setCurrentPhotoIndex(prev => (prev === 0 ? selectedLead.fotos.length - 1 : prev - 1)); }}
                                       className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-white/80 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                                     >
                                       <ChevronLeft className="w-5 h-5" />
                                     </button>
                                     <button 
-                                      onClick={() => setCurrentPhotoIndex(prev => (prev === selectedLead.fotos.length - 1 ? 0 : prev + 1))}
+                                      onClick={(e) => { e.stopPropagation(); setCurrentPhotoIndex(prev => (prev === selectedLead.fotos.length - 1 ? 0 : prev + 1)); }}
                                       className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-white/80 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                                     >
                                       <ChevronRight className="w-5 h-5" />
@@ -2503,29 +2511,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                   <p className="text-xs font-medium text-slate-700 mt-1 bg-white p-2 rounded border border-slate-200">
                                     {selectedLead.observacoes}
                                   </p>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                              
-                              {/* Display Accessories parsed from observacoes */}
-                              {selectedLead.observacoes && selectedLead.observacoes.includes('Acessórios:') && (
-                                <div>
-                                  <p className="text-slate-400 font-bold uppercase text-[10px]">Acessórios (Formulário)</p>
-                                  <div className="flex flex-wrap gap-1 mt-1">
-                                    {selectedLead.observacoes.match(/Acessórios: (.*?)(\.|$)/)?.[1]?.split(', ').filter(Boolean).map((item: string, i: number) => (
-                                      <span key={i} className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded text-[10px] font-bold uppercase">
-                                        {item}
-                                      </span>
-                                    )) || <span className="text-xs text-slate-400">Nenhum acessório identificado.</span>}
-                                  </div>
-                                </div>
-                              )}
-
-                              {selectedLead.observacoes && (
-                                <div>
-                                  <p className="text-slate-400 font-bold uppercase text-[10px]">Observações do Cliente</p>
-                                  <p className="text-xs bg-white p-2 rounded-lg border border-slate-200 mt-1">{selectedLead.observacoes}</p>
                                 </div>
                               )}
                             </div>
@@ -2874,6 +2859,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         </div>
                       </div>
                     </div>
+                  </div>
+                  </div>
                   </div>
                 )}
                 <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm relative overflow-hidden">
@@ -5320,6 +5307,25 @@ Podemos prosseguir com o agendamento da vistoria?`;
           </div>
         )}
         {/* Modal de Autorização */}
+        {expandedPhoto && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setExpandedPhoto(null)}>
+            <div className="relative w-full max-w-5xl max-h-[90vh] flex items-center justify-center">
+              <img 
+                src={expandedPhoto} 
+                alt="Veículo Ampliado" 
+                className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                onClick={(e) => e.stopPropagation()}
+              />
+              <button 
+                onClick={() => setExpandedPhoto(null)}
+                className="absolute top-4 right-4 p-2 bg-black/50 text-white rounded-full hover:bg-black/80 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {showAuthModal && buyerToAuth && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
             <div className="bg-white rounded-[32px] w-full max-w-2xl p-8 shadow-2xl">
