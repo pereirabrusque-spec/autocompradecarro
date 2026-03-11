@@ -11,10 +11,11 @@ interface LeadDetailsCardProps {
 }
 
 export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRefresh, fipeRules }: LeadDetailsCardProps) {
+  const [currentLead, setCurrentLead] = useState(lead || {});
+  
   console.log('Lead recebido no LeadDetailsCard:', lead);
-  console.log('Chaves do lead:', Object.keys(lead));
+  console.log('Chaves do lead:', lead ? Object.keys(lead) : 'Lead nulo');
   console.log('Estado atual do lead (currentLead):', currentLead);
-  const [currentLead, setCurrentLead] = useState(lead);
 
   React.useEffect(() => {
     setCurrentLead(lead);
@@ -142,15 +143,18 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                 </div>
               )}
 
-              <div className="bg-slate-50 p-8 rounded-[32px] space-y-6">
-                <div className="flex justify-between items-center border-b border-slate-200 pb-4">
-                  <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest">Formulário de Avaliação</h3>
-                  <button onClick={() => setShowForm(!showForm)} className="text-xs font-bold text-accent hover:underline">
-                    {showForm ? 'Ocultar Formulário' : 'Ver Formulário'}
-                  </button>
-                </div>
+              {/* Formulário Fiel (Acordeão) */}
+              <div className="bg-white border border-slate-200 p-6 rounded-[32px] shadow-sm space-y-4">
+                <button 
+                  onClick={() => setShowForm(!showForm)} 
+                  className="w-full flex justify-between items-center font-bold text-slate-900 uppercase text-xs tracking-widest"
+                >
+                  <span>Formulário Completo de Avaliação</span>
+                  <span>{showForm ? '▲' : '▼'}</span>
+                </button>
+                
                 {showForm && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4 pt-4 border-t border-slate-100">
                     {[
                       { label: 'Data Negociação', key: 'data_negociacao', type: 'date' },
                       { label: 'Cliente Nome', key: 'cliente_nome' },
