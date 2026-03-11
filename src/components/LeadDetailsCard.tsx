@@ -11,7 +11,12 @@ interface LeadDetailsCardProps {
 }
 
 export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRefresh, fipeRules }: LeadDetailsCardProps) {
+  console.log('Lead recebido no LeadDetailsCard:', lead);
   const [currentLead, setCurrentLead] = useState(lead);
+
+  React.useEffect(() => {
+    setCurrentLead(lead);
+  }, [lead]);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showForm, setShowForm] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
@@ -139,6 +144,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                     <div key={field.key} className="space-y-1">
                       <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{field.label}</label>
                       <input 
+                        type={field.type || 'text'}
                         className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all" 
                         value={currentLead[field.key] || ''} 
                         onChange={e => handleFieldChange(field.key, e.target.value)} 
