@@ -97,7 +97,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                   { label: 'Placa', key: 'placa' },
                   { label: 'Valor FIPE', key: 'valor_fipe' },
                   { label: 'Valor Desejado', key: 'desired_value' },
-                  { label: 'IPVA/Multa', key: 'valor_ipva_multa' },
+                  { label: 'IPVA/Multa', key: 'valor_ipva_multa', type: 'number' },
                   { label: 'Total Parcelas', key: 'total_parcelas' },
                   { label: 'Parcelas Pagas', key: 'parcelas_pagas' },
                   { label: 'Parcelas Atrasadas', key: 'parcelas_atrasadas' },
@@ -107,7 +107,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                   <div key={field.key} className="space-y-1">
                     <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{field.label}</label>
                     <input 
-                      type="text"
+                      type={field.type || 'text'}
                       className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all" 
                       value={currentLead[field.key] || ''} 
                       onChange={e => handleFieldChange(field.key, e.target.value)} 
