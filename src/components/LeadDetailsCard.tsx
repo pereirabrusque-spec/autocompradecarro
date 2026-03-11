@@ -106,6 +106,9 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
             </div>
           </div>
           <div className="flex gap-2">
+            <button onClick={() => window.open(`https://wa.me/${currentLead.telefone?.replace(/\D/g, '')}`, '_blank')} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-full text-sm font-bold text-white flex items-center gap-2">
+              <MessageCircle className="w-4 h-4" /> WhatsApp
+            </button>
             <button onClick={onClose} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-full text-sm font-bold text-slate-700">
               Voltar para Lista
             </button>
@@ -119,77 +122,87 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
             {/* Coluna Esquerda: Formulário Fiel */}
             <div className="lg:col-span-7 space-y-6">
               <div className="bg-slate-50 p-8 rounded-[32px] space-y-6">
-                <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest border-b border-slate-200 pb-4">Dados do Veículo</h3>
-                <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-                  {[
-                    { label: 'Data Negociação', key: 'data_negociacao', type: 'date' },
-                    { label: 'Cliente Nome', key: 'cliente_nome' },
-                    { label: 'Telefone', key: 'telefone' },
-                    { label: 'Email', key: 'email' },
-                    { label: 'CPF', key: 'cpf' },
-                    { label: 'Placa', key: 'placa' },
-                    { label: 'Renavam', key: 'renavam' },
-                    { label: 'Chassi', key: 'chassi' },
-                    { label: 'Marca', key: 'marca' },
-                    { label: 'Modelo', key: 'modelo' },
-                    { label: 'Ano Fabricação', key: 'ano_fabricacao' },
-                    { label: 'Ano Modelo', key: 'ano_modelo' },
-                    { label: 'Ar Condicionado', key: 'ar_condicionado', type: 'select' },
-                    { label: 'Direção Hidráulica', key: 'direcao_hidraulica', type: 'select' },
-                    { label: 'Vidros Elétricos', key: 'vidros_eletricos', type: 'select' },
-                    { label: 'Travas Elétricas', key: 'travas_eletricas', type: 'select' },
-                    { label: 'Alarme', key: 'alarme', type: 'select' },
-                    { label: 'Som / Multimídia', key: 'som_multimidia', type: 'select' },
-                    { label: 'Bancos de Couro', key: 'bancos_couro', type: 'select' },
-                    { label: 'Rodas de Liga Leve', key: 'rodas_liga_leve', type: 'select' },
-                    { label: 'Sensor de Ré', key: 'sensor_re', type: 'select' },
-                    { label: 'Câmera de Ré', key: 'camera_re', type: 'select' },
-                    { label: 'Teto Solar', key: 'teto_solar', type: 'select' },
-                    { label: 'Airbag', key: 'airbag', type: 'select' },
-                    { label: 'Chave Reserva', key: 'chave_reserva', type: 'select' },
-                    { label: 'Revisões em dia', key: 'revisoes_dia', type: 'select' },
-                    { label: 'Estado Pneus', key: 'estado_pneus', type: 'select' },
-                    { label: 'Valor Desejado', key: 'valor_desejado', type: 'number' },
-                    { label: 'Financiado', key: 'financiado', type: 'select' },
-                    { label: 'Renajud', key: 'renajud', type: 'select' },
-                    { label: 'Banco', key: 'banco_financiamento' },
-                    { label: 'Total Parcelas', key: 'total_parcelas', type: 'number' },
-                    { label: 'Parcelas Pagas', key: 'parcelas_pagas', type: 'number' },
-                    { label: 'Parcelas Atrasadas', key: 'parcelas_atrasadas', type: 'number' },
-                    { label: 'Valor Parcela', key: 'valor_parcela', type: 'number' },
-                    { label: 'Valor Entrada', key: 'valor_entrada', type: 'number' },
-                  ].map(field => (
-                    <div key={field.key} className="space-y-1">
-                      <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{field.label}</label>
-                      {field.type === 'select' ? (
-                        <select
-                          className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all"
-                          value={currentLead[field.key] || ''}
-                          onChange={e => handleFieldChange(field.key, e.target.value)}
-                        >
-                          <option value="">Selecione...</option>
-                          <option value="sim">Sim</option>
-                          <option value="nao">Não</option>
-                          {field.key === 'estado_pneus' && (
-                            <>
-                              <option value="novos">Novos</option>
-                              <option value="bom">Bom</option>
-                              <option value="regular">Regular</option>
-                            </>
-                          )}
-                        </select>
-                      ) : (
-                        <input 
-                          type={field.type || 'text'}
-                          className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all" 
-                          value={currentLead[field.key] || 'Sem preenchimento'} 
-                          onChange={e => handleFieldChange(field.key, e.target.value)} 
-                          onFocus={(e) => e.target.value === 'Sem preenchimento' && handleFieldChange(field.key, '')}
-                        />
-                      )}
-                    </div>
-                  ))}
+                <div className="flex justify-between items-center border-b border-slate-200 pb-4">
+                  <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest">Formulário de Avaliação</h3>
+                  <button onClick={() => setShowForm(!showForm)} className="text-xs font-bold text-accent hover:underline">
+                    {showForm ? 'Ocultar Formulário' : 'Ver Formulário'}
+                  </button>
                 </div>
+                {showForm && (
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                    {[
+                      { label: 'Data Negociação', key: 'data_negociacao', type: 'date' },
+                      { label: 'Cliente Nome', key: 'cliente_nome' },
+                      { label: 'Telefone', key: 'telefone' },
+                      { label: 'Email', key: 'email' },
+                      { label: 'CPF', key: 'cpf' },
+                      { label: 'Placa', key: 'placa' },
+                      { label: 'Renavam', key: 'renavam' },
+                      { label: 'Chassi', key: 'chassi' },
+                      { label: 'Marca', key: 'marca' },
+                      { label: 'Modelo', key: 'modelo' },
+                      { label: 'Ano Fabricação', key: 'ano_fabricacao' },
+                      { label: 'Ano Modelo', key: 'ano_modelo' },
+                      { label: 'Cor', key: 'cor' },
+                      { label: 'Quilometragem (km)', key: 'quilometragem', type: 'number' },
+                      { label: 'Ar Condicionado', key: 'ar_condicionado', type: 'select' },
+                      { label: 'Direção Hidráulica', key: 'direcao_hidraulica', type: 'select' },
+                      { label: 'Vidros Elétricos', key: 'vidros_eletricos', type: 'select' },
+                      { label: 'Travas Elétricas', key: 'travas_eletricas', type: 'select' },
+                      { label: 'Alarme', key: 'alarme', type: 'select' },
+                      { label: 'Som / Multimídia', key: 'som_multimidia', type: 'select' },
+                      { label: 'Bancos de Couro', key: 'bancos_couro', type: 'select' },
+                      { label: 'Rodas de Liga Leve', key: 'rodas_liga_leve', type: 'select' },
+                      { label: 'Sensor de Ré', key: 'sensor_re', type: 'select' },
+                      { label: 'Câmera de Ré', key: 'camera_re', type: 'select' },
+                      { label: 'Teto Solar', key: 'teto_solar', type: 'select' },
+                      { label: 'Airbag', key: 'airbag', type: 'select' },
+                      { label: 'Chave Reserva', key: 'chave_reserva', type: 'select' },
+                      { label: 'Revisões em dia', key: 'revisoes_dia', type: 'select' },
+                      { label: 'Estado Pneus', key: 'estado_pneus', type: 'select' },
+                      { label: 'Valor Desejado', key: 'valor_desejado', type: 'number' },
+                      { label: 'Financiado', key: 'financiado', type: 'select' },
+                      { label: 'Renajud', key: 'renajud', type: 'select' },
+                      { label: 'Banco Financiador', key: 'banco_financiamento' },
+                      { label: 'Total Parcelas', key: 'total_parcelas', type: 'number' },
+                      { label: 'Parcelas Pagas', key: 'parcelas_pagas', type: 'number' },
+                      { label: 'Parcelas Atrasadas', key: 'parcelas_atrasadas', type: 'number' },
+                      { label: 'Valor Parcela', key: 'valor_parcela', type: 'number' },
+                      { label: 'Valor Entrada', key: 'valor_entrada', type: 'number' },
+                      { label: 'Cidade / Estado', key: 'cidade_estado' },
+                    ].map(field => (
+                      <div key={field.key} className="space-y-1">
+                        <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{field.label}</label>
+                        {field.type === 'select' ? (
+                          <select
+                            className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all"
+                            value={currentLead[field.key] || ''}
+                            onChange={e => handleFieldChange(field.key, e.target.value)}
+                          >
+                            <option value="">Selecione...</option>
+                            <option value="sim">Sim</option>
+                            <option value="nao">Não</option>
+                            {field.key === 'estado_pneus' && (
+                              <>
+                                <option value="novos">Novos</option>
+                                <option value="bom">Bom</option>
+                                <option value="regular">Regular</option>
+                              </>
+                            )}
+                          </select>
+                        ) : (
+                          <input 
+                            type={field.type || 'text'}
+                            className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all" 
+                            value={currentLead[field.key] || 'Sem preenchimento'} 
+                            onChange={e => handleFieldChange(field.key, e.target.value)} 
+                            onFocus={(e) => e.target.value === 'Sem preenchimento' && handleFieldChange(field.key, '')}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Detalhamento da Proposta */}
