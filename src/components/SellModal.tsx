@@ -90,7 +90,7 @@ export default function SellModal() {
         modelo: formData.model,
         ano_modelo: formData.year,
         cor: formData.color,
-        mileage: parseInt(formData.mileage) || 0,
+        quilometragem: parseInt(formData.mileage) || 0,
         placa: formData.plate,
         renavam: formData.renavam,
         valor_fipe: formData.fipe_price,

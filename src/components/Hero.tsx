@@ -94,7 +94,7 @@ export default function Hero() {
             className="lg:col-span-4 flex justify-start lg:justify-end mt-4 lg:mt-0"
           >
             <button 
-              onClick={() => window.location.href = currentBanner?.button_link || '#avaliar'}
+              onClick={() => window.location.href = currentBanner?.button_link || '/vender'}
               className="btn-orange text-xs md:text-lg lg:text-xl py-3 md:py-5 px-6 md:px-10 group flex items-center gap-3 shadow-2xl hover:scale-105 transition-all whitespace-nowrap"
             >
               <span className="font-black tracking-tight">{currentBanner?.button_text || 'QUERO MINHA PROPOSTA AGORA'}</span>

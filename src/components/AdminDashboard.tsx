@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase';
 import { defaultCards } from '../lib/seedData';
 import { ProposalModal } from './ProposalModal';
 import { LeadCard } from './LeadCard';
+import LeadDetailsCard from './LeadDetailsCard';
 
 export default function AdminDashboard() {
   const [leads, setLeads] = useState<any[]>([]);
@@ -732,7 +733,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
       l.preco,
       l.cliente_nome,
       l.cliente_telefone,
-      l.cliente_email,
+      l.email,
       l.status || 'Novo'
     ]);
 
@@ -1006,7 +1007,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
     const deductions: { name: string; value: number; type: 'fixed' | 'percent' }[] = [];
 
     // 1. Procedência / Histórico (Deduções por Porcentagem)
-    const problemasSelecionados = lead.problemas || [];
+    const problemasSelecionados = Array.isArray(lead.problemas) ? lead.problemas : (typeof lead.problemas === 'string' ? lead.problemas.split(',').map((p: string) => p.trim()) : []);
     if (problemasSelecionados.length > 0) {
       let maxPercentage = 0;
       let maxProblemName = '';
@@ -2125,6 +2126,24 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 </div>
 
                 {selectedLead && (
+                  <LeadDetailsCard 
+                    lead={selectedLead} 
+                    onClose={() => setSelectedLead(null)} 
+                    onSave={async (updatedLead) => {
+                      const { error } = await supabase.from('leads_veiculos').update(updatedLead).eq('id', updatedLead.id);
+                      if (error) {
+                        setToast({ message: 'Erro ao salvar: ' + error.message, type: 'error' });
+                        setTimeout(() => setToast(null), 5000);
+                      } else {
+                        setToast({ message: 'Dados salvos!', type: 'success' });
+                        setTimeout(() => setToast(null), 3000);
+                        fetchData();
+                      }
+                    }}
+                    onDelete={handleDeleteLead}
+                  />
+                )}
+                {false && selectedLead && (
                   <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setSelectedLead(null)}>
                     <div 
                       className="bg-white rounded-[32px] w-full max-w-6xl max-h-[95vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden"
@@ -2273,8 +2292,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 <p className="text-slate-400 font-bold uppercase text-[10px]">Email</p>
                                 <input 
                                   type="text"
-                                  value={selectedLead.cliente_email || ''}
-                                  onChange={(e) => setSelectedLead({...selectedLead, cliente_email: e.target.value})}
+                                  value={selectedLead.email || ''}
+                                  onChange={(e) => setSelectedLead({...selectedLead, email: e.target.value})}
                                   className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
                                 />
                               </div>
@@ -2442,10 +2461,10 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                   <span className="text-xs font-bold text-slate-500">R$</span>
                                   <input 
                                     type="number"
-                                    value={selectedLead.valor_desejado || 0}
+                                    value={selectedLead.preco_cliente || 0}
                                     onChange={(e) => {
                                       const val = parseFloat(e.target.value) || 0;
-                                      const updatedLead = { ...selectedLead, valor_desejado: val };
+                                      const updatedLead = { ...selectedLead, preco_cliente: val };
                                       setSelectedLead(updatedLead);
                                     }}
                                     className="flex-1 p-2 border border-slate-200 rounded-lg text-xs font-bold bg-white"
@@ -3720,7 +3739,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                           <div className="flex justify-between items-start">
                             <div className="flex flex-col min-w-0">
                               <h4 className="font-bold text-slate-900 truncate">{conv.lead?.cliente_nome || 'Cliente'}</h4>
-                              <p className="text-[10px] text-slate-500 truncate">{conv.lead?.cliente_email || 'Sem email'}</p>
+                              <p className="text-[10px] text-slate-500 truncate">{conv.lead?.email || 'Sem email'}</p>
                               <span className="text-[10px] font-mono font-bold text-slate-400">#{conv.lead?.vehicle_code || '----'}</span>
                             </div>
                             <span className="text-[10px] text-slate-400 whitespace-nowrap">{new Date(conv.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
@@ -3783,8 +3802,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         <div className="flex items-center gap-2">
                           <button 
                             onClick={() => {
-                              if (selectedConversation.lead?.cliente_email) {
-                                window.location.href = `mailto:${selectedConversation.lead.cliente_email}`;
+                              if (selectedConversation.lead?.email) {
+                                window.location.href = `mailto:${selectedConversation.lead.email}`;
                               } else {
                                 alert('E-mail do cliente não encontrado para este lead.');
                               }
