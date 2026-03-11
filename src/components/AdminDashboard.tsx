@@ -954,6 +954,12 @@ Podemos prosseguir com o agendamento da vistoria?`;
     setIsDeletingLead(id);
     try {
       console.log(`Attempting to delete lead ${id}...`);
+      
+      // 1. Delete associated records first
+      await supabase.from('sent_leads').delete().eq('lead_id', id);
+      await supabase.from('mensagens').delete().eq('lead_id', id);
+      
+      // 2. Delete the lead
       const { error } = await supabase
         .from('leads_veiculos')
         .delete()
