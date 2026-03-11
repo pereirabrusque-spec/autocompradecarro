@@ -19,13 +19,38 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
   const calculateProposal = () => {
     const fipe = parseFloat(currentLead.valor_fipe) || 0;
     
-    // 1. Descontos (Regras)
-    const discountRules = { financiado: 0.10, renajud: 0.15, sinistro: 0.20, leilao: 0.25, recuperado: 0.20 };
+    // 1. Descontos (Regras baseadas na imagem e solicitação)
+    // Regras: Cooperativa -> 90%, Financiado -> 50%, Outros -> conforme histórico
+    const discountRules: Record<string, number> = { 
+      cooperativa: 0.90,
+      financiado: 0.50,
+      renajud: 0.20,
+      sinistro: 0.35,
+      leilao: 0.35,
+      busca: 0.50,
+      nome_juridico: 0.70
+    };
+    
     let maxDiscountPct = 0;
-    (currentLead.problemas || []).forEach((p: string) => {
-      const pct = discountRules[p.toLowerCase() as keyof typeof discountRules] || 0;
+    
+    // Verifica problemas/histórico
+    const problemas = Array.isArray(currentLead.problemas) ? currentLead.problemas : (currentLead.problemas ? [currentLead.problemas] : []);
+    problemas.forEach((p: string) => {
+      const pKey = p.toLowerCase().replace(/ /g, '_');
+      const pct = discountRules[pKey] || 0;
       if (pct > maxDiscountPct) maxDiscountPct = pct;
     });
+
+    // Verifica campos específicos de financiamento/cooperativa
+    if (currentLead.financiado === 'sim') {
+      if (maxDiscountPct < 0.50) maxDiscountPct = 0.50;
+    }
+    if (currentLead.banco_financiamento?.toLowerCase().includes('coop') || 
+        currentLead.banco_financiamento?.toLowerCase().includes('sicredi') || 
+        currentLead.banco_financiamento?.toLowerCase().includes('sicoob')) {
+      maxDiscountPct = 0.90;
+    }
+    
     const discountValue = fipe * maxDiscountPct;
 
     // 2. Custos Fixos e Avarias
