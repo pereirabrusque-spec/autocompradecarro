@@ -26,6 +26,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
   const [showForm, setShowForm] = useState(false);
   const [showUserModal, setShowUserModal] = useState(false);
   const [showBuyerModal, setShowBuyerModal] = useState(false);
+  const [showDataModal, setShowDataModal] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
 
   // Cálculo dinâmico baseado nos campos do formulário e regras do banco
@@ -134,6 +135,9 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
             </div>
           </div>
           <div className="flex gap-2 items-center">
+            <button onClick={() => setShowDataModal(true)} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-full text-sm font-bold text-slate-700 flex items-center gap-2">
+              Formulário
+            </button>
             <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-full text-sm font-bold text-white flex items-center gap-2">
               <Save className="w-4 h-4" /> {showForm ? 'Fechar Edição' : 'Editar Lead'}
             </button>
@@ -234,6 +238,24 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                         <p>Lista de compradores filtrada por categoria e ranking...</p>
                         <button onClick={() => setShowBuyerModal(false)} className="w-full py-3 bg-emerald-500 text-white rounded-xl font-bold">Enviar Relatório Selecionado</button>
                     </div>
+                  </div>
+                </div>
+              )}
+              {showDataModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowDataModal(false)}>
+                  <div className="bg-white p-8 rounded-[32px] w-full max-w-4xl shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                    <h3 className="text-xl font-bold mb-6">Dados do Formulário do Cliente</h3>
+                    <div className="grid grid-cols-2 gap-6">
+                      {Object.entries(currentLead).map(([key, value]) => (
+                        <div key={key} className="space-y-1">
+                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{key.replace('_', ' ')}</label>
+                          <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800">
+                            {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <button onClick={() => setShowDataModal(false)} className="mt-8 w-full py-3 bg-slate-900 text-white rounded-xl font-bold">Fechar</button>
                   </div>
                 </div>
               )}
