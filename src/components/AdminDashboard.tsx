@@ -2889,7 +2889,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     if (scrollBar) scrollBar.scrollLeft = e.currentTarget.scrollLeft;
                   }}>
                     <table className="w-full text-left border-collapse">
-                      <thead className="sticky top-[76px] z-20 bg-slate-50 shadow-sm">
+                      <thead className="sticky top-0 z-20 bg-slate-50 shadow-sm">
                         <tr className="border-b border-slate-200">
                           <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Data</th>
                           <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Status</th>
