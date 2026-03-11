@@ -24,6 +24,8 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
   }, [lead]);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showForm, setShowForm] = useState(false);
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [showBuyerModal, setShowBuyerModal] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
 
   // Cálculo dinâmico baseado nos campos do formulário e regras do banco
@@ -73,7 +75,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     // 2. Custos Fixos e Avarias
     const fixedCosts = 
       (parseFloat(currentLead.multas) || 0) +
-      (parseFloat(currentLead.valor_ipva) || 0) +
+      (parseFloat(currentLead.valor_ipva_multa) || 0) + // Corrigido para valor_ipva_multa
       (parseFloat(currentLead.motor_reparo) || 0) + 
       (parseFloat(currentLead.cambio_reparo) || 0) + 
       (parseFloat(currentLead.batido_reparo) || 0) +
@@ -122,7 +124,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-white rounded-[32px] w-full max-w-6xl max-h-[95vh] flex flex-col shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
-        <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-white sticky top-0 z-20">
+        <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-white sticky top-0 z-20 shadow-sm">
           <div>
             <div className="flex items-center gap-3">
               <span className="px-3 py-1 bg-slate-900 text-white rounded-full text-[10px] font-bold tracking-widest">
@@ -162,6 +164,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                   { label: 'Placa', key: 'placa' },
                   { label: 'Valor FIPE', key: 'valor_fipe' },
                   { label: 'Valor Desejado', key: 'desired_value' },
+                  { label: 'IPVA/Multa', key: 'valor_ipva_multa' },
                   { label: 'Total Parcelas', key: 'total_parcelas' },
                   { label: 'Parcelas Pagas', key: 'parcelas_pagas' },
                   { label: 'Parcelas Atrasadas', key: 'parcelas_atrasadas' },
@@ -207,18 +210,38 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
               <div className="bg-white border border-slate-200 p-6 rounded-[32px] shadow-sm">
                 <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest mb-4">Benefícios do Veículo</h3>
                 <div className="flex flex-wrap gap-2">
-                  {['ar_condicionado', 'direcao_hidraulica', 'bancos_couro', 'vidros_eletricos', 'travas_eletricas', 'alarme', 'som_multimidia', 'rodas_liga_leve', 'sensor_re', 'camera_re', 'teto_solar', 'airbag', 'chave_reserva', 'revisoes_dia'].map(key => currentLead[key] === 'sim' && (
+                  {['ar_condicionado', 'direcao_hidraulica', 'bancos_couro', 'vidros_eletricos', 'travas_eletricas', 'alarme', 'som_multimidia', 'rodas_liga_leve', 'sensor_re', 'camera_re', 'teto_solar', 'airbag', 'chave_reserva', 'revisoes_dia', 'abs', 'computador_bordo', 'piloto_automatico'].map(key => currentLead[key] === 'sim' && (
                     <span key={key} className="px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-bold capitalize">{key.replace('_', ' ')}</span>
                   ))}
                 </div>
               </div>
 
-              {/* Detalhamento da Proposta */}
+              {/* Modais de Envio */}
+              {showUserModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowUserModal(false)}>
+                  <div className="bg-white p-8 rounded-[32px] w-full max-w-lg shadow-2xl" onClick={e => e.stopPropagation()}>
+                    <h3 className="text-xl font-bold mb-4">Enviar Proposta ao Usuário</h3>
+                    <p className="text-sm text-slate-600 mb-4">Olá {currentLead.cliente_nome}, temos uma proposta para o seu veículo {currentLead.marca} {currentLead.modelo}. O valor é de {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalProposal)}. Vamos fechar negócio?</p>
+                    <button onClick={() => setShowUserModal(false)} className="w-full py-3 bg-emerald-500 text-white rounded-xl font-bold">Enviar Mensagem</button>
+                  </div>
+                </div>
+              )}
+              {showBuyerModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowBuyerModal(false)}>
+                  <div className="bg-white p-8 rounded-[32px] w-full max-w-2xl shadow-2xl max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                    <h3 className="text-xl font-bold mb-4">Selecionar Comprador</h3>
+                    <div className="space-y-4">
+                        <p>Lista de compradores filtrada por categoria e ranking...</p>
+                        <button onClick={() => setShowBuyerModal(false)} className="w-full py-3 bg-emerald-500 text-white rounded-xl font-bold">Enviar Relatório Selecionado</button>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="bg-slate-50 p-8 rounded-[32px] space-y-4">
                 <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest border-b border-slate-200 pb-4">Detalhamento da Proposta</h3>
                 <div className="flex gap-4 mb-4">
-                  <button className="px-4 py-2 bg-slate-900 text-white rounded-full text-xs font-bold">Enviar para Usuário</button>
-                  <button className="px-4 py-2 bg-slate-200 text-slate-700 rounded-full text-xs font-bold">Enviar para Comprador</button>
+                  <button onClick={() => setShowUserModal(true)} className="px-4 py-2 bg-slate-900 text-white rounded-full text-xs font-bold">Enviar para Usuário</button>
+                  <button onClick={() => setShowBuyerModal(true)} className="px-4 py-2 bg-slate-200 text-slate-700 rounded-full text-xs font-bold">Enviar para Comprador</button>
                 </div>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between"><span>Tabela FIPE</span><span className="font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fipe)}</span></div>
