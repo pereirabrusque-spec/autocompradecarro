@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, RefreshCw, Save, Trash2, ShieldCheck, Wallet, ImageIcon, ChevronLeft, ChevronRight, Calculator, MessageCircle, Send } from 'lucide-react';
+import { X, Save, MessageCircle, Send, FileText, Edit2, ArrowLeft } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface LeadDetailsCardProps {
@@ -15,157 +15,62 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
   const [currentLead, setCurrentLead] = useState(lead || {});
   const [buyers, setBuyers] = useState<any[]>([]);
   const [selectedBuyers, setSelectedBuyers] = useState<string[]>([]);
+  const [buyerFilter, setBuyerFilter] = useState('Todos');
 
   useEffect(() => {
     const fetchBuyers = async () => {
-      const { data, error } = await supabase.from('interested_buyers').select('*');
+      const { data } = await supabase.from('interested_buyers').select('*');
       if (data) setBuyers(data);
     };
     fetchBuyers();
   }, []);
 
   React.useEffect(() => {
-    if (lead) {
-      console.log('--- MAPEAMENTO DE CAMPOS ---');
-      console.log('Chaves disponíveis no banco:', Object.keys(lead));
-      console.log('Objeto Lead completo:', lead);
-      console.log('----------------------------');
-      setCurrentLead(lead);
-    }
+    if (lead) setCurrentLead(lead);
   }, [lead]);
-  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+
   const [showForm, setShowForm] = useState(false);
-  const [showUserModal, setShowUserModal] = useState(false);
   const [showBuyerModal, setShowBuyerModal] = useState(false);
   const [showBuyerConfigModal, setShowBuyerConfigModal] = useState(false);
-  const [selectedBuyer, setSelectedBuyer] = useState<any>(null);
   const [showDataModal, setShowDataModal] = useState(false);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
-  const [errors, setErrors] = useState<Record<string, boolean>>({});
-
-  // Cálculo dinâmico baseado nos campos do formulário e regras do banco
-  const calculateProposal = () => {
-    const fipe = parseFloat(currentLead.valor_fipe) || 0;
-    
-    let maxDiscountPct = 0;
-    
-    // 1. Descontos (Regras dinâmicas do banco)
-    const discounts: { name: string, pct: number, value: number }[] = [];
-    const problemas = Array.isArray(currentLead.problemas) ? currentLead.problemas : (currentLead.problemas ? [currentLead.problemas] : []);
-    problemas.forEach((p: string) => {
-      const rule = fipeRules.find(r => r.condition_name.toLowerCase() === p.toLowerCase());
-      if (rule) {
-        const pct = parseFloat(rule.discount_percentage) / 100;
-        discounts.push({ name: rule.condition_name, pct, value: fipe * pct });
-      } else {
-        const pKey = p.toLowerCase().replace(/ /g, '_');
-        const fallbackRules: Record<string, number> = { 
-          cooperativa: 0.90,
-          financiado: 0.50,
-          renajud: 0.20,
-          sinistro: 0.35,
-          leilao: 0.35,
-          busca: 0.50,
-          nome_juridico: 0.70
-        };
-        const pct = fallbackRules[pKey] || 0;
-        if (pct > 0) discounts.push({ name: p, pct, value: fipe * pct });
-      }
-    });
-
-    // Verifica campos específicos de financiamento/cooperativa
-    if (currentLead.financiado === 'sim') {
-      const pct = 0.50;
-      discounts.push({ name: 'Financiado', pct, value: fipe * pct });
-    }
-    if (currentLead.banco_financiamento?.toLowerCase().includes('coop') || 
-        currentLead.banco_financiamento?.toLowerCase().includes('sicredi') || 
-        currentLead.banco_financiamento?.toLowerCase().includes('sicoob')) {
-      const pct = 0.90;
-      discounts.push({ name: 'Cooperativa', pct, value: fipe * pct });
-    }
-    
-    const discountValue = discounts.length > 0 ? Math.max(...discounts.map(d => d.value)) : 0;
-
-    // 2. Custos Fixos e Avarias
-    const fixedCosts = 
-      (parseFloat(currentLead.multas) || 0) +
-      (parseFloat(currentLead.valor_ipva_multa) || 0) + // Corrigido para valor_ipva_multa
-      (parseFloat(currentLead.motor_reparo) || 0) + 
-      (parseFloat(currentLead.cambio_reparo) || 0) + 
-      (parseFloat(currentLead.batido_reparo) || 0) +
-      (parseFloat(currentLead.valor_documento) || 0) +
-      ((currentLead.avarias || []).reduce((acc: number, av: any) => acc + (parseFloat(av.valor) || 0), 0));
-
-    // 3. Quitação
-    const totalParcelas = (parseInt(currentLead.total_parcelas) || 0);
-    const parcelasPagas = (parseInt(currentLead.parcelas_pagas) || 0);
-    const atrasadas = (parseInt(currentLead.parcelas_atrasadas) || 0);
-    
-    // Parcelas a vencer: Total - Pagas - Atrasadas
-    const aVencer = Math.max(0, totalParcelas - parcelasPagas - atrasadas);
-    const valorParcela = (parseFloat(currentLead.valor_parcela) || 0);
-    const jurosAtrasoPct = (parseFloat(currentLead.juros_atraso) || 2) / 100;
-    
-    // Cálculos
-    const valorAVencer = aVencer * valorParcela;
-    const valorAtrasadasBase = atrasadas * valorParcela;
-    const jurosAtrasadas = valorAtrasadasBase * jurosAtrasoPct;
-    const totalAtrasadas = valorAtrasadasBase + jurosAtrasadas;
-    
-    const payoffBreakdown = {
-        qtdAVencer: aVencer,
-        valorAVencer: valorAVencer,
-        qtdAtrasadas: atrasadas,
-        valorAtrasadasBase: valorAtrasadasBase,
-        jurosAtrasadas: jurosAtrasadas,
-        totalAtrasadas: totalAtrasadas
-    };
-    const payoff = valorAVencer + totalAtrasadas;
-
-    // 4. Proposta Final
-    const finalProposal = fipe - discountValue - fixedCosts - payoff;
-    const profit = Math.max(0, finalProposal); 
-
-    return { fipe, discountValue, discounts, fixedCosts, payoff, payoffBreakdown, finalProposal, profit };
-  };
-
-  const calc = calculateProposal();
 
   const handleFieldChange = (field: string, value: string) => {
     setCurrentLead({ ...currentLead, [field]: value });
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-[32px] w-full max-w-6xl max-h-[95vh] flex flex-col shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
-        <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-white sticky top-0 z-50 shadow-sm">
-          <div>
-            <div className="flex items-center gap-3">
-              <span className="px-3 py-1 bg-slate-900 text-white rounded-full text-[10px] font-bold tracking-widest">
-                #{currentLead.vehicle_code || '---'}
-              </span>
-              <h2 className="text-2xl font-bold font-display">{currentLead.marca} {currentLead.modelo}</h2>
-            </div>
-          </div>
-          <div className="flex gap-2 items-center">
-            <button onClick={() => setShowDataModal(true)} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-full text-sm font-bold text-slate-700 flex items-center gap-2">
-              Formulário
-            </button>
-            <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-full text-sm font-bold text-white flex items-center gap-2">
-              <Save className="w-4 h-4" /> {showForm ? 'Fechar Edição' : 'Editar Lead'}
-            </button>
-            <button onClick={() => window.open(`https://wa.me/${currentLead.telefone?.replace(/\D/g, '')}`, '_blank')} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-full text-sm font-bold text-white flex items-center gap-2">
-              <MessageCircle className="w-4 h-4" /> WhatsApp
-            </button>
-            <button className="px-4 py-2 bg-sky-500 hover:bg-sky-600 rounded-full text-sm font-bold text-white flex items-center gap-2">
-              <Send className="w-4 h-4" /> Chat
-            </button>
-            <button onClick={onClose} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-full text-sm font-bold text-slate-700">
-              Voltar
-            </button>
-          </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+        {/* Header Fixo */}
+        <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-white sticky top-0 z-50 shadow-sm">
+          <h2 className="text-lg font-bold font-display truncate">#{currentLead.vehicle_code} - {currentLead.marca} {currentLead.modelo}</h2>
+          <button onClick={() => setShowDataModal(true)} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-700 flex items-center gap-1.5">
+            <FileText className="w-3.5 h-3.5" /> Formulário Completo
+          </button>
         </div>
+
+        {/* Conteúdo */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          {/* ... (Conteúdo do formulário e detalhes) ... */}
+        </div>
+
+        {/* Footer Fixo com Botões */}
+        <div className="p-4 border-t border-slate-100 bg-white flex justify-end gap-2">
+          <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm font-bold text-white flex items-center gap-1.5">
+            <Edit2 className="w-4 h-4" /> {showForm ? 'Fechar Edição' : 'Editar'}
+          </button>
+          <button onClick={() => window.open(`https://wa.me/${currentLead.telefone?.replace(/\D/g, '')}`, '_blank')} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-lg text-sm font-bold text-white flex items-center gap-1.5">
+            <MessageCircle className="w-4 h-4" /> WhatsApp
+          </button>
+          <button onClick={onClose} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-bold text-slate-700 flex items-center gap-1.5">
+            <ArrowLeft className="w-4 h-4" /> Voltar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
         <div className="flex-1 overflow-y-auto p-6 scroll-pt-20">
           {showForm && (
             <div className="bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm space-y-4 mb-6">
@@ -239,8 +144,25 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowUserModal(false)}>
                   <div className="bg-white p-8 rounded-[32px] w-full max-w-lg shadow-2xl" onClick={e => e.stopPropagation()}>
                     <h3 className="text-xl font-bold mb-4">Enviar Proposta ao Usuário</h3>
-                    <p className="text-sm text-slate-600 mb-4">Olá {currentLead.cliente_nome}, temos uma proposta para o seu veículo {currentLead.marca} {currentLead.modelo}. O valor é de {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalProposal)}. Vamos fechar negócio?</p>
-                    <button onClick={() => { setShowUserModal(false); setShowSuccessPopup(true); }} className="w-full py-3 bg-emerald-500 text-white rounded-xl font-bold">Enviar Mensagem</button>
+                    <p className="text-sm text-slate-600 mb-4">
+                      Olá {currentLead.cliente_nome}, temos uma excelente proposta para o seu veículo {currentLead.marca} {currentLead.modelo}. 
+                      O valor é de {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalProposal)}. 
+                      Não perca essa oportunidade, vamos fechar negócio?
+                    </p>
+                    <button 
+                      onClick={async () => { 
+                        await supabase.from('internal_messages').insert({
+                          sender_id: (await supabase.auth.getUser()).data.user?.id,
+                          receiver_id: currentLead.user_id, // Assuming currentLead has user_id
+                          content: `Olá ${currentLead.cliente_nome}, temos uma excelente proposta para o seu veículo ${currentLead.marca} ${currentLead.modelo}. O valor é de ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalProposal)}. Não perca essa oportunidade, vamos fechar negócio?`
+                        });
+                        setShowUserModal(false); 
+                        setShowSuccessPopup(true); 
+                      }} 
+                      className="w-full py-3 bg-emerald-500 text-white rounded-xl font-bold"
+                    >
+                      Enviar Mensagem
+                    </button>
                   </div>
                 </div>
               )}
@@ -251,18 +173,38 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                       <h3 className="text-xl font-bold">Selecionar Compradores</h3>
                       <button onClick={() => setSelectedBuyers(buyers.map(b => b.id))} className="text-xs font-bold text-blue-600">Selecionar Todos</button>
                     </div>
+                    
+                    {/* Filter */}
+                    <div className="flex gap-2 mb-4">
+                      {['Todos', 'Carro', 'Moto', 'Caminhão'].map(cat => (
+                        <button 
+                          key={cat} 
+                          onClick={() => setBuyerFilter(cat)}
+                          className={`px-3 py-1 rounded-full text-xs font-bold ${buyerFilter === cat ? 'bg-slate-900 text-white' : 'bg-slate-100'}`}
+                        > 
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+
                     <div className="space-y-2">
-                        {buyers.map(buyer => (
-                            <label key={buyer.id} className="flex items-center gap-3 p-4 border border-slate-200 rounded-xl hover:bg-slate-50 font-bold cursor-pointer">
-                                <input 
-                                  type="checkbox" 
-                                  checked={selectedBuyers.includes(buyer.id)}
-                                  onChange={(e) => {
-                                    if (e.target.checked) setSelectedBuyers([...selectedBuyers, buyer.id]);
-                                    else setSelectedBuyers(selectedBuyers.filter(id => id !== buyer.id));
-                                  }}
-                                />
-                                {buyer.name}
+                        {buyers
+                          .filter(b => buyerFilter === 'Todos' || b.category === buyerFilter)
+                          .sort((a, b) => (b.ranking || 0) - (a.ranking || 0))
+                          .map(buyer => (
+                            <label key={buyer.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-xl hover:bg-slate-50 font-bold cursor-pointer">
+                                <div className="flex items-center gap-3">
+                                  <input 
+                                    type="checkbox" 
+                                    checked={selectedBuyers.includes(buyer.id)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) setSelectedBuyers([...selectedBuyers, buyer.id]);
+                                      else setSelectedBuyers(selectedBuyers.filter(id => id !== buyer.id));
+                                    }}
+                                  />
+                                  {buyer.name}
+                                </div>
+                                <span className="text-xs text-slate-400">Ranking: {buyer.ranking || 0}</span>
                             </label>
                         ))}
                     </div>
@@ -325,18 +267,35 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
               {showDataModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowDataModal(false)}>
                   <div className="bg-white p-8 rounded-[32px] w-full max-w-4xl shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                    <h3 className="text-xl font-bold mb-6">Dados do Formulário do Cliente</h3>
-                    <div className="grid grid-cols-2 gap-6">
-                      {Object.entries(currentLead).map(([key, value]) => (
-                        <div key={key} className="space-y-1">
-                          <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{key.replace('_', ' ')}</label>
-                          <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800">
-                            {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                    <h3 className="text-xl font-bold mb-6">Formulário Completo</h3>
+                    
+                    {/* Helper to render field groups */}
+                    {(() => {
+                      const groups = {
+                        "Dados do Cliente": ['cliente_nome', 'telefone', 'email'],
+                        "Dados do Veículo": ['marca', 'modelo', 'ano_modelo', 'cor', 'quilometragem', 'placa'],
+                        "Financeiro": ['valor_fipe', 'desired_value', 'valor_ipva_multa', 'total_parcelas', 'parcelas_pagas', 'parcelas_atrasadas', 'valor_parcela', 'juros_atraso'],
+                        "Custos Fixos/Avarias": ['multas', 'valor_ipva', 'motor_reparo', 'cambio_reparo', 'batido_reparo', 'valor_pneus', 'valor_documento']
+                      };
+
+                      return Object.entries(groups).map(([groupName, fields]) => (
+                        <div key={groupName} className="mb-8">
+                          <h4 className="font-bold text-slate-900 uppercase text-xs tracking-widest border-b border-slate-200 pb-2 mb-4">{groupName}</h4>
+                          <div className="grid grid-cols-2 gap-4">
+                            {fields.map(key => (
+                              <div key={key} className="space-y-1">
+                                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{key.replace('_', ' ')}</label>
+                                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800">
+                                  {currentLead[key] !== undefined ? String(currentLead[key]) : '-'}
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         </div>
-                      ))}
-                    </div>
-                    <button onClick={() => setShowDataModal(false)} className="mt-8 w-full py-3 bg-slate-900 text-white rounded-xl font-bold">Fechar</button>
+                      ));
+                    })()}
+                    
+                    <button onClick={() => setShowDataModal(false)} className="mt-4 w-full py-3 bg-slate-900 text-white rounded-xl font-bold">Fechar</button>
                   </div>
                 </div>
               )}
