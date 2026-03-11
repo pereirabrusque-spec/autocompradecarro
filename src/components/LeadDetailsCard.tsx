@@ -105,7 +105,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
               <h2 className="text-2xl font-bold font-display">{currentLead.marca} {currentLead.modelo}</h2>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <button onClick={() => window.open(`https://wa.me/${currentLead.telefone?.replace(/\D/g, '')}`, '_blank')} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-full text-sm font-bold text-white flex items-center gap-2">
               <MessageCircle className="w-4 h-4" /> WhatsApp
             </button>
@@ -120,7 +120,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
         <div className="overflow-y-auto p-6">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             {/* Coluna Esquerda: Formulário Fiel */}
-            <div className="lg:col-span-7 space-y-6">
+            <div className="lg:col-span-12 space-y-6">
               <div className="bg-slate-50 p-8 rounded-[32px] space-y-6">
                 <div className="flex justify-between items-center border-b border-slate-200 pb-4">
                   <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest">Formulário de Avaliação</h3>
@@ -129,7 +129,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                   </button>
                 </div>
                 {showForm && (
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
                     {[
                       { label: 'Data Negociação', key: 'data_negociacao', type: 'date' },
                       { label: 'Cliente Nome', key: 'cliente_nome' },
@@ -194,9 +194,9 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                           <input 
                             type={field.type || 'text'}
                             className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all" 
-                            value={currentLead[field.key] || 'Sem preenchimento'} 
+                            value={currentLead[field.key] || ''} 
+                            placeholder="Sem preenchimento"
                             onChange={e => handleFieldChange(field.key, e.target.value)} 
-                            onFocus={(e) => e.target.value === 'Sem preenchimento' && handleFieldChange(field.key, '')}
                           />
                         )}
                       </div>
