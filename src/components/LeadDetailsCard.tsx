@@ -70,12 +70,11 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
 
     // 2. Custos Fixos e Avarias
     const fixedCosts = 
-      (parseFloat(currentLead.valor_ipva) || 0) +
+      (parseFloat(currentLead.multas) || 0) +
       (parseFloat(currentLead.valor_licenciamento) || 0) +
-      (parseFloat(currentLead.valor_multas) || 0) +
-      (parseFloat(currentLead.valor_motor) || 0) + 
-      (parseFloat(currentLead.valor_cambio) || 0) + 
-      (parseFloat(currentLead.valor_pintura) || 0) +
+      (parseFloat(currentLead.motor_reparo) || 0) + 
+      (parseFloat(currentLead.cambio_reparo) || 0) + 
+      (parseFloat(currentLead.batido_reparo) || 0) +
       (parseFloat(currentLead.valor_pneus) || 0) +
       (parseFloat(currentLead.valor_documento) || 0) +
       ((currentLead.avarias || []).reduce((acc: number, av: any) => acc + (parseFloat(av.valor) || 0), 0));
@@ -251,12 +250,11 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                 <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest border-b border-slate-200 pb-4">Custos Fixos e Avarias</h3>
                 <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                   {[
-                    { label: 'Valor IPVA', key: 'valor_ipva' },
+                    { label: 'Multas', key: 'multas' },
                     { label: 'Valor Licenciamento', key: 'valor_licenciamento' },
-                    { label: 'Valor Multas', key: 'valor_multas' },
-                    { label: 'Valor Motor', key: 'valor_motor' },
-                    { label: 'Valor Câmbio', key: 'valor_cambio' },
-                    { label: 'Valor Pintura', key: 'valor_pintura' },
+                    { label: 'Valor Motor', key: 'motor_reparo' },
+                    { label: 'Valor Câmbio', key: 'cambio_reparo' },
+                    { label: 'Valor Batido', key: 'batido_reparo' },
                     { label: 'Valor Pneus', key: 'valor_pneus' },
                     { label: 'Valor Documento', key: 'valor_documento' },
                   ].map(field => (
