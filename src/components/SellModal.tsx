@@ -18,6 +18,8 @@ export default function SellModal() {
   const [formData, setFormData] = useState({
     owner_name: '',
     owner_phone: '',
+    email: '',
+    cpf: '',
     brand: '',
     brandId: '',
     model: '',
@@ -28,10 +30,23 @@ export default function SellModal() {
     mileage: '',
     plate: '',
     renavam: '',
+    chassi: '',
     details: '',
     has_ac: false,
     has_steering: false,
     has_leather: false,
+    has_vidros: false,
+    has_travas: false,
+    has_alarme: false,
+    has_som: false,
+    has_rodas: false,
+    has_sensor: false,
+    has_camera: false,
+    has_teto: false,
+    has_airbag: false,
+    has_chave: false,
+    has_revisoes: false,
+    estado_pneus: 'bom',
     fipe_price: 0,
     desired_price: '',
     entrada: '',
@@ -94,10 +109,28 @@ export default function SellModal() {
         placa: formData.plate,
         renavam: formData.renavam,
         valor_fipe: formData.fipe_price,
-        preco_cliente: parseFloat(formData.desired_price) || 0,
+        desired_value: parseFloat(formData.desired_price) || 0,
         entrada: parseFloat(formData.entrada) || 0,
         status: 'novo',
-        observacoes: `Situação: ${formData.situation}. Acessórios: ${[formData.has_ac ? 'Ar' : '', formData.has_steering ? 'Direção' : '', formData.has_leather ? 'Couro' : ''].filter(Boolean).join(', ')}`
+        email: formData.email,
+        cpf: formData.cpf,
+        chassi: formData.chassi,
+        ano_fabricacao: formData.year,
+        ar_condicionado: formData.has_ac ? 'sim' : 'nao',
+        direcao_hidraulica: formData.has_steering ? 'sim' : 'nao',
+        bancos_couro: formData.has_leather ? 'sim' : 'nao',
+        vidros_eletricos: formData.has_vidros ? 'sim' : 'nao',
+        travas_eletricas: formData.has_travas ? 'sim' : 'nao',
+        alarme: formData.has_alarme ? 'sim' : 'nao',
+        som_multimidia: formData.has_som ? 'sim' : 'nao',
+        rodas_liga_leve: formData.has_rodas ? 'sim' : 'nao',
+        sensor_re: formData.has_sensor ? 'sim' : 'nao',
+        camera_re: formData.has_camera ? 'sim' : 'nao',
+        teto_solar: formData.has_teto ? 'sim' : 'nao',
+        airbag: formData.has_airbag ? 'sim' : 'nao',
+        chave_reserva: formData.has_chave ? 'sim' : 'nao',
+        revisoes_dia: formData.has_revisoes ? 'sim' : 'nao',
+        estado_pneus: formData.estado_pneus,
       }]);
 
       if (error) throw error;
@@ -251,6 +284,50 @@ export default function SellModal() {
                         <label className="flex items-center gap-2 cursor-pointer">
                           <input type="checkbox" checked={formData.has_leather} onChange={e => setFormData({...formData, has_leather: e.target.checked})} className="w-5 h-5 accent-accent" />
                           <span className="text-sm font-medium">Bancos de Couro</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="checkbox" checked={formData.has_vidros} onChange={e => setFormData({...formData, has_vidros: e.target.checked})} className="w-5 h-5 accent-accent" />
+                          <span className="text-sm font-medium">Vidros Elétricos</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="checkbox" checked={formData.has_travas} onChange={e => setFormData({...formData, has_travas: e.target.checked})} className="w-5 h-5 accent-accent" />
+                          <span className="text-sm font-medium">Travas Elétricas</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="checkbox" checked={formData.has_alarme} onChange={e => setFormData({...formData, has_alarme: e.target.checked})} className="w-5 h-5 accent-accent" />
+                          <span className="text-sm font-medium">Alarme</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="checkbox" checked={formData.has_som} onChange={e => setFormData({...formData, has_som: e.target.checked})} className="w-5 h-5 accent-accent" />
+                          <span className="text-sm font-medium">Som / Multimídia</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="checkbox" checked={formData.has_rodas} onChange={e => setFormData({...formData, has_rodas: e.target.checked})} className="w-5 h-5 accent-accent" />
+                          <span className="text-sm font-medium">Rodas de Liga Leve</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="checkbox" checked={formData.has_sensor} onChange={e => setFormData({...formData, has_sensor: e.target.checked})} className="w-5 h-5 accent-accent" />
+                          <span className="text-sm font-medium">Sensor de Ré</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="checkbox" checked={formData.has_camera} onChange={e => setFormData({...formData, has_camera: e.target.checked})} className="w-5 h-5 accent-accent" />
+                          <span className="text-sm font-medium">Câmera de Ré</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="checkbox" checked={formData.has_teto} onChange={e => setFormData({...formData, has_teto: e.target.checked})} className="w-5 h-5 accent-accent" />
+                          <span className="text-sm font-medium">Teto Solar</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="checkbox" checked={formData.has_airbag} onChange={e => setFormData({...formData, has_airbag: e.target.checked})} className="w-5 h-5 accent-accent" />
+                          <span className="text-sm font-medium">Airbag</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="checkbox" checked={formData.has_chave} onChange={e => setFormData({...formData, has_chave: e.target.checked})} className="w-5 h-5 accent-accent" />
+                          <span className="text-sm font-medium">Chave Reserva</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="checkbox" checked={formData.has_revisoes} onChange={e => setFormData({...formData, has_revisoes: e.target.checked})} className="w-5 h-5 accent-accent" />
+                          <span className="text-sm font-medium">Revisões em dia</span>
                         </label>
                       </div>
                     </div>
