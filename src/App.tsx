@@ -38,14 +38,17 @@ function AppContent() {
   const { settings } = useAssets();
   const [showAuthModal, setShowAuthModal] = useState(false);
 
+  const specialistButtonEnabled = settings['SPECIALIST_BUTTON_ENABLED'] === 'true';
   const primaryContact = settings['PRIMARY_CONTACT_METHOD'] || 'chat';
   const specialistAction = settings['SPECIALIST_BUTTON_ACTION'] || 'chat';
   const chatEnabled = settings['CHAT_ENABLED'] === 'true';
   const whatsappEnabled = settings['WHATSAPP_ENABLED'] === 'true';
   const tawkToEnabled = settings['TAWKTO_ENABLED'] === 'true';
 
-  const showChat = (primaryContact === 'chat' || specialistAction === 'chat') && chatEnabled;
-  const showWhatsApp = (primaryContact === 'whatsapp' || specialistAction === 'whatsapp') && whatsappEnabled;
+  const [isChatOpen, setIsChatOpen] = useState(false);
+
+  const showChat = (primaryContact === 'chat' || (specialistButtonEnabled && specialistAction === 'chat')) && chatEnabled;
+  const showWhatsApp = (primaryContact === 'whatsapp' || (specialistButtonEnabled && specialistAction === 'whatsapp')) && whatsappEnabled;
   const showTawkTo = primaryContact === 'tawkto' && tawkToEnabled;
 
   useEffect(() => {
@@ -191,9 +194,19 @@ function AppContent() {
       {view !== 'admin' && view !== 'buyer' && <Footer />}
       
       {/* Contact Widgets */}
-      {showChat && <ChatAssistant />}
+      {showChat && <ChatAssistant isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />}
       {showWhatsApp && <WhatsAppButton />}
       {showTawkTo && <TawkTo />}
+      
+      {/* Botão flutuante para abrir o Chat se configurado */}
+      {specialistButtonEnabled && specialistAction === 'chat' && (
+        <button 
+          onClick={() => setIsChatOpen(true)}
+          className="fixed bottom-24 right-6 z-50 p-4 bg-accent text-white rounded-full shadow-lg hover:scale-110 transition-transform"
+        >
+          <MessageCircle className="w-6 h-6" />
+        </button>
+      )}
       
       {/* Real-time Chat Widget for logged users */}
       <ChatWidget />

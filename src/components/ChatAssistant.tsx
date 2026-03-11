@@ -429,8 +429,8 @@ export default function ChatAssistant() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 100, scale: 0.8 }}
             style={{ 
-              height: `${parseInt(chatHeight) * 0.8}px`, 
-              width: window.innerWidth < 640 ? '95vw' : `${parseInt(chatWidth) * 0.8}px` 
+              height: '80vh', 
+              width: window.innerWidth < 640 ? '95vw' : '450px' 
             }}
             className="fixed bottom-8 right-8 bg-white rounded-[32px] shadow-2xl z-[60] flex flex-col overflow-hidden border border-slate-100"
           >
