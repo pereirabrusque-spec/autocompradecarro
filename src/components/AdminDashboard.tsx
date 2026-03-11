@@ -3754,15 +3754,19 @@ Podemos prosseguir com o agendamento da vistoria?`;
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          {selectedConversation.lead?.cliente_email && (
-                            <a 
-                              href={`mailto:${selectedConversation.lead.cliente_email}`}
-                              className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
-                              title="Enviar Email"
-                            >
-                              <Mail className="w-4 h-4" />
-                            </a>
-                          )}
+                          <button 
+                            onClick={() => {
+                              if (selectedConversation.lead?.cliente_email) {
+                                window.location.href = `mailto:${selectedConversation.lead.cliente_email}`;
+                              } else {
+                                alert('E-mail do cliente não encontrado para este lead.');
+                              }
+                            }}
+                            className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
+                            title="Enviar Email"
+                          >
+                            <Mail className="w-4 h-4" />
+                          </button>
                           {selectedConversation.lead?.cliente_telefone && (
                             <a 
                               href={`https://wa.me/${selectedConversation.lead.cliente_telefone.replace(/\D/g, '')}`}
