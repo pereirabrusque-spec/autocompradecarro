@@ -2461,78 +2461,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                   />
                                 </div>
                               </div>
-                              <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                  <p className="text-slate-400 font-bold uppercase text-[10px]">Marca</p>
-                                  <input 
-                                    className="w-full p-1 text-xs font-bold bg-white border border-slate-200 rounded"
-                                    value={selectedLead.marca || ''}
-                                    onChange={(e) => setSelectedLead({...selectedLead, marca: e.target.value})}
-                                  />
-                                </div>
-                                <div>
-                                  <p className="text-slate-400 font-bold uppercase text-[10px]">Modelo</p>
-                                  <input 
-                                    className="w-full p-1 text-xs font-bold bg-white border border-slate-200 rounded"
-                                    value={selectedLead.modelo || ''}
-                                    onChange={(e) => setSelectedLead({...selectedLead, modelo: e.target.value})}
-                                  />
-                                </div>
-                              </div>
-                              <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                  <p className="text-slate-400 font-bold uppercase text-[10px]">Ano/Modelo</p>
-                                  <input 
-                                    type="number"
-                                    className="w-full p-1 text-xs font-bold bg-white border border-slate-200 rounded"
-                                    value={selectedLead.ano_modelo || ''}
-                                    onChange={(e) => setSelectedLead({...selectedLead, ano_modelo: parseInt(e.target.value)})}
-                                  />
-                                </div>
-                                <div>
-                                  <p className="text-slate-400 font-bold uppercase text-[10px]">FIPE</p>
-                                  <input 
-                                    type="number"
-                                    className="w-full p-1 text-xs font-bold bg-white border border-slate-200 rounded"
-                                    value={selectedLead.valor_fipe || ''}
-                                    onChange={(e) => {
-                                      const updatedLead = {...selectedLead, valor_fipe: parseFloat(e.target.value)};
-                                      setSelectedLead(updatedLead);
-                                      setProposalCalculator(calculateProposal(updatedLead));
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                              <div className="grid grid-cols-3 gap-3">
-                                <div>
-                                  <p className="text-slate-400 font-bold uppercase text-[10px]">Desejado Cliente</p>
-                                  <input 
-                                    type="number"
-                                    className="w-full p-1 text-xs font-bold bg-white border border-slate-200 rounded"
-                                    value={selectedLead.preco_cliente || ''}
-                                    onChange={(e) => {
-                                      const updatedLead = {...selectedLead, preco_cliente: parseFloat(e.target.value)};
-                                      setSelectedLead(updatedLead);
-                                      setProposalCalculator(calculateProposal(updatedLead));
-                                    }}
-                                  />
-                                </div>
-                                <div>
-                                  <p className="text-slate-400 font-bold uppercase text-[10px]">Valor Sugerido</p>
-                                  <div className="p-1 text-xs font-bold bg-slate-100 border border-slate-200 rounded text-accent">
-                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculateProposal(selectedLead).finalValue)}
-                                  </div>
-                                </div>
-                                <div>
-                                  <p className="text-slate-400 font-bold uppercase text-[10px]">Quilometragem</p>
-                                  <input 
-                                    type="number"
-                                    className="w-full p-1 text-xs font-bold bg-white border border-slate-200 rounded"
-                                    value={selectedLead.quilometragem || ''}
-                                    onChange={(e) => setSelectedLead({...selectedLead, quilometragem: parseInt(e.target.value)})}
-                                  />
-                                </div>
-                              </div>
                               {selectedLead.problemas && selectedLead.problemas.length > 0 && (
                                 <div>
                                   <p className="text-slate-400 font-bold uppercase text-[10px]">Histórico / Problemas</p>
@@ -2545,18 +2473,40 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                   </div>
                                 </div>
                               )}
+                              {selectedLead.avarias && selectedLead.avarias.length > 0 && (
+                                <div>
+                                  <p className="text-slate-400 font-bold uppercase text-[10px]">Avarias Informadas</p>
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {selectedLead.avarias.map((a: string, i: number) => (
+                                      <span key={i} className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-[10px] font-bold uppercase">
+                                        {a}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                               {selectedLead.selected_items && selectedLead.selected_items.length > 0 && (
                                 <div>
                                   <p className="text-slate-400 font-bold uppercase text-[10px]">Opcionais</p>
                                   <div className="flex flex-wrap gap-1 mt-1">
                                     {selectedLead.selected_items.map((item: string, i: number) => (
-                                      <span key={i} className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-[10px] font-bold uppercase">
+                                      <span key={i} className="px-2 py-1 bg-slate-200 text-slate-700 rounded text-[10px] font-bold uppercase">
                                         {item}
                                       </span>
                                     ))}
                                   </div>
                                 </div>
                               )}
+                              {selectedLead.observacoes && (
+                                <div>
+                                  <p className="text-slate-400 font-bold uppercase text-[10px]">Observações</p>
+                                  <p className="text-xs font-medium text-slate-700 mt-1 bg-white p-2 rounded border border-slate-200">
+                                    {selectedLead.observacoes}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
                               
                               {/* Display Accessories parsed from observacoes */}
                               {selectedLead.observacoes && selectedLead.observacoes.includes('Acessórios:') && (
@@ -2849,48 +2799,47 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
                           {/* Seção de Envio e Compradores (Agora na mesma coluna) */}
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <button 
-                                 onClick={handleSendProposalViaChat}
-                                 className="px-6 py-4 bg-accent text-white rounded-2xl font-bold hover:bg-accent/90 transition-all flex items-center justify-center gap-2"
-                                 title="Enviar Proposta via Chat do Site"
-                               >
-                                 <Send className="w-5 h-5" />
-                               </button>
-                             </div>
-                           </div>
-
-                           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
                               <h3 className="font-bold mb-4 flex items-center gap-2">
                                 <Share2 className="w-5 h-5 text-accent" />
                                 Resumo para Envio
                               </h3>
-                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-3 mb-6">
-                              <p><strong>Veículo:</strong> {selectedLead.marca} {selectedLead.modelo}</p>
-                              <p><strong>Ano:</strong> {selectedLead.ano_modelo}</p>
-                              <p><strong>FIPE:</strong> {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.valor_fipe || 0)}</p>
-                              <p><strong>Desejado:</strong> {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.preco_cliente || 0)}</p>
-                              <div 
-                                className="pt-2 border-t border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors rounded-lg p-1"
-                                onClick={() => setShowProposalDetails(true)}
-                              >
-                                <p className="font-bold text-accent flex items-center justify-between">
-                                  <span>Sugerido: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}</span>
-                                  <Info className="w-4 h-4" />
-                                </p>
+                              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-3 mb-6">
+                                <p><strong>Veículo:</strong> {selectedLead.marca} {selectedLead.modelo}</p>
+                                <p><strong>Ano:</strong> {selectedLead.ano_modelo}</p>
+                                <p><strong>FIPE:</strong> {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.valor_fipe || 0)}</p>
+                                <p><strong>Desejado:</strong> {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.preco_cliente || 0)}</p>
+                                <div 
+                                  className="pt-2 border-t border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors rounded-lg p-1"
+                                  onClick={() => setShowProposalDetails(true)}
+                                >
+                                  <p className="font-bold text-accent flex items-center justify-between">
+                                    <span>Sugerido: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}</span>
+                                    <Info className="w-4 h-4" />
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              <div className="flex gap-2">
+                                <button 
+                                  onClick={() => {
+                                    const buyers = interestedBuyers.filter(b => selectedBuyers.includes(b.id));
+                                    handleSendToWhatsApp(selectedLead, buyers);
+                                  }}
+                                  className="flex-1 py-4 bg-green-600 text-white rounded-2xl font-bold hover:bg-green-700 transition-all flex items-center justify-center gap-2"
+                                >
+                                  <MessageCircle className="w-5 h-5" />
+                                  Enviar para WhatsApp
+                                </button>
+                                <button 
+                                  onClick={handleSendProposalViaChat}
+                                  className="px-6 py-4 bg-accent text-white rounded-2xl font-bold hover:bg-accent/90 transition-all flex items-center justify-center gap-2"
+                                  title="Enviar Proposta via Chat do Site"
+                                >
+                                  <Send className="w-5 h-5" />
+                                </button>
                               </div>
                             </div>
-                            
-                            <button 
-                              onClick={() => {
-                                const buyers = interestedBuyers.filter(b => selectedBuyers.includes(b.id));
-                                handleSendToWhatsApp(selectedLead, buyers);
-                              }}
-                              className="flex-1 py-4 bg-green-600 text-white rounded-2xl font-bold hover:bg-green-700 transition-all flex items-center justify-center gap-2"
-                            >
-                              <MessageCircle className="w-5 h-5" />
-                              Enviar para WhatsApp
-                            </button>
-                          </div>
 
                           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
                             <h3 className="font-bold mb-4 flex items-center gap-2">

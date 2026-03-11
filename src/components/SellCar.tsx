@@ -360,6 +360,7 @@ export default function SellCar() {
         cambio_reparo: parseFloat((formData.gearboxRepairValue || '').replace(/[^\d,]/g, '').replace(',', '.')) || 0,
         batido_reparo: parseFloat((formData.bodyRepairValue || '').replace(/[^\d,]/g, '').replace(',', '.')) || 0,
         problemas: problems,
+        selected_items: Object.entries(formData.accessories || {}).filter(([_, v]) => v).map(([k]) => k),
         notifications_enabled: formData.authorizeNotifications,
         fotos: uploadedPhotos,
         videos: uploadedVideos

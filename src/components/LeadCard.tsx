@@ -16,7 +16,7 @@ export const LeadCard: React.FC<LeadCardProps> = ({ lead, suggestedValue, onClic
       className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer space-y-4 group relative overflow-hidden"
     >
       {/* Classification Tag */}
-      <div className="absolute top-0 right-0">
+      <div className="absolute top-0 right-0 z-10">
         <div className={`px-4 py-1 rounded-bl-2xl text-[10px] font-black uppercase tracking-widest ${
           (lead.classificacao || 'morna') === 'quente' ? 'bg-red-500 text-white' :
           (lead.classificacao || 'morna') === 'fria' ? 'bg-blue-500 text-white' :
@@ -24,6 +24,17 @@ export const LeadCard: React.FC<LeadCardProps> = ({ lead, suggestedValue, onClic
         }`}>
           {lead.classificacao || 'morna'}
         </div>
+      </div>
+
+      {/* Main Photo */}
+      <div className="h-40 -mx-6 -mt-6 mb-4 bg-slate-100 relative overflow-hidden">
+        {lead.fotos && lead.fotos.length > 0 ? (
+          <img src={lead.fotos[0]} alt="Veículo" className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-slate-300">
+            <Car className="w-12 h-12" />
+          </div>
+        )}
       </div>
 
       <div className="flex justify-between items-start pt-2">
@@ -65,11 +76,20 @@ export const LeadCard: React.FC<LeadCardProps> = ({ lead, suggestedValue, onClic
             {formatCurrency(lead.preco_cliente)}
           </p>
         </div>
-        <div className="space-y-1">
-          <p className="text-[9px] font-black text-accent uppercase tracking-widest">Sugestão IA</p>
-          <p className="text-sm font-black text-accent">
+      </div>
+
+      <div className="bg-slate-900 rounded-2xl p-4 flex justify-between items-center group-hover:bg-black transition-colors">
+        <div className="space-y-0.5">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+            <Zap className="w-3 h-3 text-accent" />
+            Sugestão IA
+          </p>
+          <p className="text-lg font-black text-white">
             {suggestedValue ? formatCurrency(suggestedValue) : 'Calculando...'}
           </p>
+        </div>
+        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white">
+          <DollarSign className="w-4 h-4" />
         </div>
       </div>
 
