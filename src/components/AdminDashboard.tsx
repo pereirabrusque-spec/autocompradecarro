@@ -7,6 +7,7 @@ import { useAssets } from '../lib/assetsContext';
 import { supabase } from '../lib/supabase';
 import { defaultCards } from '../lib/seedData';
 import { ProposalModal } from './ProposalModal';
+import { LeadCard } from './LeadCard';
 
 export default function AdminDashboard() {
   const [leads, setLeads] = useState<any[]>([]);
@@ -2916,6 +2917,43 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     const scrollBar = e.currentTarget.previousElementSibling;
                     if (scrollBar) scrollBar.scrollLeft = e.currentTarget.scrollLeft;
                   }}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
+                    {leads
+                      .filter(l => l.status === activeLeadTab)
+                      .filter(l => !searchCode || (l.vehicle_code && l.vehicle_code.includes(searchCode)))
+                      .filter(l => !filterBrand || l.marca === filterBrand)
+                      .filter(l => !filterYear || l.ano_modelo === parseInt(filterYear))
+                      .filter(l => !filterMinPrice || (l.preco_cliente || 0) >= parseFloat(filterMinPrice))
+                      .filter(l => !filterMaxPrice || (l.preco_cliente || 0) <= parseFloat(filterMaxPrice))
+                      .filter(l => {
+                        if (!filterStartDate && !filterEndDate) return true;
+                        const leadDate = new Date(l.created_at);
+                        leadDate.setHours(0, 0, 0, 0);
+                        
+                        if (filterStartDate) {
+                          const start = new Date(filterStartDate);
+                          start.setHours(0, 0, 0, 0);
+                          start.setMinutes(start.getMinutes() + start.getTimezoneOffset());
+                          if (leadDate < start) return false;
+                        }
+                        if (filterEndDate) {
+                          const end = new Date(filterEndDate);
+                          end.setHours(0, 0, 0, 0);
+                          end.setMinutes(end.getMinutes() + end.getTimezoneOffset());
+                          if (leadDate > end) return false;
+                        }
+                        return true;
+                      })
+                      .map((lead) => (
+                        <LeadCard key={lead.id} lead={lead} onClick={() => {
+                          setSelectedLead(lead);
+                          setProposalCalculator(calculateProposal(lead));
+                          setSelectedBuyers([]);
+                          setCurrentPhotoIndex(0);
+                        }} />
+                      ))}
+                  </div>
+                  <div className="hidden">
                     <table className="w-full text-left border-collapse">
                       <thead className="sticky top-0 z-20 bg-slate-50 shadow-sm">
                         <tr className="border-b border-slate-200">
