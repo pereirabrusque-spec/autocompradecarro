@@ -128,7 +128,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-white rounded-[32px] w-full max-w-6xl max-h-[95vh] flex flex-col shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
-        <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-white sticky top-0 z-20 shadow-sm">
+        <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-white sticky top-0 z-50 shadow-sm">
           <div>
             <div className="flex items-center gap-3">
               <span className="px-3 py-1 bg-slate-900 text-white rounded-full text-[10px] font-bold tracking-widest">
@@ -252,10 +252,17 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                   <div className="bg-white p-8 rounded-[32px] w-full max-w-2xl shadow-2xl max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                     <h3 className="text-xl font-bold mb-4">Configurar Envio para {selectedBuyer}</h3>
                     <div className="space-y-4">
+                        <h4 className="font-bold text-sm">Dados do Veículo</h4>
                         <label className="flex items-center gap-2"><input type="checkbox" defaultChecked /> Dados do Veículo</label>
                         <label className="flex items-center gap-2"><input type="checkbox" defaultChecked /> Avarias</label>
                         <label className="flex items-center gap-2"><input type="checkbox" defaultChecked /> Documentos</label>
                         <label className="flex items-center gap-2"><input type="checkbox" defaultChecked /> Fotos e Vídeos</label>
+                        
+                        <h4 className="font-bold text-sm pt-4 border-t">Dados do Usuário (Opcional)</h4>
+                        <label className="flex items-center gap-2"><input type="checkbox" /> Nome do Cliente</label>
+                        <label className="flex items-center gap-2"><input type="checkbox" /> E-mail</label>
+                        <label className="flex items-center gap-2"><input type="checkbox" /> WhatsApp</label>
+                        
                         <button onClick={() => { setShowBuyerConfigModal(false); setShowSuccessPopup(true); }} className="w-full py-3 bg-emerald-500 text-white rounded-xl font-bold">Enviar Relatório</button>
                     </div>
                   </div>
