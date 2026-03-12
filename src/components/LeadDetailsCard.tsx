@@ -435,7 +435,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
           {!showForm && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
               {/* Coluna Esquerda: Formulário Fiel */}
-              <div className="lg:col-span-12 space-y-6">
+              <div className="lg:col-span-7 space-y-6">
                 {/* Ações Rápidas */}
                 <div className="flex gap-4">
                   <button onClick={() => setShowDataModal(true)} className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold flex items-center justify-center gap-2">
@@ -443,28 +443,47 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                   </button>
                 </div>
 
-                {/* Carrossel de Mídia */}
+                {/* Carrossel de Mídia e CRLV */}
                 {mediaItems.length > 0 && (
-                  <div className="bg-slate-900 p-4 rounded-[32px] relative">
-                    <div className="aspect-video bg-black rounded-2xl overflow-hidden flex items-center justify-center">
+                  <div className="bg-slate-900 p-4 rounded-[32px] relative grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="aspect-video bg-black rounded-2xl overflow-hidden flex items-center justify-center relative">
                       {renderMedia(mediaItems[currentPhotoIndex], currentPhotoIndex)}
+                      {mediaItems.length > 1 && (
+                        <>
+                          <button 
+                            onClick={() => setCurrentPhotoIndex((prev) => (prev === 0 ? mediaItems.length - 1 : prev - 1))} 
+                            className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-white/20 hover:bg-white/40 rounded-full text-white z-10"
+                          >
+                            <ChevronLeft size={16} />
+                          </button>
+                          <button 
+                            onClick={() => setCurrentPhotoIndex((prev) => (prev === mediaItems.length - 1 ? 0 : prev + 1))} 
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-white/20 hover:bg-white/40 rounded-full text-white z-10"
+                          >
+                            <ChevronRight size={16} />
+                          </button>
+                        </>
+                      )}
                     </div>
-                    {mediaItems.length > 1 && (
-                      <>
-                        <button 
-                          onClick={() => setCurrentPhotoIndex((prev) => (prev === 0 ? mediaItems.length - 1 : prev - 1))} 
-                          className="absolute left-6 top-1/2 -translate-y-1/2 p-2 bg-white/20 hover:bg-white/40 rounded-full text-white"
-                        >
-                          <ChevronLeft />
-                        </button>
-                        <button 
-                          onClick={() => setCurrentPhotoIndex((prev) => (prev === mediaItems.length - 1 ? 0 : prev + 1))} 
-                          className="absolute right-6 top-1/2 -translate-y-1/2 p-2 bg-white/20 hover:bg-white/40 rounded-full text-white"
-                        >
-                          <ChevronRight />
-                        </button>
-                      </>
-                    )}
+                    <div className="aspect-video bg-slate-800 rounded-2xl overflow-hidden flex items-center justify-center border border-white/10">
+                      {currentLead.crlv_url ? (
+                        currentLead.crlv_url.toLowerCase().includes('.pdf') ? (
+                          <div className="flex flex-col items-center gap-2">
+                            <FileText className="w-12 h-12 text-blue-400" />
+                            <a href={currentLead.crlv_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline font-bold">
+                              Ver PDF do CRLV
+                            </a>
+                          </div>
+                        ) : (
+                          <img src={currentLead.crlv_url} alt="CRLV" className="w-full h-full object-contain" />
+                        )
+                      ) : (
+                        <div className="flex flex-col items-center gap-2 text-white/40">
+                          <FileText className="w-12 h-12" />
+                          <span className="text-xs font-bold uppercase tracking-widest">CRLV não disponível</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -875,21 +894,18 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                 </div>
 
                 {/* Gestão de Custos Fixos */}
-                <div className="bg-slate-50 p-8 rounded-[32px] space-y-6">
+                <div className="bg-white border border-slate-200 p-8 rounded-[32px] space-y-6 shadow-sm">
                   <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest border-b border-slate-200 pb-4">Custos Fixos e Avarias</h3>
                   <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                     {[
                       { label: 'Multas', key: 'multas' },
                       { label: 'IPVA/Multa', key: 'valor_ipva_multa' },
-                      { label: 'Valor Motor', key: 'motor_reparo' },
-                      { label: 'Valor Câmbio', key: 'cambio_reparo' },
-                      { label: 'Valor Batido', key: 'batido_reparo' },
                     ].map(field => (
                       <div key={field.key} className="space-y-1">
                         <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{field.label}</label>
                         <input 
                           type="number"
-                          className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all" 
+                          className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all" 
                           value={currentLead[field.key] || ''} 
                           onChange={e => handleFieldChange(field.key, e.target.value)} 
                         />
