@@ -476,10 +476,12 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                       {/* Helper to render field groups */}
                       {(() => {
                         const groups = {
-                          "Dados do Cliente": ['cliente_nome', 'telefone', 'email'],
-                          "Dados do Veículo": ['marca', 'modelo', 'ano_modelo', 'cor', 'quilometragem', 'placa'],
-                          "Financeiro": ['valor_fipe', 'desired_value', 'valor_ipva_multa', 'total_parcelas', 'parcelas_pagas', 'parcelas_atrasadas', 'valor_parcela', 'juros_atraso', 'is_cooperativa', 'is_financiado', 'is_reajuste'],
-                          "Custos Fixos/Avarias": ['multas', 'valor_ipva', 'motor_reparo', 'cambio_reparo', 'batido_reparo', 'valor_pneus', 'valor_documento']
+                          "Dados do Cliente": ['cliente_nome', 'telefone', 'email', 'cidade_estado'],
+                          "Dados do Veículo": ['marca', 'modelo', 'ano_modelo', 'cor', 'quilometragem', 'placa', 'tipo_veiculo', 'tipo_monta', 'banco_financiador'],
+                          "Financeiro": ['valor_fipe', 'desired_value', 'valor_ipva_multa', 'total_parcelas', 'parcelas_pagas', 'parcelas_restantes', 'parcelas_atrasadas', 'valor_parcela', 'juros_atraso', 'is_cooperativa', 'is_financiado', 'is_reajuste'],
+                          "Custos Fixos/Avarias": ['multas', 'valor_ipva', 'motor_reparo', 'cambio_reparo', 'batido_reparo', 'valor_pneus', 'valor_documento'],
+                          "Problemas/Avarias": ['is_financiamento_atrasado', 'is_busca_apreensao', 'is_ipva_multas_atrasados', 'is_renajud', 'is_motor_fundido', 'is_cambio_defeito', 'is_batido_avariado', 'is_sinistrado_leilao'],
+                          "Acessórios": ['ar_condicionado', 'direcao_hidraulica', 'vidros_eletricos', 'travas_eletricas', 'alarme', 'som_multimidia', 'bancos_couro', 'rodas_liga_leve', 'sensor_re', 'camera_re', 'teto_solar', 'airbag', 'chave_reserva_manual', 'revisoes_dia', 'estado_pneus']
                         };
 
                         return Object.entries(groups).map(([groupName, fields]) => (
@@ -488,7 +490,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                             <div className="grid grid-cols-2 gap-4">
                               {fields.map(key => (
                                 <div key={key} className="space-y-1">
-                                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{key.replace('_', ' ')}</label>
+                                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{key.replace(/_/g, ' ')}</label>
                                   <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800">
                                     {currentLead[key] !== undefined ? String(currentLead[key]) : '-'}
                                   </div>
