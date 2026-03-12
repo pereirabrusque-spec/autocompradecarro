@@ -388,17 +388,27 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                 </div>
 
                 {/* Carrossel de Mídia */}
-                {currentLead.midias && currentLead.midias.length > 0 && (
+                {mediaItems.length > 0 && (
                   <div className="bg-slate-900 p-4 rounded-[32px] relative">
                     <div className="aspect-video bg-black rounded-2xl overflow-hidden flex items-center justify-center">
-                      {currentLead.midias[currentPhotoIndex].type === 'video' ? (
-                        <video src={currentLead.midias[currentPhotoIndex].url} controls className="w-full h-full object-contain" />
-                      ) : (
-                        <img src={currentLead.midias[currentPhotoIndex].url} alt="Mídia" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
-                      )}
+                      {renderMedia(mediaItems[currentPhotoIndex], currentPhotoIndex)}
                     </div>
-                    <button onClick={() => setCurrentPhotoIndex((prev) => (prev === 0 ? currentLead.midias.length - 1 : prev - 1))} className="absolute left-6 top-1/2 -translate-y-1/2 p-2 bg-white/20 hover:bg-white/40 rounded-full text-white"><ChevronLeft /></button>
-                    <button onClick={() => setCurrentPhotoIndex((prev) => (prev === currentLead.midias.length - 1 ? 0 : prev + 1))} className="absolute right-6 top-1/2 -translate-y-1/2 p-2 bg-white/20 hover:bg-white/40 rounded-full text-white"><ChevronRight /></button>
+                    {mediaItems.length > 1 && (
+                      <>
+                        <button 
+                          onClick={() => setCurrentPhotoIndex((prev) => (prev === 0 ? mediaItems.length - 1 : prev - 1))} 
+                          className="absolute left-6 top-1/2 -translate-y-1/2 p-2 bg-white/20 hover:bg-white/40 rounded-full text-white"
+                        >
+                          <ChevronLeft />
+                        </button>
+                        <button 
+                          onClick={() => setCurrentPhotoIndex((prev) => (prev === mediaItems.length - 1 ? 0 : prev + 1))} 
+                          className="absolute right-6 top-1/2 -translate-y-1/2 p-2 bg-white/20 hover:bg-white/40 rounded-full text-white"
+                        >
+                          <ChevronRight />
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
 

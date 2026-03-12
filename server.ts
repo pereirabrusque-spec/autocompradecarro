@@ -49,10 +49,16 @@ async function startServer() {
         .from('banners')
         .upload(filePath, file.buffer, {
           contentType: file.mimetype,
-          upsert: false
+          upsert: true
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro detalhado do Supabase Storage:', JSON.stringify(error, null, 2));
+        return res.status(500).json({ 
+          error: error.message || 'Erro no upload do storage',
+          details: error
+        });
+      }
 
       const { data: { publicUrl } } = supabaseAdmin.storage
         .from('banners')

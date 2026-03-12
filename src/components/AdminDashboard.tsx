@@ -4496,19 +4496,28 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden flex flex-col"
                 >
                   <div className="relative h-48 bg-slate-100 group">
-                    <img 
-                      src={asset.url} 
-                      alt={asset.legenda} 
-                      className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
-                    />
+                    {asset.url?.match(/\.(mp4|webm|ogg)$/i) ? (
+                      <video 
+                        src={asset.url} 
+                        className="w-full h-full object-cover"
+                        muted
+                        playsInline
+                      />
+                    ) : (
+                      <img 
+                        src={asset.url} 
+                        alt={asset.legenda} 
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    )}
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <label className="cursor-pointer px-4 py-2 bg-white text-slate-900 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-slate-100 transition-colors">
                         {uploadingAsset === asset.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                        Trocar
+                        Trocar Mídia
                         <input 
                           type="file" 
-                          accept="image/*" 
+                          accept="image/*,video/*" 
                           className="hidden" 
                           onChange={(e) => handleFileUpload(e, asset.id)}
                           disabled={uploadingAsset === asset.id}
