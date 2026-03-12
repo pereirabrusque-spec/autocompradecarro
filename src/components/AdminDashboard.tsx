@@ -149,6 +149,8 @@ export default function AdminDashboard() {
   const [showAvariasModal, setShowAvariasModal] = useState(false);
   const [showProposalDetails, setShowProposalDetails] = useState(false);
   const [confirmDeleteLeadId, setConfirmDeleteLeadId] = useState<string | null>(null);
+  const [confirmDeleteUserId, setConfirmDeleteUserId] = useState<string | null>(null);
+  const [confirmDeleteAssetId, setConfirmDeleteAssetId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const [buyerPermissions, setBuyerPermissions] = useState({
@@ -759,13 +761,33 @@ Podemos prosseguir com o agendamento da vistoria?`;
     window.location.href = '/';
   };
 
-  const handleUpdateAsset = async (id: string, url: string, legenda: string, tipo: string, button_text?: string, button_link?: string, title?: string, subtitle?: string, badge_text?: string) => {
+  const handleDeleteUser = async (id: string) => {
+    setConfirmDeleteUserId(null);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setUsers(prev => prev.filter(u => u.id !== id));
+      setToast({ message: 'Usuário excluído com sucesso!', type: 'success' });
+      setTimeout(() => setToast(null), 3000);
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      setToast({ message: 'Erro ao excluir usuário: ' + error.message, type: 'error' });
+      setTimeout(() => setToast(null), 5000);
+    }
+  };
+
+  const handleUpdateAsset = async (id: string, url: string, legenda: string, tipo: string, button_text?: string, button_link?: string, title?: string, subtitle?: string, badge_text?: string, ativo?: boolean) => {
     setSavingAsset(id);
     try {
-      console.log('Updating asset:', { id, url, legenda, tipo, button_text, button_link, title, subtitle, badge_text });
+      console.log('Updating asset:', { id, url, legenda, tipo, button_text, button_link, title, subtitle, badge_text, ativo });
       const { data, error } = await supabase
         .from('banners')
-        .update({ url, legenda, tipo, button_text, button_link, title, subtitle, badge_text, ativo: true })
+        .update({ url, legenda, tipo, button_text, button_link, title, subtitle, badge_text, ativo: ativo ?? true })
         .eq('id', id);
 
       console.log('Supabase update response:', { data, error });
@@ -773,7 +795,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
       await refreshAssets();
       // Update local state
-      setDbAssets(prev => prev.map(a => a.id === id ? { ...a, url, legenda, tipo, button_text, button_link, title, subtitle, badge_text, ativo: true } : a));
+      setDbAssets(prev => prev.map(a => a.id === id ? { ...a, url, legenda, tipo, button_text, button_link, title, subtitle, badge_text, ativo: ativo ?? true } : a));
       alert('Alteração salva com sucesso!');
     } catch (error) {
       console.error('Error updating banner:', error);
@@ -815,8 +837,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
   };
 
   const handleDeleteAsset = async (id: string) => {
-    if (!window.confirm('Tem certeza que deseja excluir este banner?')) return;
-    
+    setConfirmDeleteAssetId(null);
     setDeletingAsset(id);
     try {
       const { error } = await supabase
@@ -2008,16 +2029,25 @@ Podemos prosseguir com o agendamento da vistoria?`;
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <button 
-                              onClick={() => {
-                                setBuyerToAuth(user);
-                                setShowAuthModal(true);
-                              }}
-                              className="px-3 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-accent transition-all flex items-center gap-2"
-                            >
-                              <UserCheck className="w-3 h-3" />
-                              Tornar Comprador
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button 
+                                onClick={() => {
+                                  setBuyerToAuth(user);
+                                  setShowAuthModal(true);
+                                }}
+                                className="px-3 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-accent transition-all flex items-center gap-2"
+                              >
+                                <UserCheck className="w-3 h-3" />
+                                Tornar Comprador
+                              </button>
+                              <button 
+                                onClick={() => setConfirmDeleteUserId(user.id)}
+                                className="p-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-all"
+                                title="Excluir Usuário"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -4346,7 +4376,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       </label>
                     </div>
                     <button 
-                      onClick={() => handleDeleteAsset(asset.id)}
+                      onClick={() => setConfirmDeleteAssetId(asset.id)}
                       className="absolute top-4 right-4 p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -4406,13 +4436,26 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         onChange={(e) => setDbAssets(prev => prev.map(a => a.id === asset.id ? { ...a, button_link: e.target.value } : a))}
                       />
                     </div>
+                    <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                      <span className="text-sm font-bold text-slate-700">Status do Banner</span>
+                      <button
+                        onClick={() => setDbAssets(prev => prev.map(a => a.id === asset.id ? { ...a, ativo: !a.ativo } : a))}
+                        className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
+                          asset.ativo 
+                            ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' 
+                            : 'bg-slate-200 text-slate-500 border border-slate-300'
+                        }`}
+                      >
+                        {asset.ativo ? 'Ativo' : 'Inativo'}
+                      </button>
+                    </div>
                     <button 
-                      onClick={() => handleUpdateAsset(asset.id, asset.url, asset.legenda, asset.tipo, asset.button_text, asset.button_link, asset.title, asset.subtitle, asset.badge_text)}
+                      onClick={() => handleUpdateAsset(asset.id, asset.url, asset.legenda, asset.tipo, asset.button_text, asset.button_link, asset.title, asset.subtitle, asset.badge_text, asset.ativo)}
                       disabled={savingAsset === asset.id}
                       className="mt-auto w-full py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-accent transition-all disabled:opacity-50"
                     >
                       {savingAsset === asset.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                      Salvar
+                      Salvar Alterações
                     </button>
                   </div>
                 </motion.div>
@@ -4463,7 +4506,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       </label>
                     </div>
                     <button 
-                      onClick={() => handleDeleteAsset(asset.id)}
+                      onClick={() => setConfirmDeleteAssetId(asset.id)}
                       className="absolute top-4 right-4 p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -4486,13 +4529,26 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         onChange={(e) => setDbAssets(prev => prev.map(a => a.id === asset.id ? { ...a, legenda: e.target.value } : a))}
                       />
                     </div>
+                    <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                      <span className="text-sm font-bold text-slate-700">Status do Asset</span>
+                      <button
+                        onClick={() => setDbAssets(prev => prev.map(a => a.id === asset.id ? { ...a, ativo: !a.ativo } : a))}
+                        className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
+                          asset.ativo 
+                            ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' 
+                            : 'bg-slate-200 text-slate-500 border border-slate-300'
+                        }`}
+                      >
+                        {asset.ativo ? 'Ativo' : 'Inativo'}
+                      </button>
+                    </div>
                     <button 
-                      onClick={() => handleUpdateAsset(asset.id, asset.url, asset.legenda, asset.tipo, asset.button_text, asset.button_link, asset.title, asset.subtitle, asset.badge_text)}
+                      onClick={() => handleUpdateAsset(asset.id, asset.url, asset.legenda, asset.tipo, asset.button_text, asset.button_link, asset.title, asset.subtitle, asset.badge_text, asset.ativo)}
                       disabled={savingAsset === asset.id}
                       className="mt-auto w-full py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-accent transition-all disabled:opacity-50"
                     >
                       {savingAsset === asset.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                      Salvar
+                      Salvar Alterações
                     </button>
                   </div>
                 </motion.div>
@@ -5647,6 +5703,75 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-bold hover:bg-red-700 transition-all flex items-center justify-center gap-2"
                 >
                   {isDeletingLead === confirmDeleteLeadId ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
+                  Excluir Agora
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {confirmDeleteUserId && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-[32px] p-8 max-w-md w-full shadow-2xl text-center"
+            >
+              <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Trash2 className="w-10 h-10 text-red-600" />
+              </div>
+              <h3 className="text-2xl font-bold mb-2">Excluir Usuário?</h3>
+              <p className="text-slate-500 mb-8">
+                Tem certeza que deseja excluir este usuário permanentemente? Esta ação não pode ser desfeita.
+              </p>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setConfirmDeleteUserId(null)}
+                  className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={() => handleDeleteUser(confirmDeleteUserId)}
+                  className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-bold hover:bg-red-700 transition-all flex items-center justify-center gap-2"
+                >
+                  <Trash2 className="w-5 h-5" />
+                  Excluir Agora
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {confirmDeleteAssetId && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-[32px] p-8 max-w-md w-full shadow-2xl text-center"
+            >
+              <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Trash2 className="w-10 h-10 text-red-600" />
+              </div>
+              <h3 className="text-2xl font-bold mb-2">Excluir Banner?</h3>
+              <p className="text-slate-500 mb-8">
+                Tem certeza que deseja excluir este banner permanentemente? Esta ação não pode ser desfeita.
+              </p>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setConfirmDeleteAssetId(null)}
+                  className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={() => handleDeleteAsset(confirmDeleteAssetId)}
+                  disabled={deletingAsset === confirmDeleteAssetId}
+                  className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-bold hover:bg-red-700 transition-all flex items-center justify-center gap-2"
+                >
+                  {deletingAsset === confirmDeleteAssetId ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
                   Excluir Agora
                 </button>
               </div>

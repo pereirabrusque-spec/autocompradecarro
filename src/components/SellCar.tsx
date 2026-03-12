@@ -476,6 +476,7 @@ export default function SellCar() {
       renavam: '',
       color: '',
       mileage: '',
+      ano_fabricacao: '',
       hasSinistro: false,
       hasLeilao: false,
       isRecuperado: false,
