@@ -623,7 +623,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                                 <input 
                                   type="text"
                                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all"
-                                  value={currentLead[field.key] ?? ''}
+                                  value={currentLead.tipo_veiculo || (currentLead.vehicle_code ? (currentLead.vehicle_code === 'NLVO' ? 'Carro' : currentLead.vehicle_code) : 'Não informado')}
                                   readOnly
                                 />
                               ) : field.key === 'avarias_manuais' ? (
