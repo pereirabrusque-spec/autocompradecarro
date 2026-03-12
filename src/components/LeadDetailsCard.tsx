@@ -256,6 +256,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
 
   const [showForm, setShowForm] = useState(false);
   const [showBuyerModal, setShowBuyerModal] = useState(false);
+  const [showWhatsAppBuyerModal, setShowWhatsAppBuyerModal] = useState(false);
   const [showBuyerConfigModal, setShowBuyerConfigModal] = useState(false);
   const [showDataModal, setShowDataModal] = useState(false);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
@@ -379,7 +380,10 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
               <ArrowLeft className="w-4 h-4" /> Voltar
             </button>
             <button onClick={() => window.open(`https://wa.me/${currentLead.telefone?.replace(/\D/g, '')}`, '_blank')} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5">
-              <MessageCircle className="w-4 h-4" /> WhatsApp
+              <MessageCircle className="w-4 h-4" /> WhatsApp Proposta
+            </button>
+            <button onClick={() => setShowWhatsAppBuyerModal(true)} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5">
+              <MessageCircle className="w-4 h-4" /> WhatsApp Comprador
             </button>
             <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5">
               <Edit2 className="w-4 h-4" /> {showForm ? 'Fechar Edição' : 'Editar'}
@@ -503,6 +507,121 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                       >
                         Enviar Mensagem
                       </button>
+                    </div>
+                  </div>
+                )}
+                {showWhatsAppBuyerModal && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowWhatsAppBuyerModal(false)}>
+                    <div className="bg-white p-8 rounded-[32px] w-full max-w-2xl shadow-2xl max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                      <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-xl font-bold">Selecionar Comprador (WhatsApp)</h3>
+                        <button onClick={() => setShowWhatsAppBuyerModal(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+                      
+                      <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+                        {['Todos', 'Carro', 'Moto', 'Caminhão'].map(cat => (
+                          <button 
+                            key={cat} 
+                            onClick={() => setBuyerFilter(cat)}
+                            className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all ${buyerFilter === cat ? 'bg-slate-900 text-white shadow-lg' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                          > 
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="space-y-3">
+                          {buyers
+                            .filter(b => buyerFilter === 'Todos' || b.category === buyerFilter)
+                            .sort((a, b) => (b.ranking || 0) - (a.ranking || 0))
+                            .map(buyer => (
+                              <button 
+                                key={buyer.id} 
+                                onClick={() => {
+                                  const phone = buyer.phone?.replace(/\D/g, '');
+                                  if (!phone) {
+                                    alert('Este comprador não possui WhatsApp cadastrado.');
+                                    return;
+                                  }
+
+                                  // Gerar mensagem
+                                  let message = `*Oportunidade de Veículo - #${currentLead.vehicle_code}*\n\n`;
+                                  message += `*Veículo:* ${currentLead.marca} ${currentLead.modelo}\n`;
+                                  message += `*Ano:* ${currentLead.ano_modelo}\n`;
+                                  message += `*Cor:* ${currentLead.cor}\n`;
+                                  message += `*KM:* ${currentLead.quilometragem || currentLead.mileage || 'N/A'}\n`;
+                                  message += `*Placa:* ${currentLead.placa || 'N/A'}\n`;
+                                  
+                                  if (currentLead.observacoes) {
+                                    message += `\n*Descrição:* ${currentLead.observacoes}\n`;
+                                  }
+
+                                  // Detalhes técnicos
+                                  message += `\n*Detalhes Técnicos:*\n`;
+                                  const techDetails = [
+                                    { label: 'Teto Solar', key: 'teto_solar' },
+                                    { label: 'Airbag', key: 'airbag' },
+                                    { label: 'Ar Condicionado', key: 'ar_condicionado' },
+                                    { label: 'Direção Hidráulica', key: 'direcao_hidraulica' },
+                                    { label: 'Vidros Elétricos', key: 'vidros_eletricos' },
+                                    { label: 'Travas Elétricas', key: 'travas_eletricas' },
+                                    { label: 'Alarme', key: 'alarme' },
+                                    { label: 'Som/Multimídia', key: 'som_multimidia' },
+                                    { label: 'Bancos de Couro', key: 'bancos_couro' },
+                                    { label: 'Rodas de Liga Leve', key: 'rodas_liga_leve' },
+                                    { label: 'Sensor de Ré', key: 'sensor_re' },
+                                    { label: 'Câmera de Ré', key: 'camera_re' },
+                                    { label: 'Chave Reserva/Manual', key: 'chave_reserva_manual' },
+                                    { label: 'Revisões em Dia', key: 'revisoes_dia' }
+                                  ];
+
+                                  techDetails.forEach(detail => {
+                                    if (currentLead[detail.key] === 'sim' || currentLead[detail.key] === 'true' || currentLead[detail.key] === true) {
+                                      message += `- ${detail.label}\n`;
+                                    }
+                                  });
+
+                                  // Problemas/Avarias
+                                  if (currentLead.problemas && currentLead.problemas.length > 0) {
+                                    message += `\n*Avarias/Observações:*\n`;
+                                    currentLead.problemas.forEach((p: string) => message += `- ${p}\n`);
+                                  }
+
+                                  // Fotos e Vídeos
+                                  if (mediaItems.length > 0) {
+                                    message += `\n*Fotos e Vídeos:*\n`;
+                                    mediaItems.slice(0, 5).forEach((url, idx) => {
+                                      message += `${idx + 1}. ${url}\n`;
+                                    });
+                                    if (mediaItems.length > 5) {
+                                      message += `... e mais ${mediaItems.length - 5} arquivos.\n`;
+                                    }
+                                  }
+
+                                  const encodedMessage = encodeURIComponent(message);
+                                  window.open(`https://wa.me/${phone}?text=${encodedMessage}`, '_blank');
+                                  setShowWhatsAppBuyerModal(false);
+                                }}
+                                className="w-full flex items-center justify-between p-4 border border-slate-200 rounded-2xl hover:bg-slate-50 hover:border-emerald-500 transition-all group text-left"
+                              >
+                                  <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+                                      <MessageCircle className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                      <p className="font-bold text-slate-900">{buyer.name}</p>
+                                      <p className="text-xs text-slate-500">{buyer.phone || 'Sem telefone'}</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-col items-end">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ranking</span>
+                                    <span className="text-sm font-bold text-emerald-600">{buyer.ranking || 0}</span>
+                                  </div>
+                              </button>
+                          ))}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -959,28 +1078,6 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                         </div>
                       </div>
                     </div>
-                  </div>
-                </div>
-
-
-                {/* Gestão de Custos Fixos */}
-                <div className="bg-white border border-slate-200 p-8 rounded-[32px] space-y-6 shadow-sm">
-                  <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest border-b border-slate-200 pb-4">Custos Fixos e Avarias</h3>
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-                    {[
-                      { label: 'Multas', key: 'multas' },
-                      { label: 'IPVA/Multa', key: 'valor_ipva_multa' },
-                    ].map(field => (
-                      <div key={field.key} className="space-y-1">
-                        <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{field.label}</label>
-                        <input 
-                          type="number"
-                          className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all" 
-                          value={currentLead[field.key] || ''} 
-                          onChange={e => handleFieldChange(field.key, e.target.value)} 
-                        />
-                      </div>
-                    ))}
                   </div>
                 </div>
               </div>
