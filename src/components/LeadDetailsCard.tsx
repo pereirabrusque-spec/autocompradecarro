@@ -648,14 +648,19 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                                   type="text"
                                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all"
                                   value={
-                                    currentLead.problemas?.includes(
+                                    (currentLead.problemas?.includes(
                                       field.key === 'financiamento_atrasado' ? 'Financiamento Atrasado' :
                                       field.key === 'busca_apreensao' ? 'Busca e Apreensão' :
                                       field.key === 'renajud_bloqueio' ? 'Renajud / Bloqueio Judicial' :
                                       field.key === 'sinistrado_leilao' ? 'Sinistrado / Leilão' : 
                                       field.key === 'recuperado_banco' ? 'Recuperado de Banco' :
-                                      field.key === 'historico_furto_roubo' ? 'Histórico de Furto/Roubo' : ''
-                                    ) || currentLead[field.key] === 'true' || currentLead[field.key] === true 
+                                      field.key === 'historico_furto_roubo' ? 'Histórico de Furto/Roubo' :
+                                      field.key === 'passagem_leilao' ? 'Passagem por Leilão' :
+                                      field.key === 'tem_sinistro' ? 'Sinistro' : ''
+                                    ) || 
+                                    currentLead[field.key] === 'true' || 
+                                    currentLead[field.key] === true ||
+                                    currentLead[field.key] === 'sim')
                                     ? 'Sim' : 'Não'
                                   }
                                   readOnly
