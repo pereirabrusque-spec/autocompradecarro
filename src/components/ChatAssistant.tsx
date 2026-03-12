@@ -46,6 +46,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
 
   const [isAiDisabled, setIsAiDisabled] = useState(false);
   const [lastProposal, setLastProposal] = useState<any>(null);
+  const [selectedProposal, setSelectedProposal] = useState<any>(null);
 
   const fetchApiKey = async () => {
     // Try to select with status first
@@ -623,7 +624,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
                         </div>
                         {msg.tipo === 'proposta' && (
                           <button 
-                            onClick={() => console.log('View proposal:', msg.metadata)}
+                            onClick={() => setSelectedProposal(msg.metadata?.proposal_data)}
                             className="mt-3 w-full py-2 bg-accent text-white rounded-lg text-xs font-bold hover:bg-accent/90 transition-all"
                           >
                             Ver Proposta Oficial
@@ -648,6 +649,23 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
                 </div>
               )}
             </div>
+
+            {/* Proposal Modal */}
+            {selectedProposal && (
+              <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4" onClick={() => setSelectedProposal(null)}>
+                <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl" onClick={e => e.stopPropagation()}>
+                  <h3 className="text-lg font-bold mb-4">Detalhes da Proposta</h3>
+                  <div className="space-y-2 text-sm">
+                    <p><strong>Valor Final:</strong> {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedProposal.final_value)}</p>
+                    <p><strong>Base FIPE:</strong> {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedProposal.base_value)}</p>
+                    {selectedProposal.deductions && selectedProposal.deductions.map((d: any, i: number) => (
+                      <p key={i}>{d.name}: -{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</p>
+                    ))}
+                  </div>
+                  <button onClick={() => setSelectedProposal(null)} className="mt-6 w-full py-2 bg-slate-900 text-white rounded-lg text-sm font-bold">Fechar</button>
+                </div>
+              </div>
+            )}
 
             <div className="p-6 bg-white border-t border-slate-100 space-y-4">
               {selectedImage && (
