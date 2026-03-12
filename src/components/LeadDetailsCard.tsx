@@ -143,6 +143,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
         let apply = false;
         const condition = rule.condition_name.toLowerCase();
         
+        // Mapeamento flexível das condições do banco para as variáveis do lead
         if (condition.includes('cooperativa') && (isCooperativa || isCooperativeBank(currentLead.banco_financiamento))) apply = true;
         if (condition.includes('financiado') && isFinanciado) apply = true;
         if (condition.includes('reajuste') && isReajuste) apply = true;
@@ -155,8 +156,10 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
         if (condition.includes('passagem leilão') && passagemLeilao) apply = true;
         if (condition.includes('recuperado banco') && recuperadoBanco) apply = true;
         if (condition.includes('histórico furto/roubo') && historicoFurtoRoubo) apply = true;
-        if (condition.includes('motor estragado') && isMotorFundido) apply = true;
+        if ((condition.includes('motor estragado') || condition.includes('motor fundido')) && isMotorFundido) apply = true;
+        if ((condition.includes('câmbio') || condition.includes('cambio')) && (currentLead.is_cambio_defeito === 'true' || currentLead.is_cambio_defeito === true)) apply = true;
         if (condition.includes('batido') && isBatidoAvariado) apply = true;
+        if (condition.includes('ipva') && (currentLead.is_ipva_multas_atrasados === 'true' || currentLead.is_ipva_multas_atrasados === true)) apply = true;
 
         if (apply) {
           discountOptions.push({ 
