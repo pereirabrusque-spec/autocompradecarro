@@ -286,6 +286,8 @@ export default function SellCar() {
   // Gerenciar previews de fotos com useEffect para evitar vazamento de memória
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [videoPreviews, setVideoPreviews] = useState<string[]>([]);
+  const [crlvFile, setCrlvFile] = useState<File | null>(null);
+  const [crlvPreview, setCrlvPreview] = useState<string | null>(null);
 
   useEffect(() => {
     const newPreviews = photos.map(photo => URL.createObjectURL(photo));
@@ -298,6 +300,21 @@ export default function SellCar() {
     setVideoPreviews(newPreviews);
     return () => newPreviews.forEach(url => URL.revokeObjectURL(url));
   }, [videos]);
+
+  useEffect(() => {
+    if (!crlvFile) {
+      setCrlvPreview(null);
+      return;
+    }
+    // Only create preview for images
+    if (crlvFile.type.startsWith('image/')) {
+      const url = URL.createObjectURL(crlvFile);
+      setCrlvPreview(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setCrlvPreview('pdf-placeholder');
+    }
+  }, [crlvFile]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -371,6 +388,12 @@ export default function SellCar() {
         if (url) uploadedVideos.push(url);
       }
 
+      // Upload CRLV
+      let crlvUrl = null;
+      if (crlvFile) {
+        crlvUrl = await uploadFile(crlvFile, 'crlv');
+      }
+
       console.log('Enviando dados para Supabase (via API)...');
       
       const leadPayload: any = {
@@ -413,9 +436,12 @@ export default function SellCar() {
         notifications_enabled: formData.authorizeNotifications,
         recuperado_banco: formData.isRecuperado,
         historico_furto_roubo: formData.hasFurtoRoubo,
+        tem_sinistro: formData.hasSinistro || formData.hasSinistradoLeilao,
+        passagem_leilao: formData.hasLeilao || formData.hasSinistradoLeilao,
         fotos: uploadedPhotos,
         videos: uploadedVideos,
         fotos_url: uploadedPhotos,
+        crlv_url: crlvUrl,
         tipo_veiculo: formData.vehicleType,
         vehicle_code: Math.random().toString(36).substring(2, 6).toUpperCase()
       };
@@ -470,6 +496,7 @@ export default function SellCar() {
             delete simplifiedPayload.tem_sinistro;
             delete simplifiedPayload.passagem_leilao;
             delete simplifiedPayload.mileage; // Usamos quilometragem agora
+            delete simplifiedPayload.crlv_url;
             
             const { error: simpleError } = await supabase
               .from('leads_veiculos')
@@ -955,14 +982,45 @@ export default function SellCar() {
               </div>
               <h3 className="text-xl font-bold text-blue-900 mb-2">Envie o CRLV (Opcional, mas recomendado)</h3>
               <p className="text-sm text-blue-700/70 mb-6 max-w-sm mx-auto">
-                Envie uma foto do documento do veículo. Nossa IA preencherá os dados automaticamente para você poupar tempo!
+                Envie uma foto ou PDF do documento do veículo para agilizar o processo.
               </p>
-              <div className="border-2 border-dashed border-blue-200 rounded-2xl p-6 hover:border-blue-400 transition-colors cursor-pointer group">
-                <div className="flex items-center justify-center gap-2 text-blue-600 font-bold">
-                  <Camera className="w-5 h-5" />
-                  Selecionar Foto do CRLV
+              
+              {crlvPreview ? (
+                <div className="relative max-w-xs mx-auto aspect-[4/3] rounded-2xl overflow-hidden border border-blue-200 bg-white mb-4">
+                  {crlvFile?.type === 'application/pdf' ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-blue-600">
+                      <FileText className="w-12 h-12" />
+                      <span className="text-xs font-bold truncate px-4 w-full">{crlvFile.name}</span>
+                    </div>
+                  ) : (
+                    <img src={crlvPreview} alt="CRLV Preview" className="w-full h-full object-cover" />
+                  )}
+                  <button 
+                    type="button"
+                    onClick={() => setCrlvFile(null)}
+                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
-              </div>
+              ) : (
+                <label className="border-2 border-dashed border-blue-200 rounded-2xl p-6 hover:border-blue-400 transition-colors cursor-pointer group block">
+                  <input 
+                    type="file" 
+                    accept="image/*,application/pdf" 
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setCrlvFile(e.target.files[0]);
+                      }
+                    }}
+                  />
+                  <div className="flex items-center justify-center gap-2 text-blue-600 font-bold">
+                    <Camera className="w-5 h-5" />
+                    Selecionar Foto ou PDF do CRLV
+                  </div>
+                </label>
+              )}
             </div>
 
             {/* Vehicle Photos */}
