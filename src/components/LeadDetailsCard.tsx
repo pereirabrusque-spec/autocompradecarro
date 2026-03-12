@@ -370,57 +370,32 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
           </button>
         </div>
 
-        {/* Conteúdo */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-2">
-          {mediaItems.length > 0 && (
-            <div className="relative group">
-              {renderMedia(mediaItems[currentPhotoIndex], currentPhotoIndex)}
-              {mediaItems.length > 1 && (
-                <>
-                  <button 
-                    onClick={() => setCurrentPhotoIndex(prev => (prev === 0 ? mediaItems.length - 1 : prev - 1))}
-                    className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <ChevronLeft className="w-6 h-6" />
-                  </button>
-                  <button 
-                    onClick={() => setCurrentPhotoIndex(prev => (prev === mediaItems.length - 1 ? 0 : prev + 1))}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <ChevronRight className="w-6 h-6" />
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-          {/* ... (Conteúdo do formulário e detalhes) ... */}
-        </div>
+        {/* Conteúdo Principal */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 scroll-pt-20">
+          
+          {/* Botões de Ação no Topo */}
+          <div className="flex flex-wrap justify-end gap-2 pb-4 border-b border-slate-100">
+            <button onClick={onClose} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-bold text-slate-700 flex items-center justify-center gap-1.5">
+              <ArrowLeft className="w-4 h-4" /> Voltar
+            </button>
+            <button onClick={() => window.open(`https://wa.me/${currentLead.telefone?.replace(/\D/g, '')}`, '_blank')} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5">
+              <MessageCircle className="w-4 h-4" /> WhatsApp
+            </button>
+            <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5">
+              <Edit2 className="w-4 h-4" /> {showForm ? 'Fechar Edição' : 'Editar'}
+            </button>
+          </div>
 
-        {/* Footer Fixo com Botões */}
-        <div className="p-4 border-t border-slate-100 bg-white flex flex-col sm:flex-row justify-end gap-2">
-          <button onClick={() => setShowForm(!showForm)} className="order-1 sm:order-3 px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5">
-            <Edit2 className="w-4 h-4" /> {showForm ? 'Fechar Edição' : 'Editar'}
-          </button>
-          <button onClick={() => window.open(`https://wa.me/${currentLead.telefone?.replace(/\D/g, '')}`, '_blank')} className="order-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5">
-            <MessageCircle className="w-4 h-4" /> WhatsApp
-          </button>
-          <button onClick={onClose} className="order-3 sm:order-1 px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-bold text-slate-700 flex items-center justify-center gap-1.5">
-            <ArrowLeft className="w-4 h-4" /> Voltar
-          </button>
-        </div>
-    <div className="flex-1 overflow-y-auto p-6 scroll-pt-20">
           {showForm && (
             <div className="bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm space-y-4 mb-6">
               <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest">Editar Lead</h3>
               <div className="grid grid-cols-2 gap-4">
-                {/* Campos removidos para reinício */}
+                {/* Campos de edição podem ser adicionados aqui se necessário */}
+                <div className="col-span-2 text-center text-slate-400 text-xs italic">Use o formulário completo para edições detalhadas.</div>
               </div>
               <button onClick={() => { 
                 const preparedLead = { ...currentLead };
-                
                 checkboxFields.forEach(field => {
-                  // Se o valor atual for 'true' ou 'sim', salva 'sim', caso contrário 'nao'
-                  // Apenas processa se o campo ainda existir no objeto
                   if (preparedLead[field] !== undefined) {
                     preparedLead[field] = (preparedLead[field] === 'true' || preparedLead[field] === 'sim' || preparedLead[field] === true) ? 'sim' : 'nao';
                   }
@@ -432,62 +407,69 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
               </button>
             </div>
           )}
-          {!showForm && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-              {/* Coluna Esquerda: Formulário Fiel */}
-              <div className="lg:col-span-7 space-y-6">
-                {/* Ações Rápidas */}
-                <div className="flex gap-4">
-                  <button onClick={() => setShowDataModal(true)} className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold flex items-center justify-center gap-2">
-                    <FileText className="w-4 h-4" /> Avaliar Veículo (Formulário Completo)
-                  </button>
-                </div>
 
-                {/* Carrossel de Mídia e CRLV */}
-                {mediaItems.length > 0 && (
-                  <div className="bg-slate-900 p-4 rounded-[32px] relative grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="aspect-video bg-black rounded-2xl overflow-hidden flex items-center justify-center relative">
+          {!showForm && (
+            <div className="space-y-6">
+              {/* Carrossel de Mídia e CRLV - Lado a Lado (50/50) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Carrossel de Mídia */}
+                <div className="bg-slate-900 p-4 rounded-[32px] aspect-video relative flex items-center justify-center overflow-hidden shadow-xl">
+                  {mediaItems.length > 0 ? (
+                    <>
                       {renderMedia(mediaItems[currentPhotoIndex], currentPhotoIndex)}
                       {mediaItems.length > 1 && (
                         <>
                           <button 
                             onClick={() => setCurrentPhotoIndex((prev) => (prev === 0 ? mediaItems.length - 1 : prev - 1))} 
-                            className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-white/20 hover:bg-white/40 rounded-full text-white z-10"
+                            className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-white/20 hover:bg-white/40 rounded-full text-white z-10 transition-colors"
                           >
                             <ChevronLeft size={16} />
                           </button>
                           <button 
                             onClick={() => setCurrentPhotoIndex((prev) => (prev === mediaItems.length - 1 ? 0 : prev + 1))} 
-                            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-white/20 hover:bg-white/40 rounded-full text-white z-10"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-white/20 hover:bg-white/40 rounded-full text-white z-10 transition-colors"
                           >
                             <ChevronRight size={16} />
                           </button>
                         </>
                       )}
-                    </div>
-                    <div className="aspect-video bg-slate-800 rounded-2xl overflow-hidden flex items-center justify-center border border-white/10">
-                      {currentLead.crlv_url ? (
-                        currentLead.crlv_url.toLowerCase().includes('.pdf') ? (
-                          <div className="flex flex-col items-center gap-2">
-                            <FileText className="w-12 h-12 text-blue-400" />
-                            <a href={currentLead.crlv_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline font-bold">
-                              Ver PDF do CRLV
-                            </a>
-                          </div>
-                        ) : (
-                          <img src={currentLead.crlv_url} alt="CRLV" className="w-full h-full object-contain" />
-                        )
-                      ) : (
-                        <div className="flex flex-col items-center gap-2 text-white/40">
-                          <FileText className="w-12 h-12" />
-                          <span className="text-xs font-bold uppercase tracking-widest">CRLV não disponível</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+                    </>
+                  ) : (
+                    <span className="text-white/40 font-bold">Sem mídia disponível</span>
+                  )}
+                </div>
 
-                {/* Benefícios */}
+                {/* CRLV Preview (50%) */}
+                <div 
+                  onClick={() => setShowDataModal(true)}
+                  className="bg-slate-800 p-4 rounded-[32px] aspect-video flex items-center justify-center border border-white/10 cursor-pointer hover:bg-slate-700 transition-colors relative overflow-hidden shadow-xl group"
+                >
+                  {currentLead.crlv_url ? (
+                    currentLead.crlv_url.toLowerCase().includes('.pdf') ? (
+                      <div className="flex flex-col items-center gap-2">
+                        <FileText className="w-12 h-12 text-blue-400" />
+                        <span className="text-xs text-white font-bold">Ver PDF do CRLV</span>
+                      </div>
+                    ) : (
+                      <img src={currentLead.crlv_url} alt="CRLV" className="w-full h-full object-cover rounded-xl" />
+                    )
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 text-white/40">
+                      <FileText className="w-12 h-12" />
+                      <span className="text-xs font-bold uppercase tracking-widest">CRLV não disponível</span>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                    <span className="text-white opacity-0 group-hover:opacity-100 font-bold text-xs bg-black/50 px-3 py-1.5 rounded-full">Clique para Ver Detalhes</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Botão Avaliar Veículo */}
+              <button onClick={() => setShowDataModal(true)} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-slate-800 transition-all shadow-lg transform hover:scale-[1.01] active:scale-[0.99]">
+                <FileText className="w-5 h-5" /> Avaliar Veículo (Formulário Completo)
+              </button>
+              {/* Benefícios */}
                 <div className="bg-white border border-slate-200 p-6 rounded-[32px] shadow-sm">
                   <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest mb-4">Benefícios do Veículo</h3>
                   <div className="flex flex-wrap gap-2">
@@ -799,99 +781,187 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                     </div>
                   </div>
                 )}
-                <div className="bg-slate-50 p-8 rounded-[32px] space-y-4">
-                  <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest border-b border-slate-200 pb-4">Detalhamento da Proposta</h3>
-                  <div className="flex gap-4 mb-4">
-                    <button onClick={() => setShowUserModal(true)} className="px-4 py-2 bg-slate-900 text-white rounded-full text-xs font-bold">Enviar para Usuário</button>
-                    <button onClick={() => setShowBuyerModal(true)} className="px-4 py-2 bg-slate-200 text-slate-700 rounded-full text-xs font-bold">Enviar para Comprador</button>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Detalhamento da Proposta */}
+                  <div className="bg-slate-50 p-8 rounded-[32px] space-y-4">
+                    <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest border-b border-slate-200 pb-4">Detalhamento da Proposta</h3>
+                    <div className="flex gap-4 mb-4">
+                      <button onClick={() => setShowUserModal(true)} className="px-4 py-2 bg-slate-900 text-white rounded-full text-xs font-bold">Enviar para Usuário</button>
+                      <button onClick={() => setShowBuyerModal(true)} className="px-4 py-2 bg-slate-200 text-slate-700 rounded-full text-xs font-bold">Enviar para Comprador</button>
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between"><span>Tabela FIPE</span><span className="font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fipe)}</span></div>
+                      <div className="flex justify-between text-red-500 group cursor-pointer relative">
+                        <span>Descontos Aplicados</span>
+                        <span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.discountValue)}</span>
+                        <div className="absolute right-0 top-full bg-white border border-slate-200 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
+                          {calc.discounts.map((d, i) => (
+                            <div key={i} className={`flex justify-between text-xs mb-1 ${d.isMax ? 'text-red-500 font-bold' : 'text-slate-600'}`}>
+                              <span>{d.name}</span>
+                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex justify-between text-red-500 group cursor-pointer relative">
+                        <span>Custos Fixos/Avarias</span>
+                        <span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fixedCosts)}</span>
+                        <div className="absolute right-0 top-full bg-white border border-slate-200 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
+                          {calc.fixedCostsDetail.map((item, i) => (
+                            <div key={i} className="flex justify-between text-xs text-red-500 mb-1">
+                              <span>{item.name}</span>
+                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value)}</span>
+                            </div>
+                          ))}
+                          <div className="pt-2 mt-2 border-t border-slate-100 flex justify-between text-xs font-bold text-red-500">
+                            <span>Total</span>
+                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fixedCosts)}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex justify-between text-red-500 group cursor-pointer relative">
+                        <span>Quitação Estimada</span>
+                        <span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}</span>
+                        <div className="absolute right-0 top-full bg-white border border-slate-200 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
+                            <div className="flex justify-between text-xs text-slate-600 mb-1 font-bold border-b border-slate-100 pb-1">
+                                <span>Valor da Parcela</span>
+                                <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.valorParcela)}</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-slate-600 mb-2 font-bold border-b border-slate-100 pb-1">
+                                <span>Juros Mensal (Config)</span>
+                                <span>{calc.payoffBreakdown.jurosParcelas}%</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-slate-600 mb-1">
+                                <span>Qtd a Vencer</span>
+                                <span>{calc.payoffBreakdown.qtdAVencer}</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-slate-600 mb-1">
+                                <span>Valor a Vencer</span>
+                                <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.valorAVencer)}</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-slate-600 mb-1">
+                                <span>Qtd Atrasadas</span>
+                                <span>{calc.payoffBreakdown.qtdAtrasadas}</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-slate-600 mb-1">
+                                <span>Valor Atrasadas</span>
+                                <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.valorAtrasadas)}</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-slate-600 mb-1">
+                                <span>Juros Atrasadas ({calc.payoffBreakdown.jurosParcelas}%)</span>
+                                <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.jurosAtrasadas)}</span>
+                            </div>
+                            <div className="pt-2 mt-2 border-t border-slate-100 flex justify-between text-xs font-bold text-slate-600">
+                                <span>Total Quitação</span>
+                                <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}</span>
+                            </div>
+                        </div>
+                      </div>
+                      <div className="pt-4 border-t border-slate-200 flex justify-between items-center group cursor-pointer relative">
+                        <span className="font-bold text-lg text-slate-900">Proposta Final</span>
+                        <span className="font-bold text-lg text-slate-900">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalProposal)}</span>
+                        <div className="absolute right-0 bottom-full mb-2 bg-white border border-slate-200 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-72">
+                          <div className="text-xs font-bold mb-2 border-b pb-1 text-slate-900">Comparativo de Propostas</div>
+                          <div className={`flex justify-between text-xs mb-1 ${calc.optionA <= calc.optionB ? 'text-emerald-600 font-bold' : 'text-red-500'}`}>
+                            <span>FIPE - Descontos</span>
+                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.optionA)}</span>
+                          </div>
+                          <div className={`flex justify-between text-xs mb-1 ${calc.optionB < calc.optionA ? 'text-emerald-600 font-bold' : 'text-red-500'}`}>
+                            <span>Valor Desejado - 40%</span>
+                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.optionB)}</span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 mt-2 italic">* O sistema seleciona automaticamente o menor valor.</div>
+                        </div>
+                      </div>
+                      <div className="flex justify-between text-emerald-600 font-medium"><span>Lucro Estimado</span><span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.profit)}</span></div>
+                    </div>
                   </div>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between"><span>Tabela FIPE</span><span className="font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fipe)}</span></div>
-                    <div className="flex justify-between text-red-500 group cursor-pointer relative">
-                      <span>Descontos Aplicados</span>
-                      <span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.discountValue)}</span>
-                      <div className="absolute right-0 top-full bg-white border border-slate-200 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
-                        {calc.discounts.map((d, i) => (
-                          <div key={i} className={`flex justify-between text-xs mb-1 ${d.isMax ? 'text-red-500 font-bold' : 'text-slate-600'}`}>
-                            <span>{d.name}</span>
-                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
-                          </div>
-                        ))}
+
+                  {/* Análise Financeira */}
+                  <div className="bg-slate-900 text-white p-8 rounded-[32px] space-y-8 shadow-2xl">
+                    <h3 className="font-bold uppercase text-xs tracking-widest text-white/60 border-b border-white/10 pb-4">Análise Financeira</h3>
+                    <div className="space-y-4 text-sm">
+                      <div className="flex justify-between"><span className="text-white/60">FIPE</span><span className="font-mono">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fipe)}</span></div>
+                      <div className="flex justify-between text-red-400 group cursor-pointer relative"><span className="text-white/60">Descontos</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.discountValue)}</span>
+                        <div className="absolute right-0 top-full bg-slate-800 border border-white/10 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
+                          {calc.discounts.map((d, i) => (
+                            <div key={i} className={`flex justify-between text-xs mb-1 ${d.isMax ? 'text-red-400 font-bold' : 'text-white/60'}`}>
+                              <span>{d.name}</span>
+                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex justify-between text-red-500 group cursor-pointer relative">
-                      <span>Custos Fixos/Avarias</span>
-                      <span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fixedCosts)}</span>
-                      <div className="absolute right-0 top-full bg-white border border-slate-200 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
-                        {calc.fixedCostsDetail.map((item, i) => (
-                          <div key={i} className="flex justify-between text-xs text-red-500 mb-1">
-                            <span>{item.name}</span>
-                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value)}</span>
+                      <div className="flex justify-between text-red-400 group cursor-pointer relative"><span className="text-white/60">Custos Fixos/Avarias</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fixedCosts)}</span>
+                        <div className="absolute right-0 top-full bg-slate-800 border border-white/10 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
+                          {calc.fixedCostsDetail.map((item, i) => (
+                            <div key={i} className="flex justify-between text-xs text-red-400 mb-1">
+                              <span>{item.name}</span>
+                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value)}</span>
+                            </div>
+                          ))}
+                          <div className="pt-2 mt-2 border-t border-white/10 flex justify-between text-xs font-bold text-red-400">
+                            <span>Total</span>
+                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fixedCosts)}</span>
                           </div>
-                        ))}
-                        <div className="pt-2 mt-2 border-t border-slate-100 flex justify-between text-xs font-bold text-red-500">
-                          <span>Total</span>
-                          <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fixedCosts)}</span>
+                        </div>
+                      </div>
+                      <div className="flex justify-between text-red-400 group cursor-pointer relative"><span className="text-white/60">Quitação</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}</span>
+                        <div className="absolute right-0 top-full bg-slate-800 border border-white/10 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
+                            <div className="flex justify-between text-xs text-white/60 mb-1 font-bold border-b border-white/10 pb-1">
+                                <span>Valor da Parcela</span>
+                                <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.valorParcela)}</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-white/60 mb-2 font-bold border-b border-white/10 pb-1">
+                                <span>Juros Mensal (Config)</span>
+                                <span>{calc.payoffBreakdown.jurosParcelas}%</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-white/60 mb-1">
+                                <span>Qtd a Vencer</span>
+                                <span>{calc.payoffBreakdown.qtdAVencer}</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-white/60 mb-1">
+                                <span>Valor a Vencer</span>
+                                <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.valorAVencer)}</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-white/60 mb-1">
+                                <span>Qtd Atrasadas</span>
+                                <span>{calc.payoffBreakdown.qtdAtrasadas}</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-white/60 mb-1">
+                                <span>Valor Atrasadas</span>
+                                <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.valorAtrasadas)}</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-white/60 mb-1">
+                                <span>Juros Atrasadas ({calc.payoffBreakdown.jurosParcelas}%)</span>
+                                <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.jurosAtrasadas)}</span>
+                            </div>
+                            <div className="pt-2 mt-2 border-t border-white/10 flex justify-between text-xs font-bold text-white">
+                                <span>Total Quitação</span>
+                                <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}</span>
+                            </div>
+                        </div>
+                      </div>
+                      <div className="pt-6 border-t border-white/10 flex justify-between items-center group cursor-pointer relative">
+                        <span className="text-accent font-bold">PROPOSTA FINAL</span>
+                        <span className="text-2xl font-bold font-display">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalProposal)}</span>
+                        <div className="absolute right-0 bottom-full mb-2 bg-slate-800 border border-white/10 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-72">
+                          <div className="text-xs font-bold mb-2 border-b border-white/10 pb-1 text-white">Comparativo de Propostas</div>
+                          <div className={`flex justify-between text-xs mb-1 ${calc.optionA <= calc.optionB ? 'text-emerald-400 font-bold' : 'text-red-400'}`}>
+                            <span>FIPE - Descontos</span>
+                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.optionA)}</span>
+                          </div>
+                          <div className={`flex justify-between text-xs mb-1 ${calc.optionB < calc.optionA ? 'text-emerald-400 font-bold' : 'text-red-400'}`}>
+                            <span>Valor Desejado - 40%</span>
+                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.optionB)}</span>
+                          </div>
+                          <div className="text-[10px] text-white/40 mt-2 italic">* O sistema seleciona automaticamente o menor valor.</div>
                         </div>
                       </div>
                     </div>
-                    <div className="flex justify-between text-red-500 group cursor-pointer relative">
-                      <span>Quitação Estimada</span>
-                      <span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}</span>
-                      <div className="absolute right-0 top-full bg-white border border-slate-200 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
-                          <div className="flex justify-between text-xs text-slate-600 mb-1 font-bold border-b border-slate-100 pb-1">
-                              <span>Valor da Parcela</span>
-                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.valorParcela)}</span>
-                          </div>
-                          <div className="flex justify-between text-xs text-slate-600 mb-2 font-bold border-b border-slate-100 pb-1">
-                              <span>Juros Mensal (Config)</span>
-                              <span>{calc.payoffBreakdown.jurosParcelas}%</span>
-                          </div>
-                          <div className="flex justify-between text-xs text-slate-600 mb-1">
-                              <span>Qtd a Vencer</span>
-                              <span>{calc.payoffBreakdown.qtdAVencer}</span>
-                          </div>
-                          <div className="flex justify-between text-xs text-slate-600 mb-1">
-                              <span>Valor a Vencer</span>
-                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.valorAVencer)}</span>
-                          </div>
-                          <div className="flex justify-between text-xs text-slate-600 mb-1">
-                              <span>Qtd Atrasadas</span>
-                              <span>{calc.payoffBreakdown.qtdAtrasadas}</span>
-                          </div>
-                          <div className="flex justify-between text-xs text-slate-600 mb-1">
-                              <span>Valor Atrasadas</span>
-                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.valorAtrasadas)}</span>
-                          </div>
-                          <div className="flex justify-between text-xs text-slate-600 mb-1">
-                              <span>Juros Atrasadas ({calc.payoffBreakdown.jurosParcelas}%)</span>
-                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.jurosAtrasadas)}</span>
-                          </div>
-                          <div className="pt-2 mt-2 border-t border-slate-100 flex justify-between text-xs font-bold text-slate-600">
-                              <span>Total Quitação</span>
-                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}</span>
-                          </div>
-                      </div>
-                    </div>
-                    <div className="pt-4 border-t border-slate-200 flex justify-between items-center group cursor-pointer relative">
-                      <span className="font-bold text-lg text-slate-900">Proposta Final</span>
-                      <span className="font-bold text-lg text-slate-900">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalProposal)}</span>
-                      <div className="absolute right-0 bottom-full mb-2 bg-white border border-slate-200 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-72">
-                        <div className="text-xs font-bold mb-2 border-b pb-1 text-slate-900">Comparativo de Propostas</div>
-                        <div className={`flex justify-between text-xs mb-1 ${calc.optionA <= calc.optionB ? 'text-emerald-600 font-bold' : 'text-red-500'}`}>
-                          <span>FIPE - Descontos</span>
-                          <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.optionA)}</span>
-                        </div>
-                        <div className={`flex justify-between text-xs mb-1 ${calc.optionB < calc.optionA ? 'text-emerald-600 font-bold' : 'text-red-500'}`}>
-                          <span>Valor Desejado - 40%</span>
-                          <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.optionB)}</span>
-                        </div>
-                        <div className="text-[10px] text-slate-400 mt-2 italic">* O sistema seleciona automaticamente o menor valor.</div>
-                      </div>
-                    </div>
-                    <div className="flex justify-between text-emerald-600 font-medium"><span>Lucro Estimado</span><span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.profit)}</span></div>
                   </div>
                 </div>
+
 
                 {/* Gestão de Custos Fixos */}
                 <div className="bg-white border border-slate-200 p-8 rounded-[32px] space-y-6 shadow-sm">
@@ -914,93 +984,6 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                   </div>
                 </div>
               </div>
-
-              {/* Coluna Direita: Financeiro */}
-              <div className="lg:col-span-5 space-y-6">
-                <div className="bg-slate-900 text-white p-8 rounded-[32px] space-y-8 shadow-2xl">
-                  <h3 className="font-bold uppercase text-xs tracking-widest text-white/60 border-b border-white/10 pb-4">Análise Financeira</h3>
-                  <div className="space-y-4 text-sm">
-                    <div className="flex justify-between"><span className="text-white/60">FIPE</span><span className="font-mono">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fipe)}</span></div>
-                    <div className="flex justify-between text-red-400 group cursor-pointer relative"><span className="text-white/60">Descontos</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.discountValue)}</span>
-                      <div className="absolute right-0 top-full bg-slate-800 border border-white/10 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
-                        {calc.discounts.map((d, i) => (
-                          <div key={i} className={`flex justify-between text-xs mb-1 ${d.isMax ? 'text-red-400 font-bold' : 'text-white/60'}`}>
-                            <span>{d.name}</span>
-                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="flex justify-between text-red-400 group cursor-pointer relative"><span className="text-white/60">Custos Fixos/Avarias</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fixedCosts)}</span>
-                      <div className="absolute right-0 top-full bg-slate-800 border border-white/10 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
-                        {calc.fixedCostsDetail.map((item, i) => (
-                          <div key={i} className="flex justify-between text-xs text-red-400 mb-1">
-                            <span>{item.name}</span>
-                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value)}</span>
-                          </div>
-                        ))}
-                        <div className="pt-2 mt-2 border-t border-white/10 flex justify-between text-xs font-bold text-red-400">
-                          <span>Total</span>
-                          <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fixedCosts)}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex justify-between text-red-400 group cursor-pointer relative"><span className="text-white/60">Quitação</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}</span>
-                      <div className="absolute right-0 top-full bg-slate-800 border border-white/10 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
-                          <div className="flex justify-between text-xs text-white/60 mb-1 font-bold border-b border-white/10 pb-1">
-                              <span>Valor da Parcela</span>
-                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.valorParcela)}</span>
-                          </div>
-                          <div className="flex justify-between text-xs text-white/60 mb-2 font-bold border-b border-white/10 pb-1">
-                              <span>Juros Mensal (Config)</span>
-                              <span>{calc.payoffBreakdown.jurosParcelas}%</span>
-                          </div>
-                          <div className="flex justify-between text-xs text-white/60 mb-1">
-                              <span>Qtd a Vencer</span>
-                              <span>{calc.payoffBreakdown.qtdAVencer}</span>
-                          </div>
-                          <div className="flex justify-between text-xs text-white/60 mb-1">
-                              <span>Valor a Vencer</span>
-                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.valorAVencer)}</span>
-                          </div>
-                          <div className="flex justify-between text-xs text-white/60 mb-1">
-                              <span>Qtd Atrasadas</span>
-                              <span>{calc.payoffBreakdown.qtdAtrasadas}</span>
-                          </div>
-                          <div className="flex justify-between text-xs text-white/60 mb-1">
-                              <span>Valor Atrasadas</span>
-                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.valorAtrasadas)}</span>
-                          </div>
-                          <div className="flex justify-between text-xs text-white/60 mb-1">
-                              <span>Juros Atrasadas ({calc.payoffBreakdown.jurosParcelas}%)</span>
-                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.jurosAtrasadas)}</span>
-                          </div>
-                          <div className="pt-2 mt-2 border-t border-white/10 flex justify-between text-xs font-bold text-white">
-                              <span>Total Quitação</span>
-                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}</span>
-                          </div>
-                      </div>
-                    </div>
-                    <div className="pt-6 border-t border-white/10 flex justify-between items-center group cursor-pointer relative">
-                      <span className="text-accent font-bold">PROPOSTA FINAL</span>
-                      <span className="text-2xl font-bold font-display">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalProposal)}</span>
-                      <div className="absolute right-0 bottom-full mb-2 bg-slate-800 border border-white/10 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-72">
-                        <div className="text-xs font-bold mb-2 border-b border-white/10 pb-1 text-white">Comparativo de Propostas</div>
-                        <div className={`flex justify-between text-xs mb-1 ${calc.optionA <= calc.optionB ? 'text-emerald-400 font-bold' : 'text-red-400'}`}>
-                          <span>FIPE - Descontos</span>
-                          <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.optionA)}</span>
-                        </div>
-                        <div className={`flex justify-between text-xs mb-1 ${calc.optionB < calc.optionA ? 'text-emerald-400 font-bold' : 'text-red-400'}`}>
-                          <span>Valor Desejado - 40%</span>
-                          <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.optionB)}</span>
-                        </div>
-                        <div className="text-[10px] text-white/40 mt-2 italic">* O sistema seleciona automaticamente o menor valor.</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
           )}
         </div>
       </div>
