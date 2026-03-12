@@ -123,9 +123,6 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     const isMotorFundido = currentLead.motor_fundido === 'true' || currentLead.motor_fundido === true || currentLead.motor_fundido === 'sim';
     const isBatidoAvariado = currentLead.batido_avariado === 'true' || currentLead.batido_avariado === true || currentLead.batido_avariado === 'sim';
 
-    // Descontos: Aqui definimos a lógica de descontos baseada nos campos do formulário
-    const avariasDiscount = motorReparo + cambioReparo + batidoReparo + valorPneus + valorDocumento;
-    
     // Regras de desconto dinâmicas baseadas no fipeRules
     const discountOptions: { name: string; value: number; isMax?: boolean }[] = [];
     
@@ -180,14 +177,19 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
       }
     });
 
-    const discounts = [
-        { name: 'Avarias/Reparos', value: avariasDiscount },
-        ...discountOptions
-    ];
-    
-    const discountValue = avariasDiscount + maxRuleDiscountValue;
+    const discounts = [...discountOptions];
+    const discountValue = maxRuleDiscountValue;
 
-    const fixedCosts = ipvaMulta + ipva + multas;
+    const fixedCostsDetail = [
+      { name: 'IPVA/Multas', value: ipvaMulta + ipva + multas },
+      { name: 'Motor Reparo', value: motorReparo },
+      { name: 'Câmbio Reparo', value: cambioReparo },
+      { name: 'Batido Reparo', value: batidoReparo },
+      { name: 'Pneus', value: valorPneus },
+      { name: 'Documento', value: valorDocumento },
+    ].filter(item => item.value > 0);
+
+    const fixedCosts = fixedCostsDetail.reduce((acc, curr) => acc + curr.value, 0);
     
     const qtdAVencer = Math.max(0, totalParcelas - parcelasPagas - parcelasAtrasadas);
     const valorAVencer = qtdAVencer * valorParcela;
@@ -206,6 +208,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
         discountValue,
         discounts,
         fixedCosts,
+        fixedCostsDetail,
         payoff,
         payoffBreakdown: {
             qtdParcelas: totalParcelas,
@@ -783,12 +786,16 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                       <span>Custos Fixos/Avarias</span>
                       <span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fixedCosts)}</span>
                       <div className="absolute right-0 top-full bg-white border border-slate-200 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
-                        {['multas', 'valor_licenciamento', 'motor_reparo', 'cambio_reparo', 'batido_reparo', 'valor_pneus', 'valor_documento'].map(key => currentLead[key] > 0 && (
-                          <div key={key} className="flex justify-between text-xs text-slate-600 mb-1">
-                            <span className="capitalize">{key.replace('_', ' ')}</span>
-                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(currentLead[key])}</span>
+                        {calc.fixedCostsDetail.map((item, i) => (
+                          <div key={i} className="flex justify-between text-xs text-red-500 mb-1">
+                            <span>{item.name}</span>
+                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value)}</span>
                           </div>
                         ))}
+                        <div className="pt-2 mt-2 border-t border-slate-100 flex justify-between text-xs font-bold text-red-500">
+                          <span>Total</span>
+                          <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fixedCosts)}</span>
+                        </div>
                       </div>
                     </div>
                     <div className="flex justify-between text-red-500 group cursor-pointer relative">
@@ -863,7 +870,20 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                         ))}
                       </div>
                     </div>
-                    <div className="flex justify-between text-red-400"><span className="text-white/60">Custos Fixos/Avarias</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fixedCosts)}</span></div>
+                    <div className="flex justify-between text-red-400 group cursor-pointer relative"><span className="text-white/60">Custos Fixos/Avarias</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fixedCosts)}</span>
+                      <div className="absolute right-0 top-full bg-slate-800 border border-white/10 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
+                        {calc.fixedCostsDetail.map((item, i) => (
+                          <div key={i} className="flex justify-between text-xs text-red-400 mb-1">
+                            <span>{item.name}</span>
+                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value)}</span>
+                          </div>
+                        ))}
+                        <div className="pt-2 mt-2 border-t border-white/10 flex justify-between text-xs font-bold text-red-400">
+                          <span>Total</span>
+                          <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fixedCosts)}</span>
+                        </div>
+                      </div>
+                    </div>
                     <div className="flex justify-between text-red-400 group cursor-pointer relative"><span className="text-white/60">Quitação</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}</span>
                       <div className="absolute right-0 top-full bg-slate-800 border border-white/10 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
                           <div className="flex justify-between text-xs text-white/60 mb-1">
