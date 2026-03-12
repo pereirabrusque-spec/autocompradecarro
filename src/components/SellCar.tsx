@@ -109,9 +109,21 @@ export default function SellCar() {
 
   const fetchBrands = async () => {
     const type = formData.vehicleType.toLowerCase();
-    const res = await fetch(`/api/fipe/brands?type=${type}`);
-    const data = await res.json();
-    setBrands(data);
+    console.log(`[FIPE] Solicitando marcas para: ${type}`);
+    try {
+      const res = await fetch(`/api/fipe/brands?type=${type}`);
+      const data = await res.json();
+      console.log(`[FIPE] Marcas recebidas:`, data);
+      if (Array.isArray(data)) {
+        setBrands(data);
+      } else {
+        console.error('[FIPE] Formato de marcas inválido:', data);
+        setBrands([]);
+      }
+    } catch (err) {
+      console.error('[FIPE] Erro ao buscar marcas:', err);
+      setBrands([]);
+    }
   };
 
   const handleBrandChange = async (brandId: string) => {
@@ -123,9 +135,21 @@ export default function SellCar() {
     if (!brandId) return;
     
     const type = formData.vehicleType.toLowerCase();
-    const res = await fetch(`/api/fipe/models/${brandId}?type=${type}`);
-    const data = await res.json();
-    setModels(data.modelos);
+    console.log(`[FIPE] Solicitando modelos para: ${type}, marca: ${brandId}`);
+    try {
+      const res = await fetch(`/api/fipe/models/${brandId}?type=${type}`);
+      const data = await res.json();
+      console.log(`[FIPE] Modelos recebidos:`, data);
+      if (data && data.modelos) {
+        setModels(data.modelos);
+      } else {
+        console.error('[FIPE] Formato de modelos inválido:', data);
+        setModels([]);
+      }
+    } catch (err) {
+      console.error('[FIPE] Erro ao buscar modelos:', err);
+      setModels([]);
+    }
   };
 
   const handleModelChange = async (modelId: string) => {
@@ -136,9 +160,21 @@ export default function SellCar() {
     if (!modelId) return;
 
     const type = formData.vehicleType.toLowerCase();
-    const res = await fetch(`/api/fipe/years/${formData.brandId}/${modelId}?type=${type}`);
-    const data = await res.json();
-    setYears(data);
+    console.log(`[FIPE] Solicitando anos para: ${type}, marca: ${formData.brandId}, modelo: ${modelId}`);
+    try {
+      const res = await fetch(`/api/fipe/years/${formData.brandId}/${modelId}?type=${type}`);
+      const data = await res.json();
+      console.log(`[FIPE] Anos recebidos:`, data);
+      if (Array.isArray(data)) {
+        setYears(data);
+      } else {
+        console.error('[FIPE] Formato de anos inválido:', data);
+        setYears([]);
+      }
+    } catch (err) {
+      console.error('[FIPE] Erro ao buscar anos:', err);
+      setYears([]);
+    }
   };
 
   const handleSearchFipe = async (yearId: string) => {
@@ -836,7 +872,22 @@ export default function SellCar() {
                   <select 
                     className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20"
                     value={formData.vehicleType}
-                    onChange={e => setFormData({...formData, vehicleType: e.target.value})}
+                    onChange={e => {
+                      setFormData({
+                        ...formData, 
+                        vehicleType: e.target.value,
+                        brandId: '',
+                        brandName: '',
+                        modelId: '',
+                        modelName: '',
+                        yearId: '',
+                        yearName: ''
+                      });
+                      setBrands([]);
+                      setModels([]);
+                      setYears([]);
+                      setFipePrice('');
+                    }}
                   >
                     <option value="Carros">Carros</option>
                     <option value="Motos">Motos</option>

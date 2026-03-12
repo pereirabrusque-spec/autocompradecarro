@@ -57,10 +57,23 @@ async function startServer() {
   app.get('/api/fipe/brands', async (req, res) => {
     try {
       const type = (req.query.type as string) || 'carros';
-      const response = await fetch(`https://parallelum.com.br/fipe/api/v1/${type}/marcas`);
+      console.log(`[FIPE] Buscando marcas para tipo: ${type}`);
+      const response = await fetch(`https://parallelum.com.br/fipe/api/v1/${type}/marcas`, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+      });
+      
+      if (!response.ok) {
+        console.error(`[FIPE] Erro na API Parallelum (Marcas): ${response.status} ${response.statusText}`);
+        return res.status(response.status).json({ error: 'Erro na API FIPE' });
+      }
+
       const data = await response.json();
+      console.log(`[FIPE] Marcas encontradas: ${Array.isArray(data) ? data.length : 0}`);
       res.json(data);
     } catch (error) {
+      console.error('[FIPE] Erro ao buscar marcas:', error);
       res.status(500).json({ error: 'Erro ao buscar marcas' });
     }
   });
@@ -68,10 +81,23 @@ async function startServer() {
   app.get('/api/fipe/models/:brandId', async (req, res) => {
     try {
       const type = (req.query.type as string) || 'carros';
-      const response = await fetch(`https://parallelum.com.br/fipe/api/v1/${type}/marcas/${req.params.brandId}/modelos`);
+      console.log(`[FIPE] Buscando modelos para tipo: ${type}, marca: ${req.params.brandId}`);
+      const response = await fetch(`https://parallelum.com.br/fipe/api/v1/${type}/marcas/${req.params.brandId}/modelos`, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+      });
+      
+      if (!response.ok) {
+        console.error(`[FIPE] Erro na API Parallelum (Modelos): ${response.status} ${response.statusText}`);
+        return res.status(response.status).json({ error: 'Erro na API FIPE' });
+      }
+
       const data = await response.json();
+      console.log(`[FIPE] Modelos encontrados: ${data.modelos?.length || 0}`);
       res.json(data);
     } catch (error) {
+      console.error('[FIPE] Erro ao buscar modelos:', error);
       res.status(500).json({ error: 'Erro ao buscar modelos' });
     }
   });
@@ -79,10 +105,23 @@ async function startServer() {
   app.get('/api/fipe/years/:brandId/:modelId', async (req, res) => {
     try {
       const type = (req.query.type as string) || 'carros';
-      const response = await fetch(`https://parallelum.com.br/fipe/api/v1/${type}/marcas/${req.params.brandId}/modelos/${req.params.modelId}/anos`);
+      console.log(`[FIPE] Buscando anos para tipo: ${type}, marca: ${req.params.brandId}, modelo: ${req.params.modelId}`);
+      const response = await fetch(`https://parallelum.com.br/fipe/api/v1/${type}/marcas/${req.params.brandId}/modelos/${req.params.modelId}/anos`, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+      });
+      
+      if (!response.ok) {
+        console.error(`[FIPE] Erro na API Parallelum (Anos): ${response.status} ${response.statusText}`);
+        return res.status(response.status).json({ error: 'Erro na API FIPE' });
+      }
+
       const data = await response.json();
+      console.log(`[FIPE] Anos encontrados: ${Array.isArray(data) ? data.length : 0}`);
       res.json(data);
     } catch (error) {
+      console.error('[FIPE] Erro ao buscar anos:', error);
       res.status(500).json({ error: 'Erro ao buscar anos' });
     }
   });
@@ -90,7 +129,11 @@ async function startServer() {
   app.get('/api/fipe/price/:brandId/:modelId/:yearId', async (req, res) => {
     try {
       const type = (req.query.type as string) || 'carros';
-      const response = await fetch(`https://parallelum.com.br/fipe/api/v1/${type}/marcas/${req.params.brandId}/modelos/${req.params.modelId}/anos/${req.params.yearId}`);
+      const response = await fetch(`https://parallelum.com.br/fipe/api/v1/${type}/marcas/${req.params.brandId}/modelos/${req.params.modelId}/anos/${req.params.yearId}`, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+      });
       const data = await response.json();
       res.json(data);
     } catch (error) {
