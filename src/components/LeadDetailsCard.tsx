@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, MessageCircle, Send, FileText, Edit2, ArrowLeft, ChevronLeft, ChevronRight, Upload } from 'lucide-react';
+import { X, Save, MessageCircle, MessageSquare, Send, FileText, Edit2, ArrowLeft, ChevronLeft, ChevronRight, Upload } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -322,6 +322,30 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     return encodeURIComponent(msg);
   };
 
+  const handleSendProposalToChat = async () => {
+    try {
+      const message = generateOwnerMessage();
+      const { error } = await supabase
+        .from('mensagens')
+        .insert([{
+          lead_id: currentLead.id,
+          remetente: 'admin',
+          conteudo: message,
+          tipo: 'proposta',
+          metadata: {
+            proposal_data: currentLead,
+            view_proposal: true
+          }
+        }]);
+
+      if (error) throw error;
+      alert('Proposta enviada com sucesso para o chat do cliente!');
+    } catch (error) {
+      console.error('Erro ao enviar proposta para o chat:', error);
+      alert('Erro ao enviar proposta para o chat.');
+    }
+  };
+
   const handleCRLVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -452,6 +476,12 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
             </button>
             <button onClick={() => setShowWhatsAppBuyerModal(true)} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5">
               <MessageCircle className="w-4 h-4" /> WhatsApp Comprador
+            </button>
+            <button 
+              onClick={handleSendProposalToChat} 
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5 shadow-md"
+            >
+              <MessageSquare className="w-4 h-4" /> Chat Proposta
             </button>
             <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5">
               <Edit2 className="w-4 h-4" /> {showForm ? 'Fechar Edição' : 'Editar'}

@@ -3935,6 +3935,45 @@ Podemos prosseguir com o agendamento da vistoria?`;
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
+                          {selectedConversation.lead && (
+                            <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-100 mr-2">
+                              <div className="text-right">
+                                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Modo</p>
+                                <p className="text-[10px] font-bold text-slate-700 leading-none">{selectedConversation.lead.ai_disabled ? 'Humano' : 'IA'}</p>
+                              </div>
+                              <button 
+                                onClick={async () => {
+                                  const newValue = !selectedConversation.lead.ai_disabled;
+                                  try {
+                                    const { error } = await supabase
+                                      .from('leads_veiculos')
+                                      .update({ ai_disabled: newValue })
+                                      .eq('id', selectedConversation.lead.id);
+                                    
+                                    if (error) throw error;
+                                    
+                                    // Update local state
+                                    setConversations(prev => prev.map(c => 
+                                      c.id === selectedConversation.id 
+                                        ? { ...c, lead: { ...c.lead, ai_disabled: newValue } } 
+                                        : c
+                                    ));
+                                    setSelectedConversation({
+                                      ...selectedConversation,
+                                      lead: { ...selectedConversation.lead, ai_disabled: newValue }
+                                    });
+                                  } catch (err) {
+                                    console.error(err);
+                                    alert('Erro ao alterar modo de resposta.');
+                                  }
+                                }}
+                                title={selectedConversation.lead.ai_disabled ? "Ativar IA para esta conversa" : "Desativar IA (Modo Humano)"}
+                                className={`w-10 h-5 rounded-full transition-colors flex items-center px-0.5 ${selectedConversation.lead.ai_disabled ? 'bg-orange-500' : 'bg-indigo-500'}`}
+                              >
+                                <div className={`w-4 h-4 bg-white rounded-full transition-transform ${selectedConversation.lead.ai_disabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                              </button>
+                            </div>
+                          )}
                           <button 
                             onClick={() => {
                               if (selectedConversation.lead?.email) {

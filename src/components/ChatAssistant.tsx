@@ -42,6 +42,9 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
   const aiMemory = settings['AI_MEMORY'] || '';
   const [contextData, setContextData] = useState({ banks: [], repairCosts: [], fipeRules: [] });
 
+  const [isAiDisabled, setIsAiDisabled] = useState(false);
+  const [lastProposal, setLastProposal] = useState<any>(null);
+
   const fetchApiKey = async () => {
     // Try to select with status first
     let { data, error } = await supabase
@@ -93,13 +96,28 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         // Find or create lead
         const { data: existingLead } = await supabase
           .from('leads_veiculos')
-          .select('id, status')
+          .select('id, status, ai_disabled')
           .eq('email', user.email)
           .single();
           
         if (existingLead) {
           setLeadId(existingLead.id);
+          setIsAiDisabled(existingLead.ai_disabled || false);
           setIsFormFilled(existingLead.status === 'quente' || existingLead.status === 'morno');
+
+          // Buscar última proposta enviada via chat
+          const { data: lastProp } = await supabase
+            .from('mensagens')
+            .select('*')
+            .eq('lead_id', existingLead.id)
+            .eq('tipo', 'proposta')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+          
+          if (lastProp) {
+            setLastProposal(lastProp.metadata?.proposal_data);
+          }
 
           // Carregar mensagens anteriores
           const { data: history } = await supabase
@@ -138,10 +156,29 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
     fetchApiKey();
     fetchData();
 
+    // Listener para mudanças no lead (como ai_disabled)
+    let leadSubscription: any;
+    if (leadId) {
+      leadSubscription = supabase
+        .channel(`lead-changes-${leadId}`)
+        .on('postgres_changes', { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'leads_veiculos',
+          filter: `id=eq.${leadId}`
+        }, (payload) => {
+          if (payload.new.ai_disabled !== undefined) {
+            setIsAiDisabled(payload.new.ai_disabled);
+          }
+        })
+        .subscribe();
+    }
+
     return () => {
       window.removeEventListener('open-chat', handleOpenChat);
+      if (leadSubscription) supabase.removeChannel(leadSubscription);
     };
-  }, [settings]);
+  }, [settings, leadId]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -205,11 +242,27 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
 
     setIsLoading(true);
 
+    // Se a IA estiver desativada para este lead, não responde automaticamente
+    if (isAiDisabled) {
+      setIsLoading(false);
+      return;
+    }
+
     try {
       // Construct the prompt with dynamic data
       const banksContext = contextData.banks.map((b: any) => `- ${b.name}: ${b.discount_percentage}% desconto`).join('\n');
       const repairContext = contextData.repairCosts.map((r: any) => `- ${r.part_name}: R$ ${r.cost}`).join('\n');
       const fipeContext = contextData.fipeRules.map((f: any) => `- ${f.condition_name}: -${f.discount_percentage}% sobre FIPE`).join('\n');
+      
+      const proposalContext = lastProposal ? `
+        ### PROPOSTA ATUAL ENVIADA PELO CONSULTOR:
+        - Valor Final: R$ ${lastProposal.final_value}
+        - Base FIPE: R$ ${lastProposal.base_value}
+        - Deduções: ${lastProposal.deductions?.map((d: any) => `${d.name} (R$ ${d.value})`).join(', ')}
+        
+        **INSTRUÇÃO:** O consultor humano já enviou esta proposta. Sua missão agora é **PERSUADIR** o cliente a aceitá-la. Use gatilhos mentais de urgência e segurança. Se o cliente tentar mudar o valor, diga que esta é a melhor oferta técnica possível e que o pagamento é à vista.
+      ` : '';
+
       const defaultRules = `Você é o **AVALIADOR SÊNIOR DE VEÍCULOS** da plataforma "LOJA ONLINE - SOLUÇÕES AUTOMOTIVAS".
         Sua função não é apenas coletar dados, mas **ANALISAR DOCUMENTOS E FOTOS** e **GERAR UMA PROPOSTA COMERCIAL IMEDIATA** baseada em regras rígidas.
 
@@ -307,6 +360,8 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         
         [REGRAS DE NEGÓCIO E COMPORTAMENTO]
         ${defaultRules}
+        
+        ${proposalContext}
         
         ### REGRAS PERSONALIZADAS DO ADMINISTRADOR (PRIORIDADE ALTA):
         ${systemPrompt || 'Nenhuma regra adicional.'}

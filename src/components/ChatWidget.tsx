@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../lib/authContext';
 import { supabase } from '../lib/supabase';
-import { MessageCircle, X, Send, Loader2, User, ShieldCheck } from 'lucide-react';
+import { MessageCircle, X, Send, Loader2, User, ShieldCheck, FileText, AlertCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import AuthModal from './AuthModal';
 
 export default function ChatWidget() {
@@ -15,6 +16,8 @@ export default function ChatWidget() {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [showProposalView, setShowProposalView] = useState(false);
+  const [selectedProposal, setSelectedProposal] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Request notification permission
@@ -78,6 +81,11 @@ export default function ChatWidget() {
             if (newMessage.remetente === 'admin') {
               new Audio('/notification.mp3').play().catch(() => {});
               
+              // Auto-open chat when message arrives
+              if (!isOpenRef.current) {
+                setIsOpen(true);
+              }
+
               if (!isOpenRef.current || (activeLeadRef.current && newMessage.lead_id !== activeLeadRef.current.id)) {
                 setUnreadCount(prev => prev + 1);
                 if (Notification.permission === 'granted') {
@@ -260,7 +268,18 @@ export default function ChatWidget() {
                             : 'bg-white border border-slate-200 text-slate-700 rounded-tl-none'
                         }`}
                       >
-                        {msg.conteudo}
+                        <div className="whitespace-pre-wrap">{msg.conteudo}</div>
+                        {msg.tipo === 'proposta' && (
+                          <button 
+                            onClick={() => {
+                              setSelectedProposal(msg.metadata?.proposal_data);
+                              setShowProposalView(true);
+                            }}
+                            className="mt-3 w-full py-2 bg-slate-900 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-slate-800 transition-colors"
+                          >
+                            <FileText className="w-4 h-4" /> Ver Proposta Detalhada
+                          </button>
+                        )}
                         <span className={`text-[10px] block mt-1 ${msg.remetente === 'cliente' ? 'text-white/60' : 'text-slate-400'}`}>
                           {new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                         </span>
@@ -296,6 +315,106 @@ export default function ChatWidget() {
       )}
 
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+
+      {/* Floating Button */}
+      <motion.button
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        onClick={() => setIsOpen(!isOpen)}
+        className="fixed bottom-6 right-6 w-16 h-16 bg-slate-900 text-white rounded-full shadow-2xl flex items-center justify-center z-50 group"
+      >
+        <MessageCircle className="w-8 h-8 group-hover:rotate-12 transition-transform" />
+        {unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 bg-accent text-white text-[10px] font-bold w-6 h-6 rounded-full flex items-center justify-center border-2 border-white animate-bounce">
+            {unreadCount}
+          </span>
+        )}
+      </motion.button>
+
+      {/* Proposal View Modal */}
+      <AnimatePresence>
+        {showProposalView && selectedProposal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-white rounded-[32px] w-full max-w-lg overflow-hidden shadow-2xl"
+            >
+              <div className="p-6 bg-slate-900 text-white flex justify-between items-center">
+                <div>
+                  <h3 className="text-xl font-bold">Proposta de Compra</h3>
+                  <p className="text-xs text-slate-400">Ref: {selectedProposal.vehicle_code}</p>
+                </div>
+                <button 
+                  onClick={() => setShowProposalView(false)}
+                  className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
+                <div className="text-center">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Valor Final Oferecido</p>
+                  <p className="text-4xl font-black text-accent">
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedProposal.final_value)}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Valor FIPE</p>
+                    <p className="font-bold text-slate-700">
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedProposal.base_value)}
+                    </p>
+                  </div>
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Quitação</p>
+                    <p className="font-bold text-slate-700">
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedProposal.payoff_value)}
+                    </p>
+                  </div>
+                </div>
+
+                {selectedProposal.deductions?.length > 0 && (
+                  <div className="space-y-3">
+                    <p className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-accent" />
+                      Deduções Aplicadas
+                    </p>
+                    <div className="space-y-2">
+                      {selectedProposal.deductions.map((d: any, idx: number) => (
+                        <div key={idx} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl text-sm">
+                          <span className="text-slate-600">{d.name}</span>
+                          <span className="font-bold text-red-500">
+                            -{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="p-6 bg-blue-50 rounded-3xl border border-blue-100">
+                  <p className="text-xs text-blue-800 leading-relaxed italic">
+                    "Esta proposta foi gerada com base nos dados fornecidos e na análise técnica do veículo. O pagamento é realizado à vista após a vistoria física."
+                  </p>
+                </div>
+
+                <button 
+                  onClick={() => {
+                    setShowProposalView(false);
+                  }}
+                  className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20"
+                >
+                  Aceitar e Falar com Consultor
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </>
   );
 }
