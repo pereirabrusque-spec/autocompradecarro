@@ -433,7 +433,40 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                     <div className="bg-white p-8 rounded-[32px] w-full max-w-4xl shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                       <h3 className="text-xl font-bold mb-6">Formulário Completo</h3>
                       
-                      {/* Formulário em branco para reconstrução */}
+                      <div className="grid grid-cols-2 gap-4">
+                        {[
+                          { label: 'Cliente', key: 'cliente_nome' },
+                          { label: 'Telefone', key: 'telefone' },
+                          { label: 'E-mail', key: 'email' },
+                          { label: 'Placa', key: 'placa' },
+                          { label: 'Marca', key: 'marca' },
+                          { label: 'Modelo', key: 'modelo' },
+                          { label: 'Ano Modelo', key: 'ano_modelo' },
+                          { label: 'Cor', key: 'cor' },
+                          { label: 'Quilometragem', key: 'quilometragem' },
+                          { label: 'Valor FIPE', key: 'valor_fipe' },
+                          { label: 'Valor Entrada', key: 'entrada' },
+                          { label: 'Banco Financiamento', key: 'banco_financiamento' },
+                          { label: 'Total Parcelas', key: 'total_parcelas' },
+                          { label: 'Parcelas Pagas', key: 'parcelas_pagas' },
+                          { label: 'Parcelas Atrasadas', key: 'parcelas_atrasadas' },
+                          { label: 'Valor Parcela', key: 'valor_parcela' },
+                          { label: 'Multas', key: 'multas' },
+                          { label: 'Reparo Motor', key: 'motor_reparo' },
+                          { label: 'Reparo Câmbio', key: 'cambio_reparo' },
+                          { label: 'Reparo Batido', key: 'batido_reparo' },
+                        ].map(field => (
+                          <div key={field.key} className="space-y-1">
+                            <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{field.label}</label>
+                            <input 
+                              type="text"
+                              className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all" 
+                              value={currentLead[field.key] ?? ''} 
+                              onChange={e => handleFieldChange(field.key, e.target.value)} 
+                            />
+                          </div>
+                        ))}
+                      </div>
                       
                       <button onClick={() => setShowDataModal(false)} className="mt-4 w-full py-3 bg-slate-900 text-white rounded-xl font-bold">Fechar</button>
                     </div>
