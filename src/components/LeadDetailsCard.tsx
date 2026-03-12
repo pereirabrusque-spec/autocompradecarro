@@ -229,7 +229,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                   { label: 'Cor', key: 'cor' },
                   { label: 'Quilometragem', key: 'quilometragem' },
                   { label: 'Tipo de Monta', key: 'tipo_monta', type: 'select', options: ['Nenhuma / Pequenos Riscos', 'Média Monta', 'Grande Monta'] },
-                  { label: 'Banco Financiador', key: 'banco_financiador' },
+                  { label: 'Banco Financiador', key: 'banco_financiamento' },
                   { label: 'Valor Parcela', key: 'valor_parcela', type: 'number' },
                   { label: 'Parcelas Pagas', key: 'parcelas_pagas', type: 'number' },
                   { label: 'Parcelas Restantes', key: 'parcelas_restantes', type: 'number' },
@@ -284,7 +284,11 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                   { label: 'Status', key: 'status' },
                   { label: 'Ano Fabricação', key: 'ano_fabricacao' },
                   { label: 'Data Negociação', key: 'data_negociacao' }
-                ].map(field => (
+                ].filter(field => {
+                  const val = currentLead[field.key];
+                  if (field.type === 'checkbox') return true;
+                  return val !== null && val !== undefined && val !== '';
+                }).map(field => (
                   <div key={field.key} className="space-y-1">
                     <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{field.label}</label>
                     {field.type === 'checkbox' ? (
