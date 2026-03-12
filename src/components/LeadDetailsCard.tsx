@@ -174,7 +174,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
   const handleFieldChange = (field: string, value: string) => {
-    if (['is_ipva_multas_atrasados', 'is_motor_fundido', 'is_batido_avariado', 'is_cambio_defeito'].includes(field) && value === 'true') {
+    if (['is_ipva_multas_atrasados', 'is_motor_fundido', 'is_batido_avariado', 'is_cambio_defeito'].includes(field) && value === 'sim') {
         const fieldMap: Record<string, string> = {
             'is_ipva_multas_atrasados': 'valor_ipva_multa',
             'is_motor_fundido': 'motor_reparo',
@@ -221,28 +221,33 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
               <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest">Editar Lead</h3>
               <div className="grid grid-cols-2 gap-4">
                 {[
-                  { label: 'Tipo Veículo', key: 'tipo_veiculo', type: 'select', options: ['Carro', 'Moto', 'Caminhão'] },
                   { label: 'Marca', key: 'marca' },
                   { label: 'Modelo', key: 'modelo' },
                   { label: 'Ano Modelo', key: 'ano_modelo' },
                   { label: 'Placa', key: 'placa' },
                   { label: 'Cor', key: 'cor' },
                   { label: 'Quilometragem', key: 'quilometragem' },
-                  { label: 'Tipo de Monta', key: 'tipo_monta', type: 'select', options: ['Nenhuma / Pequenos Riscos', 'Média Monta', 'Grande Monta'] },
-                  { label: 'Banco Financiador', key: 'banco_financiamento' },
+                  { label: 'Banco Financiamento', key: 'banco_financiamento' },
                   { label: 'Valor Parcela', key: 'valor_parcela', type: 'number' },
                   { label: 'Parcelas Pagas', key: 'parcelas_pagas', type: 'number' },
-                  { label: 'Parcelas Restantes', key: 'parcelas_restantes', type: 'number' },
+                  { label: 'Total Parcelas', key: 'total_parcelas', type: 'number' },
                   { label: 'Parcelas Atrasadas', key: 'parcelas_atrasadas', type: 'number' },
                   { label: 'Valor de Entrada', key: 'entrada', type: 'number' },
                   { label: 'Valor Desejado', key: 'desired_value', type: 'number' },
+                  { label: 'Multas', key: 'multas', type: 'number' },
+                  { label: 'Reparo Motor', key: 'motor_reparo', type: 'number' },
+                  { label: 'Reparo Câmbio', key: 'cambio_reparo', type: 'number' },
+                  { label: 'Reparo Batido', key: 'batido_reparo', type: 'number' },
+                  { label: 'Nome Completo', key: 'cliente_nome' },
+                  { label: 'Telefone', key: 'telefone' },
+                  { label: 'E-mail', key: 'email' },
+                  { label: 'Status', key: 'status' },
+                  { label: 'Data Negociação', key: 'data_negociacao' },
+                  { label: 'Tipo Veículo', key: 'tipo_veiculo' },
+                  { label: 'Tipo de Monta', key: 'tipo_monta' },
                   { label: 'IPVA/Multa', key: 'valor_ipva_multa', type: 'number' },
                   { label: 'Juros Atraso (%)', key: 'juros_atraso', type: 'number' },
                   { label: 'IPVA', key: 'valor_ipva', type: 'number' },
-                  { label: 'Multas', key: 'multas', type: 'number' },
-                  { label: 'Valor Motor', key: 'motor_reparo', type: 'number' },
-                  { label: 'Valor Câmbio', key: 'cambio_reparo', type: 'number' },
-                  { label: 'Valor Batido', key: 'batido_reparo', type: 'number' },
                   { label: 'Valor Pneus', key: 'valor_pneus', type: 'number' },
                   { label: 'Valor Documento', key: 'valor_documento', type: 'number' },
                   { label: 'Tem Sinistro?', key: 'tem_sinistro', type: 'checkbox' },
@@ -271,19 +276,14 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                   { label: 'Airbag', key: 'airbag', type: 'checkbox' },
                   { label: 'Chave Reserva e Manual?', key: 'chave_reserva_manual', type: 'checkbox' },
                   { label: 'Revisões em dia?', key: 'revisoes_dia', type: 'checkbox' },
-                  { label: 'Estado dos Pneus', key: 'estado_pneus', type: 'select', options: ['Novos', 'Bom', 'Regular'] },
-                  { label: 'Nome Completo', key: 'cliente_nome' },
-                  { label: 'Telefone / WhatsApp', key: 'telefone' },
-                  { label: 'E-mail', key: 'email' },
+                  { label: 'Estado dos Pneus', key: 'estado_pneus' },
                   { label: 'Cidade / Estado', key: 'cidade_estado' },
                   { label: 'Renavam', key: 'renavam' },
                   { label: 'Valor FIPE', key: 'valor_fipe', type: 'number' },
                   { label: 'CPF', key: 'cpf' },
                   { label: 'Chassi', key: 'chassi' },
                   { label: 'Histórico de Procedência', key: 'hist_procedencia' },
-                  { label: 'Status', key: 'status' },
-                  { label: 'Ano Fabricação', key: 'ano_fabricacao' },
-                  { label: 'Data Negociação', key: 'data_negociacao' }
+                  { label: 'Ano Fabricação', key: 'ano_fabricacao' }
                 ].filter(field => {
                   const val = currentLead[field.key];
                   if (field.type === 'checkbox') return true;
@@ -305,7 +305,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                         onChange={e => handleFieldChange(field.key, e.target.value)}
                       >
                         <option value="">Selecione</option>
-                        {field.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        {(field as any).options?.map((opt: string) => <option key={opt} value={opt}>{opt}</option>)}
                       </select>
                     ) : (
                       <input 
