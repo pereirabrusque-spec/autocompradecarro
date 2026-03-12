@@ -2128,7 +2128,10 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
                 {selectedLead && (
                   <LeadDetailsCard 
-                    lead={selectedLead} 
+                    lead={(() => {
+                      console.log("Passando lead para LeadDetailsCard:", selectedLead);
+                      return selectedLead;
+                    })()} 
                     onClose={() => setSelectedLead(null)} 
                     onSave={async (updatedLead) => {
                       console.log("Salvando Lead no AdminDashboard:", updatedLead);

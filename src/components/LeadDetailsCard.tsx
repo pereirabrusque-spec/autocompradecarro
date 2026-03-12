@@ -260,7 +260,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                       <input 
                         type="checkbox"
                         className="w-5 h-5 ml-1 accent-emerald-500"
-                        checked={currentLead[field.key] === 'true'}
+                        checked={currentLead[field.key] === 'true' || currentLead[field.key] === true}
                         onChange={e => handleFieldChange(field.key, e.target.checked ? 'true' : 'false')}
                       />
                     ) : field.type === 'select' ? (
