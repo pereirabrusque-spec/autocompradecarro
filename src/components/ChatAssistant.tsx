@@ -12,6 +12,8 @@ interface Message {
   role: 'user' | 'bot';
   text: string;
   image?: string;
+  tipo?: string;
+  metadata?: any;
 }
 
 interface ChatAssistantProps {
@@ -78,7 +80,124 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
     setContextData({ banks: banks || [], repairCosts: repairCosts || [], fipeRules: fipeRules || [] });
   };
 
+  const playNotificationSound = () => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+      oscillator.frequency.exponentialRampToValueAtTime(440, audioCtx.currentTime + 0.1); // A4
+      
+      gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + 0.05);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+      
+      oscillator.start(audioCtx.currentTime);
+      oscillator.stop(audioCtx.currentTime + 0.3);
+    } catch (e) {
+      console.error('Audio playback failed:', e);
+    }
+  };
+
   useEffect(() => {
+    const initializeChat = async () => {
+      // Get user and create/get lead
+      const { data: { user } } = await supabase.auth.getUser();
+      let currentLeadId = localStorage.getItem('chat_lead_id');
+
+      if (user) {
+        setUser(user);
+        
+        // Find or create lead for logged in user
+        const { data: existingLead } = await supabase
+          .from('leads_veiculos')
+          .select('id, status, detalhes_proposta')
+          .eq('email', user.email)
+          .single();
+          
+        if (existingLead) {
+          currentLeadId = existingLead.id;
+        } else {
+          const { data: newLead } = await supabase
+            .from('leads_veiculos')
+            .insert([{ 
+              cliente_nome: user.user_metadata?.full_name || 'Cliente', 
+              email: user.email,
+              status: 'fria',
+              origem: 'chat'
+            }])
+            .select()
+            .single();
+          if (newLead) currentLeadId = newLead.id;
+        }
+      } else if (!currentLeadId) {
+        // Create anonymous lead
+        const { data: newLead } = await supabase
+          .from('leads_veiculos')
+          .insert([{ 
+            cliente_nome: 'Visitante', 
+            status: 'fria',
+            origem: 'chat'
+          }])
+          .select()
+          .single();
+        if (newLead) currentLeadId = newLead.id;
+      }
+
+      if (currentLeadId) {
+        setLeadId(currentLeadId);
+        localStorage.setItem('chat_lead_id', currentLeadId);
+
+        // Fetch lead details
+        const { data: leadDetails } = await supabase
+          .from('leads_veiculos')
+          .select('status, detalhes_proposta')
+          .eq('id', currentLeadId)
+          .single();
+
+        if (leadDetails) {
+          setIsAiDisabled(leadDetails.detalhes_proposta?.ai_disabled || false);
+          setIsFormFilled(leadDetails.status === 'quente' || leadDetails.status === 'morno');
+        }
+
+        // Buscar última proposta enviada via chat
+        const { data: lastProp } = await supabase
+          .from('mensagens')
+          .select('*')
+          .eq('lead_id', currentLeadId)
+          .eq('tipo', 'proposta')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+        
+        if (lastProp) {
+          setLastProposal(lastProp.metadata?.proposal_data);
+        }
+
+        // Carregar mensagens anteriores
+        const { data: history } = await supabase
+          .from('mensagens')
+          .select('*')
+          .eq('lead_id', currentLeadId)
+          .order('created_at', { ascending: true });
+
+        if (history && history.length > 0) {
+          const formattedHistory: Message[] = history.map((msg: any) => ({
+            role: (msg.remetente === 'cliente' ? 'user' : 'bot') as 'user' | 'bot',
+            text: msg.conteudo,
+            tipo: msg.tipo,
+            metadata: msg.metadata
+          }));
+          setMessages(formattedHistory);
+        }
+      }
+    };
+
     const handleOpenChat = async (event: any) => {
       onOpen();
       const initialMessage = event.detail?.message;
@@ -87,77 +206,22 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         // Opcional: disparar o envio automaticamente
         setTimeout(() => handleSend(), 500); 
       }
-      
-      // Get user and create/get lead
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUser(user);
-        
-        // Find or create lead
-        const { data: existingLead } = await supabase
-          .from('leads_veiculos')
-          .select('id, status, detalhes_proposta')
-          .eq('email', user.email)
-          .single();
-          
-        if (existingLead) {
-          setLeadId(existingLead.id);
-          setIsAiDisabled(existingLead.detalhes_proposta?.ai_disabled || false);
-          setIsFormFilled(existingLead.status === 'quente' || existingLead.status === 'morno');
-
-          // Buscar última proposta enviada via chat
-          const { data: lastProp } = await supabase
-            .from('mensagens')
-            .select('*')
-            .eq('lead_id', existingLead.id)
-            .eq('tipo', 'proposta')
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
-          
-          if (lastProp) {
-            setLastProposal(lastProp.metadata?.proposal_data);
-          }
-
-          // Carregar mensagens anteriores
-          const { data: history } = await supabase
-            .from('mensagens')
-            .select('*')
-            .eq('lead_id', existingLead.id)
-            .order('created_at', { ascending: true });
-
-          if (history && history.length > 0) {
-            const formattedHistory: Message[] = history.map((msg: any) => ({
-              role: (msg.remetente === 'cliente' ? 'user' : 'bot') as 'user' | 'bot',
-              text: msg.conteudo
-            }));
-            // Se houver mensagem inicial do evento, adiciona ao final, pois o setMessages vai sobrescrever o estado atual
-            if (initialMessage) {
-                formattedHistory.push({ role: 'user', text: initialMessage });
-            }
-            setMessages(formattedHistory);
-          }
-        } else {
-          const { data: newLead } = await supabase
-            .from('leads_veiculos')
-            .insert([{ 
-              cliente_nome: user.user_metadata?.full_name || 'Cliente', 
-              email: user.email,
-              status: 'fria'
-            }])
-            .select()
-            .single();
-          if (newLead) setLeadId(newLead.id);
-        }
-      }
     };
+
     window.addEventListener('open-chat', handleOpenChat);
+
+    // Initialize chat when component mounts or opens
+    if (isOpen && !leadId) {
+      initializeChat();
+    }
 
     fetchApiKey();
     fetchData();
 
     // Listener para mudanças no lead (como ai_disabled)
     let leadSubscription: any;
+    let messagesSubscription: any;
+
     if (leadId) {
       leadSubscription = supabase
         .channel(`lead-changes-${leadId}`)
@@ -172,13 +236,36 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
           }
         })
         .subscribe();
+
+      messagesSubscription = supabase
+        .channel(`chat-messages-${leadId}`)
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'mensagens',
+          filter: `lead_id=eq.${leadId}`
+        }, (payload) => {
+          if (payload.new.remetente === 'admin') {
+            setMessages(prev => {
+              // Verifica se a mensagem já existe no estado local para evitar duplicação
+              const exists = prev.some(m => m.text === payload.new.conteudo && m.role === 'bot');
+              if (!exists) {
+                playNotificationSound();
+                return [...prev, { role: 'bot', text: payload.new.conteudo }];
+              }
+              return prev;
+            });
+          }
+        })
+        .subscribe();
     }
 
     return () => {
       window.removeEventListener('open-chat', handleOpenChat);
       if (leadSubscription) supabase.removeChannel(leadSubscription);
+      if (messagesSubscription) supabase.removeChannel(messagesSubscription);
     };
-  }, [settings, leadId]);
+  }, [settings, leadId, isOpen]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -393,6 +480,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
               Notification.requestPermission().then(permission => {
                 if (permission === 'granted') {
                   supabase.from('leads_veiculos').update({ notifications_enabled: true }).eq('id', leadId);
+                  playNotificationSound();
                   setMessages(prev => [...prev, { role: 'bot', text: '✅ **Notificações ativadas!** Você receberá atualizações sobre sua negociação.' }]);
                 }
               });
@@ -433,6 +521,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
           if (error) throw error;
           
           setIsFormFilled(true);
+          playNotificationSound();
           setMessages(prev => [...prev, { role: 'bot', text: '✅ **Dados registrados!** Nossa equipe analisará sua proposta e retornará em até 24 horas. Deseja receber notificações sobre o status da sua negociação?' }]);
           return;
         } catch (e) {
@@ -440,6 +529,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         }
       }
 
+      playNotificationSound();
       setMessages(prev => [...prev, { role: 'bot', text: botText }]);
       
       // Salvar resposta do bot
@@ -452,6 +542,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
       }
     } catch (error) {
       console.error(error);
+      playNotificationSound();
       setMessages(prev => [...prev, { role: 'bot', text: 'Erro na conexão. Por favor, tente novamente.' }]);
     } finally {
       setIsLoading(false);
@@ -530,6 +621,14 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
                         <div className="markdown-body prose prose-sm max-w-none">
                           <Markdown>{msg.text}</Markdown>
                         </div>
+                        {msg.tipo === 'proposta' && (
+                          <button 
+                            onClick={() => console.log('View proposal:', msg.metadata)}
+                            className="mt-3 w-full py-2 bg-accent text-white rounded-lg text-xs font-bold hover:bg-accent/90 transition-all"
+                          >
+                            Ver Proposta Oficial
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -612,12 +711,13 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                    placeholder="Digite sua resposta..."
-                    className="w-full pl-4 pr-12 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all"
+                    placeholder={!leadId ? "Conectando..." : "Digite sua resposta..."}
+                    disabled={!leadId || isLoading}
+                    className="w-full pl-4 pr-12 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all disabled:opacity-50"
                   />
                   <button
                     onClick={handleSend}
-                    disabled={(!input.trim() && !selectedImage) || isLoading}
+                    disabled={(!input.trim() && !selectedImage) || isLoading || !leadId}
                     style={{ backgroundColor: chatColor }}
                     className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 text-white rounded-xl hover:opacity-90 disabled:opacity-50 transition-all shadow-lg"
                   >

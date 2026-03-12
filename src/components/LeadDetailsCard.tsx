@@ -370,9 +370,9 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
       if (error) throw error;
       setShowProposalReview(false);
       alert('Proposta enviada com sucesso para o chat do cliente!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao enviar proposta para o chat:', error);
-      alert('Erro ao enviar proposta para o chat.');
+      alert('Erro ao enviar proposta para o chat: ' + (error.message || 'Erro desconhecido'));
     }
   };
 

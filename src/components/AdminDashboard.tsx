@@ -210,7 +210,7 @@ export default function AdminDashboard() {
       const { data: sentData } = await supabase.from('sent_leads').select('*');
       const { data: messagesData } = await supabase
         .from('mensagens')
-        .select('*, leads_veiculos(id, marca, modelo, cliente_nome, vehicle_code, fotos, detalhes_proposta, email, telefone, cliente_telefone)')
+        .select('*, leads_veiculos(id, marca, modelo, cliente_nome, vehicle_code, fotos, detalhes_proposta, email, telefone)')
         .order('created_at', { ascending: false });
 
       // Group messages by lead_id to create conversation list
@@ -463,7 +463,7 @@ export default function AdminDashboard() {
           // Atualiza a lista de conversas de forma otimizada
           const { data: messagesData } = await supabase
             .from('mensagens')
-            .select('*, leads_veiculos(id, marca, modelo, cliente_nome, vehicle_code, fotos, ai_disabled, email, telefone, cliente_telefone)')
+            .select('*, leads_veiculos(id, marca, modelo, cliente_nome, vehicle_code, fotos, ai_disabled, email, telefone)')
             .order('created_at', { ascending: false });
 
           if (messagesData) {
@@ -820,7 +820,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
       l.quilometragem,
       l.preco,
       l.cliente_nome,
-      l.cliente_telefone,
+      l.telefone,
       l.email,
       l.status || 'Novo'
     ]);
@@ -4084,9 +4084,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
                           >
                             <Mail className="w-4 h-4" />
                           </button>
-                          {selectedConversation.lead?.cliente_telefone && (
+                          {selectedConversation.lead?.telefone && (
                             <a 
-                              href={`https://wa.me/${selectedConversation.lead.cliente_telefone.replace(/\D/g, '')}`}
+                              href={`https://wa.me/${selectedConversation.lead.telefone.replace(/\D/g, '')}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="p-2 bg-emerald-100 text-emerald-600 rounded-lg hover:bg-emerald-200 transition-colors"
@@ -4137,7 +4137,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       </div>
 
                       {/* Mensagens */}
-                      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                      <div className="flex-[2] overflow-y-auto max-h-[600px] p-6 space-y-4">
                         {chatMessages.map((msg) => (
                           <div 
                             key={msg.id}
@@ -4166,12 +4166,17 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
                       {/* Input de Mensagem */}
                       <div className="p-4 bg-white border-t border-slate-100">
-                        <div className="flex gap-2">
+                        <div className="mb-2">
+                          <input 
+                            type="text"
+                            placeholder="Saudação"
+                            className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-accent/20 mb-1"
+                          />
                           <textarea 
                             value={adminMessage}
                             onChange={(e) => setAdminMessage(e.target.value)}
                             placeholder="Digite sua mensagem..."
-                            className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent/20 resize-none h-12"
+                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent/20 resize-none h-20"
                             onKeyDown={(e) => {
                               if (e.key === 'Enter' && !e.shiftKey) {
                                 e.preventDefault();
@@ -4179,12 +4184,14 @@ Podemos prosseguir com o agendamento da vistoria?`;
                               }
                             }}
                           />
+                        </div>
+                        <div className="flex gap-2">
                           <button 
                             onClick={handleSendMessage}
                             disabled={isSendingMessage || !adminMessage.trim()}
-                            className="p-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all disabled:opacity-50"
+                            className="flex-1 p-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all disabled:opacity-50"
                           >
-                            <Share2 className="w-5 h-5" />
+                            Enviar Mensagem
                           </button>
                         </div>
                         <p className="text-[10px] text-slate-400 mt-2 text-center">
