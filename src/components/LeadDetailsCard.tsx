@@ -626,11 +626,26 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                                   value={currentLead[field.key] ?? ''}
                                   readOnly
                                 />
+                              ) : field.key === 'avarias_manuais' ? (
+                                <input 
+                                  type="text"
+                                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all"
+                                  value={currentLead.avarias_manuais || (currentLead.observacoes?.match(/Danos: ([^.]+)/)?.[1] || '')}
+                                  readOnly
+                                />
                               ) : ['tem_sinistro', 'passagem_leilao', 'recuperado_banco', 'historico_furto_roubo', 'financiamento_atrasado', 'busca_apreensao', 'renajud_bloqueio', 'sinistrado_leilao'].includes(field.key) ? (
                                 <input 
                                   type="text"
                                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all"
-                                  value={currentLead[field.key] === 'true' || currentLead[field.key] === true ? 'Sim' : 'Não'}
+                                  value={
+                                    currentLead.problemas?.includes(
+                                      field.key === 'financiamento_atrasado' ? 'Financiamento Atrasado' :
+                                      field.key === 'busca_apreensao' ? 'Busca e Apreensão' :
+                                      field.key === 'renajud_bloqueio' ? 'Renajud / Bloqueio Judicial' :
+                                      field.key === 'sinistrado_leilao' ? 'Sinistrado / Leilão' : ''
+                                    ) || currentLead[field.key] === 'true' || currentLead[field.key] === true 
+                                    ? 'Sim' : 'Não'
+                                  }
                                   readOnly
                                 />
                               ) : (
