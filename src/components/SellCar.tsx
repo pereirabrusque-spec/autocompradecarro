@@ -306,12 +306,17 @@ export default function SellCar() {
       setCrlvPreview(null);
       return;
     }
-    // Only create preview for images
-    if (crlvFile.type.startsWith('image/')) {
+    
+    // Check if it's an image by type or extension
+    const isImage = crlvFile.type.startsWith('image/') || 
+                    /\.(jpg|jpeg|png|gif|webp)$/i.test(crlvFile.name);
+                    
+    if (isImage) {
       const url = URL.createObjectURL(crlvFile);
       setCrlvPreview(url);
       return () => URL.revokeObjectURL(url);
     } else {
+      // For PDFs or other files
       setCrlvPreview('pdf-placeholder');
     }
   }, [crlvFile]);

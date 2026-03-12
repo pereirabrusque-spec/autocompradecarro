@@ -203,11 +203,13 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
   const [showBuyerConfigModal, setShowBuyerConfigModal] = useState(false);
   const [showDataModal, setShowDataModal] = useState(false);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [isUploadingCRLV, setIsUploadingCRLV] = useState(false);
 
   const handleCRLVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    setIsUploadingCRLV(true);
     const apiKey = process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.GEMINI_API_KEY || '';
     console.log("DEBUG: GEMINI_API_KEY:", apiKey ? "DEFINIDA" : "NÃO DEFINIDA");
     const ai = new GoogleGenAI({ apiKey });
@@ -220,6 +222,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
 
     if (uploadError) {
       console.error("Erro no upload:", uploadError);
+      setIsUploadingCRLV(false);
       return;
     }
 
@@ -253,7 +256,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                 ano_modelo: { type: Type.STRING },
                 cor: { type: Type.STRING },
                 renavam: { type: Type.STRING },
-                chassi: { type: Type.STRING },
+                chassi: { type: Type.STRING }
               }
             }
           }
@@ -268,6 +271,8 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
         const updatedLead = { ...currentLead, crlv_url: publicUrl };
         setCurrentLead(updatedLead);
         onSave(updatedLead);
+      } finally {
+        setIsUploadingCRLV(false);
       }
     };
     reader.readAsDataURL(file);
@@ -587,10 +592,14 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                                  </button>
                                </div>
                              ) : (
-                               <label className="text-sm font-bold text-slate-600 cursor-pointer flex flex-col items-center gap-2 w-full h-full justify-center">
-                                  <Upload className="w-8 h-8 text-slate-400" />
-                                  Selecionar Foto ou PDF do CRLV
-                                  <input type="file" className="hidden" accept="image/*,application/pdf" onChange={handleCRLVUpload} />
+                               <label className={`text-sm font-bold text-slate-600 cursor-pointer flex flex-col items-center gap-2 w-full h-full justify-center ${isUploadingCRLV ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                  {isUploadingCRLV ? (
+                                    <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                                  ) : (
+                                    <Upload className="w-8 h-8 text-slate-400" />
+                                  )}
+                                  {isUploadingCRLV ? 'Enviando e Lendo CRLV...' : 'Selecionar Foto ou PDF do CRLV'}
+                                  <input type="file" className="hidden" accept="image/*,application/pdf" onChange={handleCRLVUpload} disabled={isUploadingCRLV} />
                                </label>
                              )}
                           </div>
