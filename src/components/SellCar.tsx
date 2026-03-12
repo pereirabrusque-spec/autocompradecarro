@@ -343,6 +343,10 @@ export default function SellCar() {
     if (formData.hasGearboxIssue) problems.push('Câmbio com Defeito');
     if (formData.hasCrashDamage) problems.push('Batido / Avariado');
     if (formData.hasSinistradoLeilao) problems.push('Sinistrado / Leilão');
+    if (formData.hasSinistro) problems.push('Sinistro');
+    if (formData.hasLeilao) problems.push('Passagem por Leilão');
+    if (formData.isRecuperado) problems.push('Recuperado de Banco');
+    if (formData.hasFurtoRoubo) problems.push('Histórico de Furto/Roubo');
 
     try {
       // 1. Upload de Fotos e Vídeos para o Supabase Storage
@@ -496,7 +500,6 @@ export default function SellCar() {
             delete simplifiedPayload.tem_sinistro;
             delete simplifiedPayload.passagem_leilao;
             delete simplifiedPayload.mileage; // Usamos quilometragem agora
-            delete simplifiedPayload.crlv_url;
             
             const { error: simpleError } = await supabase
               .from('leads_veiculos')
@@ -998,17 +1001,17 @@ export default function SellCar() {
                   <button 
                     type="button"
                     onClick={() => setCrlvFile(null)}
-                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors z-10"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
               ) : (
-                <label className="border-2 border-dashed border-blue-200 rounded-2xl p-6 hover:border-blue-400 transition-colors cursor-pointer group block">
+                <label className="relative border-2 border-dashed border-blue-200 rounded-2xl p-6 hover:border-blue-400 transition-colors cursor-pointer group block">
                   <input 
                     type="file" 
                     accept="image/*,application/pdf" 
-                    className="hidden"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     onChange={(e) => {
                       if (e.target.files && e.target.files[0]) {
                         setCrlvFile(e.target.files[0]);
