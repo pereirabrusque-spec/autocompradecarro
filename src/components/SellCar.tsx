@@ -119,6 +119,9 @@ export default function SellCar() {
       } else {
         console.error('[FIPE] Formato de marcas inválido:', data);
         setBrands([]);
+        if (data.error) {
+          alert(`Erro na FIPE: ${data.error}. Tente novamente em instantes.`);
+        }
       }
     } catch (err) {
       console.error('[FIPE] Erro ao buscar marcas:', err);
@@ -459,17 +462,14 @@ export default function SellCar() {
           // Se falhou por colunas inexistentes, tenta um payload simplificado (compatibilidade)
           if (insertError.message?.includes('column') || insertError.code === 'PGRST204' || insertError.code === '42703') {
             console.log('Detectada coluna inexistente. Tentando insert simplificado...');
-            const simplifiedPayload = {
-              ...leadPayload,
-              // Remove campos que costumam dar erro se não existirem em versões antigas da tabela
-              tipo_veiculo: undefined,
-              tem_sinistro: undefined,
-              passagem_leilao: undefined,
-              ano_fabricacao: undefined, 
-              fipe_value: undefined,
-              desired_value: undefined,
-              mileage: undefined
-            };
+            const simplifiedPayload = { ...leadPayload };
+            
+            // Remove apenas campos que REALMENTE costumam não existir em versões muito antigas
+            // Mas mantém os essenciais que o usuário reclamou que estão vindo nulos
+            delete simplifiedPayload.tipo_veiculo;
+            delete simplifiedPayload.tem_sinistro;
+            delete simplifiedPayload.passagem_leilao;
+            delete simplifiedPayload.mileage; // Usamos quilometragem agora
             
             const { error: simpleError } = await supabase
               .from('leads_veiculos')
@@ -1464,13 +1464,12 @@ export default function SellCar() {
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="flex items-center gap-3 cursor-not-allowed p-4 bg-slate-50 rounded-2xl border border-slate-200 opacity-80">
+                <label className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors">
                   <input 
                     type="checkbox" 
-                    className="w-5 h-5 accent-accent cursor-not-allowed"
-                    checked={true}
-                    disabled={true}
-                    onChange={() => {}}
+                    className="w-5 h-5 accent-accent"
+                    checked={formData.authorizeNotifications}
+                    onChange={e => setFormData({...formData, authorizeNotifications: e.target.checked})}
                   />
                   <span className="text-sm font-medium text-slate-700">
                     Aceito receber a proposta e notificações através do chat deste site.

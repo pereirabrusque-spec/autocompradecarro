@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../lib/authContext';
 import AuthModal from './AuthModal';
-import { CarFront, LayoutDashboard, Phone, User, LogOut, ChevronDown } from 'lucide-react';
+import { CarFront, LayoutDashboard, Phone, User, LogOut, ChevronDown, Lock } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export default function Navbar() {
@@ -88,6 +88,16 @@ export default function Navbar() {
                           Painel Admin
                         </a>
                       )}
+                      <button 
+                        onClick={() => {
+                          window.location.href = '/reset-password';
+                          setIsMenuOpen(false);
+                        }}
+                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-accent transition-colors text-left"
+                      >
+                        <Lock className="w-4 h-4" />
+                        Redefinir Senha
+                      </button>
                       <button 
                         onClick={() => {
                           signOut();

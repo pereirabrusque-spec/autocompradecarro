@@ -67,10 +67,10 @@ export default function ResetPassword() {
             <h4 className="text-xl font-bold mb-2">Senha Alterada!</h4>
             <p className="text-slate-500 mb-8">Sua senha foi atualizada com sucesso.</p>
             <button
-              onClick={() => window.location.href = '/admin'}
+              onClick={() => window.location.href = '/'}
               className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-accent transition-all"
             >
-              Ir para Login
+              Ir para Home
             </button>
           </div>
         ) : (

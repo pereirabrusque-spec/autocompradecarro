@@ -54,20 +54,26 @@ async function startServer() {
   });
 
   // FIPE Proxy Routes (using public API)
-  const fetchWithTimeout = async (url: string, options: any = {}, timeout = 10000) => {
-    const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), timeout);
-    try {
-      const response = await fetch(url, {
-        ...options,
-        signal: controller.signal
-      });
-      clearTimeout(id);
-      return response;
-    } catch (e) {
-      clearTimeout(id);
-      throw e;
+  const fetchWithTimeout = async (url: string, options: any = {}, timeout = 30000, retries = 2) => {
+    for (let i = 0; i <= retries; i++) {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeout);
+      try {
+        console.log(`[FIPE] Tentativa ${i + 1} para: ${url}`);
+        const response = await fetch(url, {
+          ...options,
+          signal: controller.signal
+        });
+        clearTimeout(id);
+        return response;
+      } catch (e) {
+        clearTimeout(id);
+        if (i === retries) throw e;
+        console.warn(`[FIPE] Tentativa ${i + 1} falhou, tentando novamente...`);
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Espera 1s antes de tentar de novo
+      }
     }
+    throw new Error('Falha após várias tentativas');
   };
 
   app.get('/api/fipe/brands', async (req, res) => {

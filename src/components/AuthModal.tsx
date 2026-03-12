@@ -10,7 +10,7 @@ interface AuthModalProps {
 }
 
 export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalProps) {
-  const [mode, setMode] = useState<'login' | 'signup'>(initialMode);
+  const [mode, setMode] = useState<'login' | 'signup' | 'forgot_password'>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -51,6 +51,13 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
         if (signUpError) throw signUpError;
         alert('Cadastro realizado com sucesso! Verifique seu email para confirmar.');
         setMode('login');
+      } else if (mode === 'forgot_password') {
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/reset-password`,
+        });
+        if (resetError) throw resetError;
+        alert('E-mail de redefinição enviado! Verifique sua caixa de entrada.');
+        setMode('login');
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
@@ -84,12 +91,14 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
 
         <div className="text-center mb-8">
           <h2 className="text-3xl font-black font-display mb-2">
-            {mode === 'login' ? 'Bem-vindo de volta!' : 'Crie sua conta'}
+            {mode === 'login' ? 'Bem-vindo de volta!' : mode === 'signup' ? 'Crie sua conta' : 'Recupere sua senha'}
           </h2>
           <p className="text-slate-500">
             {mode === 'login' 
               ? 'Acesse sua conta para gerenciar suas negociações.' 
-              : 'Junte-se a nós para vender seu carro com segurança.'}
+              : mode === 'signup'
+              ? 'Junte-se a nós para vender seu carro com segurança.'
+              : 'Informe seu e-mail para receber o link de redefinição.'}
           </p>
         </div>
 
@@ -126,21 +135,34 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
             </div>
           </div>
 
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-400 ml-1">Senha</label>
-            <div className="relative">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-              <input 
-                type="password" 
-                required
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20 transition-all"
-                placeholder="Sua senha segura"
-                minLength={6}
-              />
+          {mode !== 'forgot_password' && (
+            <div className="space-y-1">
+              <div className="flex justify-between items-center ml-1">
+                <label className="text-xs font-bold text-slate-400">Senha</label>
+                {mode === 'login' && (
+                  <button 
+                    type="button"
+                    onClick={() => setMode('forgot_password')}
+                    className="text-[10px] font-bold text-accent hover:underline"
+                  >
+                    Esqueceu a senha?
+                  </button>
+                )}
+              </div>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <input 
+                  type="password" 
+                  required
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-accent/20 transition-all"
+                  placeholder="Sua senha segura"
+                  minLength={6}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {error && (
             <div className="p-3 bg-red-50 text-red-600 text-sm rounded-xl font-medium text-center animate-in fade-in slide-in-from-top-2">
@@ -155,7 +177,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
           >
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
               <>
-                {mode === 'login' ? 'Entrar' : 'Criar Conta'}
+                {mode === 'login' ? 'Entrar' : mode === 'signup' ? 'Criar Conta' : 'Enviar Link'}
                 <ArrowRight className="w-5 h-5" />
               </>
             )}
@@ -182,15 +204,16 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
 
         <div className="mt-6 text-center">
           <p className="text-sm text-slate-500">
-            {mode === 'login' ? 'Não tem uma conta?' : 'Já tem uma conta?'}
+            {mode === 'login' ? 'Não tem uma conta?' : mode === 'signup' ? 'Já tem uma conta?' : 'Lembrou a senha?'}
             <button 
               onClick={() => {
-                setMode(mode === 'login' ? 'signup' : 'login');
+                if (mode === 'forgot_password') setMode('login');
+                else setMode(mode === 'login' ? 'signup' : 'login');
                 setError(null);
               }}
               className="ml-2 font-bold text-accent hover:underline"
             >
-              {mode === 'login' ? 'Cadastre-se' : 'Faça Login'}
+              {mode === 'login' ? 'Cadastre-se' : mode === 'signup' ? 'Faça Login' : 'Voltar ao Login'}
             </button>
           </p>
         </div>
