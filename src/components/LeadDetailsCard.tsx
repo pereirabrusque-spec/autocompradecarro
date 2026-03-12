@@ -595,6 +595,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                             { label: 'Placa', key: 'placa' },
                             { label: 'Marca', key: 'marca' },
                             { label: 'Modelo', key: 'modelo' },
+                            { label: 'Ano Fabricação', key: 'ano_fabricacao' },
                             { label: 'Ano Modelo', key: 'ano_modelo' },
                             { label: 'Cor', key: 'cor' },
                             { label: 'Quilometragem', key: 'quilometragem' },

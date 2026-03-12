@@ -336,22 +336,23 @@ export default function SellCar() {
       
       const leadPayload: any = {
         user_id: user?.id || null,
-        tipo_veiculo: formData.vehicleType,
         cliente_nome: formData.ownerName,
         telefone: formData.ownerPhone,
         email: formData.ownerEmail,
         marca: formData.brandName || formData.brandId,
         modelo: formData.modelName || formData.modelId,
-        ano_modelo: formData.yearName || formData.yearId,
-        ano_fabricacao: formData.ano_fabricacao,
+        ano_modelo: parseInt((formData.yearName || formData.yearId || '').replace(/\D/g, '').substring(0, 4)) || 0,
+        ano_fabricacao: formData.ano_fabricacao ? parseInt(formData.ano_fabricacao.replace(/\D/g, '')) : null,
         cor: formData.color,
         quilometragem: parseInt((formData.mileage || '').replace(/\D/g, '')) || 0,
         placa: formData.plate,
         renavam: formData.renavam,
         valor_fipe: parseFloat((fipePrice || '').replace(/[^\d,]/g, '').replace(',', '.')) || 0,
+        fipe_value: parseFloat((fipePrice || '').replace(/[^\d,]/g, '').replace(',', '.')) || 0,
         preco_cliente: parseFloat((formData.desiredPrice || '').replace(/\./g, '').replace(',', '.')) || 0,
+        desired_value: parseFloat((formData.desiredPrice || '').replace(/\./g, '').replace(',', '.')) || 0,
         status: 'novo',
-        observacoes: `Localização: ${formData.ownerLocation}. Danos: ${formData.damageType}. Acessórios: ${Object.entries(formData.accessories || {}).filter(([_, v]) => v).map(([k]) => k).join(', ')}`,
+        observacoes: `Tipo: ${formData.vehicleType}. Localização: ${formData.ownerLocation}. Danos: ${formData.damageType}. Acessórios: ${Object.entries(formData.accessories || {}).filter(([_, v]) => v).map(([k]) => k).join(', ')}`,
         entrada: parseFloat((formData.entrada || '').replace(/\./g, '').replace(',', '.')) || 0,
         situacao_financeira: formData.situacaoFinanceira,
         banco_financiamento: formData.bank,
@@ -363,15 +364,19 @@ export default function SellCar() {
         motor_reparo: parseFloat((formData.engineRepairValue || '').replace(/[^\d,]/g, '').replace(',', '.')) || 0,
         cambio_reparo: parseFloat((formData.gearboxRepairValue || '').replace(/[^\d,]/g, '').replace(',', '.')) || 0,
         batido_reparo: parseFloat((formData.bodyRepairValue || '').replace(/[^\d,]/g, '').replace(',', '.')) || 0,
+        doc_debts: parseFloat((formData.ipvaValue || '').replace(/[^\d,]/g, '').replace(',', '.')) || 0,
+        repair_debts: (parseFloat((formData.engineRepairValue || '').replace(/[^\d,]/g, '').replace(',', '.')) || 0) +
+                     (parseFloat((formData.gearboxRepairValue || '').replace(/[^\d,]/g, '').replace(',', '.')) || 0) +
+                     (parseFloat((formData.bodyRepairValue || '').replace(/[^\d,]/g, '').replace(',', '.')) || 0),
+        payoff_value: (parseInt(formData.installmentsRemaining || '0') || 0) * (parseFloat((formData.installmentValue || '').replace(/\./g, '').replace(',', '.')) || 0),
         problemas: problems,
         selected_items: Object.entries(formData.accessories || {}).filter(([_, v]) => v).map(([k]) => k),
         notifications_enabled: formData.authorizeNotifications,
-        tem_sinistro: formData.hasSinistro,
-        passagem_leilao: formData.hasLeilao,
         recuperado_banco: formData.isRecuperado,
         historico_furto_roubo: formData.hasFurtoRoubo,
         fotos: uploadedPhotos,
-        videos: uploadedVideos
+        videos: uploadedVideos,
+        fotos_url: uploadedPhotos // Para compatibilidade
       };
 
       // Tentar via API Backend (Bypass RLS)
@@ -409,19 +414,11 @@ export default function SellCar() {
           if (insertError.message?.includes('column') || insertError.code === 'PGRST204' || insertError.code === '42703') {
             console.log('Tentando insert simplificado...');
             const simplifiedPayload = {
-              cliente_nome: leadPayload.cliente_nome,
-              telefone: leadPayload.telefone,
-              email: leadPayload.email,
-              marca: leadPayload.marca,
-              modelo: leadPayload.modelo,
-              ano_modelo: leadPayload.ano_modelo,
-              cor: leadPayload.cor,
-              valor_fipe: leadPayload.valor_fipe,
-              preco_cliente: leadPayload.preco_cliente,
-              status: leadPayload.status,
-              observacoes: leadPayload.observacoes,
-              fotos: leadPayload.fotos,
-              videos: leadPayload.videos
+              ...leadPayload,
+              // Remove campos que costumam dar erro se não existirem
+              tipo_veiculo: undefined,
+              tem_sinistro: undefined,
+              passagem_leilao: undefined
             };
             
             const { error: simpleError } = await supabase
