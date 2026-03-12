@@ -188,6 +188,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
           .order('created_at', { ascending: true });
 
         if (history && history.length > 0) {
+          console.log("Chat history loaded:", history);
           const formattedHistory: Message[] = history.map((msg: any) => ({
             role: (msg.remetente === 'cliente' ? 'user' : 'bot') as 'user' | 'bot',
             text: msg.conteudo,
@@ -195,6 +196,8 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
             metadata: msg.metadata
           }));
           setMessages(formattedHistory);
+        } else {
+          console.log("No chat history found for lead:", currentLeadId);
         }
       }
     };
@@ -252,7 +255,12 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
               const exists = prev.some(m => m.text === payload.new.conteudo && m.role === 'bot');
               if (!exists) {
                 playNotificationSound();
-                return [...prev, { role: 'bot', text: payload.new.conteudo }];
+                return [...prev, { 
+                    role: 'bot', 
+                    text: payload.new.conteudo,
+                    tipo: payload.new.tipo,
+                    metadata: payload.new.metadata
+                }];
               }
               return prev;
             });
@@ -321,11 +329,16 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
     
     // Salvar mensagem do usuário
     if (leadId) {
-      await supabase.from('mensagens').insert({
+      const { error } = await supabase.from('mensagens').insert({
         lead_id: leadId,
         remetente: 'cliente',
         conteudo: userText
       });
+      if (error) {
+        console.error("Erro ao salvar mensagem:", error);
+        setMessages(prev => prev.filter(m => m.text !== userText)); // Remove optimistic message
+        alert("Erro ao enviar mensagem. Tente novamente.");
+      }
     }
 
     setIsLoading(true);
@@ -622,6 +635,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
                         <div className="markdown-body prose prose-sm max-w-none">
                           <Markdown>{msg.text}</Markdown>
                         </div>
+                        {console.log("Rendering message:", msg.text, "Tipo:", msg.tipo)}
                         {msg.tipo === 'proposta' && (
                           <button 
                             onClick={() => setSelectedProposal(msg.metadata?.proposal_data)}

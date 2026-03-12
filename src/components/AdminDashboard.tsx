@@ -771,6 +771,12 @@ Podemos prosseguir com o agendamento da vistoria?`;
     }
   };
 
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [chatMessages]);
+
   const handleLearnFromChat = async () => {
     if (!selectedConversation || chatMessages.length === 0) return;
 
@@ -4114,30 +4120,11 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         </div>
                       </div>
 
-                      {/* Histórico Cronológico */}
-                      <div className="px-6 py-4 border-b border-slate-100 bg-white">
-                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Histórico de Contatos e Propostas</h4>
-                        <div className="space-y-3">
-                          {chatMessages
-                            .filter(msg => msg.remetente === 'admin' || msg.conteudo.includes('PROPOSTA OFICIAL'))
-                            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-                            .map((msg) => (
-                              <div key={msg.id} className="flex gap-3 text-xs">
-                                <div className="w-1.5 h-1.5 rounded-full bg-accent mt-1.5 shrink-0" />
-                                <div>
-                                  <p className="font-bold text-slate-700">
-                                    {msg.conteudo.includes('PROPOSTA OFICIAL') ? 'Proposta Enviada' : 'Contato Humano'}
-                                  </p>
-                                  <p className="text-slate-500 truncate max-w-[200px]">{msg.conteudo}</p>
-                                  <p className="text-[9px] text-slate-400">{new Date(msg.created_at).toLocaleString()}</p>
-                                </div>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-
                       {/* Mensagens */}
-                      <div className="flex-[2] overflow-y-auto max-h-[600px] p-6 space-y-4">
+                      <div 
+                        ref={scrollRef}
+                        className="flex-1 overflow-y-auto p-6 space-y-4"
+                      >
                         {chatMessages.map((msg) => (
                           <div 
                             key={msg.id}
