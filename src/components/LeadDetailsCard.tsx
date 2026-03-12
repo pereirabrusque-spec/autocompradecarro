@@ -220,7 +220,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                   { label: 'Financiamento Atrasado', key: 'is_financiamento_atrasado', type: 'checkbox' },
                   { label: 'Busca e Apreensão', key: 'is_busca_apreensao', type: 'checkbox' },
                   { label: 'IPVA/Multas Atrasados', key: 'is_ipva_multas_atrasados', type: 'checkbox' },
-                  { label: 'Renajud / Bloqueio', key: 'is_renajud', type: 'checkbox' },
+                  { label: 'Renajud / Bloqueio Judicial', key: 'is_renajud', type: 'checkbox' },
                   { label: 'Motor Fundido / Batendo', key: 'is_motor_fundido', type: 'checkbox' },
                   { label: 'Câmbio com Defeito', key: 'is_cambio_defeito', type: 'checkbox' },
                   { label: 'Batido / Avariado', key: 'is_batido_avariado', type: 'checkbox' },
