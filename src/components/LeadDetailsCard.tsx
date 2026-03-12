@@ -607,6 +607,11 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                             { label: 'Reparo Motor', key: 'motor_reparo' },
                             { label: 'Reparo Câmbio', key: 'cambio_reparo' },
                             { label: 'Reparo Batido', key: 'batido_reparo' },
+                            { label: 'Tem Sinistro?', key: 'tem_sinistro' },
+                            { label: 'Passagem por Leilão?', key: 'passagem_leilao' },
+                            { label: 'Recuperado de Banco?', key: 'recuperado_banco' },
+                            { label: 'Histórico de Furto/Roubo?', key: 'historico_furto_roubo' },
+                            { label: 'Tipo de Monta (Danos)', key: 'avarias_manuais' },
                           ].map(field => (
                             <div key={field.key} className="space-y-1">
                               <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{field.label}</label>
@@ -617,12 +622,19 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                                   value={currentLead[field.key] ?? ''}
                                   readOnly
                                 />
+                              ) : ['tem_sinistro', 'passagem_leilao', 'recuperado_banco', 'historico_furto_roubo'].includes(field.key) ? (
+                                <input 
+                                  type="text"
+                                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all"
+                                  value={currentLead[field.key] === 'true' ? 'Sim' : 'Não'}
+                                  readOnly
+                                />
                               ) : (
                                 <input 
                                   type="text"
                                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all" 
                                   value={currentLead[field.key] ?? ''} 
-                                  onChange={e => handleFieldChange(field.key, e.target.value)} 
+                                  readOnly
                                 />
                               )}
                             </div>
