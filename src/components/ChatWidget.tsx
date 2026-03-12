@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../lib/authContext';
 import { supabase } from '../lib/supabase';
-import { MessageCircle, X, Send, Loader2, User, ShieldCheck, FileText, AlertCircle } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { MessageSquare, X, Send, Loader2, User, ShieldCheck, FileText, AlertCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import AuthModal from './AuthModal';
 
 export default function ChatWidget() {
@@ -180,17 +180,21 @@ export default function ChatWidget() {
   return (
     <>
       {/* Floating Button */}
-      <button
+      <motion.button
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
         onClick={handleToggle}
-        className="fixed bottom-6 right-6 z-50 p-4 bg-accent text-white rounded-full shadow-2xl hover:bg-orange-600 transition-all hover:scale-110 active:scale-95 relative"
+        className="fixed bottom-6 right-6 z-[60] p-4 bg-accent text-white rounded-full shadow-2xl hover:bg-orange-600 transition-all flex items-center justify-center"
       >
-        {isOpen ? <X className="w-6 h-6" /> : <MessageCircle className="w-6 h-6" />}
+        {isOpen ? <X className="w-6 h-6" /> : <MessageSquare className="w-6 h-6" />}
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center border-2 border-white animate-bounce">
+          <span className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white animate-bounce">
             {unreadCount}
           </span>
         )}
-      </button>
+      </motion.button>
 
       {/* Chat Window */}
       {isOpen && user && (
