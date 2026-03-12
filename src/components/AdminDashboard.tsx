@@ -2131,6 +2131,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     lead={selectedLead} 
                     onClose={() => setSelectedLead(null)} 
                     onSave={async (updatedLead) => {
+                      console.log("Salvando Lead no AdminDashboard:", updatedLead);
                       const { error } = await supabase.from('leads_veiculos').update(updatedLead).eq('id', updatedLead.id);
                       if (error) {
                         setToast({ message: 'Erro ao salvar: ' + error.message, type: 'error' });

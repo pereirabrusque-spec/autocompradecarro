@@ -16,6 +16,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
   const [repairModal, setRepairModal] = useState<{ field: string | null; value: string }>({ field: null, value: '' });
 
   React.useEffect(() => {
+    console.log("Lead recebido no LeadDetailsCard:", lead);
     if (lead) {
       const sanitizedLead = { ...lead };
       Object.keys(sanitizedLead).forEach(key => {
@@ -24,6 +25,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
           sanitizedLead[key] = '';
         }
       });
+      console.log("Lead sanitizado no LeadDetailsCard:", sanitizedLead);
       setCurrentLead(sanitizedLead);
     } else {
       setCurrentLead({});
