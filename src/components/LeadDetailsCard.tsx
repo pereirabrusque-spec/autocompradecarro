@@ -603,7 +603,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                             { label: 'Parcelas Pagas', key: 'parcelas_pagas' },
                             { label: 'Parcelas Atrasadas', key: 'parcelas_atrasadas' },
                             { label: 'Valor Parcela', key: 'valor_parcela' },
-                            { label: 'Multas', key: 'multas' },
+                            { label: 'IPVA/Multas Atrasadas', key: 'multas' },
                             { label: 'Reparo Motor', key: 'motor_reparo' },
                             { label: 'Reparo Câmbio', key: 'cambio_reparo' },
                             { label: 'Reparo Batido', key: 'batido_reparo' },
@@ -612,6 +612,10 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                             { label: 'Recuperado de Banco?', key: 'recuperado_banco' },
                             { label: 'Histórico de Furto/Roubo?', key: 'historico_furto_roubo' },
                             { label: 'Tipo de Monta (Danos)', key: 'avarias_manuais' },
+                            { label: 'Financiamento Atrasado', key: 'financiamento_atrasado' },
+                            { label: 'Busca e Apreensão', key: 'busca_apreensao' },
+                            { label: 'Renajud / Bloqueio Judicial', key: 'renajud_bloqueio' },
+                            { label: 'Sinistrado / Leilão', key: 'sinistrado_leilao' },
                           ].map(field => (
                             <div key={field.key} className="space-y-1">
                               <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{field.label}</label>
@@ -622,11 +626,11 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                                   value={currentLead[field.key] ?? ''}
                                   readOnly
                                 />
-                              ) : ['tem_sinistro', 'passagem_leilao', 'recuperado_banco', 'historico_furto_roubo'].includes(field.key) ? (
+                              ) : ['tem_sinistro', 'passagem_leilao', 'recuperado_banco', 'historico_furto_roubo', 'financiamento_atrasado', 'busca_apreensao', 'renajud_bloqueio', 'sinistrado_leilao'].includes(field.key) ? (
                                 <input 
                                   type="text"
                                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all"
-                                  value={currentLead[field.key] === 'true' ? 'Sim' : 'Não'}
+                                  value={currentLead[field.key] === 'true' || currentLead[field.key] === true ? 'Sim' : 'Não'}
                                   readOnly
                                 />
                               ) : (
