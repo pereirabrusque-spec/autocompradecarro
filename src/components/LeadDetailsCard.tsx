@@ -208,7 +208,9 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+    const apiKey = process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.GEMINI_API_KEY || '';
+    console.log("DEBUG: GEMINI_API_KEY:", apiKey ? "DEFINIDA" : "NÃO DEFINIDA");
+    const ai = new GoogleGenAI({ apiKey });
 
     // Upload para o Supabase Storage
     const filePath = `crlv/${currentLead.id}/${Date.now()}_${file.name}`;
