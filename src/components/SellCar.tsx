@@ -381,7 +381,6 @@ export default function SellCar() {
         ano_fabricacao: formData.ano_fabricacao ? parseInt(formData.ano_fabricacao.replace(/\D/g, '')) : null,
         cor: formData.color,
         quilometragem: parseInt((formData.mileage || '').replace(/\D/g, '')) || 0,
-        mileage: parseInt((formData.mileage || '').replace(/\D/g, '')) || 0,
         placa: formData.plate,
         renavam: formData.renavam,
         valor_fipe: parseFloat((fipePrice || '').replace(/[^\d,]/g, '').replace(',', '.')) || 0,
@@ -466,9 +465,10 @@ export default function SellCar() {
               tipo_veiculo: undefined,
               tem_sinistro: undefined,
               passagem_leilao: undefined,
-              ano_fabricacao: undefined, // Tenta remover se der erro
+              ano_fabricacao: undefined, 
               fipe_value: undefined,
-              desired_value: undefined
+              desired_value: undefined,
+              mileage: undefined
             };
             
             const { error: simpleError } = await supabase

@@ -54,15 +54,38 @@ async function startServer() {
   });
 
   // FIPE Proxy Routes (using public API)
+  const fetchWithTimeout = async (url: string, options: any = {}, timeout = 10000) => {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal
+      });
+      clearTimeout(id);
+      return response;
+    } catch (e) {
+      clearTimeout(id);
+      throw e;
+    }
+  };
+
   app.get('/api/fipe/brands', async (req, res) => {
     try {
       const type = (req.query.type as string) || 'carros';
       console.log(`[FIPE] Buscando marcas para tipo: ${type}`);
-      const response = await fetch(`https://parallelum.com.br/fipe/api/v1/${type}/marcas`, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-      });
+      
+      let response;
+      try {
+        response = await fetchWithTimeout(`https://parallelum.com.br/fipe/api/v1/${type}/marcas`, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          }
+        });
+      } catch (e) {
+        console.error(`[FIPE] Timeout ou Erro de conexão ao buscar marcas:`, e);
+        return res.status(504).json({ error: 'Tempo de resposta excedido na API FIPE' });
+      }
       
       if (!response.ok) {
         console.error(`[FIPE] Erro na API Parallelum (Marcas): ${response.status} ${response.statusText}`);
@@ -82,11 +105,18 @@ async function startServer() {
     try {
       const type = (req.query.type as string) || 'carros';
       console.log(`[FIPE] Buscando modelos para tipo: ${type}, marca: ${req.params.brandId}`);
-      const response = await fetch(`https://parallelum.com.br/fipe/api/v1/${type}/marcas/${req.params.brandId}/modelos`, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-      });
+      
+      let response;
+      try {
+        response = await fetchWithTimeout(`https://parallelum.com.br/fipe/api/v1/${type}/marcas/${req.params.brandId}/modelos`, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          }
+        });
+      } catch (e) {
+        console.error(`[FIPE] Timeout ao buscar modelos:`, e);
+        return res.status(504).json({ error: 'Tempo de resposta excedido na API FIPE' });
+      }
       
       if (!response.ok) {
         console.error(`[FIPE] Erro na API Parallelum (Modelos): ${response.status} ${response.statusText}`);
@@ -106,11 +136,18 @@ async function startServer() {
     try {
       const type = (req.query.type as string) || 'carros';
       console.log(`[FIPE] Buscando anos para tipo: ${type}, marca: ${req.params.brandId}, modelo: ${req.params.modelId}`);
-      const response = await fetch(`https://parallelum.com.br/fipe/api/v1/${type}/marcas/${req.params.brandId}/modelos/${req.params.modelId}/anos`, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-      });
+      
+      let response;
+      try {
+        response = await fetchWithTimeout(`https://parallelum.com.br/fipe/api/v1/${type}/marcas/${req.params.brandId}/modelos/${req.params.modelId}/anos`, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          }
+        });
+      } catch (e) {
+        console.error(`[FIPE] Timeout ao buscar anos:`, e);
+        return res.status(504).json({ error: 'Tempo de resposta excedido na API FIPE' });
+      }
       
       if (!response.ok) {
         console.error(`[FIPE] Erro na API Parallelum (Anos): ${response.status} ${response.statusText}`);
@@ -129,11 +166,19 @@ async function startServer() {
   app.get('/api/fipe/price/:brandId/:modelId/:yearId', async (req, res) => {
     try {
       const type = (req.query.type as string) || 'carros';
-      const response = await fetch(`https://parallelum.com.br/fipe/api/v1/${type}/marcas/${req.params.brandId}/modelos/${req.params.modelId}/anos/${req.params.yearId}`, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-      });
+      
+      let response;
+      try {
+        response = await fetchWithTimeout(`https://parallelum.com.br/fipe/api/v1/${type}/marcas/${req.params.brandId}/modelos/${req.params.modelId}/anos/${req.params.yearId}`, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          }
+        });
+      } catch (e) {
+        console.error(`[FIPE] Timeout ao buscar preço:`, e);
+        return res.status(504).json({ error: 'Tempo de resposta excedido na API FIPE' });
+      }
+
       const data = await response.json();
       res.json(data);
     } catch (error) {
