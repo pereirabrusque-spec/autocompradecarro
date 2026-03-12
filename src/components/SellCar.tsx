@@ -345,6 +345,7 @@ export default function SellCar() {
         ano_fabricacao: formData.ano_fabricacao ? parseInt(formData.ano_fabricacao.replace(/\D/g, '')) : null,
         cor: formData.color,
         quilometragem: parseInt((formData.mileage || '').replace(/\D/g, '')) || 0,
+        mileage: parseInt((formData.mileage || '').replace(/\D/g, '')) || 0,
         placa: formData.plate,
         renavam: formData.renavam,
         valor_fipe: parseFloat((fipePrice || '').replace(/[^\d,]/g, '').replace(',', '.')) || 0,
@@ -376,11 +377,17 @@ export default function SellCar() {
         historico_furto_roubo: formData.hasFurtoRoubo,
         fotos: uploadedPhotos,
         videos: uploadedVideos,
-        fotos_url: uploadedPhotos // Para compatibilidade
+        fotos_url: uploadedPhotos,
+        tipo_veiculo: formData.vehicleType,
+        vehicle_code: Math.random().toString(36).substring(2, 6).toUpperCase()
       };
 
+      console.log('Payload Final do Lead:', JSON.stringify(leadPayload, null, 2));
+      
       // Tentar via API Backend (Bypass RLS)
       let apiSuccess = false;
+      let lastError = null;
+      
       try {
         const response = await fetch('/api/leads', {
           method: 'POST',
@@ -394,38 +401,48 @@ export default function SellCar() {
           console.log('Lead inserido com sucesso (API):', result);
           apiSuccess = true;
         } else {
+          lastError = result.error;
           console.warn('Falha na API Backend, tentando direto no Supabase...', result.error);
         }
-      } catch (apiErr) {
+      } catch (apiErr: any) {
+        lastError = apiErr.message;
         console.warn('Erro ao chamar API Backend:', apiErr);
       }
 
       // Se a API falhou, tenta direto no Supabase (Client)
       if (!apiSuccess) {
+        console.log('Tentando inserção direta via Supabase Client...');
         // Tenta primeiro com o payload completo
         const { error: insertError } = await supabase
           .from('leads_veiculos')
           .insert([leadPayload]);
         
         if (insertError) {
-          console.error('Erro no insert completo:', insertError);
+          console.error('Erro no insert completo (Supabase Client):', insertError);
+          lastError = insertError.message;
           
           // Se falhou por colunas inexistentes, tenta um payload simplificado (compatibilidade)
           if (insertError.message?.includes('column') || insertError.code === 'PGRST204' || insertError.code === '42703') {
-            console.log('Tentando insert simplificado...');
+            console.log('Detectada coluna inexistente. Tentando insert simplificado...');
             const simplifiedPayload = {
               ...leadPayload,
-              // Remove campos que costumam dar erro se não existirem
+              // Remove campos que costumam dar erro se não existirem em versões antigas da tabela
               tipo_veiculo: undefined,
               tem_sinistro: undefined,
-              passagem_leilao: undefined
+              passagem_leilao: undefined,
+              ano_fabricacao: undefined, // Tenta remover se der erro
+              fipe_value: undefined,
+              desired_value: undefined
             };
             
             const { error: simpleError } = await supabase
               .from('leads_veiculos')
               .insert([simplifiedPayload]);
             
-            if (simpleError) throw simpleError;
+            if (simpleError) {
+              console.error('Erro no insert simplificado:', simpleError);
+              throw simpleError;
+            }
           } else {
             throw insertError;
           }
@@ -443,7 +460,13 @@ export default function SellCar() {
       }, 50);
     } catch (error: any) {
       setIsSubmitting(false);
-      console.error('Erro detalhado:', error);
+      console.error('Erro detalhado na submissão:', error);
+      
+      // Captura o erro específico para mostrar ao usuário
+      const errorDetail = error.message || JSON.stringify(error);
+      setErrorMessage([`Erro técnico: ${errorDetail}`, 'Por favor, tire um print desta tela e envie ao suporte se o erro persistir.']);
+      setErrorModalOpen(true);
+      
       let msg = `Erro ao enviar avaliação: ${error.message || 'Tente novamente.'}`;
       
       if (error.code === '42501' || error.message?.includes('row-level security')) {
