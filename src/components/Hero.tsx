@@ -20,6 +20,9 @@ export default function Hero() {
   useEffect(() => {
     if (heroBanners.length <= 1) return;
     
+    // Se for vídeo, não usa o timer, usa o evento onEnded do vídeo
+    if (currentBanner?.url?.match(/\.(mp4|webm|ogg)$/i)) return;
+
     const timerDuration = parseInt(settings['HERO_TIMER'] || '5000', 10);
     
     const interval = setInterval(() => {
@@ -27,7 +30,11 @@ export default function Hero() {
     }, timerDuration);
     
     return () => clearInterval(interval);
-  }, [heroBanners.length, settings]);
+  }, [heroBanners.length, settings, currentImageIndex, currentBanner]);
+
+  const handleNextBanner = () => {
+    setCurrentImageIndex(prev => (prev + 1) % heroBanners.length);
+  };
 
   return (
     <section 
@@ -37,20 +44,36 @@ export default function Hero() {
         minHeight: settings['BANNER_HEIGHT'] || '100vh' 
       }}
     >
-      {/* Background Image Carousel */}
+      {/* Background Image/Video Carousel */}
       <div className="absolute inset-0 z-0">
         <AnimatePresence mode='wait'>
-          <motion.img 
-            key={currentImageIndex}
-            src={currentBanner ? currentBanner.url : fallbackImage} 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.6 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 1 }}
-            alt={currentBanner?.legenda || "Hero Background"} 
-            className="absolute inset-0 w-full h-full object-cover"
-            referrerPolicy="no-referrer"
-          />
+          {currentBanner?.url?.match(/\.(mp4|webm|ogg)$/i) ? (
+            <motion.video
+              key={currentImageIndex}
+              src={currentBanner.url}
+              autoPlay
+              muted={false}
+              playsInline
+              onEnded={handleNextBanner}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.6 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1 }}
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          ) : (
+            <motion.img 
+              key={currentImageIndex}
+              src={currentBanner ? currentBanner.url : fallbackImage} 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.6 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1 }}
+              alt={currentBanner?.legenda || "Hero Background"} 
+              className="absolute inset-0 w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+          )}
         </AnimatePresence>
         <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent z-10" />
       </div>

@@ -214,21 +214,32 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     console.log("DEBUG: GEMINI_API_KEY:", apiKey ? "DEFINIDA" : "NÃO DEFINIDA");
     const ai = new GoogleGenAI({ apiKey });
 
-    // Upload para o Supabase Storage
-    const filePath = `crlv/${currentLead.id}/${Date.now()}_${file.name}`;
-    const { error: uploadError } = await supabase.storage
-      .from('banners')
-      .upload(filePath, file);
+    // Upload via API para contornar RLS
+    let publicUrl = '';
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', `crlv/${currentLead.id}`);
 
-    if (uploadError) {
-      console.error("Erro no upload:", uploadError);
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Erro na API de upload:", errorData);
+        setIsUploadingCRLV(false);
+        return;
+      }
+
+      const data = await response.json();
+      publicUrl = data.publicUrl;
+    } catch (error) {
+      console.error("Erro ao fazer upload:", error);
       setIsUploadingCRLV(false);
       return;
     }
-
-    const { data: { publicUrl } } = supabase.storage
-      .from('banners')
-      .getPublicUrl(filePath);
 
     const reader = new FileReader();
     reader.onloadend = async () => {

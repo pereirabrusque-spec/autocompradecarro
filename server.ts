@@ -2,6 +2,7 @@ import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import multer from 'multer';
 
 import { createClient } from '@supabase/supabase-js';
 
@@ -17,11 +18,52 @@ if (supabaseUrl && supabaseServiceKey) {
   supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 }
 
+const upload = multer({ storage: multer.memoryStorage() });
+
 async function startServer() {
   const app = express();
   const PORT = process.env.PORT || 3000;
 
-  app.use(express.json());
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+  // Secure File Upload Endpoint (Bypasses RLS)
+  app.post('/api/upload', upload.single('file'), async (req, res) => {
+    try {
+      if (!supabaseAdmin) {
+        return res.status(500).json({ error: 'Configuração de servidor incompleta.' });
+      }
+
+      const file = req.file;
+      const folder = req.body.folder || 'misc';
+      
+      if (!file) {
+        return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
+      }
+
+      const fileExt = file.originalname ? file.originalname.split('.').pop() : 'jpg';
+      const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+      const filePath = `${folder}/${fileName}`;
+
+      const { data, error } = await supabaseAdmin.storage
+        .from('banners')
+        .upload(filePath, file.buffer, {
+          contentType: file.mimetype,
+          upsert: false
+        });
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabaseAdmin.storage
+        .from('banners')
+        .getPublicUrl(filePath);
+
+      res.json({ success: true, publicUrl, filePath });
+    } catch (error: any) {
+      console.error('Erro no upload via API:', error);
+      res.status(500).json({ error: error.message || 'Erro interno ao fazer upload.' });
+    }
+  });
 
   // Secure Lead Submission Endpoint (Bypasses RLS)
   app.post('/api/leads', async (req, res) => {

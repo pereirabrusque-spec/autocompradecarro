@@ -863,21 +863,22 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
     setUploadingAsset(id);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `banners/${fileName}`;
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', 'assets'); // Pasta dentro do bucket banners
 
-      // Upload to Supabase Storage
-      const { error: uploadError } = await supabase.storage
-        .from('assets')
-        .upload(filePath, file);
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
 
-      if (uploadError) throw uploadError;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro no upload');
+      }
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('assets')
-        .getPublicUrl(filePath);
+      const data = await response.json();
+      const publicUrl = data.publicUrl;
 
       // Update local state so user sees it immediately
       // Update local state and then save to DB

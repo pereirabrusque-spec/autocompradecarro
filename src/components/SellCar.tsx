@@ -361,24 +361,23 @@ export default function SellCar() {
       // Função auxiliar de upload
       const uploadFile = async (file: File, folder: string) => {
         try {
-          const fileExt = file.name ? file.name.split('.').pop() : 'jpg';
-          const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
-          const filePath = `${folder}/${fileName}`;
-          
-          const { error: uploadError } = await supabase.storage
-            .from('banners')
-            .upload(filePath, file);
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('folder', folder);
 
-          if (uploadError) {
-            console.error(`Erro ao fazer upload de ${file.name}:`, uploadError);
+          const response = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            console.error(`Erro na API de upload para ${file.name}:`, errorData);
             return null;
           }
 
-          const { data: { publicUrl } } = supabase.storage
-            .from('banners')
-            .getPublicUrl(filePath);
-            
-          return publicUrl;
+          const data = await response.json();
+          return data.publicUrl;
         } catch (e) {
           console.error('Erro no upload:', e);
           return null;
@@ -994,19 +993,19 @@ export default function SellCar() {
               </p>
               
               {crlvPreview ? (
-                <div className="relative max-w-xs mx-auto aspect-[4/3] rounded-2xl overflow-hidden border border-blue-200 bg-white mb-4">
+                <div className="relative max-w-xs mx-auto aspect-[4/3] rounded-2xl overflow-hidden border border-blue-200 bg-slate-50 mb-4 flex items-center justify-center">
                   {crlvFile?.type === 'application/pdf' || crlvFile?.name.toLowerCase().endsWith('.pdf') ? (
-                    <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-blue-600">
-                      <FileText className="w-12 h-12" />
-                      <span className="text-xs font-bold truncate px-4 w-full text-center">{crlvFile.name}</span>
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-blue-600 p-4">
+                      <FileText className="w-16 h-16 flex-shrink-0" />
+                      <span className="text-sm font-bold truncate w-full text-center px-2">{crlvFile.name}</span>
                     </div>
                   ) : (
-                    <img src={crlvPreview} alt="CRLV Preview" className="w-full h-full object-cover" />
+                    <img src={crlvPreview} alt="CRLV Preview" className="w-full h-full object-contain" />
                   )}
                   <button 
                     type="button"
                     onClick={() => setCrlvFile(null)}
-                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors z-10"
+                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600 transition-colors z-10 shadow-sm"
                   >
                     <X className="w-4 h-4" />
                   </button>
