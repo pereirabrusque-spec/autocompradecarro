@@ -528,53 +528,69 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                 )}
                 {showDataModal && (
                   <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowDataModal(false)}>
-                    <div className="bg-white p-8 rounded-[32px] w-full max-w-4xl shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                    <div className="bg-white p-8 rounded-[32px] w-full max-w-6xl shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                       <h3 className="text-xl font-bold mb-6">Formulário Completo</h3>
                       
-                      <div className="mb-6 p-4 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center gap-2">
-                        <Upload className="w-8 h-8 text-slate-400" />
-                        <label className="text-sm font-bold text-slate-600 cursor-pointer">
-                          Selecionar Foto do CRLV
-                          <input type="file" className="hidden" accept="image/*" onChange={handleCRLVUpload} />
-                        </label>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-4">
-                        {[
-                          { label: 'Cliente', key: 'cliente_nome' },
-                          { label: 'Telefone', key: 'telefone' },
-                          { label: 'E-mail', key: 'email' },
-                          { label: 'Placa', key: 'placa' },
-                          { label: 'Marca', key: 'marca' },
-                          { label: 'Modelo', key: 'modelo' },
-                          { label: 'Ano Modelo', key: 'ano_modelo' },
-                          { label: 'Cor', key: 'cor' },
-                          { label: 'Quilometragem', key: 'quilometragem' },
-                          { label: 'Valor FIPE', key: 'valor_fipe' },
-                          { label: 'Valor Entrada', key: 'entrada' },
-                          { label: 'Banco Financiamento', key: 'banco_financiamento' },
-                          { label: 'Total Parcelas', key: 'total_parcelas' },
-                          { label: 'Parcelas Pagas', key: 'parcelas_pagas' },
-                          { label: 'Parcelas Atrasadas', key: 'parcelas_atrasadas' },
-                          { label: 'Valor Parcela', key: 'valor_parcela' },
-                          { label: 'Multas', key: 'multas' },
-                          { label: 'Reparo Motor', key: 'motor_reparo' },
-                          { label: 'Reparo Câmbio', key: 'cambio_reparo' },
-                          { label: 'Reparo Batido', key: 'batido_reparo' },
-                        ].map(field => (
-                          <div key={field.key} className="space-y-1">
-                            <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{field.label}</label>
-                            <input 
-                              type="text"
-                              className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all" 
-                              value={currentLead[field.key] ?? ''} 
-                              onChange={e => handleFieldChange(field.key, e.target.value)} 
-                            />
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {/* Coluna Esquerda: Preview de Mídia/CRLV */}
+                        <div className="space-y-4">
+                          <div className="aspect-video bg-slate-100 rounded-2xl flex items-center justify-center overflow-hidden border border-slate-200">
+                            {mediaItems.length > 0 ? (
+                              renderMedia(mediaItems[currentPhotoIndex], currentPhotoIndex)
+                            ) : (
+                              <span className="text-slate-400 font-bold">Sem mídia disponível</span>
+                            )}
                           </div>
-                        ))}
+                          {/* Input de CRLV como preview */}
+                          <div className="p-4 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center gap-2">
+                             <label className="text-sm font-bold text-slate-600 cursor-pointer">
+                                {currentLead.crlv_url ? "CRLV Carregado" : "Selecionar Foto do CRLV"}
+                                <input type="file" className="hidden" accept="image/*" onChange={handleCRLVUpload} />
+                             </label>
+                             {currentLead.crlv_url && (
+                               <img src={currentLead.crlv_url} alt="CRLV" className="w-full h-32 object-cover rounded-lg mt-2" />
+                             )}
+                          </div>
+                        </div>
+
+                        {/* Coluna Direita: Formulário */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-fit">
+                          {[
+                            { label: 'Cliente', key: 'cliente_nome' },
+                            { label: 'Telefone', key: 'telefone' },
+                            { label: 'E-mail', key: 'email' },
+                            { label: 'Placa', key: 'placa' },
+                            { label: 'Marca', key: 'marca' },
+                            { label: 'Modelo', key: 'modelo' },
+                            { label: 'Ano Modelo', key: 'ano_modelo' },
+                            { label: 'Cor', key: 'cor' },
+                            { label: 'Quilometragem', key: 'quilometragem' },
+                            { label: 'Valor FIPE', key: 'valor_fipe' },
+                            { label: 'Valor Entrada', key: 'entrada' },
+                            { label: 'Banco Financiamento', key: 'banco_financiamento' },
+                            { label: 'Total Parcelas', key: 'total_parcelas' },
+                            { label: 'Parcelas Pagas', key: 'parcelas_pagas' },
+                            { label: 'Parcelas Atrasadas', key: 'parcelas_atrasadas' },
+                            { label: 'Valor Parcela', key: 'valor_parcela' },
+                            { label: 'Multas', key: 'multas' },
+                            { label: 'Reparo Motor', key: 'motor_reparo' },
+                            { label: 'Reparo Câmbio', key: 'cambio_reparo' },
+                            { label: 'Reparo Batido', key: 'batido_reparo' },
+                          ].map(field => (
+                            <div key={field.key} className="space-y-1">
+                              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{field.label}</label>
+                              <input 
+                                type="text"
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all" 
+                                value={currentLead[field.key] ?? ''} 
+                                onChange={e => handleFieldChange(field.key, e.target.value)} 
+                              />
+                            </div>
+                          ))}
+                        </div>
                       </div>
                       
-                      <button onClick={() => setShowDataModal(false)} className="mt-4 w-full py-3 bg-slate-900 text-white rounded-xl font-bold">Fechar</button>
+                      <button onClick={() => setShowDataModal(false)} className="mt-8 w-full py-3 bg-slate-900 text-white rounded-xl font-bold">Fechar</button>
                     </div>
                   </div>
                 )}
