@@ -543,12 +543,22 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                           </div>
                           {/* Input de CRLV como preview */}
                           <div className="p-4 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center gap-2">
-                             <label className="text-sm font-bold text-slate-600 cursor-pointer">
-                                {currentLead.crlv_url ? "CRLV Carregado" : "Selecionar Foto do CRLV"}
-                                <input type="file" className="hidden" accept="image/*" onChange={handleCRLVUpload} />
-                             </label>
-                             {currentLead.crlv_url && (
-                               <img src={currentLead.crlv_url} alt="CRLV" className="w-full h-32 object-cover rounded-lg mt-2" />
+                             {currentLead.crlv_url ? (
+                               <div className="relative w-full">
+                                 <img src={currentLead.crlv_url} alt="CRLV" className="w-full h-48 object-cover rounded-lg" />
+                                 <button 
+                                   onClick={() => handleFieldChange('crlv_url', '')}
+                                   className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full"
+                                 >
+                                   <X className="w-4 h-4" />
+                                 </button>
+                               </div>
+                             ) : (
+                               <label className="text-sm font-bold text-slate-600 cursor-pointer flex flex-col items-center gap-2">
+                                  <Upload className="w-8 h-8 text-slate-400" />
+                                  Selecionar Foto do CRLV
+                                  <input type="file" className="hidden" accept="image/*" onChange={handleCRLVUpload} />
+                               </label>
                              )}
                           </div>
                         </div>
