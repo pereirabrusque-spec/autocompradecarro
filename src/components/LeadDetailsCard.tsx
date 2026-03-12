@@ -626,10 +626,13 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                                   type="text"
                                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all"
                                   value={
-                                    currentLead.tipo_veiculo && !['NLVO', 'TJRM', 'ADBV'].includes(currentLead.tipo_veiculo) ? currentLead.tipo_veiculo :
-                                    (currentLead.vehicle_code === 'NLVO' ? 'Carro' : 
-                                     currentLead.vehicle_code === 'TJRM' ? 'Caminhão' :
-                                     currentLead.vehicle_code === 'ADBV' ? 'Buggy' : 'Não informado')
+                                    currentLead.tipo_veiculo === 'NLVO' || currentLead.vehicle_code === 'NLVO' ? 'Carro' :
+                                    currentLead.tipo_veiculo === 'TJRM' || currentLead.vehicle_code === 'TJRM' ? 'Caminhão' :
+                                    currentLead.tipo_veiculo === 'ADBV' || currentLead.vehicle_code === 'ADBV' ? 'Buggy' :
+                                    currentLead.tipo_veiculo === 'Carros' ? 'Carro' :
+                                    currentLead.tipo_veiculo === 'Motos' ? 'Moto' :
+                                    currentLead.tipo_veiculo === 'Caminhões' ? 'Caminhão' :
+                                    currentLead.tipo_veiculo || 'Não informado'
                                   }
                                   readOnly
                                 />

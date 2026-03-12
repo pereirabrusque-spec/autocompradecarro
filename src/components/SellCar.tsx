@@ -334,6 +334,7 @@ export default function SellCar() {
       
       const leadPayload: any = {
         user_id: user?.id || null,
+        tipo_veiculo: formData.vehicleType,
         cliente_nome: formData.ownerName,
         telefone: formData.ownerPhone,
         email: formData.ownerEmail,
