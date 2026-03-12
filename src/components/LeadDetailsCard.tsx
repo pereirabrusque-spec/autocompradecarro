@@ -36,12 +36,29 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     const valorParcela = Number(currentLead.valor_parcela) || 0;
     const jurosAtrasoPct = Number(currentLead.juros_atraso) || 0;
 
+    const isCooperativa = currentLead.is_cooperativa === 'true';
+    const isFinanciado = currentLead.is_financiado === 'true';
+    const isReajuste = currentLead.is_reajuste === 'true';
+
     // Descontos: Aqui definimos a lógica de descontos baseada nos campos do formulário
-    // Exemplo: Se houver avarias, aplicamos como desconto
-    const discountValue = motorReparo + cambioReparo + batidoReparo + valorPneus + valorDocumento;
+    const avariasDiscount = motorReparo + cambioReparo + batidoReparo + valorPneus + valorDocumento;
+    
+    // Regras de desconto (exemplo: cooperativa 5%, financiado 10%, reajuste 15%)
+    const discountOptions = [];
+    if (isCooperativa) discountOptions.push({ name: 'Cooperativa (5%)', value: fipe * 0.05 });
+    if (isFinanciado) discountOptions.push({ name: 'Financiado (10%)', value: fipe * 0.10 });
+    if (isReajuste) discountOptions.push({ name: 'Reajuste (15%)', value: fipe * 0.15 });
+
+    const maxDiscount = discountOptions.length > 0 
+        ? Math.max(...discountOptions.map(d => d.value)) 
+        : 0;
+
     const discounts = [
-        { name: 'Avarias/Reparos', value: discountValue }
+        { name: 'Avarias/Reparos', value: avariasDiscount },
+        ...discountOptions
     ];
+    
+    const discountValue = avariasDiscount + maxDiscount;
 
     const fixedCosts = ipvaMulta + ipva + multas;
     
@@ -161,15 +178,27 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                   { label: 'Valor Batido', key: 'batido_reparo', type: 'number' },
                   { label: 'Valor Pneus', key: 'valor_pneus', type: 'number' },
                   { label: 'Valor Documento', key: 'valor_documento', type: 'number' },
+                  { label: 'Cooperativa', key: 'is_cooperativa', type: 'checkbox' },
+                  { label: 'Financiado', key: 'is_financiado', type: 'checkbox' },
+                  { label: 'Reajuste', key: 'is_reajuste', type: 'checkbox' },
                 ].map(field => (
                   <div key={field.key} className="space-y-1">
                     <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{field.label}</label>
-                    <input 
-                      type={field.type || 'text'}
-                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all" 
-                      value={currentLead[field.key] || ''} 
-                      onChange={e => handleFieldChange(field.key, e.target.value)} 
-                    />
+                    {field.type === 'checkbox' ? (
+                      <input 
+                        type="checkbox"
+                        className="w-5 h-5 ml-1 accent-emerald-500"
+                        checked={!!currentLead[field.key]}
+                        onChange={e => handleFieldChange(field.key, e.target.checked ? 'true' : 'false')}
+                      />
+                    ) : (
+                      <input 
+                        type={field.type || 'text'}
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all" 
+                        value={currentLead[field.key] || ''} 
+                        onChange={e => handleFieldChange(field.key, e.target.value)} 
+                      />
+                    )}
                   </div>
                 ))}
               </div>
@@ -349,7 +378,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                         const groups = {
                           "Dados do Cliente": ['cliente_nome', 'telefone', 'email'],
                           "Dados do Veículo": ['marca', 'modelo', 'ano_modelo', 'cor', 'quilometragem', 'placa'],
-                          "Financeiro": ['valor_fipe', 'desired_value', 'valor_ipva_multa', 'total_parcelas', 'parcelas_pagas', 'parcelas_atrasadas', 'valor_parcela', 'juros_atraso'],
+                          "Financeiro": ['valor_fipe', 'desired_value', 'valor_ipva_multa', 'total_parcelas', 'parcelas_pagas', 'parcelas_atrasadas', 'valor_parcela', 'juros_atraso', 'is_cooperativa', 'is_financiado', 'is_reajuste'],
                           "Custos Fixos/Avarias": ['multas', 'valor_ipva', 'motor_reparo', 'cambio_reparo', 'batido_reparo', 'valor_pneus', 'valor_documento']
                         };
 
