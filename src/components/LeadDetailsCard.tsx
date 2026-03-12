@@ -10,9 +10,10 @@ interface LeadDetailsCardProps {
   onDelete: (leadId: string) => void;
   onRefresh: () => void;
   fipeRules: any[];
+  jurosAtraso: number;
 }
 
-export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRefresh, fipeRules }: LeadDetailsCardProps) {
+export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRefresh, fipeRules, jurosAtraso }: LeadDetailsCardProps) {
   const [currentLead, setCurrentLead] = useState(lead || {});
   const [repairModal, setRepairModal] = useState<{ field: string | null; value: string }>({ field: null, value: '' });
 
@@ -106,7 +107,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     const parcelasPagas = Number(currentLead.parcelas_pagas) || 0;
     const parcelasAtrasadas = Number(currentLead.parcelas_atrasadas) || 0;
     const valorParcela = Number(currentLead.valor_parcela) || 0;
-    const jurosAtrasoPct = Number(currentLead.juros_atraso) || 0;
+    const jurosAtrasoPct = jurosAtraso || 0;
 
     const isCooperativa = currentLead.is_cooperativa === 'true' || currentLead.is_cooperativa === true || currentLead.is_cooperativa === 'sim';
     const isFinanciado = currentLead.is_financiado === 'true' || currentLead.is_financiado === true || currentLead.is_financiado === 'sim';
@@ -194,8 +195,9 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     const qtdAVencer = Math.max(0, totalParcelas - parcelasPagas - parcelasAtrasadas);
     const valorAVencer = qtdAVencer * valorParcela;
     
-    const jurosAtrasadas = (parcelasAtrasadas * valorParcela) * (jurosAtrasoPct / 100);
-    const totalAtrasadas = (parcelasAtrasadas * valorParcela) + jurosAtrasadas;
+    const valorAtrasadas = parcelasAtrasadas * valorParcela;
+    const jurosAtrasadas = valorAtrasadas * (jurosAtrasoPct / 100);
+    const totalAtrasadas = valorAtrasadas + jurosAtrasadas;
     
     const payoff = valorAVencer + totalAtrasadas;
     
@@ -213,11 +215,12 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
         payoffBreakdown: {
             qtdParcelas: totalParcelas,
             valorParcela,
-            jurosParcelas: 0,
+            jurosParcelas: jurosAtrasoPct,
             atrasadas: parcelasAtrasadas,
             qtdAVencer,
             valorAVencer,
             qtdAtrasadas: parcelasAtrasadas,
+            valorAtrasadas,
             jurosAtrasadas,
             totalAtrasadas
         },
@@ -815,12 +818,16 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                               <span>{calc.payoffBreakdown.qtdAtrasadas}</span>
                           </div>
                           <div className="flex justify-between text-xs text-slate-600 mb-1">
-                              <span>Juros Atrasadas</span>
-                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.jurosAtrasadas)}</span>
+                              <span>Valor Atrasadas</span>
+                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.valorAtrasadas)}</span>
                           </div>
                           <div className="flex justify-between text-xs text-slate-600 mb-1">
-                              <span>Total Atrasadas</span>
-                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.totalAtrasadas)}</span>
+                              <span>Juros Atrasadas ({calc.payoffBreakdown.jurosParcelas}%)</span>
+                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.jurosAtrasadas)}</span>
+                          </div>
+                          <div className="pt-2 mt-2 border-t border-slate-100 flex justify-between text-xs font-bold text-slate-600">
+                              <span>Total Quitação</span>
+                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}</span>
                           </div>
                       </div>
                     </div>
@@ -899,12 +906,16 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                               <span>{calc.payoffBreakdown.qtdAtrasadas}</span>
                           </div>
                           <div className="flex justify-between text-xs text-white/60 mb-1">
-                              <span>Juros Atrasadas</span>
-                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.jurosAtrasadas)}</span>
+                              <span>Valor Atrasadas</span>
+                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.valorAtrasadas)}</span>
                           </div>
                           <div className="flex justify-between text-xs text-white/60 mb-1">
-                              <span>Total Atrasadas</span>
-                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.totalAtrasadas)}</span>
+                              <span>Juros Atrasadas ({calc.payoffBreakdown.jurosParcelas}%)</span>
+                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.jurosAtrasadas)}</span>
+                          </div>
+                          <div className="pt-2 mt-2 border-t border-white/10 flex justify-between text-xs font-bold text-white">
+                              <span>Total Quitação</span>
+                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}</span>
                           </div>
                       </div>
                     </div>
