@@ -296,12 +296,18 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                         type="checkbox"
                         className="w-5 h-5 ml-1 accent-emerald-500"
                         checked={currentLead[field.key] === 'sim' || currentLead[field.key] === 'true' || currentLead[field.key] === true}
-                        onChange={e => handleFieldChange(field.key, e.target.checked ? 'sim' : 'nao')}
+                        onChange={e => {
+                          if (['is_ipva_multas_atrasados', 'is_motor_fundido', 'is_batido_avariado', 'is_cambio_defeito'].includes(field.key) && e.target.checked) {
+                             handleFieldChange(field.key, 'sim');
+                          } else {
+                             handleFieldChange(field.key, e.target.checked ? 'sim' : 'nao');
+                          }
+                        }}
                       />
                     ) : field.type === 'select' ? (
                       <select
                         className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all"
-                        value={currentLead[field.key] === null || currentLead[field.key] === undefined || currentLead[field.key] === 'null' ? '' : currentLead[field.key]}
+                        value={currentLead[field.key] ?? ''}
                         onChange={e => handleFieldChange(field.key, e.target.value)}
                       >
                         <option value="">Selecione</option>
@@ -311,7 +317,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                       <input 
                         type={field.type || 'text'}
                         className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all" 
-                        value={currentLead[field.key] === null || currentLead[field.key] === undefined || currentLead[field.key] === 'null' ? '' : currentLead[field.key]} 
+                        value={currentLead[field.key] ?? ''} 
                         onChange={e => handleFieldChange(field.key, e.target.value)} 
                       />
                     )}
@@ -517,7 +523,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                               'is_batido_avariado': 'batido_reparo',
                               'is_cambio_defeito': 'cambio_reparo'
                           };
-                          setCurrentLead({ ...currentLead, [repairModal.field!]: 'true', [fieldMap[repairModal.field!]]: repairModal.value });
+                          setCurrentLead({ ...currentLead, [repairModal.field!]: 'sim', [fieldMap[repairModal.field!]]: repairModal.value });
                           setRepairModal({ field: null, value: '' });
                         }} className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold">Salvar</button>
                       </div>
