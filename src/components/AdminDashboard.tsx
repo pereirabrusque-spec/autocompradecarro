@@ -210,7 +210,7 @@ export default function AdminDashboard() {
       const { data: sentData } = await supabase.from('sent_leads').select('*');
       const { data: messagesData } = await supabase
         .from('mensagens')
-        .select('*, leads_veiculos(marca, modelo, cliente_nome, vehicle_code, fotos)')
+        .select('*, leads_veiculos(id, marca, modelo, cliente_nome, vehicle_code, fotos, detalhes_proposta, email, telefone, cliente_telefone)')
         .order('created_at', { ascending: false });
 
       // Group messages by lead_id to create conversation list
@@ -229,7 +229,8 @@ export default function AdminDashboard() {
               last_time: msg.created_at,
               last_message_at: msg.created_at,
               lead: msg.leads_veiculos,
-              unread: unreadCount
+              unread: unreadCount,
+              is_unanswered: msg.remetente === 'cliente'
             });
           }
         });
@@ -462,7 +463,7 @@ export default function AdminDashboard() {
           // Atualiza a lista de conversas de forma otimizada
           const { data: messagesData } = await supabase
             .from('mensagens')
-            .select('*, leads_veiculos(marca, modelo, cliente_nome, vehicle_code, fotos)')
+            .select('*, leads_veiculos(id, marca, modelo, cliente_nome, vehicle_code, fotos, ai_disabled, email, telefone, cliente_telefone)')
             .order('created_at', { ascending: false });
 
           if (messagesData) {
@@ -479,7 +480,8 @@ export default function AdminDashboard() {
                   last_time: msg.created_at,
                   last_message_at: msg.created_at,
                   lead: msg.leads_veiculos,
-                  unread: unreadCount
+                  unread: unreadCount,
+                  is_unanswered: msg.remetente === 'cliente'
                 });
               }
             });
@@ -650,7 +652,7 @@ export default function AdminDashboard() {
       // Atualiza a lista de conversas de forma otimizada
       const { data: messagesData } = await supabase
         .from('mensagens')
-        .select('*, leads_veiculos(marca, modelo, cliente_nome, vehicle_code, fotos)')
+        .select('*, leads_veiculos(id, marca, modelo, cliente_nome, vehicle_code, fotos, detalhes_proposta, email, telefone, cliente_telefone)')
         .order('created_at', { ascending: false });
 
       if (messagesData) {
@@ -667,7 +669,8 @@ export default function AdminDashboard() {
               last_time: msg.created_at,
               last_message_at: msg.created_at,
               lead: msg.leads_veiculos,
-              unread: unreadCount
+              unread: unreadCount,
+              is_unanswered: msg.remetente === 'cliente'
             });
           }
         });
@@ -3954,11 +3957,23 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         <div className="flex-1 min-w-0">
                           <div className="flex justify-between items-start">
                             <div className="flex flex-col min-w-0">
-                              <h4 className="font-bold text-slate-900 truncate">{conv.lead?.cliente_nome || 'Cliente'}</h4>
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-bold text-slate-900 truncate">{conv.lead?.cliente_nome || 'Cliente'}</h4>
+                                {conv.is_unanswered && (
+                                  <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" title="Aguardando resposta" />
+                                )}
+                              </div>
                               <p className="text-[10px] text-slate-500 truncate">{conv.lead?.email || 'Sem email'}</p>
                               <span className="text-[10px] font-mono font-bold text-slate-400">#{conv.lead?.vehicle_code || '----'}</span>
                             </div>
-                            <span className="text-[10px] text-slate-400 whitespace-nowrap">{new Date(conv.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            <div className="flex flex-col items-end gap-1">
+                              <span className="text-[10px] text-slate-400 whitespace-nowrap">{new Date(conv.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                              {conv.unread > 0 && (
+                                <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                                  {conv.unread}
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <p className="text-xs text-slate-500 truncate">{conv.last_message}</p>
                         </div>
@@ -4020,38 +4035,39 @@ Podemos prosseguir com o agendamento da vistoria?`;
                             <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-100 mr-2">
                               <div className="text-right">
                                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Modo</p>
-                                <p className="text-[10px] font-bold text-slate-700 leading-none">{selectedConversation.lead.ai_disabled ? 'Humano' : 'IA'}</p>
+                                <p className="text-[10px] font-bold text-slate-700 leading-none">{selectedConversation.lead.detalhes_proposta?.ai_disabled ? 'Humano' : 'IA'}</p>
                               </div>
                               <button 
                                 onClick={async () => {
-                                  const newValue = !selectedConversation.lead.ai_disabled;
+                                  const newValue = !selectedConversation.lead.detalhes_proposta?.ai_disabled;
+                                  const newDetalhes = { ...(selectedConversation.lead.detalhes_proposta || {}), ai_disabled: newValue };
                                   try {
                                     const { error } = await supabase
                                       .from('leads_veiculos')
-                                      .update({ ai_disabled: newValue })
+                                      .update({ detalhes_proposta: newDetalhes })
                                       .eq('id', selectedConversation.lead.id);
                                     
                                     if (error) throw error;
                                     
                                     // Update local state
                                     setConversations(prev => prev.map(c => 
-                                      c.id === selectedConversation.id 
-                                        ? { ...c, lead: { ...c.lead, ai_disabled: newValue } } 
+                                      c.lead_id === selectedConversation.lead_id 
+                                        ? { ...c, lead: { ...c.lead, detalhes_proposta: newDetalhes } } 
                                         : c
                                     ));
                                     setSelectedConversation({
                                       ...selectedConversation,
-                                      lead: { ...selectedConversation.lead, ai_disabled: newValue }
+                                      lead: { ...selectedConversation.lead, detalhes_proposta: newDetalhes }
                                     });
                                   } catch (err) {
                                     console.error(err);
                                     alert('Erro ao alterar modo de resposta.');
                                   }
                                 }}
-                                title={selectedConversation.lead.ai_disabled ? "Ativar IA para esta conversa" : "Desativar IA (Modo Humano)"}
-                                className={`w-10 h-5 rounded-full transition-colors flex items-center px-0.5 ${selectedConversation.lead.ai_disabled ? 'bg-orange-500' : 'bg-indigo-500'}`}
+                                title={selectedConversation.lead.detalhes_proposta?.ai_disabled ? "Ativar IA para esta conversa" : "Desativar IA (Modo Humano)"}
+                                className={`w-10 h-5 rounded-full transition-colors flex items-center px-0.5 ${selectedConversation.lead.detalhes_proposta?.ai_disabled ? 'bg-orange-500' : 'bg-indigo-500'}`}
                               >
-                                <div className={`w-4 h-4 bg-white rounded-full transition-transform ${selectedConversation.lead.ai_disabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                                <div className={`w-4 h-4 bg-white rounded-full transition-transform ${selectedConversation.lead.detalhes_proposta?.ai_disabled ? 'translate-x-5' : 'translate-x-0'}`} />
                               </button>
                             </div>
                           )}
