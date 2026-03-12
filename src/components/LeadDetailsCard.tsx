@@ -215,7 +215,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     // Upload para o Supabase Storage
     const filePath = `crlv/${currentLead.id}/${Date.now()}_${file.name}`;
     const { error: uploadError } = await supabase.storage
-      .from('veiculos')
+      .from('banners')
       .upload(filePath, file);
 
     if (uploadError) {
@@ -224,19 +224,20 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     }
 
     const { data: { publicUrl } } = supabase.storage
-      .from('veiculos')
+      .from('banners')
       .getPublicUrl(filePath);
 
     const reader = new FileReader();
     reader.onloadend = async () => {
       const base64Image = (reader.result as string).split(',')[1];
+      const mimeType = file.type || (file.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
       
       try {
         const response = await ai.models.generateContent({
           model: "gemini-3-flash-preview",
           contents: {
             parts: [
-              { inlineData: { data: base64Image, mimeType: file.type } },
+              { inlineData: { data: base64Image, mimeType: mimeType } },
               { text: "Extraia os dados deste CRLV: placa, marca, modelo, ano_fabricacao, ano_modelo, cor, renavam, chassi. Retorne apenas JSON." }
             ]
           },
@@ -566,20 +567,30 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                           {/* Input de CRLV como preview */}
                           <div className="p-4 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center gap-2">
                              {currentLead.crlv_url ? (
-                               <div className="relative w-full">
-                                 <img src={currentLead.crlv_url} alt="CRLV" className="w-full h-48 object-cover rounded-lg" />
+                               <div className="relative w-full h-48 flex items-center justify-center bg-slate-100 rounded-lg overflow-hidden">
+                                 {currentLead.crlv_url.toLowerCase().includes('.pdf') ? (
+                                   <div className="flex flex-col items-center gap-2">
+                                     <FileText className="w-12 h-12 text-blue-500" />
+                                     <a href={currentLead.crlv_url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline font-bold">
+                                       Ver PDF do CRLV
+                                     </a>
+                                   </div>
+                                 ) : (
+                                   <img src={currentLead.crlv_url} alt="CRLV" className="w-full h-full object-cover" />
+                                 )}
                                  <button 
                                    onClick={() => handleFieldChange('crlv_url', '')}
-                                   className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full"
+                                   className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full z-10 hover:bg-red-600 transition-colors"
+                                   title="Remover CRLV"
                                  >
                                    <X className="w-4 h-4" />
                                  </button>
                                </div>
                              ) : (
-                               <label className="text-sm font-bold text-slate-600 cursor-pointer flex flex-col items-center gap-2">
+                               <label className="text-sm font-bold text-slate-600 cursor-pointer flex flex-col items-center gap-2 w-full h-full justify-center">
                                   <Upload className="w-8 h-8 text-slate-400" />
-                                  Selecionar Foto do CRLV
-                                  <input type="file" className="hidden" accept="image/*" onChange={handleCRLVUpload} />
+                                  Selecionar Foto ou PDF do CRLV
+                                  <input type="file" className="hidden" accept="image/*,application/pdf" onChange={handleCRLVUpload} />
                                </label>
                              )}
                           </div>

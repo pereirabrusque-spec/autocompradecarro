@@ -361,7 +361,7 @@ export default function SellCar() {
           const filePath = `${folder}/${fileName}`;
           
           const { error: uploadError } = await supabase.storage
-            .from('veiculos')
+            .from('banners')
             .upload(filePath, file);
 
           if (uploadError) {
@@ -370,7 +370,7 @@ export default function SellCar() {
           }
 
           const { data: { publicUrl } } = supabase.storage
-            .from('veiculos')
+            .from('banners')
             .getPublicUrl(filePath);
             
           return publicUrl;
@@ -990,10 +990,10 @@ export default function SellCar() {
               
               {crlvPreview ? (
                 <div className="relative max-w-xs mx-auto aspect-[4/3] rounded-2xl overflow-hidden border border-blue-200 bg-white mb-4">
-                  {crlvFile?.type === 'application/pdf' ? (
+                  {crlvFile?.type === 'application/pdf' || crlvFile?.name.toLowerCase().endsWith('.pdf') ? (
                     <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-blue-600">
                       <FileText className="w-12 h-12" />
-                      <span className="text-xs font-bold truncate px-4 w-full">{crlvFile.name}</span>
+                      <span className="text-xs font-bold truncate px-4 w-full text-center">{crlvFile.name}</span>
                     </div>
                   ) : (
                     <img src={crlvPreview} alt="CRLV Preview" className="w-full h-full object-cover" />
