@@ -22,6 +22,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
   const calculateFinance = () => {
     const fipe = Number(currentLead.valor_fipe) || 0;
     const ipvaMulta = Number(currentLead.valor_ipva_multa) || 0;
+    const ipva = Number(currentLead.valor_ipva) || 0;
     const multas = Number(currentLead.multas) || 0;
     const motorReparo = Number(currentLead.motor_reparo) || 0;
     const cambioReparo = Number(currentLead.cambio_reparo) || 0;
@@ -42,7 +43,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
         { name: 'Avarias/Reparos', value: discountValue }
     ];
 
-    const fixedCosts = ipvaMulta + multas;
+    const fixedCosts = ipvaMulta + ipva + multas;
     
     const qtdAVencer = Math.max(0, totalParcelas - parcelasPagas - parcelasAtrasadas);
     const valorAVencer = qtdAVencer * valorParcela;
@@ -153,6 +154,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                   { label: 'Parcelas Atrasadas', key: 'parcelas_atrasadas', type: 'number' },
                   { label: 'Valor Parcela', key: 'valor_parcela', type: 'number' },
                   { label: 'Juros Atraso (%)', key: 'juros_atraso', type: 'number' },
+                  { label: 'IPVA', key: 'valor_ipva', type: 'number' },
                   { label: 'Multas', key: 'multas', type: 'number' },
                   { label: 'Valor Motor', key: 'motor_reparo', type: 'number' },
                   { label: 'Valor Câmbio', key: 'cambio_reparo', type: 'number' },
