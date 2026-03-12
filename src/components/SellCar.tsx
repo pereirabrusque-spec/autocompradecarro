@@ -39,6 +39,7 @@ export default function SellCar() {
     renavam: '',
     color: '',
     mileage: '',
+    ano_fabricacao: '',
     
     // History
     hasSinistro: false,
@@ -201,6 +202,7 @@ export default function SellCar() {
     if (!formData.yearId) errors.push("Tipo de Veículo (Ano)");
     if (!formData.color) errors.push("Detalhes Básicos (Cor)");
     if (!formData.mileage) errors.push("Detalhes Básicos (Quilometragem)");
+    if (!formData.ano_fabricacao) errors.push("Detalhes Básicos (Ano de Fabricação)");
     if (!formData.desiredPrice) errors.push("Valor Desejado");
     if (!formData.ownerName) errors.push("Seus Dados (Nome)");
     if (!formData.ownerPhone) errors.push("Seus Dados (Telefone)");
@@ -341,6 +343,7 @@ export default function SellCar() {
         marca: formData.brandName || formData.brandId,
         modelo: formData.modelName || formData.modelId,
         ano_modelo: formData.yearName || formData.yearId,
+        ano_fabricacao: formData.ano_fabricacao,
         cor: formData.color,
         quilometragem: parseInt((formData.mileage || '').replace(/\D/g, '')) || 0,
         placa: formData.plate,
@@ -363,6 +366,10 @@ export default function SellCar() {
         problemas: problems,
         selected_items: Object.entries(formData.accessories || {}).filter(([_, v]) => v).map(([k]) => k),
         notifications_enabled: formData.authorizeNotifications,
+        tem_sinistro: formData.hasSinistro,
+        passagem_leilao: formData.hasLeilao,
+        recuperado_banco: formData.isRecuperado,
+        historico_furto_roubo: formData.hasFurtoRoubo,
         fotos: uploadedPhotos,
         videos: uploadedVideos
       };
@@ -1097,6 +1104,15 @@ export default function SellCar() {
                   placeholder="Ex: 85.000"
                   value={formData.mileage}
                   onChange={e => setFormData({...formData, mileage: formatMileage(e.target.value)})}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-400 ml-1">Ano de Fabricação *</label>
+                <input 
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                  placeholder="Ex: 2008"
+                  value={formData.ano_fabricacao}
+                  onChange={e => setFormData({...formData, ano_fabricacao: e.target.value})}
                 />
               </div>
             </div>
