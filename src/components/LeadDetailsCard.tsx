@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, MessageCircle, Send, FileText, Edit2, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Save, MessageCircle, Send, FileText, Edit2, ArrowLeft, ChevronLeft, ChevronRight, Upload } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { GoogleGenAI, Type } from "@google/genai";
 
 interface LeadDetailsCardProps {
   lead: any;
@@ -59,6 +60,36 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
   const [buyerFilter, setBuyerFilter] = useState('Todos');
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showUserModal, setShowUserModal] = useState(false);
+
+  const mediaItems = [
+    ...(currentLead.fotos || []),
+    ...(currentLead.videos || [])
+  ];
+
+  const renderMedia = (item: string, index: number) => {
+    const isVideo = item.match(/\.(mp4|webm|ogg)$/i);
+    if (isVideo) {
+      return (
+        <video 
+          key={index}
+          src={item} 
+          className="w-full h-64 object-cover rounded-2xl" 
+          controls 
+          autoPlay 
+          muted={false}
+        />
+      );
+    }
+    return (
+      <img 
+        key={index}
+        src={item} 
+        alt={`Veículo ${index}`} 
+        className="w-full h-64 object-cover rounded-2xl" 
+        referrerPolicy="no-referrer"
+      />
+    );
+  };
 
   const calculateFinance = () => {
     const fipe = Number(currentLead.valor_fipe) || 0;
@@ -173,6 +204,52 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
   const [showDataModal, setShowDataModal] = useState(false);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
+  const handleCRLVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64Image = (reader.result as string).split(',')[1];
+      
+      try {
+        const response = await ai.models.generateContent({
+          model: "gemini-3-flash-preview",
+          contents: {
+            parts: [
+              { inlineData: { data: base64Image, mimeType: file.type } },
+              { text: "Extraia os dados deste CRLV: placa, marca, modelo, ano_fabricacao, ano_modelo, cor, renavam, chassi. Retorne apenas JSON." }
+            ]
+          },
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                placa: { type: Type.STRING },
+                marca: { type: Type.STRING },
+                modelo: { type: Type.STRING },
+                ano_fabricacao: { type: Type.STRING },
+                ano_modelo: { type: Type.STRING },
+                cor: { type: Type.STRING },
+                renavam: { type: Type.STRING },
+                chassi: { type: Type.STRING },
+              }
+            }
+          }
+        });
+
+        const data = JSON.parse(response.text || '{}');
+        setCurrentLead({ ...currentLead, ...data });
+      } catch (error) {
+        console.error("Erro no OCR:", error);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleFieldChange = (field: string, value: string) => {
     if (['is_ipva_multas_atrasados', 'is_motor_fundido', 'is_batido_avariado', 'is_cambio_defeito'].includes(field) && value === 'sim') {
         const fieldMap: Record<string, string> = {
@@ -200,6 +277,27 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
 
         {/* Conteúdo */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          {mediaItems.length > 0 && (
+            <div className="relative group">
+              {renderMedia(mediaItems[currentPhotoIndex], currentPhotoIndex)}
+              {mediaItems.length > 1 && (
+                <>
+                  <button 
+                    onClick={() => setCurrentPhotoIndex(prev => (prev === 0 ? mediaItems.length - 1 : prev - 1))}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <ChevronLeft className="w-6 h-6" />
+                  </button>
+                  <button 
+                    onClick={() => setCurrentPhotoIndex(prev => (prev === mediaItems.length - 1 ? 0 : prev + 1))}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <ChevronRight className="w-6 h-6" />
+                  </button>
+                </>
+              )}
+            </div>
+          )}
           {/* ... (Conteúdo do formulário e detalhes) ... */}
         </div>
 
@@ -432,6 +530,14 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                   <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowDataModal(false)}>
                     <div className="bg-white p-8 rounded-[32px] w-full max-w-4xl shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                       <h3 className="text-xl font-bold mb-6">Formulário Completo</h3>
+                      
+                      <div className="mb-6 p-4 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center gap-2">
+                        <Upload className="w-8 h-8 text-slate-400" />
+                        <label className="text-sm font-bold text-slate-600 cursor-pointer">
+                          Selecionar Foto do CRLV
+                          <input type="file" className="hidden" accept="image/*" onChange={handleCRLVUpload} />
+                        </label>
+                      </div>
                       
                       <div className="grid grid-cols-2 gap-4">
                         {[
