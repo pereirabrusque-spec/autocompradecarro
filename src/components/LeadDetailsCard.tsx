@@ -195,6 +195,8 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
 
     const fixedCosts = fixedCostsDetail.reduce((acc, curr) => acc + curr.value, 0);
     
+    const valorDesejado = Number(currentLead.valor_desejado) || 0;
+    
     const qtdAVencer = Math.max(0, totalParcelas - parcelasPagas - parcelasAtrasadas);
     const valorAVencer = qtdAVencer * valorParcela;
     
@@ -204,9 +206,17 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     
     const payoff = valorAVencer + totalAtrasadas;
     
-    // Fórmula: FIPE - Descontos - Custos Fixos - Quitação
-    const finalProposal = fipe - discountValue - fixedCosts - payoff;
-    const profit = finalProposal * 0.15; // Margem de 15%
+    // Opção A: FIPE - Todos os Descontos (Regras + Custos Fixos + Quitação)
+    const optionA = fipe - discountValue - fixedCosts - payoff;
+    
+    // Opção B: Valor Desejado - 40%
+    const optionB = valorDesejado > 0 ? valorDesejado * 0.6 : optionA;
+    
+    // Proposta Final é o menor valor entre as duas opções
+    const finalProposal = Math.min(optionA, optionB);
+    
+    // Lucro Estimado: (Tabela FIPE - 20%) - Todos os Descontos
+    const profit = (fipe * 0.8) - (discountValue + fixedCosts + payoff);
     
     return {
         fipe,
@@ -227,6 +237,8 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
             jurosAtrasadas,
             totalAtrasadas
         },
+        optionA,
+        optionB,
         finalProposal,
         profit
     };
@@ -842,8 +854,23 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                           </div>
                       </div>
                     </div>
-                    <div className="pt-4 border-t border-slate-200 flex justify-between font-bold text-lg"><span>Proposta Final</span><span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalProposal)}</span></div>
-                    <div className="flex justify-between text-emerald-600 font-medium"><span>Margem de Lucro (15%)</span><span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.profit)}</span></div>
+                    <div className="pt-4 border-t border-slate-200 flex justify-between items-center group cursor-pointer relative">
+                      <span className="font-bold text-lg text-slate-900">Proposta Final</span>
+                      <span className="font-bold text-lg text-slate-900">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalProposal)}</span>
+                      <div className="absolute right-0 bottom-full mb-2 bg-white border border-slate-200 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-72">
+                        <div className="text-xs font-bold mb-2 border-b pb-1 text-slate-900">Comparativo de Propostas</div>
+                        <div className={`flex justify-between text-xs mb-1 ${calc.optionA <= calc.optionB ? 'text-emerald-600 font-bold' : 'text-red-500'}`}>
+                          <span>FIPE - Descontos</span>
+                          <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.optionA)}</span>
+                        </div>
+                        <div className={`flex justify-between text-xs mb-1 ${calc.optionB < calc.optionA ? 'text-emerald-600 font-bold' : 'text-red-500'}`}>
+                          <span>Valor Desejado - 40%</span>
+                          <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.optionB)}</span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-2 italic">* O sistema seleciona automaticamente o menor valor.</div>
+                      </div>
+                    </div>
+                    <div className="flex justify-between text-emerald-600 font-medium"><span>Lucro Estimado</span><span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.profit)}</span></div>
                   </div>
                 </div>
 
@@ -938,9 +965,21 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                           </div>
                       </div>
                     </div>
-                    <div className="pt-6 border-t border-white/10 flex justify-between items-center">
+                    <div className="pt-6 border-t border-white/10 flex justify-between items-center group cursor-pointer relative">
                       <span className="text-accent font-bold">PROPOSTA FINAL</span>
                       <span className="text-2xl font-bold font-display">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalProposal)}</span>
+                      <div className="absolute right-0 bottom-full mb-2 bg-slate-800 border border-white/10 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-72">
+                        <div className="text-xs font-bold mb-2 border-b border-white/10 pb-1 text-white">Comparativo de Propostas</div>
+                        <div className={`flex justify-between text-xs mb-1 ${calc.optionA <= calc.optionB ? 'text-emerald-400 font-bold' : 'text-red-400'}`}>
+                          <span>FIPE - Descontos</span>
+                          <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.optionA)}</span>
+                        </div>
+                        <div className={`flex justify-between text-xs mb-1 ${calc.optionB < calc.optionA ? 'text-emerald-400 font-bold' : 'text-red-400'}`}>
+                          <span>Valor Desejado - 40%</span>
+                          <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.optionB)}</span>
+                        </div>
+                        <div className="text-[10px] text-white/40 mt-2 italic">* O sistema seleciona automaticamente o menor valor.</div>
+                      </div>
                     </div>
                   </div>
                 </div>
