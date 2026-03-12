@@ -2134,15 +2134,20 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     })()} 
                     onClose={() => setSelectedLead(null)} 
                     onSave={async (updatedLead) => {
-                      console.log("Salvando Lead no AdminDashboard:", updatedLead);
-                      const { error } = await supabase.from('leads_veiculos').update(updatedLead).eq('id', updatedLead.id);
-                      if (error) {
-                        setToast({ message: 'Erro ao salvar: ' + error.message, type: 'error' });
-                        setTimeout(() => setToast(null), 5000);
-                      } else {
-                        setToast({ message: 'Dados salvos!', type: 'success' });
-                        setTimeout(() => setToast(null), 3000);
-                        fetchData();
+                      try {
+                        console.log("Salvando Lead no AdminDashboard:", updatedLead);
+                        const { error } = await supabase.from('leads_veiculos').update(updatedLead).eq('id', updatedLead.id);
+                        if (error) {
+                          setToast({ message: 'Erro ao salvar: ' + error.message, type: 'error' });
+                          setTimeout(() => setToast(null), 5000);
+                        } else {
+                          setToast({ message: 'Dados salvos!', type: 'success' });
+                          setTimeout(() => setToast(null), 3000);
+                          await fetchData();
+                        }
+                      } catch (err) {
+                        console.error("Erro inesperado no onSave:", err);
+                        setToast({ message: 'Erro inesperado ao salvar.', type: 'error' });
                       }
                     }}
                     onDelete={handleDeleteLead}

@@ -53,6 +53,14 @@ export default function SellModal() {
     leilao: '',
     furto_roubo: '',
     busca_apreensao: '',
+    is_financiamento_atrasado: false,
+    is_busca_apreensao: false,
+    is_ipva_multas_atrasados: false,
+    is_renajud: false,
+    is_motor_fundido: false,
+    is_cambio_defeito: false,
+    is_batido_avariado: false,
+    is_sinistrado_leilao: false,
     fipe_price: 0,
     desired_price: '',
     entrada: '',
@@ -107,6 +115,7 @@ export default function SellModal() {
 
   const handleSubmit = async () => {
     setIsLoading(true);
+    console.log("formData antes do insert:", formData);
     try {
       const { error } = await supabase.from('leads_veiculos').insert([{
         cliente_nome: formData.owner_name,
@@ -151,6 +160,14 @@ export default function SellModal() {
         leilao: formData.leilao,
         furto_roubo: formData.furto_roubo,
         busca_apreensao: formData.busca_apreensao,
+        is_financiamento_atrasado: formData.is_financiamento_atrasado ? 'sim' : 'nao',
+        is_busca_apreensao: formData.is_busca_apreensao ? 'sim' : 'nao',
+        is_ipva_multas_atrasados: formData.is_ipva_multas_atrasados ? 'sim' : 'nao',
+        is_renajud: formData.is_renajud ? 'sim' : 'nao',
+        is_motor_fundido: formData.is_motor_fundido ? 'sim' : 'nao',
+        is_cambio_defeito: formData.is_cambio_defeito ? 'sim' : 'nao',
+        is_batido_avariado: formData.is_batido_avariado ? 'sim' : 'nao',
+        is_sinistrado_leilao: formData.is_sinistrado_leilao ? 'sim' : 'nao',
         data_negociacao: new Date().toISOString(),
         juros_atraso: 2,
       }]);

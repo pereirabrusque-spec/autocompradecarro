@@ -15,16 +15,39 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
   const [currentLead, setCurrentLead] = useState(lead || {});
   const [repairModal, setRepairModal] = useState<{ field: string | null; value: string }>({ field: null, value: '' });
 
+  const checkboxFields = [
+    'teto_solar', 'airbag', 'chave_reserva_manual', 'revisoes_dia', 
+    'ar_condicionado', 'direcao_hidraulica', 'vidros_eletricos', 'travas_eletricas', 
+    'alarme', 'som_multimidia', 'bancos_couro', 'rodas_liga_leve', 'sensor_re', 
+    'camera_re', 'tem_sinistro', 'passagem_leilao', 'recuperado_banco', 
+    'historico_furto_roubo', 'is_financiamento_atrasado', 'is_busca_apreensao', 
+    'is_ipva_multas_atrasados', 'is_renajud', 'is_motor_fundido', 
+    'is_cambio_defeito', 'is_batido_avariado', 'is_sinistrado_leilao'
+  ];
+
+  const dbToFormMap: Record<string, string> = {};
+
   React.useEffect(() => {
-    console.log("Lead recebido no LeadDetailsCard:", lead);
     if (lead) {
       const sanitizedLead = { ...lead };
+      
+      // Sanitiza os valores do formulário
       Object.keys(sanitizedLead).forEach(key => {
         const val = sanitizedLead[key];
-        if (val === null || val === undefined || val === 'null' || val === 'undefined') {
+        
+        if (checkboxFields.includes(key)) {
+          // Converte 'sim' para 'true' (ou 'true' para 'true'), e qualquer outra coisa para 'false'
+          sanitizedLead[key] = (val === 'sim' || val === 'true' || val === true) ? 'true' : 'false';
+        } else if (val === null || val === undefined || val === 'null' || val === 'undefined') {
           sanitizedLead[key] = '';
         }
       });
+
+      // Define data_negociacao com created_at se estiver vazio
+      if (!sanitizedLead.data_negociacao && sanitizedLead.created_at) {
+        sanitizedLead.data_negociacao = sanitizedLead.created_at;
+      }
+      
       console.log("Lead sanitizado no LeadDetailsCard:", sanitizedLead);
       setCurrentLead(sanitizedLead);
     } else {
@@ -211,7 +234,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                   { label: 'Parcelas Pagas', key: 'parcelas_pagas', type: 'number' },
                   { label: 'Parcelas Restantes', key: 'parcelas_restantes', type: 'number' },
                   { label: 'Parcelas Atrasadas', key: 'parcelas_atrasadas', type: 'number' },
-                  { label: 'Valor de Entrada', key: 'valor_entrada', type: 'number' },
+                  { label: 'Valor de Entrada', key: 'entrada', type: 'number' },
                   { label: 'Valor Desejado', key: 'desired_value', type: 'number' },
                   { label: 'IPVA/Multa', key: 'valor_ipva_multa', type: 'number' },
                   { label: 'Juros Atraso (%)', key: 'juros_atraso', type: 'number' },
@@ -253,6 +276,14 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                   { label: 'Telefone / WhatsApp', key: 'telefone' },
                   { label: 'E-mail', key: 'email' },
                   { label: 'Cidade / Estado', key: 'cidade_estado' },
+                  { label: 'Renavam', key: 'renavam' },
+                  { label: 'Valor FIPE', key: 'valor_fipe', type: 'number' },
+                  { label: 'CPF', key: 'cpf' },
+                  { label: 'Chassi', key: 'chassi' },
+                  { label: 'Histórico de Procedência', key: 'hist_procedencia' },
+                  { label: 'Status', key: 'status' },
+                  { label: 'Ano Fabricação', key: 'ano_fabricacao' },
+                  { label: 'Data Negociação', key: 'data_negociacao' }
                 ].map(field => (
                   <div key={field.key} className="space-y-1">
                     <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{field.label}</label>
@@ -260,8 +291,8 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                       <input 
                         type="checkbox"
                         className="w-5 h-5 ml-1 accent-emerald-500"
-                        checked={currentLead[field.key] === 'true' || currentLead[field.key] === true}
-                        onChange={e => handleFieldChange(field.key, e.target.checked ? 'true' : 'false')}
+                        checked={currentLead[field.key] === 'sim' || currentLead[field.key] === 'true' || currentLead[field.key] === true}
+                        onChange={e => handleFieldChange(field.key, e.target.checked ? 'sim' : 'nao')}
                       />
                     ) : field.type === 'select' ? (
                       <select
@@ -283,7 +314,19 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                   </div>
                 ))}
               </div>
-              <button onClick={() => { onSave(currentLead); setShowForm(false); }} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-full text-sm font-bold text-white flex items-center gap-2">
+              <button onClick={() => { 
+                const preparedLead = { ...currentLead };
+                
+                checkboxFields.forEach(field => {
+                  // Se o valor atual for 'true' ou 'sim', salva 'sim', caso contrário 'nao'
+                  // Apenas processa se o campo ainda existir no objeto
+                  if (preparedLead[field] !== undefined) {
+                    preparedLead[field] = (preparedLead[field] === 'true' || preparedLead[field] === 'sim' || preparedLead[field] === true) ? 'sim' : 'nao';
+                  }
+                });
+                onSave(preparedLead); 
+                setShowForm(false); 
+              }} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-full text-sm font-bold text-white flex items-center gap-2">
                 <Save className="w-4 h-4" /> Salvar Alterações
               </button>
             </div>
