@@ -499,7 +499,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                                 <div key={key} className="space-y-1">
                                   <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{key.replace(/_/g, ' ')}</label>
                                   <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800">
-                                    {currentLead[key] !== null && currentLead[key] !== undefined && currentLead[key] !== 'null' && currentLead[key] !== '' ? String(currentLead[key]) : '-'}
+                                    {currentLead[key] !== undefined ? String(currentLead[key]) : ''}
                                   </div>
                                 </div>
                               ))}
