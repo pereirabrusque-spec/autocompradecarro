@@ -15,8 +15,19 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
   const [currentLead, setCurrentLead] = useState(lead || {});
   const [repairModal, setRepairModal] = useState<{ field: string | null; value: string }>({ field: null, value: '' });
 
-  useEffect(() => {
-    setCurrentLead(lead || {});
+  React.useEffect(() => {
+    if (lead) {
+      const sanitizedLead = { ...lead };
+      Object.keys(sanitizedLead).forEach(key => {
+        const val = sanitizedLead[key];
+        if (val === null || val === undefined || val === 'null' || val === 'undefined') {
+          sanitizedLead[key] = '';
+        }
+      });
+      setCurrentLead(sanitizedLead);
+    } else {
+      setCurrentLead({});
+    }
   }, [lead]);
   const [buyers, setBuyers] = useState<any[]>([]);
   const [selectedBuyers, setSelectedBuyers] = useState<string[]>([]);
@@ -130,10 +141,6 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     };
     fetchBuyers();
   }, []);
-
-  React.useEffect(() => {
-    if (lead) setCurrentLead(lead);
-  }, [lead]);
 
   const [showForm, setShowForm] = useState(false);
   const [showBuyerModal, setShowBuyerModal] = useState(false);
@@ -257,7 +264,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                     ) : field.type === 'select' ? (
                       <select
                         className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all"
-                        value={currentLead[field.key] || ''}
+                        value={currentLead[field.key] === null || currentLead[field.key] === undefined || currentLead[field.key] === 'null' ? '' : currentLead[field.key]}
                         onChange={e => handleFieldChange(field.key, e.target.value)}
                       >
                         <option value="">Selecione</option>
@@ -267,7 +274,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                       <input 
                         type={field.type || 'text'}
                         className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all" 
-                        value={currentLead[field.key] || ''} 
+                        value={currentLead[field.key] === null || currentLead[field.key] === undefined || currentLead[field.key] === 'null' ? '' : currentLead[field.key]} 
                         onChange={e => handleFieldChange(field.key, e.target.value)} 
                       />
                     )}
@@ -492,7 +499,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                                 <div key={key} className="space-y-1">
                                   <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{key.replace(/_/g, ' ')}</label>
                                   <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800">
-                                    {currentLead[key] !== undefined ? String(currentLead[key]) : '-'}
+                                    {currentLead[key] !== null && currentLead[key] !== undefined && currentLead[key] !== 'null' && currentLead[key] !== '' ? String(currentLead[key]) : '-'}
                                   </div>
                                 </div>
                               ))}
