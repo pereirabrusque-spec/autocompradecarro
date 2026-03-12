@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, MessageCircle, MessageSquare, Send, FileText, Edit2, ArrowLeft, ChevronLeft, ChevronRight, Upload } from 'lucide-react';
+import { X, Save, MessageCircle, MessageSquare, Send, FileText, Edit2, ArrowLeft, ChevronLeft, ChevronRight, Upload, DollarSign, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -262,6 +262,23 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
   const [showDataModal, setShowDataModal] = useState(false);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [isUploadingCRLV, setIsUploadingCRLV] = useState(false);
+  const [showProposalReview, setShowProposalReview] = useState(false);
+  const [proposalMessage, setProposalMessage] = useState('');
+  const [chatHistory, setChatHistory] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (showProposalReview && currentLead.id) {
+      const fetchHistory = async () => {
+        const { data } = await supabase
+          .from('mensagens')
+          .select('*')
+          .eq('lead_id', currentLead.id)
+          .order('created_at', { ascending: true });
+        if (data) setChatHistory(data);
+      };
+      fetchHistory();
+    }
+  }, [showProposalReview, currentLead.id]);
 
   const generateOwnerMessage = () => {
     const hours = new Date().getHours();
@@ -318,27 +335,40 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     msg += `🌐 *Pelo site:* Chat disponível 24 horas por dia.\n`;
     msg += `📱 *Pelo WhatsApp:* Atendimento em horário comercial.\n\n`;
     msg += `Vamos fechar negócio? Aguardamos seu contato!`;
-
-    return encodeURIComponent(msg);
+    return msg;
   };
 
   const handleSendProposalToChat = async () => {
+    const msg = generateOwnerMessage();
+    setProposalMessage(msg);
+    setShowProposalReview(true);
+  };
+
+  const confirmSendProposal = async () => {
     try {
-      const message = generateOwnerMessage();
       const { error } = await supabase
         .from('mensagens')
         .insert([{
           lead_id: currentLead.id,
           remetente: 'admin',
-          conteudo: message,
+          conteudo: proposalMessage,
           tipo: 'proposta',
           metadata: {
-            proposal_data: currentLead,
+            proposal_data: {
+              final_value: calc.finalProposal,
+              base_value: calc.fipe,
+              deductions: [
+                ...calc.fixedCostsDetail,
+                ...calc.discounts
+              ],
+              payoff: calc.payoff
+            },
             view_proposal: true
           }
         }]);
 
       if (error) throw error;
+      setShowProposalReview(false);
       alert('Proposta enviada com sucesso para o chat do cliente!');
     } catch (error) {
       console.error('Erro ao enviar proposta para o chat:', error);
@@ -467,7 +497,8 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
               onClick={() => {
                 const phone = currentLead.telefone?.replace(/\D/g, '');
                 const formattedPhone = phone?.startsWith('55') ? phone : `55${phone}`;
-                const encodedMessage = generateOwnerMessage();
+                const rawMessage = generateOwnerMessage();
+                const encodedMessage = encodeURIComponent(rawMessage);
                 window.open(`https://wa.me/${formattedPhone}?text=${encodedMessage}`, '_blank');
               }} 
               className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5 shadow-md"
@@ -1151,6 +1182,104 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
               </div>
           )}
         </div>
+
+        {/* Modal de Revisão de Proposta */}
+        {showProposalReview && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+            <div className="bg-white rounded-[32px] w-full max-w-5xl h-[80vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200">
+              <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">Revisar e Enviar Proposta</h3>
+                  <p className="text-xs text-slate-500">Verifique os dados e o histórico antes de confirmar o envio.</p>
+                </div>
+                <button onClick={() => setShowProposalReview(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
+                  <X className="w-6 h-6 text-slate-400" />
+                </button>
+              </div>
+
+              <div className="flex-1 flex overflow-hidden">
+                {/* Lado Esquerdo: Histórico de Chat */}
+                <div className="w-1/2 border-r border-slate-100 flex flex-col bg-slate-50/30">
+                  <div className="p-4 border-b border-slate-100 bg-white">
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Histórico da Conversa</h4>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                    {chatHistory.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-slate-300 text-center p-8">
+                        <MessageSquare className="w-12 h-12 mb-2 opacity-20" />
+                        <p className="text-sm">Nenhuma mensagem anterior encontrada.</p>
+                      </div>
+                    ) : (
+                      chatHistory.map((msg) => (
+                        <div key={msg.id} className={`flex ${msg.remetente === 'admin' || msg.remetente === 'bot' ? 'justify-end' : 'justify-start'}`}>
+                          <div className={`max-w-[85%] p-3 rounded-2xl text-xs shadow-sm ${
+                            msg.remetente === 'admin' 
+                              ? 'bg-slate-900 text-white rounded-tr-none' 
+                              : msg.remetente === 'bot'
+                              ? 'bg-indigo-600 text-white rounded-tr-none'
+                              : 'bg-white text-slate-600 border border-slate-100 rounded-tl-none'
+                          }`}>
+                            <p className="whitespace-pre-wrap">{msg.conteudo}</p>
+                            <span className="text-[8px] mt-1 block opacity-50">
+                              {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Lado Direito: Editor de Proposta */}
+                <div className="w-1/2 flex flex-col bg-white">
+                  <div className="p-4 border-b border-slate-100">
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mensagem da Proposta</h4>
+                  </div>
+                  <div className="flex-1 p-6 flex flex-col gap-4">
+                    <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
+                      <h5 className="text-xs font-bold text-blue-900 mb-2 flex items-center gap-2">
+                        <DollarSign className="w-4 h-4" /> Resumo Financeiro
+                      </h5>
+                      <div className="grid grid-cols-2 gap-y-2 text-[10px]">
+                        <div className="text-blue-700">Valor FIPE:</div>
+                        <div className="text-right font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fipe)}</div>
+                        <div className="text-blue-700">Total Deduções:</div>
+                        <div className="text-right font-bold text-red-600">-{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.discountValue + calc.fixedCosts + calc.payoff)}</div>
+                        <div className="text-blue-900 font-black pt-2 border-t border-blue-200">VALOR FINAL:</div>
+                        <div className="text-right font-black text-blue-900 pt-2 border-t border-blue-200 text-sm">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalProposal)}</div>
+                      </div>
+                    </div>
+
+                    <div className="flex-1 flex flex-col gap-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Editar Saudação e Texto</label>
+                      <textarea 
+                        value={proposalMessage}
+                        onChange={(e) => setProposalMessage(e.target.value)}
+                        className="flex-1 p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-accent/20 resize-none font-medium text-slate-700"
+                        placeholder="Escreva a mensagem da proposta..."
+                      />
+                    </div>
+                  </div>
+                  <div className="p-6 border-t border-slate-100 bg-slate-50 flex gap-3">
+                    <button 
+                      onClick={() => setShowProposalReview(false)}
+                      className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold text-sm hover:bg-slate-100 transition-all"
+                    >
+                      Cancelar
+                    </button>
+                    <button 
+                      onClick={confirmSendProposal}
+                      className="flex-[2] py-3 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800 transition-all shadow-lg flex items-center justify-center gap-2"
+                    >
+                      <Send className="w-4 h-4" />
+                      Confirmar e Enviar Proposta
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

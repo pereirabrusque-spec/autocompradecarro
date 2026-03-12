@@ -439,6 +439,61 @@ export default function AdminDashboard() {
     }
   }, [selectedLead]);
 
+  useEffect(() => {
+    const subscription = supabase
+      .channel('admin_messages_realtime')
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'mensagens' 
+      }, async (payload) => {
+        // Se for uma mensagem do cliente, atualiza a lista de conversas e o chat aberto
+        if (payload.new.remetente === 'cliente') {
+          // Atualiza mensagens do chat se estiver aberto para este lead
+          if (selectedConversation?.lead_id === payload.new.lead_id) {
+            setChatMessages(prev => [...prev, payload.new]);
+            // Marcar como lida automaticamente se o chat estiver aberto
+            await supabase
+              .from('mensagens')
+              .update({ lida: true })
+              .eq('id', payload.new.id);
+          }
+          
+          // Atualiza a lista de conversas de forma otimizada
+          const { data: messagesData } = await supabase
+            .from('mensagens')
+            .select('*, leads_veiculos(marca, modelo, cliente_nome, vehicle_code, fotos)')
+            .order('created_at', { ascending: false });
+
+          if (messagesData) {
+            const groupedConversations: any[] = [];
+            const leadIds = new Set();
+            messagesData.forEach((msg: any) => {
+              if (!leadIds.has(msg.lead_id)) {
+                leadIds.add(msg.lead_id);
+                const leadMessages = messagesData.filter((m: any) => m.lead_id === msg.lead_id);
+                const unreadCount = leadMessages.filter((m: any) => !m.lida && m.remetente === 'cliente').length;
+                groupedConversations.push({
+                  lead_id: msg.lead_id,
+                  last_message: msg.conteudo,
+                  last_time: msg.created_at,
+                  last_message_at: msg.created_at,
+                  lead: msg.leads_veiculos,
+                  unread: unreadCount
+                });
+              }
+            });
+            setConversations(groupedConversations);
+          }
+        }
+      })
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [selectedConversation, fetchData]);
+
   const fetchChatMessages = async (leadId: string) => {
     const { data, error } = await supabase
       .from('mensagens')
@@ -591,7 +646,33 @@ export default function AdminDashboard() {
 
       setAdminMessage('');
       await fetchChatMessages(selectedConversation.lead_id);
-      await fetchData(); // Refresh conversation list
+      
+      // Atualiza a lista de conversas de forma otimizada
+      const { data: messagesData } = await supabase
+        .from('mensagens')
+        .select('*, leads_veiculos(marca, modelo, cliente_nome, vehicle_code, fotos)')
+        .order('created_at', { ascending: false });
+
+      if (messagesData) {
+        const groupedConversations: any[] = [];
+        const leadIds = new Set();
+        messagesData.forEach((msg: any) => {
+          if (!leadIds.has(msg.lead_id)) {
+            leadIds.add(msg.lead_id);
+            const leadMessages = messagesData.filter((m: any) => m.lead_id === msg.lead_id);
+            const unreadCount = leadMessages.filter((m: any) => !m.lida && m.remetente === 'cliente').length;
+            groupedConversations.push({
+              lead_id: msg.lead_id,
+              last_message: msg.conteudo,
+              last_time: msg.created_at,
+              last_message_at: msg.created_at,
+              lead: msg.leads_veiculos,
+              unread: unreadCount
+            });
+          }
+        });
+        setConversations(groupedConversations);
+      }
     } catch (error) {
       console.error('Error sending message:', error);
       alert('Erro ao enviar mensagem.');

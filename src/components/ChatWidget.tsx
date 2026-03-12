@@ -316,21 +316,6 @@ export default function ChatWidget() {
 
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
 
-      {/* Floating Button */}
-      <motion.button
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-        onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-6 w-16 h-16 bg-slate-900 text-white rounded-full shadow-2xl flex items-center justify-center z-50 group"
-      >
-        <MessageCircle className="w-8 h-8 group-hover:rotate-12 transition-transform" />
-        {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 bg-accent text-white text-[10px] font-bold w-6 h-6 rounded-full flex items-center justify-center border-2 border-white animate-bounce">
-            {unreadCount}
-          </span>
-        )}
-      </motion.button>
-
       {/* Proposal View Modal */}
       <AnimatePresence>
         {showProposalView && selectedProposal && (
