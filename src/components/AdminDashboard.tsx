@@ -124,6 +124,7 @@ export default function AdminDashboard() {
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [showWhatsAppBuyerModal, setShowWhatsAppBuyerModal] = useState(false);
   const [leadToWhatsApp, setLeadToWhatsApp] = useState<any>(null);
   const [selectedBuyers, setSelectedBuyers] = useState<string[]>([]);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -2163,7 +2164,11 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       console.log("Passando lead para LeadDetailsCard:", selectedLead);
                       return selectedLead;
                     })()} 
-                    onClose={() => setSelectedLead(null)} 
+                    onClose={() => {
+                      setSelectedLead(null);
+                      setShowWhatsAppBuyerModal(false);
+                    }} 
+                    forceShowWhatsAppBuyerModal={showWhatsAppBuyerModal}
                     onSave={async (updatedLead) => {
                       try {
                         console.log("Salvando Lead no AdminDashboard:", updatedLead);
@@ -2868,24 +2873,37 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 </div>
                               </div>
                               
-                              <div className="flex gap-2">
+                              <div className="flex flex-col gap-2">
                                 <button 
                                   onClick={() => {
                                     const buyers = interestedBuyers.filter(b => selectedBuyers.includes(b.id));
                                     handleSendToWhatsApp(selectedLead, buyers);
                                   }}
-                                  className="flex-1 py-4 bg-green-600 text-white rounded-2xl font-bold hover:bg-green-700 transition-all flex items-center justify-center gap-2"
+                                  className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 shadow-lg"
                                 >
                                   <MessageCircle className="w-5 h-5" />
-                                  Enviar para WhatsApp
+                                  WhatsApp Comprador ({selectedBuyers.length})
                                 </button>
-                                <button 
-                                  onClick={handleSendProposalViaChat}
-                                  className="px-6 py-4 bg-accent text-white rounded-2xl font-bold hover:bg-accent/90 transition-all flex items-center justify-center gap-2"
-                                  title="Enviar Proposta via Chat do Site"
-                                >
-                                  <Send className="w-5 h-5" />
-                                </button>
+                                <div className="flex gap-2">
+                                  <button 
+                                    onClick={() => {
+                                      const phone = selectedLead.telefone?.replace(/\D/g, '');
+                                      const formattedPhone = phone?.startsWith('55') ? phone : `55${phone}`;
+                                      window.open(`https://wa.me/${formattedPhone}`, '_blank');
+                                    }}
+                                    className="flex-1 py-4 bg-emerald-500 text-white rounded-2xl font-bold hover:bg-emerald-600 transition-all flex items-center justify-center gap-2 shadow-md"
+                                  >
+                                    <Phone className="w-5 h-5" />
+                                    WhatsApp Proposta
+                                  </button>
+                                  <button 
+                                    onClick={handleSendProposalViaChat}
+                                    className="px-6 py-4 bg-accent text-white rounded-2xl font-bold hover:bg-accent/90 transition-all flex items-center justify-center gap-2 shadow-md"
+                                    title="Enviar Proposta via Chat do Site"
+                                  >
+                                    <Send className="w-5 h-5" />
+                                  </button>
+                                </div>
                               </div>
                             </div>
 
@@ -3102,9 +3120,22 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                           setShowWhatsAppModal(true); 
                                         }} 
                                         className="p-2 bg-green-50 hover:bg-green-100 rounded-lg transition-colors text-green-600" 
-                                        title="WhatsApp"
+                                        title="WhatsApp Proposta"
                                       >
                                         <Phone className="w-4 h-4" />
+                                      </button>
+                                    )}
+                                    {lead.telefone && (
+                                      <button 
+                                        onClick={(e) => { 
+                                          e.stopPropagation(); 
+                                          setSelectedLead(lead);
+                                          setShowWhatsAppBuyerModal(true);
+                                        }} 
+                                        className="p-2 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors text-emerald-600" 
+                                        title="WhatsApp Comprador"
+                                      >
+                                        <MessageCircle className="w-4 h-4" />
                                       </button>
                                     )}
                                     {lead.email && (

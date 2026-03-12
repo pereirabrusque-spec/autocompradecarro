@@ -11,9 +11,10 @@ interface LeadDetailsCardProps {
   onRefresh: () => void;
   fipeRules: any[];
   jurosAtraso: number;
+  forceShowWhatsAppBuyerModal?: boolean;
 }
 
-export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRefresh, fipeRules, jurosAtraso }: LeadDetailsCardProps) {
+export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRefresh, fipeRules, jurosAtraso, forceShowWhatsAppBuyerModal }: LeadDetailsCardProps) {
   const [currentLead, setCurrentLead] = useState(lead || {});
   const [repairModal, setRepairModal] = useState<{ field: string | null; value: string }>({ field: null, value: '' });
 
@@ -256,7 +257,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
 
   const [showForm, setShowForm] = useState(false);
   const [showBuyerModal, setShowBuyerModal] = useState(false);
-  const [showWhatsAppBuyerModal, setShowWhatsAppBuyerModal] = useState(false);
+  const [showWhatsAppBuyerModal, setShowWhatsAppBuyerModal] = useState(forceShowWhatsAppBuyerModal || false);
   const [showBuyerConfigModal, setShowBuyerConfigModal] = useState(false);
   const [showDataModal, setShowDataModal] = useState(false);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
@@ -267,7 +268,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     if (!file) return;
 
     setIsUploadingCRLV(true);
-    const apiKey = process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.GEMINI_API_KEY || '';
+    const apiKey = (import.meta.env.VITE_GEMINI_API_KEY || '').trim();
     console.log("DEBUG: GEMINI_API_KEY:", apiKey ? "DEFINIDA" : "NÃO DEFINIDA");
     const ai = new GoogleGenAI({ apiKey });
 
@@ -379,7 +380,14 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
             <button onClick={onClose} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-bold text-slate-700 flex items-center justify-center gap-1.5">
               <ArrowLeft className="w-4 h-4" /> Voltar
             </button>
-            <button onClick={() => window.open(`https://wa.me/${currentLead.telefone?.replace(/\D/g, '')}`, '_blank')} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5">
+            <button 
+              onClick={() => {
+                const phone = currentLead.telefone?.replace(/\D/g, '');
+                const formattedPhone = phone?.startsWith('55') ? phone : `55${phone}`;
+                window.open(`https://wa.me/${formattedPhone}`, '_blank');
+              }} 
+              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5 shadow-md"
+            >
               <MessageCircle className="w-4 h-4" /> WhatsApp Proposta
             </button>
             <button onClick={() => setShowWhatsAppBuyerModal(true)} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5">
@@ -923,22 +931,6 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                         </div>
                       </div>
                       <div className="flex justify-between text-red-500 group cursor-pointer relative">
-                        <span>Custos Fixos/Avarias</span>
-                        <span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fixedCosts)}</span>
-                        <div className="absolute right-0 top-full bg-white border border-slate-200 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
-                          {calc.fixedCostsDetail.map((item, i) => (
-                            <div key={i} className="flex justify-between text-xs text-red-500 mb-1">
-                              <span>{item.name}</span>
-                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value)}</span>
-                            </div>
-                          ))}
-                          <div className="pt-2 mt-2 border-t border-slate-100 flex justify-between text-xs font-bold text-red-500">
-                            <span>Total</span>
-                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fixedCosts)}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex justify-between text-red-500 group cursor-pointer relative">
                         <span>Quitação Estimada</span>
                         <span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}</span>
                         <div className="absolute right-0 top-full bg-white border border-slate-200 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
@@ -1009,20 +1001,6 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                               <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
                             </div>
                           ))}
-                        </div>
-                      </div>
-                      <div className="flex justify-between text-red-400 group cursor-pointer relative"><span className="text-white/60">Custos Fixos/Avarias</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fixedCosts)}</span>
-                        <div className="absolute right-0 top-full bg-slate-800 border border-white/10 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
-                          {calc.fixedCostsDetail.map((item, i) => (
-                            <div key={i} className="flex justify-between text-xs text-red-400 mb-1">
-                              <span>{item.name}</span>
-                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value)}</span>
-                            </div>
-                          ))}
-                          <div className="pt-2 mt-2 border-t border-white/10 flex justify-between text-xs font-bold text-red-400">
-                            <span>Total</span>
-                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fixedCosts)}</span>
-                          </div>
                         </div>
                       </div>
                       <div className="flex justify-between text-red-400 group cursor-pointer relative"><span className="text-white/60">Quitação</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}</span>
