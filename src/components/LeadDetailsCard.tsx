@@ -13,6 +13,11 @@ interface LeadDetailsCardProps {
 
 export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRefresh, fipeRules }: LeadDetailsCardProps) {
   const [currentLead, setCurrentLead] = useState(lead || {});
+  const [repairModal, setRepairModal] = useState<{ field: string | null; value: string }>({ field: null, value: '' });
+
+  useEffect(() => {
+    setCurrentLead(lead || {});
+  }, [lead]);
   const [buyers, setBuyers] = useState<any[]>([]);
   const [selectedBuyers, setSelectedBuyers] = useState<string[]>([]);
   const [buyerFilter, setBuyerFilter] = useState('Todos');
@@ -39,6 +44,15 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     const isCooperativa = currentLead.is_cooperativa === 'true';
     const isFinanciado = currentLead.is_financiado === 'true';
     const isReajuste = currentLead.is_reajuste === 'true';
+    const isFinanciamentoAtrasado = currentLead.is_financiamento_atrasado === 'true';
+    const isBuscaApreensao = currentLead.is_busca_apreensao === 'true';
+    const isRenajud = currentLead.is_renajud === 'true';
+    const isSinistradoLeilao = currentLead.is_sinistrado_leilao === 'true';
+    const isNomeJuridico = currentLead.is_nome_juridico === 'true';
+    const temSinistro = currentLead.tem_sinistro === 'true';
+    const passagemLeilao = currentLead.passagem_leilao === 'true';
+    const recuperadoBanco = currentLead.recuperado_banco === 'true';
+    const historicoFurtoRoubo = currentLead.historico_furto_roubo === 'true';
 
     // Descontos: Aqui definimos a lógica de descontos baseada nos campos do formulário
     const avariasDiscount = motorReparo + cambioReparo + batidoReparo + valorPneus + valorDocumento;
@@ -48,14 +62,25 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     if (isCooperativa) discountOptions.push({ name: 'Cooperativa (5%)', value: fipe * 0.05 });
     if (isFinanciado) discountOptions.push({ name: 'Financiado (10%)', value: fipe * 0.10 });
     if (isReajuste) discountOptions.push({ name: 'Reajuste (15%)', value: fipe * 0.15 });
+    if (isFinanciamentoAtrasado) discountOptions.push({ name: 'Financiamento Atrasado (5%)', value: fipe * 0.05 });
+    if (isBuscaApreensao) discountOptions.push({ name: 'Busca e Apreensão (10%)', value: fipe * 0.10 });
+    if (isRenajud) discountOptions.push({ name: 'Renajud (10%)', value: fipe * 0.10 });
+    if (isSinistradoLeilao) discountOptions.push({ name: 'Sinistrado / Leilão (20%)', value: fipe * 0.20 });
+    if (isNomeJuridico) discountOptions.push({ name: 'Nome Jurídico (2%)', value: fipe * 0.02 });
+    if (temSinistro) discountOptions.push({ name: 'Sinistro (10%)', value: fipe * 0.10 });
+    if (passagemLeilao) discountOptions.push({ name: 'Passagem Leilão (15%)', value: fipe * 0.15 });
+    if (recuperadoBanco) discountOptions.push({ name: 'Recuperado Banco (10%)', value: fipe * 0.10 });
+    if (historicoFurtoRoubo) discountOptions.push({ name: 'Histórico Furto/Roubo (10%)', value: fipe * 0.10 });
 
     const maxDiscount = discountOptions.length > 0 
         ? Math.max(...discountOptions.map(d => d.value)) 
         : 0;
+    
+    const maxDiscountName = discountOptions.find(d => d.value === maxDiscount)?.name || 'Nenhum';
 
     const discounts = [
         { name: 'Avarias/Reparos', value: avariasDiscount },
-        ...discountOptions
+        { name: `Maior Desconto: ${maxDiscountName}`, value: maxDiscount }
     ];
     
     const discountValue = avariasDiscount + maxDiscount;
@@ -117,7 +142,17 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
   const handleFieldChange = (field: string, value: string) => {
-    setCurrentLead({ ...currentLead, [field]: value });
+    if (['is_ipva_multas_atrasados', 'is_motor_fundido', 'is_batido_avariado', 'is_cambio_defeito'].includes(field) && value === 'true') {
+        const fieldMap: Record<string, string> = {
+            'is_ipva_multas_atrasados': 'valor_ipva_multa',
+            'is_motor_fundido': 'motor_reparo',
+            'is_batido_avariado': 'batido_reparo',
+            'is_cambio_defeito': 'cambio_reparo'
+        };
+        setRepairModal({ field, value: currentLead[fieldMap[field]] || '' });
+    } else {
+        setCurrentLead({ ...currentLead, [field]: value });
+    }
   };
 
   return (
@@ -157,19 +192,23 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                   { label: 'Cliente', key: 'cliente_nome' },
                   { label: 'Telefone', key: 'telefone' },
                   { label: 'E-mail', key: 'email' },
+                  { label: 'Tipo Veículo', key: 'tipo_veiculo', type: 'select', options: ['Carro', 'Moto', 'Caminhão'] },
                   { label: 'Marca', key: 'marca' },
                   { label: 'Modelo', key: 'modelo' },
                   { label: 'Ano Modelo', key: 'ano_modelo' },
+                  { label: 'Placa', key: 'placa' },
                   { label: 'Cor', key: 'cor' },
                   { label: 'Quilometragem', key: 'quilometragem' },
-                  { label: 'Placa', key: 'placa' },
+                  { label: 'Tipo de Monta', key: 'tipo_monta', type: 'select', options: ['Nenhuma / Pequenos Riscos', 'Média Monta', 'Grande Monta'] },
+                  { label: 'Banco Financiador', key: 'banco_financiador' },
+                  { label: 'Valor Parcela', key: 'valor_parcela', type: 'number' },
+                  { label: 'Parcelas Pagas', key: 'parcelas_pagas', type: 'number' },
+                  { label: 'Parcelas Restantes', key: 'parcelas_restantes', type: 'number' },
+                  { label: 'Parcelas Atrasadas', key: 'parcelas_atrasadas', type: 'number' },
+                  { label: 'Valor de Entrada', key: 'valor_entrada', type: 'number' },
                   { label: 'Valor FIPE', key: 'valor_fipe', type: 'number' },
                   { label: 'Valor Desejado', key: 'desired_value', type: 'number' },
                   { label: 'IPVA/Multa', key: 'valor_ipva_multa', type: 'number' },
-                  { label: 'Total Parcelas', key: 'total_parcelas', type: 'number' },
-                  { label: 'Parcelas Pagas', key: 'parcelas_pagas', type: 'number' },
-                  { label: 'Parcelas Atrasadas', key: 'parcelas_atrasadas', type: 'number' },
-                  { label: 'Valor Parcela', key: 'valor_parcela', type: 'number' },
                   { label: 'Juros Atraso (%)', key: 'juros_atraso', type: 'number' },
                   { label: 'IPVA', key: 'valor_ipva', type: 'number' },
                   { label: 'Multas', key: 'multas', type: 'number' },
@@ -181,6 +220,21 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                   { label: 'Cooperativa', key: 'is_cooperativa', type: 'checkbox' },
                   { label: 'Financiado', key: 'is_financiado', type: 'checkbox' },
                   { label: 'Reajuste', key: 'is_reajuste', type: 'checkbox' },
+                  { label: 'Financiamento Atrasado', key: 'is_financiamento_atrasado', type: 'checkbox' },
+                  { label: 'Busca e Apreensão', key: 'is_busca_apreensao', type: 'checkbox' },
+                  { label: 'Renajud / Bloqueio', key: 'is_renajud', type: 'checkbox' },
+                  { label: 'Sinistrado / Leilão', key: 'is_sinistrado_leilao', type: 'checkbox' },
+                  { label: 'Motor Fundido / Batendo', key: 'is_motor_fundido', type: 'checkbox' },
+                  { label: 'Câmbio com Defeito', key: 'is_cambio_defeito', type: 'checkbox' },
+                  { label: 'Batido / Avariado', key: 'is_batido_avariado', type: 'checkbox' },
+                  { label: 'Nome Jurídico (Empresa)', key: 'is_nome_juridico', type: 'checkbox' },
+                  { label: 'Tem Sinistro?', key: 'tem_sinistro', type: 'checkbox' },
+                  { label: 'Passagem por Leilão?', key: 'passagem_leilao', type: 'checkbox' },
+                  { label: 'Recuperado de Banco?', key: 'recuperado_banco', type: 'checkbox' },
+                  { label: 'Histórico de Furto/Roubo?', key: 'historico_furto_roubo', type: 'checkbox' },
+                  { label: 'Chave Reserva e Manual?', key: 'chave_reserva_manual', type: 'checkbox' },
+                  { label: 'Revisões em dia?', key: 'revisoes_dia', type: 'checkbox' },
+                  { label: 'Estado dos Pneus', key: 'estado_pneus', type: 'select', options: ['Novos', 'Bom', 'Regular'] },
                 ].map(field => (
                   <div key={field.key} className="space-y-1">
                     <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{field.label}</label>
@@ -188,9 +242,18 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                       <input 
                         type="checkbox"
                         className="w-5 h-5 ml-1 accent-emerald-500"
-                        checked={!!currentLead[field.key]}
+                        checked={currentLead[field.key] === 'true'}
                         onChange={e => handleFieldChange(field.key, e.target.checked ? 'true' : 'false')}
                       />
+                    ) : field.type === 'select' ? (
+                      <select
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all"
+                        value={currentLead[field.key] || ''}
+                        onChange={e => handleFieldChange(field.key, e.target.value)}
+                      >
+                        <option value="">Selecione</option>
+                        {field.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                      </select>
                     ) : (
                       <input 
                         type={field.type || 'text'}
@@ -365,6 +428,34 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                       <h3 className="text-xl font-bold mb-2">Sucesso!</h3>
                       <p className="text-sm text-slate-600 mb-6">Informações enviadas com sucesso.</p>
                       <button onClick={() => setShowSuccessPopup(false)} className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold">Fechar</button>
+                    </div>
+                  </div>
+                )}
+                {repairModal.field && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setRepairModal({ field: null, value: '' })}>
+                    <div className="bg-white p-8 rounded-[32px] w-full max-w-sm shadow-2xl" onClick={e => e.stopPropagation()}>
+                      <h3 className="text-xl font-bold mb-4">Orçamento de Reparo</h3>
+                      <p className="text-sm text-slate-600 mb-6">Informe o valor do conserto para: {repairModal.field.replace('is_', '').replace(/_/g, ' ')}</p>
+                      <input
+                        type="number"
+                        value={repairModal.value}
+                        onChange={(e) => setRepairModal({ ...repairModal, value: e.target.value })}
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold mb-6 outline-none"
+                        placeholder="Valor do conserto"
+                      />
+                      <div className="flex gap-4">
+                        <button onClick={() => setRepairModal({ field: null, value: '' })} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">Cancelar</button>
+                        <button onClick={() => {
+                          const fieldMap: Record<string, string> = {
+                              'is_ipva_multas_atrasados': 'valor_ipva_multa',
+                              'is_motor_fundido': 'motor_reparo',
+                              'is_batido_avariado': 'batido_reparo',
+                              'is_cambio_defeito': 'cambio_reparo'
+                          };
+                          setCurrentLead({ ...currentLead, [repairModal.field!]: 'true', [fieldMap[repairModal.field!]]: repairModal.value });
+                          setRepairModal({ field: null, value: '' });
+                        }} className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold">Salvar</button>
+                      </div>
                     </div>
                   </div>
                 )}
