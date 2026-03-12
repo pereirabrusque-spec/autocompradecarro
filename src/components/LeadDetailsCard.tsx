@@ -108,49 +108,84 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     const valorParcela = Number(currentLead.valor_parcela) || 0;
     const jurosAtrasoPct = Number(currentLead.juros_atraso) || 0;
 
-    const isCooperativa = currentLead.is_cooperativa === 'true';
-    const isFinanciado = currentLead.is_financiado === 'true';
-    const isReajuste = currentLead.is_reajuste === 'true';
-    const isFinanciamentoAtrasado = currentLead.is_financiamento_atrasado === 'true';
-    const isBuscaApreensao = currentLead.is_busca_apreensao === 'true';
-    const isRenajud = currentLead.is_renajud === 'true';
-    const isSinistradoLeilao = currentLead.is_sinistrado_leilao === 'true';
-    const isNomeJuridico = currentLead.is_nome_juridico === 'true';
-    const temSinistro = currentLead.tem_sinistro === 'true';
-    const passagemLeilao = currentLead.passagem_leilao === 'true';
-    const recuperadoBanco = currentLead.recuperado_banco === 'true';
-    const historicoFurtoRoubo = currentLead.historico_furto_roubo === 'true';
+    const isCooperativa = currentLead.is_cooperativa === 'true' || currentLead.is_cooperativa === true || currentLead.is_cooperativa === 'sim';
+    const isFinanciado = currentLead.is_financiado === 'true' || currentLead.is_financiado === true || currentLead.is_financiado === 'sim';
+    const isReajuste = currentLead.is_reajuste === 'true' || currentLead.is_reajuste === true || currentLead.is_reajuste === 'sim';
+    const isFinanciamentoAtrasado = currentLead.is_financiamento_atrasado === 'true' || currentLead.is_financiamento_atrasado === true || currentLead.is_financiamento_atrasado === 'sim' || currentLead.problemas?.includes('Financiamento Atrasado');
+    const isBuscaApreensao = currentLead.is_busca_apreensao === 'true' || currentLead.is_busca_apreensao === true || currentLead.is_busca_apreensao === 'sim' || currentLead.problemas?.includes('Busca e Apreensão');
+    const isRenajud = currentLead.is_renajud === 'true' || currentLead.is_renajud === true || currentLead.is_renajud === 'sim' || currentLead.problemas?.includes('Renajud / Bloqueio Judicial');
+    const isSinistradoLeilao = currentLead.is_sinistrado_leilao === 'true' || currentLead.is_sinistrado_leilao === true || currentLead.is_sinistrado_leilao === 'sim' || currentLead.problemas?.includes('Sinistrado / Leilão');
+    const isNomeJuridico = currentLead.is_nome_juridico === 'true' || currentLead.is_nome_juridico === true || currentLead.is_nome_juridico === 'sim';
+    const temSinistro = currentLead.tem_sinistro === 'true' || currentLead.tem_sinistro === true || currentLead.tem_sinistro === 'sim' || currentLead.problemas?.includes('Sinistro');
+    const passagemLeilao = currentLead.passagem_leilao === 'true' || currentLead.passagem_leilao === true || currentLead.passagem_leilao === 'sim' || currentLead.problemas?.includes('Passagem por Leilão');
+    const recuperadoBanco = currentLead.recuperado_banco === 'true' || currentLead.recuperado_banco === true || currentLead.recuperado_banco === 'sim' || currentLead.problemas?.includes('Recuperado de Banco');
+    const historicoFurtoRoubo = currentLead.historico_furto_roubo === 'true' || currentLead.historico_furto_roubo === true || currentLead.historico_furto_roubo === 'sim' || currentLead.problemas?.includes('Histórico de Furto/Roubo');
+    const isMotorFundido = currentLead.motor_fundido === 'true' || currentLead.motor_fundido === true || currentLead.motor_fundido === 'sim';
+    const isBatidoAvariado = currentLead.batido_avariado === 'true' || currentLead.batido_avariado === true || currentLead.batido_avariado === 'sim';
 
     // Descontos: Aqui definimos a lógica de descontos baseada nos campos do formulário
     const avariasDiscount = motorReparo + cambioReparo + batidoReparo + valorPneus + valorDocumento;
     
-    // Regras de desconto (exemplo: cooperativa 5%, financiado 10%, reajuste 15%)
-    const discountOptions = [];
-    if (isCooperativa) discountOptions.push({ name: 'Cooperativa (5%)', value: fipe * 0.05 });
-    if (isFinanciado) discountOptions.push({ name: 'Financiado (10%)', value: fipe * 0.10 });
-    if (isReajuste) discountOptions.push({ name: 'Reajuste (15%)', value: fipe * 0.15 });
-    if (isFinanciamentoAtrasado) discountOptions.push({ name: 'Financiamento Atrasado (5%)', value: fipe * 0.05 });
-    if (isBuscaApreensao) discountOptions.push({ name: 'Busca e Apreensão (10%)', value: fipe * 0.10 });
-    if (isRenajud) discountOptions.push({ name: 'Renajud (10%)', value: fipe * 0.10 });
-    if (isSinistradoLeilao) discountOptions.push({ name: 'Sinistrado / Leilão (20%)', value: fipe * 0.20 });
-    if (isNomeJuridico) discountOptions.push({ name: 'Nome Jurídico (2%)', value: fipe * 0.02 });
-    if (temSinistro) discountOptions.push({ name: 'Sinistro (10%)', value: fipe * 0.10 });
-    if (passagemLeilao) discountOptions.push({ name: 'Passagem Leilão (15%)', value: fipe * 0.15 });
-    if (recuperadoBanco) discountOptions.push({ name: 'Recuperado Banco (10%)', value: fipe * 0.10 });
-    if (historicoFurtoRoubo) discountOptions.push({ name: 'Histórico Furto/Roubo (10%)', value: fipe * 0.10 });
+    // Regras de desconto dinâmicas baseadas no fipeRules
+    const discountOptions: { name: string; value: number; isMax?: boolean }[] = [];
+    
+    const isCooperativeBank = (bankName: string) => {
+      if (!bankName) return false;
+      const name = bankName.toLowerCase();
+      return name.includes('cooperativa') || 
+             name.includes('sicoob') || 
+             name.includes('sicredi') || 
+             name.includes('unicred') || 
+             name.includes('cresol') ||
+             name.includes('viacredi');
+    };
 
-    const maxDiscount = discountOptions.length > 0 
+    if (fipeRules && fipeRules.length > 0) {
+      fipeRules.forEach(rule => {
+        let apply = false;
+        const condition = rule.condition_name.toLowerCase();
+        
+        if (condition.includes('cooperativa') && (isCooperativa || isCooperativeBank(currentLead.banco_financiamento))) apply = true;
+        if (condition.includes('financiado') && isFinanciado) apply = true;
+        if (condition.includes('reajuste') && isReajuste) apply = true;
+        if (condition.includes('financiamento atrasado') && isFinanciamentoAtrasado) apply = true;
+        if (condition.includes('busca e apreensão') && isBuscaApreensao) apply = true;
+        if (condition.includes('renajud') && isRenajud) apply = true;
+        if (condition.includes('sinistrado / leilão') && isSinistradoLeilao) apply = true;
+        if (condition.includes('nome jurídico') && isNomeJuridico) apply = true;
+        if (condition.includes('sinistro') && temSinistro) apply = true;
+        if (condition.includes('passagem leilão') && passagemLeilao) apply = true;
+        if (condition.includes('recuperado banco') && recuperadoBanco) apply = true;
+        if (condition.includes('histórico furto/roubo') && historicoFurtoRoubo) apply = true;
+        if (condition.includes('motor estragado') && isMotorFundido) apply = true;
+        if (condition.includes('batido') && isBatidoAvariado) apply = true;
+
+        if (apply) {
+          discountOptions.push({ 
+            name: `${rule.condition_name} (${rule.discount_percentage}%)`, 
+            value: fipe * (rule.discount_percentage / 100) 
+          });
+        }
+      });
+    }
+
+    const maxRuleDiscountValue = discountOptions.length > 0 
         ? Math.max(...discountOptions.map(d => d.value)) 
         : 0;
     
-    const maxDiscountName = discountOptions.find(d => d.value === maxDiscount)?.name || 'Nenhum';
+    // Marcar o maior desconto das regras
+    discountOptions.forEach(d => {
+      if (d.value === maxRuleDiscountValue && maxRuleDiscountValue > 0) {
+        d.isMax = true;
+      }
+    });
 
     const discounts = [
         { name: 'Avarias/Reparos', value: avariasDiscount },
-        { name: `Maior Desconto: ${maxDiscountName}`, value: maxDiscount }
+        ...discountOptions
     ];
     
-    const discountValue = avariasDiscount + maxDiscount;
+    const discountValue = avariasDiscount + maxRuleDiscountValue;
 
     const fixedCosts = ipvaMulta + ipva + multas;
     
@@ -737,7 +772,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                       <span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.discountValue)}</span>
                       <div className="absolute right-0 top-full bg-white border border-slate-200 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
                         {calc.discounts.map((d, i) => (
-                          <div key={i} className="flex justify-between text-xs text-slate-600 mb-1">
+                          <div key={i} className={`flex justify-between text-xs mb-1 ${d.isMax ? 'text-red-500 font-bold' : 'text-slate-600'}`}>
                             <span>{d.name}</span>
                             <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
                           </div>
@@ -821,7 +856,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                     <div className="flex justify-between text-red-400 group cursor-pointer relative"><span className="text-white/60">Descontos</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.discountValue)}</span>
                       <div className="absolute right-0 top-full bg-slate-800 border border-white/10 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
                         {calc.discounts.map((d, i) => (
-                          <div key={i} className="flex justify-between text-xs text-white/60 mb-1">
+                          <div key={i} className={`flex justify-between text-xs mb-1 ${d.isMax ? 'text-red-400 font-bold' : 'text-white/60'}`}>
                             <span>{d.name}</span>
                             <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
                           </div>
@@ -832,20 +867,24 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                     <div className="flex justify-between text-red-400 group cursor-pointer relative"><span className="text-white/60">Quitação</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}</span>
                       <div className="absolute right-0 top-full bg-slate-800 border border-white/10 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
                           <div className="flex justify-between text-xs text-white/60 mb-1">
-                              <span>Qtd Parcelas</span>
-                              <span>{calc.payoffBreakdown.qtdParcelas}</span>
+                              <span>Qtd a Vencer</span>
+                              <span>{calc.payoffBreakdown.qtdAVencer}</span>
                           </div>
                           <div className="flex justify-between text-xs text-white/60 mb-1">
-                              <span>Valor Parcela</span>
-                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.valorParcela)}</span>
+                              <span>Valor a Vencer</span>
+                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.valorAVencer)}</span>
                           </div>
                           <div className="flex justify-between text-xs text-white/60 mb-1">
-                              <span>Juros Parcelas</span>
-                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.jurosParcelas)}</span>
+                              <span>Qtd Atrasadas</span>
+                              <span>{calc.payoffBreakdown.qtdAtrasadas}</span>
                           </div>
                           <div className="flex justify-between text-xs text-white/60 mb-1">
-                              <span>Parcelas Atrasadas</span>
-                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.atrasadas)}</span>
+                              <span>Juros Atrasadas</span>
+                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.jurosAtrasadas)}</span>
+                          </div>
+                          <div className="flex justify-between text-xs text-white/60 mb-1">
+                              <span>Total Atrasadas</span>
+                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.totalAtrasadas)}</span>
                           </div>
                       </div>
                     </div>
