@@ -805,6 +805,14 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                       <span>Quitação Estimada</span>
                       <span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}</span>
                       <div className="absolute right-0 top-full bg-white border border-slate-200 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
+                          <div className="flex justify-between text-xs text-slate-600 mb-1 font-bold border-b border-slate-100 pb-1">
+                              <span>Valor da Parcela</span>
+                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.valorParcela)}</span>
+                          </div>
+                          <div className="flex justify-between text-xs text-slate-600 mb-2 font-bold border-b border-slate-100 pb-1">
+                              <span>Juros Mensal (Config)</span>
+                              <span>{calc.payoffBreakdown.jurosParcelas}%</span>
+                          </div>
                           <div className="flex justify-between text-xs text-slate-600 mb-1">
                               <span>Qtd a Vencer</span>
                               <span>{calc.payoffBreakdown.qtdAVencer}</span>
@@ -893,6 +901,14 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                     </div>
                     <div className="flex justify-between text-red-400 group cursor-pointer relative"><span className="text-white/60">Quitação</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}</span>
                       <div className="absolute right-0 top-full bg-slate-800 border border-white/10 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
+                          <div className="flex justify-between text-xs text-white/60 mb-1 font-bold border-b border-white/10 pb-1">
+                              <span>Valor da Parcela</span>
+                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.valorParcela)}</span>
+                          </div>
+                          <div className="flex justify-between text-xs text-white/60 mb-2 font-bold border-b border-white/10 pb-1">
+                              <span>Juros Mensal (Config)</span>
+                              <span>{calc.payoffBreakdown.jurosParcelas}%</span>
+                          </div>
                           <div className="flex justify-between text-xs text-white/60 mb-1">
                               <span>Qtd a Vencer</span>
                               <span>{calc.payoffBreakdown.qtdAVencer}</span>
