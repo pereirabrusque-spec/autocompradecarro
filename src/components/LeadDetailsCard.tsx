@@ -210,6 +210,21 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
 
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
+    // Upload para o Supabase Storage
+    const filePath = `crlv/${currentLead.id}/${Date.now()}_${file.name}`;
+    const { error: uploadError } = await supabase.storage
+      .from('veiculos')
+      .upload(filePath, file);
+
+    if (uploadError) {
+      console.error("Erro no upload:", uploadError);
+      return;
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('veiculos')
+      .getPublicUrl(filePath);
+
     const reader = new FileReader();
     reader.onloadend = async () => {
       const base64Image = (reader.result as string).split(',')[1];
@@ -242,9 +257,14 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
         });
 
         const data = JSON.parse(response.text || '{}');
-        setCurrentLead({ ...currentLead, ...data });
+        const updatedLead = { ...currentLead, ...data, crlv_url: publicUrl };
+        setCurrentLead(updatedLead);
+        onSave(updatedLead);
       } catch (error) {
         console.error("Erro no OCR:", error);
+        const updatedLead = { ...currentLead, crlv_url: publicUrl };
+        setCurrentLead(updatedLead);
+        onSave(updatedLead);
       }
     };
     reader.readAsDataURL(file);
@@ -566,6 +586,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                         {/* Coluna Direita: Formulário */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-fit">
                           {[
+                            { label: 'Tipo de Veículo', key: 'tipo_veiculo' },
                             { label: 'Cliente', key: 'cliente_nome' },
                             { label: 'Telefone', key: 'telefone' },
                             { label: 'E-mail', key: 'email' },
@@ -589,12 +610,21 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                           ].map(field => (
                             <div key={field.key} className="space-y-1">
                               <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{field.label}</label>
-                              <input 
-                                type="text"
-                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all" 
-                                value={currentLead[field.key] ?? ''} 
-                                onChange={e => handleFieldChange(field.key, e.target.value)} 
-                              />
+                              {field.key === 'tipo_veiculo' ? (
+                                <input 
+                                  type="text"
+                                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all"
+                                  value={currentLead[field.key] ?? ''}
+                                  readOnly
+                                />
+                              ) : (
+                                <input 
+                                  type="text"
+                                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all" 
+                                  value={currentLead[field.key] ?? ''} 
+                                  onChange={e => handleFieldChange(field.key, e.target.value)} 
+                                />
+                              )}
                             </div>
                           ))}
                         </div>
