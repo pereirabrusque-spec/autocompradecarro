@@ -623,7 +623,12 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                                 <input 
                                   type="text"
                                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all"
-                                  value={currentLead.tipo_veiculo || (currentLead.vehicle_code ? (currentLead.vehicle_code === 'NLVO' ? 'Carro' : currentLead.vehicle_code) : 'Não informado')}
+                                  value={
+                                    currentLead.tipo_veiculo && !['NLVO', 'TJRM', 'ADBV'].includes(currentLead.tipo_veiculo) ? currentLead.tipo_veiculo :
+                                    (currentLead.vehicle_code === 'NLVO' ? 'Carro' : 
+                                     currentLead.vehicle_code === 'TJRM' ? 'Caminhão' :
+                                     currentLead.vehicle_code === 'ADBV' ? 'Buggy' : 'Não informado')
+                                  }
                                   readOnly
                                 />
                               ) : field.key === 'avarias_manuais' ? (
@@ -642,7 +647,9 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                                       field.key === 'financiamento_atrasado' ? 'Financiamento Atrasado' :
                                       field.key === 'busca_apreensao' ? 'Busca e Apreensão' :
                                       field.key === 'renajud_bloqueio' ? 'Renajud / Bloqueio Judicial' :
-                                      field.key === 'sinistrado_leilao' ? 'Sinistrado / Leilão' : ''
+                                      field.key === 'sinistrado_leilao' ? 'Sinistrado / Leilão' : 
+                                      field.key === 'recuperado_banco' ? 'Recuperado de Banco' :
+                                      field.key === 'historico_furto_roubo' ? 'Histórico de Furto/Roubo' : ''
                                     ) || currentLead[field.key] === 'true' || currentLead[field.key] === true 
                                     ? 'Sim' : 'Não'
                                   }
