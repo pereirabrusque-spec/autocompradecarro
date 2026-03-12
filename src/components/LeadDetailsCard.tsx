@@ -263,6 +263,65 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [isUploadingCRLV, setIsUploadingCRLV] = useState(false);
 
+  const generateOwnerMessage = () => {
+    const hours = new Date().getHours();
+    let greeting = 'Bom dia';
+    if (hours >= 12 && hours < 18) greeting = 'Boa tarde';
+    if (hours >= 18 || hours < 5) greeting = 'Boa noite';
+
+    const firstName = currentLead.cliente_nome?.split(' ')[0] || 'Cliente';
+    const vehicleName = `${currentLead.marca} ${currentLead.modelo}`;
+    const color = currentLead.cor || 'não informada';
+
+    let msg = `*${greeting}, ${firstName}!* 🚀\n\n`;
+    msg += `Temos uma oportunidade exclusiva para você transformar seu veículo em dinheiro rápido e sem burocracia.\n\n`;
+    msg += `Referente ao seu veículo *${vehicleName}* de cor *${color}*.\n\n`;
+    msg += `Analisamos os dados enviados e preparamos uma oferta especial baseada no mercado atual.\n\n`;
+    msg += `Oferecemos esta proposta devido à *Tabela FIPE* do seu veículo ser de *${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fipe)}*.\n\n`;
+
+    if (currentLead.is_financiado === 'true' || currentLead.is_financiado === 'sim' || currentLead.is_financiado === true) {
+      msg += `🏦 *Situação de Financiamento:*\n`;
+      msg += `- Parcelas a pagar: ${calc.payoffBreakdown.qtdAVencer}x de ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.valorParcela)}\n`;
+      if (calc.payoffBreakdown.qtdAtrasadas > 0) {
+        msg += `- Parcelas em atraso: ${calc.payoffBreakdown.qtdAtrasadas}\n`;
+        msg += `- Juros das parcelas: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.jurosAtrasadas)}\n`;
+      }
+      msg += `\n`;
+    }
+
+    msg += `📝 *Dados Discriminados (Débitos e Avaliação):*\n`;
+    const details: string[] = [];
+    
+    // Custos Fixos e Débitos
+    if (calc.fixedCostsDetail.length > 0) {
+      calc.fixedCostsDetail.forEach(item => {
+        details.push(`- ${item.name}: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value)}`);
+      });
+    }
+
+    // Descontos de Regras (Sinistro, Leilão, Renajud, etc)
+    if (calc.discounts.length > 0) {
+      calc.discounts.forEach(d => {
+        details.push(`- ${d.name}: -${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}`);
+      });
+    }
+
+    if (details.length > 0) {
+      msg += details.join('\n') + '\n\n';
+    } else {
+      msg += `- Veículo sem débitos ou restrições identificadas.\n\n`;
+    }
+
+    msg += `💰 *Conseguimos pagar o valor final de:* *${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalProposal)}*\n\n`;
+    msg += `Nossa proposta é válida por tempo limitado. Não perca a chance de fechar um excelente negócio e colocar dinheiro no bolso hoje mesmo! 🤝\n\n`;
+    msg += `Para fecharmos ou se tiver alguma dúvida, entre em contato conosco:\n`;
+    msg += `🌐 *Pelo site:* Chat disponível 24 horas por dia.\n`;
+    msg += `📱 *Pelo WhatsApp:* Atendimento em horário comercial.\n\n`;
+    msg += `Vamos fechar negócio? Aguardamos seu contato!`;
+
+    return encodeURIComponent(msg);
+  };
+
   const handleCRLVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -384,7 +443,8 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
               onClick={() => {
                 const phone = currentLead.telefone?.replace(/\D/g, '');
                 const formattedPhone = phone?.startsWith('55') ? phone : `55${phone}`;
-                window.open(`https://wa.me/${formattedPhone}`, '_blank');
+                const encodedMessage = generateOwnerMessage();
+                window.open(`https://wa.me/${formattedPhone}?text=${encodedMessage}`, '_blank');
               }} 
               className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5 shadow-md"
             >

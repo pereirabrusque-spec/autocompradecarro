@@ -1208,6 +1208,62 @@ Podemos prosseguir com o agendamento da vistoria?`;
     };
   };
 
+  const generateOwnerMessage = (lead: any, calc: any) => {
+    const hours = new Date().getHours();
+    let greeting = 'Bom dia';
+    if (hours >= 12 && hours < 18) greeting = 'Boa tarde';
+    if (hours >= 18 || hours < 5) greeting = 'Boa noite';
+
+    const firstName = lead.cliente_nome?.split(' ')[0] || 'Cliente';
+    const vehicleName = `${lead.marca} ${lead.modelo}`;
+    const color = lead.cor || 'não informada';
+
+    let msg = `*${greeting}, ${firstName}!* 🚀\n\n`;
+    msg += `Temos uma oportunidade exclusiva para você transformar seu veículo em dinheiro rápido e sem burocracia.\n\n`;
+    msg += `Referente ao seu veículo *${vehicleName}* de cor *${color}*.\n\n`;
+    msg += `Analisamos os dados enviados e preparamos uma oferta especial baseada no mercado atual.\n\n`;
+    msg += `Oferecemos esta proposta devido à *Tabela FIPE* do seu veículo ser de *${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.baseValue)}*.\n\n`;
+
+    if (lead.is_financiado === 'true' || lead.is_financiado === 'sim' || lead.is_financiado === true || lead.financiado === 'sim') {
+      msg += `🏦 *Situação de Financiamento:*\n`;
+      const remaining = (lead.total_parcelas || 0) - (lead.parcelas_pagas || 0);
+      msg += `- Parcelas a pagar: ${remaining}x de ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.valor_parcela || 0)}\n`;
+      if (lead.parcelas_atrasadas > 0) {
+        msg += `- Parcelas em atraso: ${lead.parcelas_atrasadas}\n`;
+        const jurosCalculado = (lead.parcelas_atrasadas * (lead.valor_parcela || 0)) * (jurosAtraso / 100);
+        msg += `- Juros das parcelas: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(jurosCalculado)}\n`;
+      }
+      msg += `\n`;
+    }
+
+    msg += `📝 *Dados Discriminados (Débitos e Avaliação):*\n`;
+    const details: string[] = [];
+    
+    if (calc.docDebts > 0) details.push(`- Multas/IPVA/Documentação: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.docDebts)}`);
+    if (calc.repairDebts > 0) details.push(`- Reparos/Avarias: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.repairDebts)}`);
+    
+    if (calc.deductions && calc.deductions.length > 0) {
+      calc.deductions.forEach((d: any) => {
+        details.push(`- ${d.name}: -${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}`);
+      });
+    }
+
+    if (details.length > 0) {
+      msg += details.join('\n') + '\n\n';
+    } else {
+      msg += `- Veículo sem débitos ou restrições identificadas.\n\n`;
+    }
+
+    msg += `💰 *Conseguimos pagar o valor final de:* *${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalValue)}*\n\n`;
+    msg += `Nossa proposta é válida por tempo limitado. Não perca a chance de fechar um excelente negócio e colocar dinheiro no bolso hoje mesmo! 🤝\n\n`;
+    msg += `Para fecharmos ou se tiver alguma dúvida, entre em contato conosco:\n`;
+    msg += `🌐 *Pelo site:* Chat disponível 24 horas por dia.\n`;
+    msg += `📱 *Pelo WhatsApp:* Atendimento em horário comercial.\n\n`;
+    msg += `Vamos fechar negócio? Aguardamos seu contato!`;
+
+    return encodeURIComponent(msg);
+  };
+
   const handleSaveProposal = async (updateGlobal: boolean = false) => {
     if (!selectedLead || !proposalCalculator) return;
 
@@ -2889,7 +2945,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                     onClick={() => {
                                       const phone = selectedLead.telefone?.replace(/\D/g, '');
                                       const formattedPhone = phone?.startsWith('55') ? phone : `55${phone}`;
-                                      window.open(`https://wa.me/${formattedPhone}`, '_blank');
+                                      const encodedMessage = generateOwnerMessage(selectedLead, proposalCalculator);
+                                      window.open(`https://wa.me/${formattedPhone}?text=${encodedMessage}`, '_blank');
                                     }}
                                     className="flex-1 py-4 bg-emerald-500 text-white rounded-2xl font-bold hover:bg-emerald-600 transition-all flex items-center justify-center gap-2 shadow-md"
                                   >
@@ -3116,8 +3173,11 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                       <button 
                                         onClick={(e) => { 
                                           e.stopPropagation(); 
-                                          setLeadToWhatsApp(lead); 
-                                          setShowWhatsAppModal(true); 
+                                          const phone = lead.telefone?.replace(/\D/g, '');
+                                          const formattedPhone = phone?.startsWith('55') ? phone : `55${phone}`;
+                                          const calc = calculateProposal(lead);
+                                          const encodedMessage = generateOwnerMessage(lead, calc);
+                                          window.open(`https://wa.me/${formattedPhone}?text=${encodedMessage}`, '_blank');
                                         }} 
                                         className="p-2 bg-green-50 hover:bg-green-100 rounded-lg transition-colors text-green-600" 
                                         title="WhatsApp Proposta"
