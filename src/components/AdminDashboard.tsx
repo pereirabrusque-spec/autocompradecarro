@@ -114,7 +114,7 @@ export default function AdminDashboard() {
   const [showApiKeyForm, setShowApiKeyForm] = useState(false);
   const [isSavingKey, setIsSavingKey] = useState(false);
 
-  const [activeLeadTab, setActiveLeadTab] = useState<'todos' | 'novo' | 'em_contato' | 'proposta_enviada' | 'fechado' | 'perdido'>('novo');
+  const [activeLeadTab, setActiveLeadTab] = useState<'todos' | 'novo' | 'em_contato' | 'proposta_enviada' | 'fechado' | 'perdido'>('todos');
   const [leadsViewMode, setLeadsViewMode] = useState<'grid' | 'list'>('list');
   const [showBuyerPermissionsModal, setShowBuyerPermissionsModal] = useState(false);
   const [selectedBuyer, setSelectedBuyer] = useState<any>(null);
@@ -1722,22 +1722,22 @@ Podemos prosseguir com o agendamento da vistoria?`;
     <div className="min-h-screen bg-slate-50">
       {/* Top Navbar */}
       <header className="bg-slate-950 border-b border-white/5 sticky top-0 z-[100] shadow-2xl backdrop-blur-xl bg-opacity-90">
-        <div className="w-full px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-6">
-          <div className="flex items-center gap-6 flex-1 overflow-hidden">
-            <div className="flex items-center gap-3 shrink-0">
-              <div className="w-10 h-10 bg-accent rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(242,125,38,0.4)]">
-                <ShieldCheck className="w-6 h-6 text-white" />
+        <div className="w-full px-2 sm:px-4 h-14 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3 flex-1 overflow-hidden">
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center shadow-[0_0_20px_rgba(242,125,38,0.4)]">
+                <ShieldCheck className="w-5 h-5 text-white" />
               </div>
               <div className="hidden xl:block">
-                <h1 className="font-display text-lg font-black text-white leading-none tracking-tight">AUTO COMPRA</h1>
-                <p className="text-[10px] text-accent font-bold uppercase tracking-[0.2em] mt-1">Admin Pro</p>
+                <h1 className="font-display text-base font-black text-white leading-none tracking-tight">AUTO COMPRA</h1>
+                <p className="text-[9px] text-accent font-bold uppercase tracking-[0.2em] mt-0.5">Admin Pro</p>
               </div>
             </div>
 
-            <div className="h-8 w-px bg-white/10 hidden md:block"></div>
+            <div className="h-6 w-px bg-white/10 hidden md:block"></div>
             
             {/* Navigation Menu */}
-            <nav className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-2">
+            <nav className="flex items-center gap-1 overflow-x-auto no-scrollbar py-1">
               {[
                 { id: 'dashboard', label: 'Início', icon: LayoutDashboard },
                 { id: 'leads', label: 'Leads', icon: Car },
@@ -2438,7 +2438,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       <Download className="w-4 h-4" />
                       <span className="hidden sm:inline">Exportar</span>
                     </button>
-                    <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-100 overflow-x-auto">
+                    <div className="flex bg-white p-0.5 rounded-lg shadow-sm border border-slate-100 overflow-x-auto">
                     {[
                       { id: 'todos', label: 'Todos' },
                       { id: 'novo', label: 'Novos' },
@@ -2450,7 +2450,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       <button
                         key={tab.id}
                         onClick={() => setActiveLeadTab(tab.id as any)}
-                        className={`px-4 py-2 rounded-xl font-bold text-xs transition-all whitespace-nowrap ${
+                        className={`px-3 py-1.5 rounded-md font-bold text-xs transition-all whitespace-nowrap ${
                           activeLeadTab === tab.id 
                             ? 'bg-slate-900 text-white' 
                             : 'text-slate-500 hover:bg-slate-50'
