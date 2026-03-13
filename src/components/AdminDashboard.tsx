@@ -441,6 +441,11 @@ export default function AdminDashboard() {
     }
   }, [selectedLead]);
 
+  const selectedConversationRef = useRef(selectedConversation);
+  useEffect(() => {
+    selectedConversationRef.current = selectedConversation;
+  }, [selectedConversation]);
+
   useEffect(() => {
     const subscription = supabase
       .channel('admin_messages_realtime')
@@ -453,7 +458,7 @@ export default function AdminDashboard() {
         if (payload.new.remetente === 'cliente') {
           console.log("Received new message from client:", payload.new);
           // Atualiza mensagens do chat se estiver aberto para este lead
-          if (selectedConversation?.lead_id === payload.new.lead_id) {
+          if (selectedConversationRef.current?.lead_id === payload.new.lead_id) {
             console.log("Updating chat messages state");
             setChatMessages(prev => [...prev, payload.new]);
             // Marcar como lida automaticamente se o chat estiver aberto
@@ -467,13 +472,13 @@ export default function AdminDashboard() {
               console.error("Error marking message as read:", err);
             }
           } else {
-            console.log("Message received for different lead. Current:", selectedConversation?.lead_id, "Message:", payload.new.lead_id);
+            console.log("Message received for different lead. Current:", selectedConversationRef.current?.lead_id, "Message:", payload.new.lead_id);
           }
           
           // Atualiza a lista de conversas de forma otimizada
           const { data: messagesData } = await supabase
             .from('mensagens')
-            .select('*, leads_veiculos(id, marca, modelo, cliente_nome, vehicle_code, fotos, ai_disabled, email, telefone)')
+            .select('*')
             .order('created_at', { ascending: false });
 
           if (messagesData) {
