@@ -152,7 +152,9 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
       return banks.some(b => b.is_cooperativa && name.includes(b.name.toLowerCase()));
     };
     
-    if (isCooperativa || isCooperativeBank(currentLead.banco_financiamento)) {
+    const isCooperativa = isCooperativeBank(currentLead.banco_financiamento);
+    
+    if (isCooperativa) {
         // Usa a porcentagem global de cooperativas
         coopDiscount = fipe * (cooperativeDiscount / 100);
         fipeBase = fipe - coopDiscount;
