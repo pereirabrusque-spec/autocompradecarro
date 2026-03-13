@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, MessageCircle, MessageSquare, Send, FileText, Edit2, ArrowLeft, ChevronLeft, ChevronRight, Upload, DollarSign, User, ShieldCheck } from 'lucide-react';
+import { X, Save, MessageCircle, MessageSquare, Send, FileText, Edit2, ArrowLeft, ChevronLeft, ChevronRight, Upload, DollarSign, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -14,11 +14,9 @@ interface LeadDetailsCardProps {
   banks: any[];
   cooperativeDiscount: number;
   forceShowWhatsAppBuyerModal?: boolean;
-  onShowProposal?: () => void;
-  proposalCalculator?: any;
 }
 
-export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRefresh, fipeRules, jurosAtraso, banks, cooperativeDiscount, forceShowWhatsAppBuyerModal, onShowProposal, proposalCalculator }: LeadDetailsCardProps) {
+export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRefresh, fipeRules, jurosAtraso, banks, cooperativeDiscount, forceShowWhatsAppBuyerModal }: LeadDetailsCardProps) {
   const [currentLead, setCurrentLead] = useState(lead || {});
   const [repairModal, setRepairModal] = useState<{ field: string | null; value: string }>({ field: null, value: '' });
 
@@ -46,17 +44,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
           // Converte 'sim' para 'true' (ou 'true' para 'true'), e qualquer outra coisa para 'false'
           sanitizedLead[key] = (val === 'sim' || val === 'true' || val === true) ? 'true' : 'false';
         } else if (val === null || val === undefined || val === 'null' || val === 'undefined') {
-          // Não converte para string vazia se for um campo que deve ser array/json ou se for nulo de verdade
-          // Colunas de array/json no Supabase não aceitam "" (string vazia), devem ser null ou o tipo correto
-          const complexFields = [
-            'fotos', 'videos', 'problemas', 'selected_items', 'avarias', 
-            'avarias_manuais', 'fotos_url', 'detalhes_proposta', 'metadata'
-          ];
-          if (complexFields.includes(key)) {
-            sanitizedLead[key] = null;
-          } else {
-            sanitizedLead[key] = '';
-          }
+          sanitizedLead[key] = '';
         }
       });
 
@@ -206,11 +194,15 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
       });
     }
 
-    const maxDiscountValue = discountOptions.reduce((acc, d) => acc + d.value, 0);
+    const maxDiscountValue = discountOptions.length > 0 
+        ? Math.max(...discountOptions.map(d => d.value)) 
+        : 0;
     
-    // Marcar todos os descontos
+    // Marcar o maior desconto e definir como o valor a ser descontado
     discountOptions.forEach(d => {
-      d.isMax = true;
+      if (d.value === maxDiscountValue && maxDiscountValue > 0) {
+        d.isMax = true;
+      }
     });
 
     const discounts = [...discountOptions];
@@ -366,12 +358,6 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
         }]);
 
       if (error) throw error;
-
-      // Atualiza o status do lead automaticamente para "Proposta Enviada"
-      const updatedLead = { ...currentLead, status: 'proposta_enviada' };
-      setCurrentLead(updatedLead);
-      onSave(updatedLead);
-
       setShowProposalReview(false);
       alert('Proposta enviada com sucesso para o chat do cliente!');
     } catch (error: any) {
@@ -479,74 +465,24 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
   };
 
   return (
-    <div className="bg-white rounded-[32px] w-full h-full flex flex-col shadow-sm border border-slate-100 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
         {/* Header Fixo */}
-        <div className="flex justify-between items-center px-3 h-8 border-b border-slate-100 bg-white sticky top-0 z-50">
-          <div className="flex items-center gap-2 overflow-hidden">
-            <h2 className="text-[11px] font-bold font-display truncate">#{currentLead.vehicle_code} - {currentLead.marca} {currentLead.modelo}</h2>
-            <select
-              value={currentLead.status || 'novo'}
-              onChange={async (e) => {
-                const newVal = e.target.value;
-                const updated = { ...currentLead, status: newVal };
-                setCurrentLead(updated);
-                onSave(updated);
-              }}
-              className={`text-[8px] font-bold uppercase px-1.5 py-0.5 rounded-full border-none outline-none cursor-pointer transition-colors ${
-                currentLead.status === 'novo' ? 'bg-blue-100 text-blue-600' :
-                currentLead.status === 'em_contato' ? 'bg-orange-100 text-orange-600' :
-                currentLead.status === 'proposta_enviada' ? 'bg-indigo-100 text-indigo-600' :
-                currentLead.status === 'fechado' ? 'bg-emerald-100 text-emerald-600' :
-                currentLead.status === 'perdido' ? 'bg-slate-100 text-slate-600' :
-                'bg-slate-100 text-slate-600'
-              }`}
-            >
-              <option value="novo">NOVO</option>
-              <option value="em_contato">EM CONTATO</option>
-              <option value="proposta_enviada">PROPOSTA ENVIADA</option>
-              <option value="fechado">FECHADO</option>
-              <option value="perdido">PERDIDO</option>
-            </select>
-          </div>
-          <div className="flex gap-1">
-            <button onClick={() => setShowDataModal(true)} className="px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 rounded-md text-[9px] font-bold text-slate-700 flex items-center gap-0.5">
-              <FileText className="w-2.5 h-2.5" /> Detalhes
-            </button>
-            <button onClick={onClose} className="p-0.5 hover:bg-slate-100 rounded-full">
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
+        <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-white sticky top-0 z-50 shadow-sm">
+          <h2 className="text-lg font-bold font-display truncate">#{currentLead.vehicle_code} - {currentLead.marca} {currentLead.modelo}</h2>
+          <button onClick={() => setShowDataModal(true)} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-700 flex items-center gap-1.5">
+            <FileText className="w-3.5 h-3.5" /> Formulário Completo
+          </button>
         </div>
 
         {/* Conteúdo Principal */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          
-          {/* Barra de Informações Rápidas (Compacta) */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 bg-slate-50 p-2 rounded-xl border border-slate-100">
-            <div className="flex flex-col">
-              <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Ano</span>
-              <span className="text-[10px] font-bold text-slate-700">{currentLead.ano_modelo || 'N/A'}</span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">KM</span>
-              <span className="text-[10px] font-bold text-slate-700">{currentLead.quilometragem || 'N/A'}</span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Cor</span>
-              <span className="text-[10px] font-bold text-slate-700">{currentLead.cor || 'N/A'}</span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Placa</span>
-              <span className="text-[10px] font-bold text-slate-700">{currentLead.placa || 'N/A'}</span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Cliente</span>
-              <span className="text-[10px] font-bold text-slate-700 truncate">{currentLead.cliente_nome || 'N/A'}</span>
-            </div>
-          </div>
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 scroll-pt-20">
           
           {/* Botões de Ação no Topo */}
-          <div className="flex flex-wrap justify-end gap-1 pb-2 border-b border-slate-100">
+          <div className="flex flex-wrap justify-end gap-2 pb-4 border-b border-slate-100">
+            <button onClick={onClose} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-bold text-slate-700 flex items-center justify-center gap-1.5">
+              <ArrowLeft className="w-4 h-4" /> Voltar
+            </button>
             <button 
               onClick={() => {
                 const phone = currentLead.telefone?.replace(/\D/g, '');
@@ -555,21 +491,21 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                 const encodedMessage = encodeURIComponent(rawMessage);
                 window.open(`https://wa.me/${formattedPhone}?text=${encodedMessage}`, '_blank');
               }} 
-              className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 rounded-lg text-[10px] font-bold text-white flex items-center justify-center gap-1 shadow-sm"
+              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5 shadow-md"
             >
-              <MessageCircle className="w-3 h-3" /> WhatsApp Proposta
+              <MessageCircle className="w-4 h-4" /> WhatsApp Proposta
             </button>
-            <button onClick={() => setShowWhatsAppBuyerModal(true)} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-[10px] font-bold text-white flex items-center justify-center gap-1">
-              <MessageCircle className="w-3 h-3" /> WhatsApp Comprador
+            <button onClick={() => setShowWhatsAppBuyerModal(true)} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5">
+              <MessageCircle className="w-4 h-4" /> WhatsApp Comprador
             </button>
             <button 
               onClick={handleSendProposalToChat} 
-              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-[10px] font-bold text-white flex items-center justify-center gap-1 shadow-sm"
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5 shadow-md"
             >
-              <MessageSquare className="w-3 h-3" /> Chat Proposta
+              <MessageSquare className="w-4 h-4" /> Chat Proposta
             </button>
-            <button onClick={() => setShowForm(!showForm)} className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 rounded-lg text-[10px] font-bold text-white flex items-center justify-center gap-1">
-              <Edit2 className="w-3 h-3" /> {showForm ? 'Fechar Edição' : 'Editar'}
+            <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5">
+              <Edit2 className="w-4 h-4" /> {showForm ? 'Fechar Edição' : 'Editar'}
             </button>
           </div>
 
@@ -600,7 +536,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
               {/* Carrossel de Mídia e CRLV - Lado a Lado (50/50) */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Carrossel de Mídia */}
-                <div className="bg-slate-900 p-2 rounded-2xl aspect-video relative flex items-center justify-center overflow-hidden shadow-md">
+                <div className="bg-slate-900 p-4 rounded-[32px] aspect-video relative flex items-center justify-center overflow-hidden shadow-xl">
                   {mediaItems.length > 0 ? (
                     <>
                       {renderMedia(mediaItems[currentPhotoIndex], currentPhotoIndex)}
@@ -608,101 +544,63 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                         <>
                           <button 
                             onClick={() => setCurrentPhotoIndex((prev) => (prev === 0 ? mediaItems.length - 1 : prev - 1))} 
-                            className="absolute left-1 top-1/2 -translate-y-1/2 p-1 bg-white/20 hover:bg-white/40 rounded-full text-white z-10 transition-colors"
+                            className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-white/20 hover:bg-white/40 rounded-full text-white z-10 transition-colors"
                           >
-                            <ChevronLeft size={12} />
+                            <ChevronLeft size={16} />
                           </button>
                           <button 
                             onClick={() => setCurrentPhotoIndex((prev) => (prev === mediaItems.length - 1 ? 0 : prev + 1))} 
-                            className="absolute right-1 top-1/2 -translate-y-1/2 p-1 bg-white/20 hover:bg-white/40 rounded-full text-white z-10 transition-colors"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-white/20 hover:bg-white/40 rounded-full text-white z-10 transition-colors"
                           >
-                            <ChevronRight size={12} />
+                            <ChevronRight size={16} />
                           </button>
                         </>
                       )}
                     </>
                   ) : (
-                    <span className="text-white/40 font-bold text-[10px]">Sem mídia</span>
+                    <span className="text-white/40 font-bold">Sem mídia disponível</span>
                   )}
                 </div>
 
                 {/* CRLV Preview (50%) */}
                 <div 
                   onClick={() => setShowDataModal(true)}
-                  className="bg-slate-800 p-2 rounded-2xl aspect-video flex items-center justify-center border border-white/10 cursor-pointer hover:bg-slate-700 transition-colors relative overflow-hidden shadow-md group"
+                  className="bg-slate-800 p-4 rounded-[32px] aspect-video flex items-center justify-center border border-white/10 cursor-pointer hover:bg-slate-700 transition-colors relative overflow-hidden shadow-xl group"
                 >
                   {currentLead.crlv_url ? (
                     currentLead.crlv_url.toLowerCase().includes('.pdf') ? (
-                      <div className="flex flex-col items-center gap-1">
-                        <FileText className="w-8 h-8 text-blue-400" />
-                        <span className="text-[9px] text-white font-bold">Ver PDF</span>
+                      <div className="flex flex-col items-center gap-2">
+                        <FileText className="w-12 h-12 text-blue-400" />
+                        <span className="text-xs text-white font-bold">Ver PDF do CRLV</span>
                       </div>
                     ) : (
-                      <img src={currentLead.crlv_url} alt="CRLV" className="w-full h-full object-cover rounded-lg" />
+                      <img src={currentLead.crlv_url} alt="CRLV" className="w-full h-full object-cover rounded-xl" />
                     )
                   ) : (
-                    <div className="flex flex-col items-center gap-1 text-white/40">
-                      <FileText className="w-8 h-8" />
-                      <span className="text-[9px] font-bold uppercase tracking-widest">CRLV Indisponível</span>
+                    <div className="flex flex-col items-center gap-2 text-white/40">
+                      <FileText className="w-12 h-12" />
+                      <span className="text-xs font-bold uppercase tracking-widest">CRLV não disponível</span>
                     </div>
                   )}
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                    <span className="text-white opacity-0 group-hover:opacity-100 font-bold text-[9px] bg-black/50 px-2 py-1 rounded-full">Ver Detalhes</span>
+                    <span className="text-white opacity-0 group-hover:opacity-100 font-bold text-xs bg-black/50 px-3 py-1.5 rounded-full">Clique para Ver Detalhes</span>
                   </div>
                 </div>
               </div>
 
-              {/* Botões Principais */}
-              <div className="space-y-3">
-                {proposalCalculator ? (
-                  <div className="bg-slate-900 rounded-2xl p-4 text-white">
-                    <div className="flex justify-between items-center mb-3">
-                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Resumo da Proposta</h4>
-                      <p className="text-sm font-black text-emerald-400">
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}
-                      </p>
-                    </div>
-                    
-                    <div className="grid grid-cols-3 gap-2 text-[9px] font-bold text-slate-300">
-                      <div className="bg-white/10 p-2 rounded-lg">
-                        <p className="text-slate-400 uppercase">Dedução Aplicada</p>
-                        <p className="text-white">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-                            proposalCalculator.deductions.reduce((acc: number, d: any) => acc + d.value, 0)
-                          )}
-                        </p>
-                      </div>
-                      <div className="bg-white/10 p-2 rounded-lg">
-                        <p className="text-slate-400 uppercase">Dedução Fixa/IPVA/Doc</p>
-                        <p className="text-white">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.payoffValue + proposalCalculator.docDebts)}
-                        </p>
-                      </div>
-                      <div className="bg-white/10 p-2 rounded-lg">
-                        <p className="text-slate-400 uppercase">Quitação</p>
-                        <p className="text-white">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.payoffValue)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-slate-900 rounded-2xl p-4 text-white text-center text-xs font-bold">
-                    Proposta não calculada
-                  </div>
-                )}
-              </div>
+              {/* Botão Avaliar Veículo */}
+              <button onClick={() => setShowDataModal(true)} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-slate-800 transition-all shadow-lg transform hover:scale-[1.01] active:scale-[0.99]">
+                <FileText className="w-5 h-5" /> Avaliar Veículo (Formulário Completo)
+              </button>
               {/* Benefícios */}
-              <div className="bg-white border border-slate-200 p-4 rounded-[24px] shadow-sm">
-                <h3 className="font-bold text-slate-900 uppercase text-[10px] tracking-widest mb-3 flex items-center gap-2">
-                  <ShieldCheck className="w-3 h-3 text-accent" /> Benefícios do Veículo
-                </h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {['ar_condicionado', 'direcao_hidraulica', 'bancos_couro', 'vidros_eletricos', 'travas_eletricas', 'alarme', 'som_multimidia', 'rodas_liga_leve', 'sensor_re', 'camera_re', 'teto_solar', 'airbag', 'chave_reserva', 'revisoes_dia', 'abs', 'computador_bordo', 'piloto_automatico'].map(key => (currentLead[key] === 'sim' || currentLead[key] === true) && (
-                    <span key={key} className="px-2 py-0.5 bg-slate-50 text-slate-600 border border-slate-100 rounded-md text-[9px] font-bold capitalize">{key.replace('_', ' ')}</span>
-                  ))}
+                <div className="bg-white border border-slate-200 p-6 rounded-[32px] shadow-sm">
+                  <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest mb-4">Benefícios do Veículo</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {['ar_condicionado', 'direcao_hidraulica', 'bancos_couro', 'vidros_eletricos', 'travas_eletricas', 'alarme', 'som_multimidia', 'rodas_liga_leve', 'sensor_re', 'camera_re', 'teto_solar', 'airbag', 'chave_reserva', 'revisoes_dia', 'abs', 'computador_bordo', 'piloto_automatico'].map(key => (currentLead[key] === 'sim' || currentLead[key] === true) && (
+                      <span key={key} className="px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-bold capitalize">{key.replace('_', ' ')}</span>
+                    ))}
+                  </div>
                 </div>
-              </div>
 
                 {/* Modais de Envio */}
                 {showUserModal && (
@@ -1122,70 +1020,175 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                   </div>
                 )}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Resumo da Proposta */}
-                  <div className="bg-slate-50 p-6 rounded-[32px] border border-slate-200 shadow-sm">
-                    <div className="flex justify-between items-start mb-6">
-                      <div>
-                        <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest">Resumo da Proposta</h4>
-                        <p className="text-xs font-bold text-slate-500">{currentLead.marca} {currentLead.modelo} {currentLead.ano_modelo}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[10px] font-bold text-slate-500 uppercase">Valor Sugerido</p>
-                        <p className="text-2xl font-black text-emerald-600">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalProposal)}
-                        </p>
-                      </div>
+                  {/* Detalhamento da Proposta */}
+                  <div className="bg-slate-50 p-8 rounded-[32px] space-y-4">
+                    <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest border-b border-slate-200 pb-4">Detalhamento da Proposta</h3>
+                    <div className="flex gap-4 mb-4">
+                      <button onClick={() => setShowUserModal(true)} className="px-4 py-2 bg-slate-900 text-white rounded-full text-xs font-bold">Enviar para Usuário</button>
+                      <button onClick={() => setShowBuyerModal(true)} className="px-4 py-2 bg-slate-200 text-slate-700 rounded-full text-xs font-bold">Enviar para Comprador</button>
                     </div>
-                    
-                    <div className="grid grid-cols-2 gap-3 mb-6">
-                      <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase">Tabela FIPE</p>
-                        <p className="text-sm font-bold text-slate-700">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fipe)}</p>
-                      </div>
-                      <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm relative group cursor-help">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase">Deduções Totais</p>
-                        <p className="text-sm font-bold text-red-600">
-                          -{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.discountValue + calc.fixedCosts)}
-                        </p>
-                        <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block w-72 bg-slate-900 text-white text-xs rounded-xl p-4 shadow-2xl z-50">
-                          <p className="font-bold mb-3 border-b border-slate-700 pb-2 uppercase tracking-widest text-[10px] text-slate-400">Detalhamento de Deduções:</p>
-                          <ul className="space-y-2">
-                            {calc.discounts.map((d, i) => (
-                              <li key={`d-${i}`} className="flex justify-between items-center">
-                                <span className="text-slate-300">{d.name}</span>
-                                <span className="font-bold text-red-400">-{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
-                              </li>
-                            ))}
-                            {calc.fixedCostsDetail.map((d, i) => (
-                              <li key={`f-${i}`} className="flex justify-between items-center">
-                                <span className="text-slate-300">{d.name}</span>
-                                <span className="font-bold text-red-400">-{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
-                              </li>
-                            ))}
-                          </ul>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between"><span>Tabela FIPE</span><span className="font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fipe)}</span></div>
+                      <div className="flex justify-between text-red-500 group cursor-pointer relative">
+                        <span>Descontos Aplicados</span>
+                        <span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.discountValue)}</span>
+                        <div className="absolute right-0 top-full bg-white border border-slate-200 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
+                          {calc.discounts.map((d, i) => (
+                            <div key={i} className={`flex justify-between text-xs mb-1 ${d.isMax ? 'text-red-500 font-bold' : 'text-slate-400 line-through opacity-50'}`}>
+                              <span>{d.name}</span>
+                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                      <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase">Dívidas/Quitação</p>
-                        <p className="text-sm font-bold text-red-600">
-                          -{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}
-                        </p>
+                      <div className="flex justify-between text-red-500 group cursor-pointer relative">
+                        <span>Descontos fixo\avaria\doc</span>
+                        <span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fixedCosts)}</span>
+                        <div className="absolute right-0 top-full bg-white border border-slate-200 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
+                          {calc.fixedCostsDetail.map((d, i) => (
+                            <div key={i} className="flex justify-between text-xs mb-1 text-slate-600">
+                              <span>{d.name}</span>
+                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase">Margem de Lucro</p>
-                        <p className="text-sm font-bold text-blue-600">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.profit)}</p>
+                      <div className="flex justify-between text-red-500 group cursor-pointer relative">
+                        <span>Quitação Estimada</span>
+                        <span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}</span>
+                        <div className="absolute right-0 top-full bg-white border border-slate-200 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
+                            <div className="flex justify-between text-xs text-slate-600 mb-1 font-bold border-b border-slate-100 pb-1">
+                                <span>Valor da Parcela</span>
+                                <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.valorParcela)}</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-slate-600 mb-2 font-bold border-b border-slate-100 pb-1">
+                                <span>Juros Mensal (Config)</span>
+                                <span>{calc.payoffBreakdown.jurosParcelas}%</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-slate-600 mb-1">
+                                <span>Qtd a Vencer</span>
+                                <span>{calc.payoffBreakdown.qtdAVencer}</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-slate-600 mb-1">
+                                <span>Valor a Vencer</span>
+                                <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.valorAVencer)}</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-slate-600 mb-1">
+                                <span>Qtd Atrasadas</span>
+                                <span>{calc.payoffBreakdown.qtdAtrasadas}</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-slate-600 mb-1">
+                                <span>Valor Atrasadas</span>
+                                <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.valorAtrasadas)}</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-slate-600 mb-1">
+                                <span>Juros Atrasadas ({calc.payoffBreakdown.jurosParcelas}%)</span>
+                                <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.jurosAtrasadas)}</span>
+                            </div>
+                            <div className="pt-2 mt-2 border-t border-slate-100 flex justify-between text-xs font-bold text-slate-600">
+                                <span>Total Quitação</span>
+                                <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}</span>
+                            </div>
+                        </div>
+                      </div>
+                      <div className="pt-4 border-t border-slate-200 flex justify-between items-center group cursor-pointer relative">
+                        <span className="font-bold text-lg text-slate-900">Proposta Final</span>
+                        <span className="font-bold text-lg text-slate-900">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalProposal)}</span>
+                        <div className="absolute right-0 bottom-full mb-2 bg-white border border-slate-200 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-72">
+                          <div className="text-xs font-bold mb-2 border-b pb-1 text-slate-900">Comparativo de Propostas</div>
+                          <div className={`flex justify-between text-xs mb-1 ${calc.optionA <= calc.optionB ? 'text-emerald-600 font-bold' : 'text-red-500'}`}>
+                            <span>FIPE - Descontos</span>
+                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.optionA)}</span>
+                          </div>
+                          <div className={`flex justify-between text-xs mb-1 ${calc.optionB < calc.optionA ? 'text-emerald-600 font-bold' : 'text-red-500'}`}>
+                            <span>Valor Desejado - 40%</span>
+                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.optionB)}</span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 mt-2 italic">* O sistema seleciona automaticamente o menor valor.</div>
+                        </div>
+                      </div>
+                      <div className="flex justify-between text-emerald-600 font-medium"><span>Lucro Estimado</span><span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.profit)}</span></div>
+                    </div>
+                  </div>
+
+                  {/* Análise Financeira */}
+                  <div className="bg-slate-900 text-white p-8 rounded-[32px] space-y-8 shadow-2xl">
+                    <h3 className="font-bold uppercase text-xs tracking-widest text-white/60 border-b border-white/10 pb-4">Análise Financeira</h3>
+                    <div className="space-y-4 text-sm">
+                      <div className="flex justify-between"><span className="text-white/60">FIPE</span><span className="font-mono">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fipe)}</span></div>
+                      <div className="flex justify-between text-red-400 group cursor-pointer relative"><span className="text-white/60">Descontos Aplicados</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.discountValue)}</span>
+                        <div className="absolute right-0 top-full bg-slate-800 border border-white/10 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
+                          {calc.discounts.map((d, i) => (
+                            <div key={i} className={`flex justify-between text-xs mb-1 ${d.isMax ? 'text-red-400 font-bold' : 'text-white/40 line-through opacity-50'}`}>
+                              <span>{d.name}</span>
+                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex justify-between text-red-400 group cursor-pointer relative"><span className="text-white/60">Descontos fixo\avaria\doc</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fixedCosts)}</span>
+                        <div className="absolute right-0 top-full bg-slate-800 border border-white/10 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
+                          {calc.fixedCostsDetail.map((d, i) => (
+                            <div key={i} className="flex justify-between text-xs mb-1 text-white/60">
+                              <span>{d.name}</span>
+                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex justify-between text-red-400 group cursor-pointer relative"><span className="text-white/60">Quitação</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}</span>
+                        <div className="absolute right-0 top-full bg-slate-800 border border-white/10 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
+                            <div className="flex justify-between text-xs text-white/60 mb-1 font-bold border-b border-white/10 pb-1">
+                                <span>Valor da Parcela</span>
+                                <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.valorParcela)}</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-white/60 mb-2 font-bold border-b border-white/10 pb-1">
+                                <span>Juros Mensal (Config)</span>
+                                <span>{calc.payoffBreakdown.jurosParcelas}%</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-white/60 mb-1">
+                                <span>Qtd a Vencer</span>
+                                <span>{calc.payoffBreakdown.qtdAVencer}</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-white/60 mb-1">
+                                <span>Valor a Vencer</span>
+                                <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.valorAVencer)}</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-white/60 mb-1">
+                                <span>Qtd Atrasadas</span>
+                                <span>{calc.payoffBreakdown.qtdAtrasadas}</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-white/60 mb-1">
+                                <span>Valor Atrasadas</span>
+                                <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.valorAtrasadas)}</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-white/60 mb-1">
+                                <span>Juros Atrasadas ({calc.payoffBreakdown.jurosParcelas}%)</span>
+                                <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.jurosAtrasadas)}</span>
+                            </div>
+                            <div className="pt-2 mt-2 border-t border-white/10 flex justify-between text-xs font-bold text-white">
+                                <span>Total Quitação</span>
+                                <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}</span>
+                            </div>
+                        </div>
+                      </div>
+                      <div className="pt-6 border-t border-white/10 flex justify-between items-center group cursor-pointer relative">
+                        <span className="text-accent font-bold">PROPOSTA FINAL</span>
+                        <span className="text-2xl font-bold font-display">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalProposal)}</span>
+                        <div className="absolute right-0 bottom-full mb-2 bg-slate-800 border border-white/10 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-72">
+                          <div className="text-xs font-bold mb-2 border-b border-white/10 pb-1 text-white">Comparativo de Propostas</div>
+                          <div className={`flex justify-between text-xs mb-1 ${calc.optionA <= calc.optionB ? 'text-emerald-400 font-bold' : 'text-red-400'}`}>
+                            <span>FIPE - Descontos</span>
+                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.optionA)}</span>
+                          </div>
+                          <div className={`flex justify-between text-xs mb-1 ${calc.optionB < calc.optionA ? 'text-emerald-400 font-bold' : 'text-red-400'}`}>
+                            <span>Valor Desejado - 40%</span>
+                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.optionB)}</span>
+                          </div>
+                          <div className="text-[10px] text-white/40 mt-2 italic">* O sistema seleciona automaticamente o menor valor.</div>
+                        </div>
                       </div>
                     </div>
-
-                    {onShowProposal && (
-                      <button 
-                        onClick={onShowProposal}
-                        className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800 transition-all flex items-center justify-center gap-2 shadow-md"
-                      >
-                        <FileText className="w-5 h-5" />
-                        Formulário Completo (Editar Valores e Regras)
-                      </button>
-                    )}
                   </div>
                 </div>
               </div>
@@ -1295,6 +1298,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
             </div>
           </div>
         )}
+      </div>
     </div>
   );
 }
