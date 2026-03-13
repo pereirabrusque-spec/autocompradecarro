@@ -501,7 +501,9 @@ export default function AdminDashboard() {
           console.log("Message received, but remetente is not 'cliente':", payload.new.remetente);
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log("Subscription status:", status);
+      });
 
     return () => {
       subscription.unsubscribe();
