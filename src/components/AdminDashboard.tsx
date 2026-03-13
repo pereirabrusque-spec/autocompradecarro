@@ -659,7 +659,7 @@ export default function AdminDashboard() {
       // Atualiza a lista de conversas de forma otimizada
       const { data: messagesData } = await supabase
         .from('mensagens')
-        .select('*, leads_veiculos!lead_id(id, marca, modelo, cliente_nome, vehicle_code, fotos, detalhes_proposta, email, telefone, cliente_telefone)')
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (messagesData) {
