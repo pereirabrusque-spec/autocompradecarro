@@ -673,15 +673,33 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
             {selectedProposal && (
               <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4" onClick={() => setSelectedProposal(null)}>
                 <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl" onClick={e => e.stopPropagation()}>
-                  <h3 className="text-lg font-bold mb-4">Detalhes da Proposta</h3>
-                  <div className="space-y-2 text-sm">
-                    <p><strong>Valor Final:</strong> {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedProposal.final_value)}</p>
-                    <p><strong>Base FIPE:</strong> {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedProposal.base_value)}</p>
-                    {selectedProposal.deductions && selectedProposal.deductions.map((d: any, i: number) => (
-                      <p key={i}>{d.name}: -{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</p>
-                    ))}
+                  <h3 className="text-lg font-bold mb-4">
+                    {selectedProposal.final_value < 0 ? 'Proposta Limpa Nome' : 'Detalhes da Proposta'}
+                  </h3>
+                  <div className="space-y-4 text-sm">
+                    {selectedProposal.final_value < 0 ? (
+                      <div className="space-y-3">
+                        <p className="text-slate-600 leading-relaxed italic">
+                          "Devido às custas do processo e valor operacional, oferecemos a quitação e blindagem do seu nome em troca do veículo."
+                        </p>
+                        <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                          <p className="text-emerald-700 font-bold text-center">LIMPA NOME ATIVADO</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex justify-between p-3 bg-slate-50 rounded-xl">
+                          <span className="text-slate-500">Base FIPE:</span>
+                          <span className="font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedProposal.base_value)}</span>
+                        </div>
+                        <div className="flex justify-between p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                          <span className="text-emerald-700 font-bold">Proposta Final:</span>
+                          <span className="text-emerald-700 font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedProposal.final_value)}</span>
+                        </div>
+                      </>
+                    )}
                   </div>
-                  <button onClick={() => setSelectedProposal(null)} className="mt-6 w-full py-2 bg-slate-900 text-white rounded-lg text-sm font-bold">Fechar</button>
+                  <button onClick={() => setSelectedProposal(null)} className="mt-6 w-full py-3 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-all">Fechar</button>
                 </div>
               </div>
             )}

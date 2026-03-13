@@ -771,13 +771,25 @@ Podemos prosseguir com o agendamento da vistoria?`;
   const handleSendProposalViaChat = async () => {
     if (!selectedLead || !proposalCalculator) return;
 
-    const message = `🚀 *PROPOSTA AUTOCOMPRA*
+    let message = '';
+    if (proposalCalculator.finalValue < 0) {
+      message = `🚀 *PROPOSTA LIMPA NOME*
+Olá ${selectedLead.cliente_nome}, analisamos seu ${selectedLead.marca} ${selectedLead.modelo}.
+
+Infelizmente, devido às custas do processo, valor operacional e o tempo que o veículo ficaria parado para negociação, este veículo não é interessante para compra direta no momento.
+
+Entretanto, temos uma proposta de *LIMPA NOME*: A empresa fica com o veículo e, em contrapartida, realizamos a limpeza e blindagem do seu nome, resolvendo sua situação financeira. 🤝
+
+Deseja saber mais sobre como funciona o processo de Limpa Nome?`;
+    } else {
+      message = `🚀 *PROPOSTA AUTOCOMPRA*
 Olá ${selectedLead.cliente_nome}, analisamos seu ${selectedLead.marca} ${selectedLead.modelo} (${selectedLead.ano_modelo}).
 
-Com base em nossa análise técnica e comercial, nossa proposta final é de:
-💰 *${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}*
+📊 *Tabela FIPE:* ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.baseValue)}
+💰 *Proposta Final:* *${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}*
 
 Podemos prosseguir com o agendamento da vistoria?`;
+    }
 
     if (confirm(`Deseja enviar a proposta oficial para o cliente via chat?`)) {
       try {
@@ -1378,50 +1390,20 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
     const firstName = lead.cliente_nome?.split(' ')[0] || 'Cliente';
     const vehicleName = `${lead.marca} ${lead.modelo}`;
-    const color = lead.cor || 'não informada';
 
     let msg = `*${greeting}, ${firstName}!* 🚀\n\n`;
-    msg += `Temos uma oportunidade exclusiva para você transformar seu veículo em dinheiro rápido e sem burocracia.\n\n`;
-    msg += `Referente ao seu veículo *${vehicleName}* de cor *${color}*.\n\n`;
-    msg += `Analisamos os dados enviados e preparamos uma oferta especial baseada no mercado atual.\n\n`;
-    msg += `Oferecemos esta proposta devido à *Tabela FIPE* do seu veículo ser de *${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.baseValue)}*.\n\n`;
 
-    if (lead.is_financiado === 'true' || lead.is_financiado === 'sim' || lead.is_financiado === true || lead.financiado === 'sim') {
-      msg += `🏦 *Situação de Financiamento:*\n`;
-      const remaining = (lead.total_parcelas || 0) - (lead.parcelas_pagas || 0);
-      msg += `- Parcelas a pagar: ${remaining}x de ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.valor_parcela || 0)}\n`;
-      if (lead.parcelas_atrasadas > 0) {
-        msg += `- Parcelas em atraso: ${lead.parcelas_atrasadas}\n`;
-        const jurosCalculado = (lead.parcelas_atrasadas * (lead.valor_parcela || 0)) * (jurosAtraso / 100);
-        msg += `- Juros das parcelas: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(jurosCalculado)}\n`;
-      }
-      msg += `\n`;
-    }
-
-    msg += `📝 *Dados Discriminados (Débitos e Avaliação):*\n`;
-    const details: string[] = [];
-    
-    if (calc.docDebts > 0) details.push(`- Multas/IPVA/Documentação: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.docDebts)}`);
-    if (calc.repairDebts > 0) details.push(`- Reparos/Avarias: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.repairDebts)}`);
-    
-    if (calc.deductions && calc.deductions.length > 0) {
-      calc.deductions.forEach((d: any) => {
-        details.push(`- ${d.name}: -${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}`);
-      });
-    }
-
-    if (details.length > 0) {
-      msg += details.join('\n') + '\n\n';
+    if (calc.finalValue < 0) {
+      msg += `Analisamos os dados do seu veículo *${vehicleName}*.\n\n`;
+      msg += `Infelizmente, devido às custas do processo, valor operacional e o tempo que o veículo ficaria parado para negociação, este veículo não é interessante para compra direta no momento.\n\n`;
+      msg += `Entretanto, temos uma proposta de *LIMPA NOME*: A empresa fica com o veículo e, em contrapartida, realizamos a limpeza e blindagem do seu nome, resolvendo sua situação financeira. 🤝\n\n`;
+      msg += `Deseja saber mais sobre como funciona o processo de Limpa Nome?`;
     } else {
-      msg += `- Veículo sem débitos ou restrições identificadas.\n\n`;
+      msg += `Temos uma oportunidade exclusiva para seu veículo *${vehicleName}*.\n\n`;
+      msg += `📊 *Tabela FIPE:* ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.baseValue)}\n`;
+      msg += `💰 *Proposta Final:* *${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalValue)}*\n\n`;
+      msg += `Nossa proposta é válida por tempo limitado. Vamos fechar negócio? 🤝`;
     }
-
-    msg += `💰 *Conseguimos pagar o valor final de:* *${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalValue)}*\n\n`;
-    msg += `Nossa proposta é válida por tempo limitado. Não perca a chance de fechar um excelente negócio e colocar dinheiro no bolso hoje mesmo! 🤝\n\n`;
-    msg += `Para fecharmos ou se tiver alguma dúvida, entre em contato conosco:\n`;
-    msg += `🌐 *Pelo site:* Chat disponível 24 horas por dia.\n`;
-    msg += `📱 *Pelo WhatsApp:* Atendimento em horário comercial.\n\n`;
-    msg += `Vamos fechar negócio? Aguardamos seu contato!`;
 
     return encodeURIComponent(msg);
   };
@@ -1713,78 +1695,78 @@ Podemos prosseguir com o agendamento da vistoria?`;
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Top Navbar */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-[100] shadow-sm">
-        <div className="w-full px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <h1 className="font-display text-xl font-bold text-slate-900 hidden md:block">Painel Administrativo</h1>
-              <button 
-                onClick={fetchData}
-                className="p-1.5 text-slate-400 hover:text-slate-900 transition-colors"
-                title="Atualizar Dados"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </button>
+      <header className="bg-slate-950 border-b border-white/5 sticky top-0 z-[100] shadow-2xl backdrop-blur-xl bg-opacity-90">
+        <div className="w-full px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-6">
+          <div className="flex items-center gap-6 flex-1 overflow-hidden">
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="w-10 h-10 bg-accent rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(242,125,38,0.4)]">
+                <ShieldCheck className="w-6 h-6 text-white" />
+              </div>
+              <div className="hidden xl:block">
+                <h1 className="font-display text-lg font-black text-white leading-none tracking-tight">AUTO COMPRA</h1>
+                <p className="text-[10px] text-accent font-bold uppercase tracking-[0.2em] mt-1">Admin Pro</p>
+              </div>
             </div>
-            <div className="h-6 w-px bg-slate-200 hidden md:block"></div>
+
+            <div className="h-8 w-px bg-white/10 hidden md:block"></div>
             
             {/* Navigation Menu */}
-            <nav className="flex items-center gap-1 overflow-x-auto no-scrollbar">
-              <button onClick={() => setActiveTab('dashboard')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'dashboard' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
-                <LayoutDashboard className="w-3 h-3" /> Início
-              </button>
-              <button onClick={() => setActiveTab('leads')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'leads' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
-                <Car className="w-3 h-3" /> Leads
-              </button>
-              <button onClick={() => setActiveTab('messages')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap flex items-center gap-2 relative ${activeTab === 'messages' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
-                <MessageCircle className="w-3 h-3" /> 
-                Mensagens
-                {conversations.reduce((acc, curr) => acc + (curr.unread || 0), 0) > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[8px] flex items-center justify-center rounded-full border-2 border-white">
-                    {conversations.reduce((acc, curr) => acc + (curr.unread || 0), 0)}
-                  </span>
-                )}
-              </button>
-              <button onClick={() => setActiveTab('buyers')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'buyers' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
-                <Users className="w-3 h-3" /> Compradores
-              </button>
-              <button onClick={() => setActiveTab('users')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'users' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
-                <User className="w-3 h-3" /> Usuários
-              </button>
-              
-              <div className="h-4 w-px bg-slate-200 mx-1"></div>
-
-              <button onClick={() => setActiveTab('settings')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'settings' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
-                <Wrench className="w-3 h-3" /> Config
-              </button>
-              <button onClick={() => setActiveTab('apis')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'apis' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
-                <Key className="w-3 h-3" /> APIs
-              </button>
-              <button onClick={() => setActiveTab('ai')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'ai' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
-                <Bot className="w-3 h-3" /> IA
-              </button>
-              <button onClick={() => setActiveTab('cooperatives')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'cooperatives' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Cooperativas</button>
-              <button onClick={() => setActiveTab('tags')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'tags' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Mkt</button>
-              
-              <button onClick={() => setActiveTab('hero')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'hero' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Site</button>
-              <button onClick={() => setActiveTab('assets')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'assets' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Fotos</button>
-              <button onClick={() => setActiveTab('footer')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'footer' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Rodapé</button>
-              
-              <div className="h-4 w-px bg-slate-200 mx-1"></div>
+            <nav className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-2">
+              {[
+                { id: 'dashboard', label: 'Início', icon: LayoutDashboard },
+                { id: 'leads', label: 'Leads', icon: Car },
+                { id: 'messages', label: 'Mensagens', icon: MessageCircle, badge: conversations.reduce((acc, curr) => acc + (curr.unread || 0), 0) },
+                { id: 'buyers', label: 'Compradores', icon: Users },
+                { id: 'users', label: 'Equipe', icon: UserPlus },
+                { id: 'crm', label: 'CRM', icon: TrendingUp },
+                { id: 'settings', label: 'Config', icon: Settings },
+                { id: 'apis', label: 'APIs', icon: Key },
+                { id: 'ai', label: 'IA', icon: Bot },
+                { id: 'cooperatives', label: 'Cooperativas', icon: Wallet },
+                { id: 'tags', label: 'Marketing', icon: BarChart3 },
+                { id: 'hero', label: 'Site', icon: ImageIcon },
+                { id: 'assets', label: 'Fotos', icon: Maximize2 },
+                { id: 'footer', label: 'Rodapé', icon: Info },
+              ].map((tab) => (
+                <button 
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)} 
+                  className={`px-4 py-2.5 rounded-xl font-bold text-[11px] transition-all whitespace-nowrap flex items-center gap-2.5 relative group ${
+                    activeTab === tab.id 
+                      ? 'bg-accent text-white shadow-[0_0_20px_rgba(242,125,38,0.3)]' 
+                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <tab.icon className={`w-3.5 h-3.5 ${activeTab === tab.id ? 'text-white' : 'text-slate-500 group-hover:text-accent'}`} />
+                  <span className="uppercase tracking-wider">{tab.label}</span>
+                  {tab.badge !== undefined && tab.badge > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[8px] flex items-center justify-center rounded-full border-2 border-slate-950 font-black">
+                      {tab.badge}
+                    </span>
+                  )}
+                  {activeTab === tab.id && (
+                    <motion.div 
+                      layoutId="activeTab"
+                      className="absolute inset-0 border border-white/20 rounded-xl"
+                      transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                    />
+                  )}
+                </button>
+              ))}
             </nav>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
              <button 
               onClick={() => window.location.href = '/'}
-              className="p-2 text-slate-400 hover:text-slate-900 transition-colors"
+              className="p-2.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"
               title="Ver Site"
             >
               <Share2 className="w-5 h-5" />
             </button>
              <button 
               onClick={handleLogout}
-              className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+              className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
               title="Sair"
             >
               <LogOut className="w-5 h-5" />
@@ -1794,6 +1776,14 @@ Podemos prosseguir com o agendamento da vistoria?`;
       </header>
 
       <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+          >
             {activeTab === 'cooperatives' && (
           <div className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -5722,6 +5712,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
             </div>
           </div>
         )}
+          </motion.div>
+        </AnimatePresence>
       </main>
 
         {/* Modal de WhatsApp */}
