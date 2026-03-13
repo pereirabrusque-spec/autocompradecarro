@@ -442,18 +442,73 @@ export default function AdminDashboard() {
   }, [selectedLead]);
 
   useEffect(() => {
-    // Polling como fallback (a cada 5 segundos)
-    const interval = setInterval(() => {
-      console.log("Polling for new messages...");
-      if (selectedConversation?.lead_id) {
-        fetchChatMessages(selectedConversation.lead_id);
-      }
-    }, 5000);
+    const subscription = supabase
+      .channel('admin_messages_realtime')
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'mensagens' 
+      }, async (payload) => {
+        // Se for uma mensagem do cliente, atualiza a lista de conversas e o chat aberto
+        if (payload.new.remetente === 'cliente') {
+          console.log("Received new message from client:", payload.new);
+          // Atualiza mensagens do chat se estiver aberto para este lead
+          if (selectedConversation?.lead_id === payload.new.lead_id) {
+            console.log("Updating chat messages state");
+            setChatMessages(prev => [...prev, payload.new]);
+            // Marcar como lida automaticamente se o chat estiver aberto
+            try {
+              await supabase
+                .from('mensagens')
+                .update({ lida: true })
+                .eq('id', payload.new.id);
+              console.log("Message marked as read");
+            } catch (err) {
+              console.error("Error marking message as read:", err);
+            }
+          } else {
+            console.log("Message received for different lead. Current:", selectedConversation?.lead_id, "Message:", payload.new.lead_id);
+          }
+          
+          // Atualiza a lista de conversas de forma otimizada
+          const { data: messagesData } = await supabase
+            .from('mensagens')
+            .select('*, leads_veiculos(id, marca, modelo, cliente_nome, vehicle_code, fotos, ai_disabled, email, telefone)')
+            .order('created_at', { ascending: false });
+
+          if (messagesData) {
+            const groupedConversations: any[] = [];
+            const leadIds = new Set();
+            messagesData.forEach((msg: any) => {
+              if (!leadIds.has(msg.lead_id)) {
+                leadIds.add(msg.lead_id);
+                const leadMessages = messagesData.filter((m: any) => m.lead_id === msg.lead_id);
+                const unreadCount = leadMessages.filter((m: any) => !m.lida && m.remetente === 'cliente').length;
+                groupedConversations.push({
+                  lead_id: msg.lead_id,
+                  last_message: msg.conteudo,
+                  last_time: msg.created_at,
+                  last_message_at: msg.created_at,
+                  lead: msg.leads_veiculos,
+                  unread: unreadCount,
+                  is_unanswered: msg.remetente === 'cliente'
+                });
+              }
+            });
+            setConversations(groupedConversations);
+          }
+        } else {
+          console.log("Message received, but remetente is not 'cliente':", payload.new.remetente);
+        }
+      })
+      .subscribe((status) => {
+        console.log("Subscription status:", status);
+      });
 
     return () => {
-      clearInterval(interval);
+      subscription.unsubscribe();
     };
-  }, [selectedConversation]);
+  }, []);
 
   const fetchChatMessages = async (leadId: string) => {
     console.log('Fetching messages for lead:', leadId);
