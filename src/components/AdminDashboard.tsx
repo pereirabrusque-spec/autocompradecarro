@@ -465,6 +465,22 @@ export default function AdminDashboard() {
         // Se for uma mensagem do cliente, atualiza a lista de conversas e o chat aberto
         if (payload.new.remetente === 'cliente') {
           console.log("Received new message from client:", payload.new);
+          
+          // Automação de Status: Se o cliente responde, muda para "Em Contato"
+          const { data: leadData } = await supabase
+            .from('leads_veiculos')
+            .select('status')
+            .eq('id', payload.new.lead_id)
+            .single();
+
+          if (leadData && (leadData.status === 'novo' || leadData.status === 'proposta_enviada')) {
+            await supabase
+              .from('leads_veiculos')
+              .update({ status: 'em_contato' })
+              .eq('id', payload.new.lead_id);
+            console.log("Lead status updated to 'em_contato' automatically");
+          }
+
           console.log("Current selectedConversationRef:", selectedConversationRef.current);
           // Atualiza mensagens do chat se estiver aberto para este lead
           if (selectedConversationRef.current?.lead_id === payload.new.lead_id) {

@@ -4,17 +4,28 @@ import { supabase } from '../lib/supabase';
 export function GoogleTags() {
   useEffect(() => {
     const fetchTags = async () => {
-      const { data } = await supabase.from('settings').select('*').in('key', ['GOOGLE_ANALYTICS_ID', 'GOOGLE_ADS_ID']);
+      const { data } = await supabase.from('settings').select('*').in('key', ['GOOGLE_ANALYTICS_ID', 'GOOGLE_ADS_ID', 'GOOGLE_TAG_MANAGER_ID']);
       if (data) {
         let gaId = data.find(s => s.key === 'GOOGLE_ANALYTICS_ID')?.value;
         let adsId = data.find(s => s.key === 'GOOGLE_ADS_ID')?.value;
+        let gtmId = data.find(s => s.key === 'GOOGLE_TAG_MANAGER_ID')?.value;
 
         // Fallback para os IDs fornecidos pelo usuário
-        if (!gaId) {
-          gaId = 'G-SE8DRN12VH';
-        }
-        if (!adsId) {
-          adsId = 'AW-11148282770';
+        if (!gaId) gaId = 'G-SE8DRN12VH';
+        if (!adsId) adsId = 'AW-11148282770';
+        if (!gtmId) gtmId = 'GTM-MJ49SD3J';
+
+        // Google Tag Manager
+        if (gtmId) {
+          const gtmScript = document.createElement('script');
+          gtmScript.innerHTML = `
+            (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+            new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+            j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+            'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+            })(window,document,'script','dataLayer','${gtmId}');
+          `;
+          document.head.appendChild(gtmScript);
         }
 
         if (gaId) {
