@@ -508,7 +508,7 @@ export default function AdminDashboard() {
     return () => {
       subscription.unsubscribe();
     };
-  }, [selectedConversation]);
+  }, []);
 
   const fetchChatMessages = async (leadId: string) => {
     console.log('Fetching messages for lead:', leadId);
