@@ -3382,34 +3382,22 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         ))}
                     </div>
                   ) : (
-                    <>
-                      {/* Barra de rolagem superior simulada - Sticky below navbar (64px) */}
-                      <div className="sticky top-[64px] z-30 overflow-x-auto h-3 bg-slate-50 border-b border-slate-100" onScroll={(e) => {
-                        const tableContainer = e.currentTarget.nextElementSibling;
-                        if (tableContainer) tableContainer.scrollLeft = e.currentTarget.scrollLeft;
-                      }}>
-                        <div style={{ width: '2000px', height: '1px' }}></div>
-                      </div>
-                      
-                      <div className="overflow-x-auto" onScroll={(e) => {
-                        const scrollBar = e.currentTarget.previousElementSibling;
-                        if (scrollBar) scrollBar.scrollLeft = e.currentTarget.scrollLeft;
-                      }}>
-                        <table className="w-full text-left border-collapse">
-                          <thead className="sticky top-0 z-20 bg-slate-50 shadow-sm">
-                            <tr className="border-b border-slate-200">
-                              <th className="px-2 pr-1 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Data</th>
-                              <th className="px-2 pl-1 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Status</th>
-                              <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Veículo</th>
-                              <th className="px-2 pr-1 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Código</th>
-                              <th className="px-2 px-1 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Ano/Modelo</th>
-                              <th className="px-2 pl-1 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">FIPE</th>
-                              <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Desejado</th>
-                              <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Sugerido</th>
-                              <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Contato</th>
-                              <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 text-center">Ações</th>
-                            </tr>
-                          </thead>
+                    <div className="overflow-y-auto max-h-[calc(100vh-320px)] overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+                      <table className="w-full text-left border-collapse">
+                        <thead className="sticky top-0 z-20 bg-slate-50 shadow-sm">
+                          <tr className="border-b border-slate-200">
+                            <th className="px-2 pr-1 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Data</th>
+                            <th className="px-2 pl-1 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Status</th>
+                            <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Veículo</th>
+                            <th className="px-2 pr-1 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Código</th>
+                            <th className="px-2 px-1 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Ano/Modelo</th>
+                            <th className="px-2 pl-1 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">FIPE</th>
+                            <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Desejado</th>
+                            <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Sugerido</th>
+                            <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Contato</th>
+                            <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 text-center">Ações</th>
+                          </tr>
+                        </thead>
                           <tbody>
                             {leads
                               .filter(l => activeLeadTab === 'todos' || l.status === activeLeadTab)
@@ -3568,11 +3556,10 @@ Podemos prosseguir com o agendamento da vistoria?`;
                           </tbody>
                         </table>
                       </div>
-                    </>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
-          )}
+            )}
 
           {activeTab === 'buyers' && (
               <div className="space-y-8">
