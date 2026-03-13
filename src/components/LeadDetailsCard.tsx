@@ -139,13 +139,22 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
              name.includes('viacredi');
     };
 
+    // Aplicar desconto de cooperativa antes de tudo
+    let fipeBase = fipe;
+    if (isCooperativa || isCooperativeBank(currentLead.banco_financiamento)) {
+        // Exemplo: aplicar 5% de desconto de cooperativa se for cooperativa
+        const coopDiscount = fipe * 0.05;
+        fipeBase = fipe - coopDiscount;
+        discountOptions.push({ name: 'Desconto Cooperativa (5%)', value: coopDiscount });
+    }
+
     if (fipeRules && fipeRules.length > 0) {
       fipeRules.forEach(rule => {
         let apply = false;
         const condition = rule.condition_name.toLowerCase();
         
         // Mapeamento flexível das condições do banco para as variáveis do lead
-        if (condition.includes('cooperativa') && (isCooperativa || isCooperativeBank(currentLead.banco_financiamento))) apply = true;
+        // A condição de cooperativa já foi tratada acima
         if (condition.includes('financiado') && isFinanciado) apply = true;
         if (condition.includes('reajuste') && isReajuste) apply = true;
         if (condition.includes('financiamento atrasado') && isFinanciamentoAtrasado) apply = true;
@@ -165,7 +174,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
         if (apply) {
           discountOptions.push({ 
             name: `${rule.condition_name} (${rule.discount_percentage}%)`, 
-            value: fipe * (rule.discount_percentage / 100) 
+            value: fipeBase * (rule.discount_percentage / 100) 
           });
         }
       });
@@ -1081,10 +1090,16 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                     <h3 className="font-bold uppercase text-xs tracking-widest text-white/60 border-b border-white/10 pb-4">Análise Financeira</h3>
                     <div className="space-y-4 text-sm">
                       <div className="flex justify-between"><span className="text-white/60">FIPE</span><span className="font-mono">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fipe)}</span></div>
-                      <div className="flex justify-between text-red-400 group cursor-pointer relative"><span className="text-white/60">Descontos</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.discountValue)}</span>
+                      <div className="flex justify-between text-red-400 group cursor-pointer relative"><span className="text-white/60">Descontos e Avarias</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.discountValue + calc.fixedCosts)}</span>
                         <div className="absolute right-0 top-full bg-slate-800 border border-white/10 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
                           {calc.discounts.map((d, i) => (
                             <div key={i} className={`flex justify-between text-xs mb-1 ${d.isMax ? 'text-red-400 font-bold' : 'text-white/60'}`}>
+                              <span>{d.name}</span>
+                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
+                            </div>
+                          ))}
+                          {calc.fixedCostsDetail.map((d, i) => (
+                            <div key={i} className="flex justify-between text-xs mb-1 text-white/60">
                               <span>{d.name}</span>
                               <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
                             </div>
