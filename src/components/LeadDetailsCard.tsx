@@ -296,39 +296,6 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     msg += `Analisamos os dados enviados e preparamos uma oferta especial baseada no mercado atual.\n\n`;
     msg += `Oferecemos esta proposta devido à *Tabela FIPE* do seu veículo ser de *${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fipe)}*.\n\n`;
 
-    if (currentLead.is_financiado === 'true' || currentLead.is_financiado === 'sim' || currentLead.is_financiado === true) {
-      msg += `🏦 *Situação de Financiamento:*\n`;
-      msg += `- Parcelas a pagar: ${calc.payoffBreakdown.qtdAVencer}x de ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.valorParcela)}\n`;
-      if (calc.payoffBreakdown.qtdAtrasadas > 0) {
-        msg += `- Parcelas em atraso: ${calc.payoffBreakdown.qtdAtrasadas}\n`;
-        msg += `- Juros das parcelas: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoffBreakdown.jurosAtrasadas)}\n`;
-      }
-      msg += `\n`;
-    }
-
-    msg += `📝 *Dados Discriminados (Débitos e Avaliação):*\n`;
-    const details: string[] = [];
-    
-    // Custos Fixos e Débitos
-    if (calc.fixedCostsDetail.length > 0) {
-      calc.fixedCostsDetail.forEach(item => {
-        details.push(`- ${item.name}: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value)}`);
-      });
-    }
-
-    // Descontos de Regras (Sinistro, Leilão, Renajud, etc)
-    if (calc.discounts.length > 0) {
-      calc.discounts.forEach(d => {
-        details.push(`- ${d.name}: -${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}`);
-      });
-    }
-
-    if (details.length > 0) {
-      msg += details.join('\n') + '\n\n';
-    } else {
-      msg += `- Veículo sem débitos ou restrições identificadas.\n\n`;
-    }
-
     msg += `💰 *Conseguimos pagar o valor final de:* *${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalProposal)}*\n\n`;
     msg += `Nossa proposta é válida por tempo limitado. Não perca a chance de fechar um excelente negócio e colocar dinheiro no bolso hoje mesmo! 🤝\n\n`;
     msg += `Para fecharmos ou se tiver alguma dúvida, entre em contato conosco:\n`;
@@ -1235,27 +1202,33 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                   <div className="p-4 border-b border-slate-100">
                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mensagem da Proposta</h4>
                   </div>
-                  <div className="flex-1 p-6 flex flex-col gap-4">
-                    <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
-                      <h5 className="text-xs font-bold text-blue-900 mb-2 flex items-center gap-2">
-                        <DollarSign className="w-4 h-4" /> Resumo Financeiro
+                  <div className="flex-1 p-6 flex flex-col gap-4 overflow-y-auto">
+                    <div className="bg-blue-50 p-3 rounded-xl border border-blue-100 group relative">
+                      <h5 className="text-[9px] font-bold text-blue-900 mb-1 flex items-center gap-2 uppercase tracking-widest">
+                        <DollarSign className="w-3 h-3" /> Resumo Financeiro
                       </h5>
-                      <div className="grid grid-cols-2 gap-y-2 text-[10px]">
+                      <div className="grid grid-cols-2 gap-y-1 text-[9px]">
                         <div className="text-blue-700">Valor FIPE:</div>
                         <div className="text-right font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fipe)}</div>
-                        <div className="text-blue-700">Total Deduções:</div>
+                        <div className="text-blue-700 relative cursor-help">
+                          Total Deduções:
+                          <div className="absolute left-0 top-full bg-white p-2 rounded shadow-lg border border-slate-200 hidden group-hover:block z-10 w-64 text-[10px]">
+                            {calc.fixedCostsDetail.map((d: any, i: number) => <p key={i}>{d.name}: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</p>)}
+                            {calc.discounts.map((d: any, i: number) => <p key={i}>{d.name}: -{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</p>)}
+                          </div>
+                        </div>
                         <div className="text-right font-bold text-red-600">-{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.discountValue + calc.fixedCosts + calc.payoff)}</div>
-                        <div className="text-blue-900 font-black pt-2 border-t border-blue-200">VALOR FINAL:</div>
-                        <div className="text-right font-black text-blue-900 pt-2 border-t border-blue-200 text-sm">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalProposal)}</div>
+                        <div className="text-blue-900 font-black pt-1 border-t border-blue-200">VALOR FINAL:</div>
+                        <div className="text-right font-black text-blue-900 pt-1 border-t border-blue-200 text-xs">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalProposal)}</div>
                       </div>
                     </div>
 
-                    <div className="flex-1 flex flex-col gap-2">
+                    <div className="flex-[2] flex flex-col gap-2">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Editar Saudação e Texto</label>
                       <textarea 
                         value={proposalMessage}
                         onChange={(e) => setProposalMessage(e.target.value)}
-                        className="flex-1 p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-accent/20 resize-none font-medium text-slate-700"
+                        className="flex-1 p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-accent/20 resize-none font-medium text-slate-700 min-h-[300px]"
                         placeholder="Escreva a mensagem da proposta..."
                       />
                     </div>
