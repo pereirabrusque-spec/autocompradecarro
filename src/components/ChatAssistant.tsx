@@ -325,10 +325,14 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
     setSelectedImage(null);
     setVideos([]);
     
-    setMessages(prev => [...prev, { role: 'user', text: userText, image: userImage || undefined }]);
+    setMessages(prev => {
+      console.log("Adding user message to state:", userText);
+      return [...prev, { role: 'user', text: userText, image: userImage || undefined }];
+    });
     
     // Salvar mensagem do usuário
     if (leadId) {
+      console.log("Saving user message to Supabase:", userText);
       const { error } = await supabase.from('mensagens').insert({
         lead_id: leadId,
         remetente: 'cliente',
@@ -338,6 +342,8 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         console.error("Erro ao salvar mensagem:", error);
         setMessages(prev => prev.filter(m => m.text !== userText)); // Remove optimistic message
         alert("Erro ao enviar mensagem. Tente novamente.");
+      } else {
+        console.log("Message saved successfully.");
       }
     }
 
