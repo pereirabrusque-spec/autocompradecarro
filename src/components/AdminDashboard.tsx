@@ -1763,15 +1763,15 @@ Podemos prosseguir com o agendamento da vistoria?`;
       <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
             {activeTab === 'cooperatives' && (
           <div className="space-y-8">
-            <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm">
-              <h2 className="text-2xl font-bold mb-6">Cooperativas</h2>
-              <button 
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div 
                 onClick={() => setShowCooperativesModal(true)}
-                className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold flex items-center gap-2 hover:bg-accent transition-all"
+                className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm cursor-pointer hover:border-slate-300 transition-all"
               >
-                <Plus className="w-5 h-5" />
-                Gerenciar Cooperativas
-              </button>
+                <h2 className="text-xl font-bold mb-2">Cooperativas</h2>
+                <p className="text-sm text-slate-500 mb-4">Gerenciar lista e descontos</p>
+                <div className="text-3xl font-black text-slate-900">{cooperativeDiscount}%</div>
+              </div>
             </div>
           </div>
         )}

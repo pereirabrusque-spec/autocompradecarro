@@ -57,6 +57,22 @@ export default function CooperativesModal({ isOpen, onClose, banks, onRefresh, c
               Salvar Porcentagem Global
             </button>
           </div>
+          
+          <div className="p-4 bg-slate-100 rounded-xl space-y-2">
+            <label className="text-sm font-bold">Copiar Cooperativas (Prompt)</label>
+            <textarea 
+              readOnly
+              className="w-full p-2 border rounded text-xs h-20"
+              value={banks.map(b => b.name).join('; ')}
+            />
+            <button 
+              onClick={() => navigator.clipboard.writeText(banks.map(b => b.name).join('; '))}
+              className="w-full p-2 bg-slate-800 text-white rounded font-bold text-sm"
+            >
+              Copiar Prompt
+            </button>
+          </div>
+
           <button 
             onClick={async () => {
               const banksToPopulate = ['Sicoob', 'Sicredi', 'Unicred', 'Cresol', 'Viacredi', 'Ailos', 'Credisis', 'Credicoamo'];
