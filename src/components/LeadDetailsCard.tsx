@@ -481,9 +481,9 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
   return (
     <div className="bg-white rounded-[32px] w-full h-full flex flex-col shadow-sm border border-slate-100 overflow-hidden">
         {/* Header Fixo */}
-        <div className="flex justify-between items-center p-3 border-b border-slate-100 bg-white sticky top-0 z-50">
+        <div className="flex justify-between items-center px-3 h-8 border-b border-slate-100 bg-white sticky top-0 z-50">
           <div className="flex items-center gap-2 overflow-hidden">
-            <h2 className="text-sm font-bold font-display truncate">#{currentLead.vehicle_code} - {currentLead.marca} {currentLead.modelo}</h2>
+            <h2 className="text-[11px] font-bold font-display truncate">#{currentLead.vehicle_code} - {currentLead.marca} {currentLead.modelo}</h2>
             <select
               value={currentLead.status || 'novo'}
               onChange={async (e) => {
@@ -492,7 +492,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                 setCurrentLead(updated);
                 onSave(updated);
               }}
-              className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full border-none outline-none cursor-pointer transition-colors ${
+              className={`text-[8px] font-bold uppercase px-1.5 py-0.5 rounded-full border-none outline-none cursor-pointer transition-colors ${
                 currentLead.status === 'novo' ? 'bg-blue-100 text-blue-600' :
                 currentLead.status === 'em_contato' ? 'bg-orange-100 text-orange-600' :
                 currentLead.status === 'proposta_enviada' ? 'bg-indigo-100 text-indigo-600' :
@@ -508,12 +508,12 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
               <option value="perdido">PERDIDO</option>
             </select>
           </div>
-          <div className="flex gap-2">
-            <button onClick={() => setShowDataModal(true)} className="px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-[10px] font-bold text-slate-700 flex items-center gap-1">
-              <FileText className="w-3 h-3" /> Detalhes
+          <div className="flex gap-1">
+            <button onClick={() => setShowDataModal(true)} className="px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 rounded-md text-[9px] font-bold text-slate-700 flex items-center gap-0.5">
+              <FileText className="w-2.5 h-2.5" /> Detalhes
             </button>
-            <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-full">
-              <X className="w-4 h-4" />
+            <button onClick={onClose} className="p-0.5 hover:bg-slate-100 rounded-full">
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
@@ -655,75 +655,41 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
               {/* Botões Principais */}
               <div className="space-y-3">
                 {proposalCalculator ? (
-                  <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h4 className="text-sm font-black text-slate-900">Resumo da Proposta</h4>
-                        <p className="text-xs font-bold text-slate-500">{currentLead.marca} {currentLead.modelo} {currentLead.ano_modelo}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[10px] font-bold text-slate-500 uppercase">Valor Sugerido</p>
-                        <p className="text-lg font-black text-emerald-600">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}
-                        </p>
-                      </div>
+                  <div className="bg-slate-900 rounded-2xl p-4 text-white">
+                    <div className="flex justify-between items-center mb-3">
+                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Resumo da Proposta</h4>
+                      <p className="text-sm font-black text-emerald-400">
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}
+                      </p>
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-2 mb-4">
-                      <div className="bg-white p-2 rounded-lg border border-slate-100">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase">Tabela FIPE</p>
-                        <p className="text-xs font-bold text-slate-700">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.baseValue)}</p>
-                      </div>
-                      <div className="bg-white p-2 rounded-lg border border-slate-100">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase">Deduções Totais</p>
-                        <p className="text-xs font-bold text-red-600">
-                          -{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                    <div className="grid grid-cols-3 gap-2 text-[9px] font-bold text-slate-300">
+                      <div className="bg-white/10 p-2 rounded-lg">
+                        <p className="text-slate-400 uppercase">Dedução Aplicada</p>
+                        <p className="text-white">
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
                             proposalCalculator.deductions.reduce((acc: number, d: any) => acc + d.value, 0)
                           )}
                         </p>
                       </div>
-                      <div className="bg-white p-2 rounded-lg border border-slate-100">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase">Dívidas/Quitação</p>
-                        <p className="text-xs font-bold text-red-600">
-                          -{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.payoffValue + proposalCalculator.docDebts)}
+                      <div className="bg-white/10 p-2 rounded-lg">
+                        <p className="text-slate-400 uppercase">Dedução Fixa/IPVA/Doc</p>
+                        <p className="text-white">
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.payoffValue + proposalCalculator.docDebts)}
                         </p>
                       </div>
-                      <div className="bg-white p-2 rounded-lg border border-slate-100">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase">Margem de Lucro</p>
-                        <p className="text-xs font-bold text-blue-600">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.profitMargin)}</p>
+                      <div className="bg-white/10 p-2 rounded-lg">
+                        <p className="text-slate-400 uppercase">Quitação</p>
+                        <p className="text-white">
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.payoffValue)}
+                        </p>
                       </div>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <button 
-                        onClick={() => setShowDataModal(true)}
-                        className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold text-xs hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
-                      >
-                        <FileText className="w-4 h-4" />
-                        Formulário Completo
-                      </button>
-                      {onShowProposal && (
-                        <button 
-                          onClick={onShowProposal}
-                          className="flex-1 py-3 bg-accent/10 text-accent rounded-xl font-bold text-xs hover:bg-accent/20 transition-all flex items-center justify-center gap-2"
-                        >
-                          <DollarSign className="w-4 h-4" />
-                          Ver Proposta
-                        </button>
-                      )}
                     </div>
                   </div>
                 ) : (
-                  <>
-                    <button onClick={() => setShowDataModal(true)} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-slate-800 transition-all shadow-lg transform hover:scale-[1.01] active:scale-[0.99]">
-                      <FileText className="w-5 h-5" /> Avaliar Veículo (Formulário Completo)
-                    </button>
-                    {onShowProposal && (
-                      <button onClick={onShowProposal} className="w-full py-4 bg-accent/10 text-accent rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-accent/20 transition-all shadow-sm transform hover:scale-[1.01] active:scale-[0.99]">
-                        <DollarSign className="w-5 h-5" /> Ver Proposta
-                      </button>
-                    )}
-                  </>
+                  <div className="bg-slate-900 rounded-2xl p-4 text-white text-center text-xs font-bold">
+                    Proposta não calculada
+                  </div>
                 )}
               </div>
               {/* Benefícios */}
