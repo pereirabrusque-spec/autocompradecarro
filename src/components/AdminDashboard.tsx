@@ -153,6 +153,7 @@ export default function AdminDashboard() {
   const [confirmDeleteUserId, setConfirmDeleteUserId] = useState<string | null>(null);
   const [confirmDeleteAssetId, setConfirmDeleteAssetId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const [buyerPermissions, setBuyerPermissions] = useState({
     show_price: true,
