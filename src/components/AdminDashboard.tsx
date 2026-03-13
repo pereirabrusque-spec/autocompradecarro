@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GoogleGenAI } from "@google/genai";
-import { Car, Phone, Calendar, DollarSign, AlertCircle, AlertTriangle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw, Pencil, Users, Share2, MessageCircle, ChevronRight, ChevronLeft, Search, Filter, ShieldCheck, Wrench, Wallet, User, UserPlus, Mail, Bell, BellOff, Send, UserCheck, LayoutDashboard, Download, TrendingUp, BarChart3, PieChart, Info, X, Settings, Maximize2 } from 'lucide-react';
+import { Car, Phone, Calendar, DollarSign, AlertCircle, AlertTriangle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw, Pencil, Users, Share2, MessageCircle, ChevronRight, ChevronLeft, Search, Filter, ShieldCheck, Wrench, Wallet, User, UserPlus, Mail, Bell, BellOff, Send, UserCheck, LayoutDashboard, Download, TrendingUp, BarChart3, PieChart, Info, X, Settings, Maximize2, Key, Bot } from 'lucide-react';
 import ChatThemeSettings from './ChatThemeSettings';
 import { useAssets } from '../lib/assetsContext';
 import { supabase } from '../lib/supabase';
@@ -1757,6 +1757,12 @@ Podemos prosseguir com o agendamento da vistoria?`;
               <button onClick={() => setActiveTab('settings')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'settings' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
                 <Wrench className="w-3 h-3" /> Config
               </button>
+              <button onClick={() => setActiveTab('apis')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'apis' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
+                <Key className="w-3 h-3" /> APIs
+              </button>
+              <button onClick={() => setActiveTab('ai')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'ai' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
+                <Bot className="w-3 h-3" /> IA
+              </button>
               <button onClick={() => setActiveTab('cooperatives')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'cooperatives' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Cooperativas</button>
               <button onClick={() => setActiveTab('tags')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'tags' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Mkt</button>
               
@@ -1765,9 +1771,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
               <button onClick={() => setActiveTab('footer')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'footer' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Rodapé</button>
               
               <div className="h-4 w-px bg-slate-200 mx-1"></div>
-
-              <button onClick={() => setActiveTab('ai')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'ai' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>IA</button>
-              <button onClick={() => setActiveTab('apis')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'apis' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>APIs</button>
             </nav>
           </div>
 
@@ -1986,7 +1989,16 @@ Podemos prosseguir com o agendamento da vistoria?`;
             )}
             {activeTab === 'settings' && (
               <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 space-y-6">
-                <h2 className="text-2xl font-bold">Configurações Gerais</h2>
+                <div className="flex justify-between items-center">
+                  <h2 className="text-2xl font-bold">Configurações Gerais</h2>
+                  <button 
+                    onClick={() => setActiveTab('apis')}
+                    className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all flex items-center gap-2"
+                  >
+                    <Key className="w-4 h-4" />
+                    Gerenciar Chaves de API
+                  </button>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-slate-500 uppercase">Google Analytics ID</label>
@@ -2036,6 +2048,30 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 >
                   Salvar Configurações
                 </button>
+
+                <div className="border-t pt-6 space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-xl font-bold">Status das APIs</h3>
+                    <button onClick={() => setActiveTab('apis')} className="text-xs font-bold text-accent hover:underline">Configurar Chaves</button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {['gemini', 'openai', 'grok'].map(provider => {
+                      const key = apiKeys.find(k => k.provider === provider);
+                      return (
+                        <div key={provider} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-2 h-2 rounded-full ${key ? (key.status === 'ok' ? 'bg-emerald-500' : 'bg-amber-500') : 'bg-slate-300'}`} />
+                            <span className="text-xs font-bold uppercase text-slate-600">{provider}</span>
+                          </div>
+                          <span className={`text-[10px] font-bold ${key ? (key.status === 'ok' ? 'text-emerald-600' : 'text-amber-600') : 'text-slate-400'}`}>
+                            {key ? (key.status === 'ok' ? 'Configurado' : 'Erro/Inativo') : 'Não Configurado'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <div className="border-t pt-6">
                   <ChatThemeSettings />
                 </div>
