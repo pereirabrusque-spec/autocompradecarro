@@ -1184,8 +1184,8 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                           <ul className="space-y-2">
                             {calc.discounts.map((d, i) => (
                               <li key={`d-${i}`} className="flex justify-between items-center">
-                                <span className="text-slate-300">{d.name}</span>
-                                <span className="font-bold text-red-400">-{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
+                                <span className={d.isMax ? "text-red-400" : "text-white"}>{d.name}</span>
+                                <span className={d.isMax ? "font-bold text-red-400" : "font-bold text-white"}>-{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
                               </li>
                             ))}
                             {calc.fixedCostsDetail.map((d, i) => (

@@ -114,7 +114,7 @@ export default function AdminDashboard() {
   const [showApiKeyForm, setShowApiKeyForm] = useState(false);
   const [isSavingKey, setIsSavingKey] = useState(false);
 
-  const [activeLeadTab, setActiveLeadTab] = useState<'todos' | 'novo' | 'em_contato' | 'proposta_enviada' | 'fechado' | 'perdido'>('novo');
+  const [activeLeadTab, setActiveLeadTab] = useState<'todos' | 'novo' | 'em_contato' | 'proposta_enviada' | 'fechado' | 'perdido'>('todos');
   const [leadsViewMode, setLeadsViewMode] = useState<'grid' | 'list'>('list');
   const [showBuyerPermissionsModal, setShowBuyerPermissionsModal] = useState(false);
   const [selectedBuyer, setSelectedBuyer] = useState<any>(null);
@@ -1339,12 +1339,14 @@ Podemos prosseguir com o agendamento da vistoria?`;
     });
 
     // 2. Adicionar todos os descontos percentuais
+    const maxDiscount = percentDiscounts.reduce((max, d) => d.value > max.value ? d : max, percentDiscounts[0] || { name: '', value: 0 });
+    
     percentDiscounts.forEach(d => {
         deductions.push({
             name: d.name,
             value: d.value,
             type: 'percent',
-            isMax: true
+            isMax: d === maxDiscount
         });
     });
 
@@ -2603,7 +2605,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 </div>
 
                 <div className="flex flex-1 gap-6 items-start">
-                  <div className={`flex-1 ${selectedLead ? 'hidden lg:block' : ''}`}>
+                  <div className="flex-1">
                     <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm relative overflow-hidden">
                   {leadsViewMode === 'grid' ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
