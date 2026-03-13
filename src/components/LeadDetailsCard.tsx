@@ -480,10 +480,10 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
 
   return (
     <div className="bg-white rounded-[32px] w-full h-full flex flex-col shadow-sm border border-slate-100 overflow-hidden">
-      {/* Header Fixo */}
-        <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-white sticky top-0 z-50 shadow-sm">
-          <div className="flex items-center gap-3 overflow-hidden">
-            <h2 className="text-lg font-bold font-display truncate">#{currentLead.vehicle_code} - {currentLead.marca} {currentLead.modelo}</h2>
+        {/* Header Fixo */}
+        <div className="flex justify-between items-center p-3 border-b border-slate-100 bg-white sticky top-0 z-50">
+          <div className="flex items-center gap-2 overflow-hidden">
+            <h2 className="text-sm font-bold font-display truncate">#{currentLead.vehicle_code} - {currentLead.marca} {currentLead.modelo}</h2>
             <select
               value={currentLead.status || 'novo'}
               onChange={async (e) => {
@@ -492,7 +492,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                 setCurrentLead(updated);
                 onSave(updated);
               }}
-              className={`text-[10px] font-bold uppercase px-2 py-1 rounded-full border-none outline-none cursor-pointer transition-colors ${
+              className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full border-none outline-none cursor-pointer transition-colors ${
                 currentLead.status === 'novo' ? 'bg-blue-100 text-blue-600' :
                 currentLead.status === 'em_contato' ? 'bg-orange-100 text-orange-600' :
                 currentLead.status === 'proposta_enviada' ? 'bg-indigo-100 text-indigo-600' :
@@ -508,43 +508,45 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
               <option value="perdido">PERDIDO</option>
             </select>
           </div>
-          <button onClick={() => setShowDataModal(true)} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-700 flex items-center gap-1.5 shrink-0">
-            <FileText className="w-3.5 h-3.5" /> Formulário Completo
-          </button>
+          <div className="flex gap-2">
+            <button onClick={() => setShowDataModal(true)} className="px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-[10px] font-bold text-slate-700 flex items-center gap-1">
+              <FileText className="w-3 h-3" /> Detalhes
+            </button>
+            <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-full">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Conteúdo Principal */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 scroll-pt-20">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
           
           {/* Barra de Informações Rápidas (Compacta) */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 bg-slate-50 p-2 rounded-xl border border-slate-100">
             <div className="flex flex-col">
-              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Ano</span>
-              <span className="text-xs font-bold text-slate-700">{currentLead.ano_modelo || 'N/A'}</span>
+              <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Ano</span>
+              <span className="text-[10px] font-bold text-slate-700">{currentLead.ano_modelo || 'N/A'}</span>
             </div>
             <div className="flex flex-col">
-              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">KM</span>
-              <span className="text-xs font-bold text-slate-700">{currentLead.quilometragem || 'N/A'}</span>
+              <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">KM</span>
+              <span className="text-[10px] font-bold text-slate-700">{currentLead.quilometragem || 'N/A'}</span>
             </div>
             <div className="flex flex-col">
-              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Cor</span>
-              <span className="text-xs font-bold text-slate-700">{currentLead.cor || 'N/A'}</span>
+              <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Cor</span>
+              <span className="text-[10px] font-bold text-slate-700">{currentLead.cor || 'N/A'}</span>
             </div>
             <div className="flex flex-col">
-              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Placa</span>
-              <span className="text-xs font-bold text-slate-700">{currentLead.placa || 'N/A'}</span>
+              <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Placa</span>
+              <span className="text-[10px] font-bold text-slate-700">{currentLead.placa || 'N/A'}</span>
             </div>
             <div className="flex flex-col">
-              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Cliente</span>
-              <span className="text-xs font-bold text-slate-700 truncate">{currentLead.cliente_nome || 'N/A'}</span>
+              <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Cliente</span>
+              <span className="text-[10px] font-bold text-slate-700 truncate">{currentLead.cliente_nome || 'N/A'}</span>
             </div>
           </div>
           
           {/* Botões de Ação no Topo */}
-          <div className="flex flex-wrap justify-end gap-2 pb-4 border-b border-slate-100">
-            <button onClick={onClose} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-bold text-slate-700 flex items-center justify-center gap-1.5">
-              <ArrowLeft className="w-4 h-4" /> Voltar
-            </button>
+          <div className="flex flex-wrap justify-end gap-1 pb-2 border-b border-slate-100">
             <button 
               onClick={() => {
                 const phone = currentLead.telefone?.replace(/\D/g, '');
@@ -553,21 +555,21 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                 const encodedMessage = encodeURIComponent(rawMessage);
                 window.open(`https://wa.me/${formattedPhone}?text=${encodedMessage}`, '_blank');
               }} 
-              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5 shadow-md"
+              className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 rounded-lg text-[10px] font-bold text-white flex items-center justify-center gap-1 shadow-sm"
             >
-              <MessageCircle className="w-4 h-4" /> WhatsApp Proposta
+              <MessageCircle className="w-3 h-3" /> WhatsApp Proposta
             </button>
-            <button onClick={() => setShowWhatsAppBuyerModal(true)} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5">
-              <MessageCircle className="w-4 h-4" /> WhatsApp Comprador
+            <button onClick={() => setShowWhatsAppBuyerModal(true)} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-[10px] font-bold text-white flex items-center justify-center gap-1">
+              <MessageCircle className="w-3 h-3" /> WhatsApp Comprador
             </button>
             <button 
               onClick={handleSendProposalToChat} 
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5 shadow-md"
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-[10px] font-bold text-white flex items-center justify-center gap-1 shadow-sm"
             >
-              <MessageSquare className="w-4 h-4" /> Chat Proposta
+              <MessageSquare className="w-3 h-3" /> Chat Proposta
             </button>
-            <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5">
-              <Edit2 className="w-4 h-4" /> {showForm ? 'Fechar Edição' : 'Editar'}
+            <button onClick={() => setShowForm(!showForm)} className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 rounded-lg text-[10px] font-bold text-white flex items-center justify-center gap-1">
+              <Edit2 className="w-3 h-3" /> {showForm ? 'Fechar Edição' : 'Editar'}
             </button>
           </div>
 
@@ -598,7 +600,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
               {/* Carrossel de Mídia e CRLV - Lado a Lado (50/50) */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Carrossel de Mídia */}
-                <div className="bg-slate-900 p-4 rounded-[32px] aspect-video relative flex items-center justify-center overflow-hidden shadow-xl">
+                <div className="bg-slate-900 p-2 rounded-2xl aspect-video relative flex items-center justify-center overflow-hidden shadow-md">
                   {mediaItems.length > 0 ? (
                     <>
                       {renderMedia(mediaItems[currentPhotoIndex], currentPhotoIndex)}
@@ -606,46 +608,46 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                         <>
                           <button 
                             onClick={() => setCurrentPhotoIndex((prev) => (prev === 0 ? mediaItems.length - 1 : prev - 1))} 
-                            className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-white/20 hover:bg-white/40 rounded-full text-white z-10 transition-colors"
+                            className="absolute left-1 top-1/2 -translate-y-1/2 p-1 bg-white/20 hover:bg-white/40 rounded-full text-white z-10 transition-colors"
                           >
-                            <ChevronLeft size={16} />
+                            <ChevronLeft size={12} />
                           </button>
                           <button 
                             onClick={() => setCurrentPhotoIndex((prev) => (prev === mediaItems.length - 1 ? 0 : prev + 1))} 
-                            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-white/20 hover:bg-white/40 rounded-full text-white z-10 transition-colors"
+                            className="absolute right-1 top-1/2 -translate-y-1/2 p-1 bg-white/20 hover:bg-white/40 rounded-full text-white z-10 transition-colors"
                           >
-                            <ChevronRight size={16} />
+                            <ChevronRight size={12} />
                           </button>
                         </>
                       )}
                     </>
                   ) : (
-                    <span className="text-white/40 font-bold">Sem mídia disponível</span>
+                    <span className="text-white/40 font-bold text-[10px]">Sem mídia</span>
                   )}
                 </div>
 
                 {/* CRLV Preview (50%) */}
                 <div 
                   onClick={() => setShowDataModal(true)}
-                  className="bg-slate-800 p-4 rounded-[32px] aspect-video flex items-center justify-center border border-white/10 cursor-pointer hover:bg-slate-700 transition-colors relative overflow-hidden shadow-xl group"
+                  className="bg-slate-800 p-2 rounded-2xl aspect-video flex items-center justify-center border border-white/10 cursor-pointer hover:bg-slate-700 transition-colors relative overflow-hidden shadow-md group"
                 >
                   {currentLead.crlv_url ? (
                     currentLead.crlv_url.toLowerCase().includes('.pdf') ? (
-                      <div className="flex flex-col items-center gap-2">
-                        <FileText className="w-12 h-12 text-blue-400" />
-                        <span className="text-xs text-white font-bold">Ver PDF do CRLV</span>
+                      <div className="flex flex-col items-center gap-1">
+                        <FileText className="w-8 h-8 text-blue-400" />
+                        <span className="text-[9px] text-white font-bold">Ver PDF</span>
                       </div>
                     ) : (
-                      <img src={currentLead.crlv_url} alt="CRLV" className="w-full h-full object-cover rounded-xl" />
+                      <img src={currentLead.crlv_url} alt="CRLV" className="w-full h-full object-cover rounded-lg" />
                     )
                   ) : (
-                    <div className="flex flex-col items-center gap-2 text-white/40">
-                      <FileText className="w-12 h-12" />
-                      <span className="text-xs font-bold uppercase tracking-widest">CRLV não disponível</span>
+                    <div className="flex flex-col items-center gap-1 text-white/40">
+                      <FileText className="w-8 h-8" />
+                      <span className="text-[9px] font-bold uppercase tracking-widest">CRLV Indisponível</span>
                     </div>
                   )}
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                    <span className="text-white opacity-0 group-hover:opacity-100 font-bold text-xs bg-black/50 px-3 py-1.5 rounded-full">Clique para Ver Detalhes</span>
+                    <span className="text-white opacity-0 group-hover:opacity-100 font-bold text-[9px] bg-black/50 px-2 py-1 rounded-full">Ver Detalhes</span>
                   </div>
                 </div>
               </div>

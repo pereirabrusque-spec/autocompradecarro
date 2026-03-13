@@ -2827,8 +2827,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   </div>
                   
                   {selectedLead && (
-                    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                      <div className="bg-white rounded-3xl p-8 max-w-6xl w-full max-h-[90vh] overflow-y-auto relative">
+                    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-2">
+                      <div className="bg-white rounded-3xl p-6 max-w-5xl w-full max-h-[95vh] overflow-y-auto relative">
                       <LeadDetailsCard 
                         lead={(() => {
                           console.log("Passando lead para LeadDetailsCard:", selectedLead);
