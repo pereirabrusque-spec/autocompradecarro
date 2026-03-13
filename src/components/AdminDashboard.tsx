@@ -498,25 +498,30 @@ export default function AdminDashboard() {
   }, [selectedConversation, fetchData]);
 
   const fetchChatMessages = async (leadId: string) => {
+    console.log('Fetching messages for lead:', leadId);
     const { data, error } = await supabase
       .from('mensagens')
       .select('*')
       .eq('lead_id', leadId)
       .order('created_at', { ascending: true });
     
-    if (!error) {
-      setChatMessages(data || []);
-      // Marcar como lidas
-      await supabase
-        .from('mensagens')
-        .update({ lida: true })
-        .eq('lead_id', leadId)
-        .eq('remetente', 'cliente')
-        .eq('lida', false);
-      
-      // Atualizar contador local
-      setConversations(prev => prev.map(c => c.lead_id === leadId ? { ...c, unread: 0 } : c));
+    if (error) {
+      console.error('Error fetching messages:', error);
+      return;
     }
+
+    console.log('Messages fetched:', data);
+    setChatMessages(data || []);
+    // Marcar como lidas
+    await supabase
+      .from('mensagens')
+      .update({ lida: true })
+      .eq('lead_id', leadId)
+      .eq('remetente', 'cliente')
+      .eq('lida', false);
+    
+    // Atualizar contador local
+    setConversations(prev => prev.map(c => c.lead_id === leadId ? { ...c, unread: 0 } : c));
   };
 
   const fetchInternalConversations = async () => {
@@ -648,12 +653,13 @@ export default function AdminDashboard() {
       if (error) throw error;
 
       setAdminMessage('');
+      await new Promise(resolve => setTimeout(resolve, 500));
       await fetchChatMessages(selectedConversation.lead_id);
       
       // Atualiza a lista de conversas de forma otimizada
       const { data: messagesData } = await supabase
         .from('mensagens')
-        .select('*, leads_veiculos(id, marca, modelo, cliente_nome, vehicle_code, fotos, detalhes_proposta, email, telefone, cliente_telefone)')
+        .select('*, leads_veiculos!lead_id(id, marca, modelo, cliente_nome, vehicle_code, fotos, detalhes_proposta, email, telefone, cliente_telefone)')
         .order('created_at', { ascending: false });
 
       if (messagesData) {
