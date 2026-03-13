@@ -731,7 +731,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
         const { error: msgError } = await supabase.from('mensagens').insert([{
           lead_id: selectedLead.id,
           remetente: 'admin',
-          conteudo: message
+          conteudo: message,
+          tipo: 'proposta',
+          metadata: { proposal_data: proposalCalculator }
         }]);
         if (msgError) throw msgError;
 
@@ -775,7 +777,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
         const { error: msgError } = await supabase.from('mensagens').insert([{
           lead_id: selectedLead.id,
           remetente: 'admin',
-          conteudo: message
+          conteudo: message,
+          tipo: 'proposta',
+          metadata: { proposal_data: proposalCalculator }
         }]);
         if (msgError) throw msgError;
 

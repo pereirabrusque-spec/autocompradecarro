@@ -265,6 +265,7 @@ export default function ChatWidget() {
                       key={msg.id || i} 
                       className={`flex ${msg.remetente === 'cliente' ? 'justify-end' : 'justify-start'}`}
                     >
+                      {console.log('Message:', msg)}
                       <div 
                         className={`max-w-[80%] p-3 rounded-2xl text-sm ${
                           msg.remetente === 'cliente' 
@@ -273,6 +274,14 @@ export default function ChatWidget() {
                         }`}
                       >
                         <div className="whitespace-pre-wrap">{msg.conteudo}</div>
+                        {msg.tipo === 'proposta' && msg.metadata?.proposal_data && (
+                          <div className="mt-3 p-3 bg-white/20 rounded-xl text-xs space-y-1 border border-white/20">
+                            <p className="font-bold">Valor Final:</p>
+                            <p className="text-lg font-black">
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(msg.metadata.proposal_data.final_value)}
+                            </p>
+                          </div>
+                        )}
                         {msg.tipo === 'proposta' && (
                           <button 
                             onClick={() => {
