@@ -14,9 +14,11 @@ interface LeadDetailsCardProps {
   banks: any[];
   cooperativeDiscount: number;
   forceShowWhatsAppBuyerModal?: boolean;
+  onShowProposal?: () => void;
+  proposalCalculator?: any;
 }
 
-export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRefresh, fipeRules, jurosAtraso, banks, cooperativeDiscount, forceShowWhatsAppBuyerModal }: LeadDetailsCardProps) {
+export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRefresh, fipeRules, jurosAtraso, banks, cooperativeDiscount, forceShowWhatsAppBuyerModal, onShowProposal, proposalCalculator }: LeadDetailsCardProps) {
   const [currentLead, setCurrentLead] = useState(lead || {});
   const [repairModal, setRepairModal] = useState<{ field: string | null; value: string }>({ field: null, value: '' });
 
@@ -204,15 +206,11 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
       });
     }
 
-    const maxDiscountValue = discountOptions.length > 0 
-        ? Math.max(...discountOptions.map(d => d.value)) 
-        : 0;
+    const maxDiscountValue = discountOptions.reduce((acc, d) => acc + d.value, 0);
     
-    // Marcar o maior desconto e definir como o valor a ser descontado
+    // Marcar todos os descontos
     discountOptions.forEach(d => {
-      if (d.value === maxDiscountValue && maxDiscountValue > 0) {
-        d.isMax = true;
-      }
+      d.isMax = true;
     });
 
     const discounts = [...discountOptions];
@@ -481,9 +479,8 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
-        {/* Header Fixo */}
+    <div className="bg-white rounded-[32px] w-full h-full flex flex-col shadow-sm border border-slate-100 overflow-hidden">
+      {/* Header Fixo */}
         <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-white sticky top-0 z-50 shadow-sm">
           <div className="flex items-center gap-3 overflow-hidden">
             <h2 className="text-lg font-bold font-display truncate">#{currentLead.vehicle_code} - {currentLead.marca} {currentLead.modelo}</h2>
@@ -653,10 +650,80 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                 </div>
               </div>
 
-              {/* Botão Avaliar Veículo */}
-              <button onClick={() => setShowDataModal(true)} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-slate-800 transition-all shadow-lg transform hover:scale-[1.01] active:scale-[0.99]">
-                <FileText className="w-5 h-5" /> Avaliar Veículo (Formulário Completo)
-              </button>
+              {/* Botões Principais */}
+              <div className="space-y-3">
+                {proposalCalculator ? (
+                  <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h4 className="text-sm font-black text-slate-900">Resumo da Proposta</h4>
+                        <p className="text-xs font-bold text-slate-500">{currentLead.marca} {currentLead.modelo} {currentLead.ano_modelo}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-bold text-slate-500 uppercase">Valor Sugerido</p>
+                        <p className="text-lg font-black text-emerald-600">
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2 mb-4">
+                      <div className="bg-white p-2 rounded-lg border border-slate-100">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Tabela FIPE</p>
+                        <p className="text-xs font-bold text-slate-700">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.baseValue)}</p>
+                      </div>
+                      <div className="bg-white p-2 rounded-lg border border-slate-100">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Deduções Totais</p>
+                        <p className="text-xs font-bold text-red-600">
+                          -{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                            proposalCalculator.deductions.reduce((acc: number, d: any) => acc + d.value, 0)
+                          )}
+                        </p>
+                      </div>
+                      <div className="bg-white p-2 rounded-lg border border-slate-100">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Dívidas/Quitação</p>
+                        <p className="text-xs font-bold text-red-600">
+                          -{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.payoffValue + proposalCalculator.docDebts)}
+                        </p>
+                      </div>
+                      <div className="bg-white p-2 rounded-lg border border-slate-100">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Margem de Lucro</p>
+                        <p className="text-xs font-bold text-blue-600">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.profitMargin)}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => setShowDataModal(true)}
+                        className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold text-xs hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
+                      >
+                        <FileText className="w-4 h-4" />
+                        Formulário Completo
+                      </button>
+                      {onShowProposal && (
+                        <button 
+                          onClick={onShowProposal}
+                          className="flex-1 py-3 bg-accent/10 text-accent rounded-xl font-bold text-xs hover:bg-accent/20 transition-all flex items-center justify-center gap-2"
+                        >
+                          <DollarSign className="w-4 h-4" />
+                          Ver Proposta
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <button onClick={() => setShowDataModal(true)} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-slate-800 transition-all shadow-lg transform hover:scale-[1.01] active:scale-[0.99]">
+                      <FileText className="w-5 h-5" /> Avaliar Veículo (Formulário Completo)
+                    </button>
+                    {onShowProposal && (
+                      <button onClick={onShowProposal} className="w-full py-4 bg-accent/10 text-accent rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-accent/20 transition-all shadow-sm transform hover:scale-[1.01] active:scale-[0.99]">
+                        <DollarSign className="w-5 h-5" /> Ver Proposta
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
               {/* Benefícios */}
               <div className="bg-white border border-slate-200 p-4 rounded-[24px] shadow-sm">
                 <h3 className="font-bold text-slate-900 uppercase text-[10px] tracking-widest mb-3 flex items-center gap-2">
@@ -1365,7 +1432,6 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
             </div>
           </div>
         )}
-      </div>
     </div>
   );
 }
