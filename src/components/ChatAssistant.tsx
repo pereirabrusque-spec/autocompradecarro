@@ -249,7 +249,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
           table: 'mensagens',
           filter: `lead_id=eq.${leadId}`
         }, (payload) => {
-          if (payload.new.remetente === 'admin') {
+          if (payload.new.remetente === 'admin' || payload.new.remetente === 'bot') {
             setMessages(prev => {
               // Verifica se a mensagem já existe no estado local para evitar duplicação
               const exists = prev.some(m => m.text === payload.new.conteudo && m.role === 'bot');
