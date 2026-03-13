@@ -1764,13 +1764,33 @@ Podemos prosseguir com o agendamento da vistoria?`;
             {activeTab === 'cooperatives' && (
           <div className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div 
-                onClick={() => setShowCooperativesModal(true)}
-                className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm cursor-pointer hover:border-slate-300 transition-all"
-              >
+              <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm">
                 <h2 className="text-xl font-bold mb-2">Cooperativas</h2>
                 <p className="text-sm text-slate-500 mb-4">Gerenciar lista e descontos</p>
-                <div className="text-3xl font-black text-slate-900">{cooperativeDiscount}%</div>
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="number"
+                    className="text-3xl font-black text-slate-900 w-24 p-2 border rounded"
+                    value={cooperativeDiscount}
+                    onChange={e => setCooperativeDiscount(parseFloat(e.target.value))}
+                  />
+                  <span className="text-3xl font-black text-slate-900">%</span>
+                  <button 
+                    onClick={async () => {
+                      await supabase.from('settings').upsert({ key: 'COOPERATIVE_DISCOUNT_PERCENTAGE', value: cooperativeDiscount.toString() }, { onConflict: 'key' });
+                      fetchData();
+                    }}
+                    className="p-2 bg-slate-900 text-white rounded-xl font-bold"
+                  >
+                    Salvar
+                  </button>
+                </div>
+              </div>
+              <div 
+                onClick={() => setShowCooperativesModal(true)}
+                className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm cursor-pointer hover:border-slate-300 transition-all flex items-center justify-center"
+              >
+                <h2 className="text-xl font-bold">Ver Prompt de Cooperativas</h2>
               </div>
             </div>
           </div>

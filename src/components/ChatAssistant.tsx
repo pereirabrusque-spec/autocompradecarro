@@ -641,7 +641,6 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
                         <div className="markdown-body prose prose-sm max-w-none">
                           <Markdown>{msg.text}</Markdown>
                         </div>
-                        {console.log("Rendering message:", msg.text, "Tipo:", msg.tipo)}
                         {msg.tipo === 'proposta' && (
                           <button 
                             onClick={() => setSelectedProposal(msg.metadata?.proposal_data)}

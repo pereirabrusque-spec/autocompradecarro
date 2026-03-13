@@ -12,10 +12,11 @@ interface LeadDetailsCardProps {
   fipeRules: any[];
   jurosAtraso: number;
   banks: any[];
+  cooperativeDiscount: number;
   forceShowWhatsAppBuyerModal?: boolean;
 }
 
-export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRefresh, fipeRules, jurosAtraso, banks, forceShowWhatsAppBuyerModal }: LeadDetailsCardProps) {
+export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRefresh, fipeRules, jurosAtraso, banks, cooperativeDiscount, forceShowWhatsAppBuyerModal }: LeadDetailsCardProps) {
   const [currentLead, setCurrentLead] = useState(lead || {});
   const [repairModal, setRepairModal] = useState<{ field: string | null; value: string }>({ field: null, value: '' });
 

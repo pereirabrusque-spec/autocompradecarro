@@ -265,7 +265,6 @@ export default function ChatWidget() {
                       key={msg.id || i} 
                       className={`flex ${msg.remetente === 'cliente' ? 'justify-end' : 'justify-start'}`}
                     >
-                      {console.log('Message:', msg)}
                       <div 
                         className={`max-w-[80%] p-3 rounded-2xl text-sm ${
                           msg.remetente === 'cliente' 
