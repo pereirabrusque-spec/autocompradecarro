@@ -457,10 +457,15 @@ export default function AdminDashboard() {
             console.log("Updating chat messages state");
             setChatMessages(prev => [...prev, payload.new]);
             // Marcar como lida automaticamente se o chat estiver aberto
-            await supabase
-              .from('mensagens')
-              .update({ lida: true })
-              .eq('id', payload.new.id);
+            try {
+              await supabase
+                .from('mensagens')
+                .update({ lida: true })
+                .eq('id', payload.new.id);
+              console.log("Message marked as read");
+            } catch (err) {
+              console.error("Error marking message as read:", err);
+            }
           } else {
             console.log("Message received for different lead. Current:", selectedConversation?.lead_id, "Message:", payload.new.lead_id);
           }
@@ -492,6 +497,8 @@ export default function AdminDashboard() {
             });
             setConversations(groupedConversations);
           }
+        } else {
+          console.log("Message received, but remetente is not 'cliente':", payload.new.remetente);
         }
       })
       .subscribe();
