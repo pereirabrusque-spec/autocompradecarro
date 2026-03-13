@@ -105,6 +105,10 @@ export default function AdminDashboard() {
   const [profitMarginPercentage, setProfitMarginPercentage] = useState(20);
   const [savingSettings, setSavingSettings] = useState(false);
   const [selectedLead, setSelectedLead] = useState<any>(null);
+  const selectedLeadRef = useRef<any>(null);
+  useEffect(() => {
+    selectedLeadRef.current = selectedLead;
+  }, [selectedLead]);
   const { refreshAssets } = useAssets();
 
   const [showApiKeyForm, setShowApiKeyForm] = useState(false);
@@ -479,6 +483,12 @@ export default function AdminDashboard() {
               .update({ status: 'em_contato' })
               .eq('id', payload.new.lead_id);
             console.log("Lead status updated to 'em_contato' automatically");
+            
+            // Atualiza a lista de leads e o lead selecionado se for o caso
+            fetchData();
+            if (selectedLeadRef.current?.id === payload.new.lead_id) {
+              setSelectedLead(prev => prev ? { ...prev, status: 'em_contato' } : null);
+            }
           }
 
           console.log("Current selectedConversationRef:", selectedConversationRef.current);
@@ -2492,6 +2502,17 @@ Podemos prosseguir com o agendamento da vistoria?`;
                           ...cleanData 
                         } = updatedLead;
 
+                        // Segurança extra: Garante que campos de array/json não sejam strings vazias
+                        const complexFields = [
+                          'fotos', 'videos', 'problemas', 'selected_items', 'avarias', 
+                          'avarias_manuais', 'fotos_url', 'detalhes_proposta', 'metadata'
+                        ];
+                        complexFields.forEach(field => {
+                          if (cleanData[field] === '') {
+                            cleanData[field] = null;
+                          }
+                        });
+
                         const { error } = await supabase.from('leads_veiculos').update(cleanData).eq('id', id);
                         if (error) {
                           setToast({ message: 'Erro ao salvar: ' + error.message, type: 'error' });
@@ -3392,11 +3413,11 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                       'bg-slate-100 text-slate-600'
                                     }`}
                                   >
-                                    <option value="novo">Novo</option>
-                                    <option value="em_contato">Em Contato</option>
-                                    <option value="proposta_enviada">Proposta Enviada</option>
-                                    <option value="fechado">Fechado</option>
-                                    <option value="perdido">Perdido</option>
+                                    <option value="novo">NOVO</option>
+                                    <option value="em_contato">EM CONTATO</option>
+                                    <option value="proposta_enviada">PROPOSTA ENVIADA</option>
+                                    <option value="fechado">FECHADO</option>
+                                    <option value="perdido">PERDIDO</option>
                                   </select>
                                 </td>
                                 <td className="px-6 py-4">

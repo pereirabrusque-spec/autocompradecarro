@@ -44,7 +44,17 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
           // Converte 'sim' para 'true' (ou 'true' para 'true'), e qualquer outra coisa para 'false'
           sanitizedLead[key] = (val === 'sim' || val === 'true' || val === true) ? 'true' : 'false';
         } else if (val === null || val === undefined || val === 'null' || val === 'undefined') {
-          sanitizedLead[key] = '';
+          // Não converte para string vazia se for um campo que deve ser array/json ou se for nulo de verdade
+          // Colunas de array/json no Supabase não aceitam "" (string vazia), devem ser null ou o tipo correto
+          const complexFields = [
+            'fotos', 'videos', 'problemas', 'selected_items', 'avarias', 
+            'avarias_manuais', 'fotos_url', 'detalhes_proposta', 'metadata'
+          ];
+          if (complexFields.includes(key)) {
+            sanitizedLead[key] = null;
+          } else {
+            sanitizedLead[key] = '';
+          }
         }
       });
 
@@ -494,11 +504,11 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                 'bg-slate-100 text-slate-600'
               }`}
             >
-              <option value="novo">Novo</option>
-              <option value="em_contato">Em Contato</option>
-              <option value="proposta_enviada">Proposta Enviada</option>
-              <option value="fechado">Fechado (Venda)</option>
-              <option value="perdido">Perdido</option>
+              <option value="novo">NOVO</option>
+              <option value="em_contato">EM CONTATO</option>
+              <option value="proposta_enviada">PROPOSTA ENVIADA</option>
+              <option value="fechado">FECHADO</option>
+              <option value="perdido">PERDIDO</option>
             </select>
           </div>
           <button onClick={() => setShowDataModal(true)} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-700 flex items-center gap-1.5 shrink-0">
@@ -537,18 +547,6 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
           <div className="flex flex-wrap justify-end gap-2 pb-4 border-b border-slate-100">
             <button onClick={onClose} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-bold text-slate-700 flex items-center justify-center gap-1.5">
               <ArrowLeft className="w-4 h-4" /> Voltar
-            </button>
-            <button 
-              onClick={async () => {
-                if (confirm('Deseja marcar este lead como PERDIDO?')) {
-                  const updated = { ...currentLead, status: 'perdido' };
-                  setCurrentLead(updated);
-                  onSave(updated);
-                }
-              }} 
-              className="px-4 py-2 bg-slate-200 hover:bg-slate-300 rounded-lg text-sm font-bold text-slate-600 flex items-center justify-center gap-1.5"
-            >
-              <X className="w-4 h-4" /> Perdido
             </button>
             <button 
               onClick={() => {
