@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MessageSquare, Send, X, Bot, User, Loader2, Camera, Paperclip, FileText, Video } from 'lucide-react';
+import { triggerAdsConversion } from './GoogleTags';
 import { GoogleGenAI } from '@google/genai';
 import OpenAI from 'openai';
 import Markdown from 'react-markdown';
@@ -540,6 +541,9 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
           
           if (error) throw error;
           
+          // Trigger Google Ads Conversion
+          triggerAdsConversion();
+
           setIsFormFilled(true);
           playNotificationSound();
           setMessages(prev => [...prev, { role: 'bot', text: '✅ **Dados registrados!** Nossa equipe analisará sua proposta e retornará em até 24 horas. Deseja receber notificações sobre o status da sua negociação?' }]);

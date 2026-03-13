@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, ChevronRight, ChevronLeft, CheckCircle2, Loader2, Camera, AlertTriangle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { triggerAdsConversion } from './GoogleTags';
 
 export default function SellModal() {
   const [isOpen, setIsOpen] = useState(false);
@@ -174,12 +175,17 @@ export default function SellModal() {
 
       if (error) throw error;
 
+      // Trigger Google Ads Conversion
+      triggerAdsConversion();
+
       setIsSuccess(true);
       setTimeout(() => {
         setIsOpen(false);
         setStep(1);
         setIsSuccess(false);
-      }, 3000);
+        window.history.pushState({}, '', '/obrigado');
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      }, 2000);
     } catch (error) {
       console.error(error);
       alert('Erro ao enviar proposta. Tente novamente.');

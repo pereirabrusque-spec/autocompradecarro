@@ -6,8 +6,16 @@ export function GoogleTags() {
     const fetchTags = async () => {
       const { data } = await supabase.from('settings').select('*').in('key', ['GOOGLE_ANALYTICS_ID', 'GOOGLE_ADS_ID']);
       if (data) {
-        const gaId = data.find(s => s.key === 'GOOGLE_ANALYTICS_ID')?.value;
-        const adsId = data.find(s => s.key === 'GOOGLE_ADS_ID')?.value;
+        let gaId = data.find(s => s.key === 'GOOGLE_ANALYTICS_ID')?.value;
+        let adsId = data.find(s => s.key === 'GOOGLE_ADS_ID')?.value;
+
+        // Fallback para os IDs fornecidos pelo usuário
+        if (!gaId) {
+          gaId = 'G-SE8DRN12VH';
+        }
+        if (!adsId) {
+          adsId = 'AW-11148282770';
+        }
 
         if (gaId) {
           const script1 = document.createElement('script');
@@ -50,15 +58,20 @@ export function GoogleTags() {
 
 export const triggerAdsConversion = async () => {
   const { data } = await supabase.from('settings').select('*').in('key', ['GOOGLE_ADS_ID', 'GOOGLE_ADS_CONVERSION_LABEL']);
+  
+  let adsId = 'AW-11148282770'; // Padrão fornecido pelo usuário
+  let convLabel = '';
+
   if (data) {
-    const adsId = data.find(s => s.key === 'GOOGLE_ADS_ID')?.value;
-    const convLabel = data.find(s => s.key === 'GOOGLE_ADS_CONVERSION_LABEL')?.value;
-    
-    if (adsId && convLabel && typeof window !== 'undefined' && (window as any).gtag) {
-      (window as any).gtag('event', 'conversion', {
-        'send_to': `${adsId}/${convLabel}`
-      });
-      console.log('Google Ads Conversion Triggered');
-    }
+    const dbAdsId = data.find(s => s.key === 'GOOGLE_ADS_ID')?.value;
+    if (dbAdsId) adsId = dbAdsId;
+    convLabel = data.find(s => s.key === 'GOOGLE_ADS_CONVERSION_LABEL')?.value || '';
+  }
+  
+  if (adsId && convLabel && typeof window !== 'undefined' && (window as any).gtag) {
+    (window as any).gtag('event', 'conversion', {
+      'send_to': `${adsId}/${convLabel}`
+    });
+    console.log('Google Ads Conversion Triggered');
   }
 };

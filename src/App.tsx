@@ -32,9 +32,10 @@ import ChatWidget from './components/ChatWidget';
 import AuthModal from './components/AuthModal';
 import { GoogleTags } from './components/GoogleTags';
 import NotificationPermissionModal from './components/NotificationPermissionModal';
+import ThankYou from './components/ThankYou';
 
 function AppContent() {
-  const [view, setView] = useState<'home' | 'admin' | 'buyer' | 'login' | 'forgot-password' | 'reset-password' | 'sell' | 'auth-callback'>('home');
+  const [view, setView] = useState<'home' | 'admin' | 'buyer' | 'login' | 'forgot-password' | 'reset-password' | 'sell' | 'auth-callback' | 'thank-you'>('home');
   const { user, isAdmin, isBuyer, isLoading } = useAuth();
   const { settings } = useAssets();
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -100,6 +101,8 @@ function AppContent() {
         setView('reset-password');
       } else if (path === '/vender') {
         setView('sell');
+      } else if (path === '/obrigado') {
+        setView('thank-you');
       } else {
         if (isAdmin && (path === '/' || path === '')) {
           window.history.pushState({}, '', '/admin');
@@ -162,6 +165,8 @@ function AppContent() {
         return <ResetPassword />;
       case 'sell':
         return <SellCar />;
+      case 'thank-you':
+        return <ThankYou />;
       case 'auth-callback':
         return (
           <div className="min-h-screen flex items-center justify-center bg-slate-50">

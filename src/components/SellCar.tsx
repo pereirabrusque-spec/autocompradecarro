@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/authContext';
+import { triggerAdsConversion } from './GoogleTags';
 import AuthModal from './AuthModal';
 
 export default function SellCar() {
@@ -524,9 +525,18 @@ export default function SellCar() {
       // Isso ajuda a evitar erros de sincronização do React DOM
       setIsSubmitting(false);
       
+      // Trigger Google Ads Conversion
+      triggerAdsConversion();
+
       setTimeout(() => {
         setIsSuccess(true);
         window.scrollTo({ top: 0, behavior: 'smooth' });
+        
+        // Redirect to thank you page after a short delay
+        setTimeout(() => {
+          window.history.pushState({}, '', '/obrigado');
+          window.dispatchEvent(new PopStateEvent('popstate'));
+        }, 2000);
       }, 50);
     } catch (error: any) {
       setIsSubmitting(false);
