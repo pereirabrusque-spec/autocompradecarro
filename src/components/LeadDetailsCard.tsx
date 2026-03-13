@@ -130,11 +130,6 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     // Regras de desconto dinâmicas baseadas no fipeRules
     const discountOptions: { name: string; value: number; isMax?: boolean }[] = [];
     
-    const getCooperativeBanks = () => {
-      // Usa a lista de bancos vinda do Supabase
-      return banks.filter(b => b.is_cooperativa).map(b => b.name.toLowerCase());
-    };
-
     // --- LÓGICA DE DESCONTO DE COOPERATIVA (SENIOR IMPLEMENTATION) ---
     const bankName = currentLead.banco_financiamento || currentLead.banco_financiador || '';
     
@@ -154,7 +149,6 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                                currentLead.is_cooperativa === true || 
                                currentLead.is_cooperativa === 'sim';
 
-    let fipeBase = fipe;
     let coopDiscount = 0;
     
     // Se for identificado como cooperativa (pelo nome do banco ou pela flag no lead)
@@ -162,7 +156,10 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
         // Aplica a porcentagem global de desconto de cooperativa (cooperativeDiscount)
         // vinda das configurações do sistema (Gerenciar lista e descontos)
         coopDiscount = fipe * (cooperativeDiscount / 100);
-        fipeBase = fipe - coopDiscount;
+        discountOptions.push({ 
+          name: `Desconto Cooperativa (${cooperativeDiscount}%)`, 
+          value: coopDiscount 
+        });
     }
     // --- FIM DA LÓGICA DE COOPERATIVA ---
 
@@ -191,30 +188,25 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
         if (apply) {
           discountOptions.push({ 
             name: `${rule.condition_name} (${rule.discount_percentage}%)`, 
-            value: fipeBase * (rule.discount_percentage / 100) 
+            value: fipe * (rule.discount_percentage / 100) 
           });
         }
       });
     }
 
-    const maxRuleDiscountValue = discountOptions.length > 0 
+    const maxDiscountValue = discountOptions.length > 0 
         ? Math.max(...discountOptions.map(d => d.value)) 
         : 0;
     
-    // Marcar o maior desconto das regras
+    // Marcar o maior desconto e definir como o valor a ser descontado
     discountOptions.forEach(d => {
-      if (d.value === maxRuleDiscountValue && maxRuleDiscountValue > 0) {
+      if (d.value === maxDiscountValue && maxDiscountValue > 0) {
         d.isMax = true;
       }
     });
 
     const discounts = [...discountOptions];
-    // Adiciona o desconto de cooperativa na lista de descontos para exibição
-    if (coopDiscount > 0) {
-        discounts.unshift({ name: `Desconto Cooperativa (${cooperativeDiscount}%)`, value: coopDiscount });
-    }
-    
-    const discountValue = maxRuleDiscountValue + coopDiscount;
+    const discountValue = maxDiscountValue;
 
     const fixedCostsDetail = [
       { name: 'IPVA/Multas', value: ipvaMulta + ipva + multas },
@@ -1042,7 +1034,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                         <span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.discountValue)}</span>
                         <div className="absolute right-0 top-full bg-white border border-slate-200 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
                           {calc.discounts.map((d, i) => (
-                            <div key={i} className={`flex justify-between text-xs mb-1 ${d.isMax ? 'text-red-500 font-bold' : 'text-slate-600'}`}>
+                            <div key={i} className={`flex justify-between text-xs mb-1 ${d.isMax ? 'text-red-500 font-bold' : 'text-slate-400 line-through opacity-50'}`}>
                               <span>{d.name}</span>
                               <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
                             </div>
@@ -1127,7 +1119,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                       <div className="flex justify-between text-red-400 group cursor-pointer relative"><span className="text-white/60">Descontos Aplicados</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.discountValue)}</span>
                         <div className="absolute right-0 top-full bg-slate-800 border border-white/10 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
                           {calc.discounts.map((d, i) => (
-                            <div key={i} className={`flex justify-between text-xs mb-1 ${d.isMax ? 'text-red-400 font-bold' : 'text-white/60'}`}>
+                            <div key={i} className={`flex justify-between text-xs mb-1 ${d.isMax ? 'text-red-400 font-bold' : 'text-white/40 line-through opacity-50'}`}>
                               <span>{d.name}</span>
                               <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
                             </div>

@@ -1159,10 +1159,13 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
   const calculateProposal = (lead: any, overrides?: { rules: Record<string, number>, repairs: Record<string, number> }, entryValue: number = 0) => {
     const currentOverrides = overrides || proposalOverrides;
-    let baseValue = lead.valor_fipe || 0;
-    const deductions: { name: string; value: number; type: 'fixed' | 'percent' }[] = [];
+    const fipe = lead.valor_fipe || 0;
+    const deductions: { name: string; value: number; type: 'fixed' | 'percent'; isMax?: boolean }[] = [];
 
-    // 0. Desconto de Cooperativa (Antes de tudo)
+    // 1. Coletar todos os descontos percentuais (Cooperativa + Regras)
+    const percentDiscounts: { name: string; value: number }[] = [];
+
+    // 1.1 Desconto de Cooperativa
     const bankName = lead.banco_financiamento || lead.banco_financiador || '';
     const isCooperativeBank = (name: string) => {
       if (!name) return false;
@@ -1180,29 +1183,21 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                lead.is_cooperativa === 'sim';
 
     if (hasCooperativeFlag || isBankCooperative) {
-        const coopValue = baseValue * (cooperativeDiscount / 100);
-        deductions.push({ 
+        percentDiscounts.push({ 
           name: `Desconto Cooperativa (${cooperativeDiscount}%)`, 
-          value: coopValue, 
-          type: 'percent' 
+          value: fipe * (cooperativeDiscount / 100)
         });
-        baseValue -= coopValue;
     }
 
-    // 1. Procedência / Histórico (Deduções por Porcentagem)
+    // 1.2 Descontos por Histórico/Problemas
     const problemasSelecionados = Array.isArray(lead.problemas) ? lead.problemas : (typeof lead.problemas === 'string' ? lead.problemas.split(',').map((p: string) => p.trim()) : []);
-    if (problemasSelecionados.length > 0) {
-      let maxPercentage = 0;
-      let maxProblemName = '';
-
-      problemasSelecionados.forEach((problem: string) => {
-        // Tentar encontrar regra no banco
+    problemasSelecionados.forEach((problem: string) => {
         const rule = fipeRules.find(r => r.condition_name.toLowerCase() === problem.toLowerCase());
         let percentage = 0;
         if (rule) {
           percentage = currentOverrides.rules[rule.id] !== undefined ? currentOverrides.rules[rule.id] : rule.discount_percentage;
         } else {
-          // Regras padrão caso não encontre no banco
+          // Fallback rules
           const p = problem.toLowerCase();
           if (p.includes('sinistro')) percentage = 30;
           else if (p.includes('leilao') || p.includes('leilão')) percentage = 25;
@@ -1215,23 +1210,30 @@ Podemos prosseguir com o agendamento da vistoria?`;
           else if (p.includes('nome jurídico')) percentage = 10;
           else if (p.includes('cobertura')) percentage = 15;
         }
-
-        if (percentage > maxPercentage) {
-          maxPercentage = percentage;
-          maxProblemName = problem;
+        
+        if (percentage > 0) {
+            percentDiscounts.push({
+                name: `${problem} (${percentage}%)`,
+                value: fipe * (percentage / 100)
+            });
         }
-      });
+    });
 
-      if (maxPercentage > 0) {
-        deductions.push({ 
-          name: `Histórico: ${maxProblemName} (${maxPercentage}%)`, 
-          value: baseValue * (maxPercentage / 100), 
-          type: 'percent' 
+    // 2. Encontrar o maior desconto percentual
+    const maxPercentDiscount = percentDiscounts.length > 0 
+        ? Math.max(...percentDiscounts.map(d => d.value)) 
+        : 0;
+
+    percentDiscounts.forEach(d => {
+        deductions.push({
+            name: d.name,
+            value: d.value,
+            type: 'percent',
+            isMax: d.value === maxPercentDiscount && maxPercentDiscount > 0
         });
-      }
-    }
+    });
 
-    // 2. Avarias (Deduções por Valor Fixo)
+    // 3. Avarias (Deduções por Valor Fixo)
     let repairTotal = 0;
     
     if (lead.motor_reparo) {
@@ -1267,7 +1269,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
         let itemMultiplier = 1;
         if (cost.conditions && cost.conditions.length > 0) {
           for (const cond of cost.conditions) {
-            if (baseValue >= cond.min_value && baseValue <= cond.max_value) {
+            if (fipe >= cond.min_value && fipe <= cond.max_value) {
               itemMultiplier = cond.multiplier;
               break;
             }
@@ -1335,13 +1337,14 @@ Podemos prosseguir com o agendamento da vistoria?`;
     }
 
     // 4. Cálculo de Lucro (FIPE - Deduções - Quitação - Documentos - Margem)
-    const totalDeductions = deductions.reduce((acc, d) => acc + d.value, 0);
+    const fixedDeductions = deductions.filter(d => d.type === 'fixed').reduce((acc, d) => acc + d.value, 0);
+    const totalDeductions = maxPercentDiscount + fixedDeductions;
     
     // Margem de lucro configurável
-    let profitMargin = baseValue * (profitMarginPercentage / 100); 
+    let profitMargin = fipe * (profitMarginPercentage / 100); 
     
     // Fórmula final: Lucro = FIPE - (Deduções + Quitação + Documentos + Margem)
-    let finalValue = baseValue - totalDeductions - payoffValue - docDebts - profitMargin;
+    let finalValue = fipe - totalDeductions - payoffValue - docDebts - profitMargin;
 
     // Logic: If proposal is higher than desired price, offer 40% less than desired price
     if (lead.preco_cliente && finalValue > lead.preco_cliente) {
@@ -1352,10 +1355,10 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
     // Recalcular a margem de lucro conforme a fórmula do usuário:
     // VALOR FIP - (PROPOSTA GERADA + VALOR REAL DE QUITAÇÃO)
-    const calculatedProfitMargin = baseValue - (finalValue + payoffValue);
+    const calculatedProfitMargin = fipe - (finalValue + payoffValue);
 
     return {
-      baseValue,
+      baseValue: fipe,
       deductions,
       finalValue,
       profitMargin: calculatedProfitMargin,
@@ -5900,12 +5903,16 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 <div className="space-y-2">
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Deduções</p>
                   {proposalCalculator.deductions.length === 0 && <p className="text-slate-400 italic">Nenhuma dedução aplicada.</p>}
-                  {proposalCalculator.deductions.map((d: any, i: number) => (
-                    <div key={i} className="flex justify-between items-center text-red-600">
-                      <span>{d.name}</span>
-                      <span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
-                    </div>
-                  ))}
+                  {proposalCalculator.deductions.map((d: any, i: number) => {
+                    const isPercent = d.type === 'percent';
+                    const isApplied = !isPercent || d.isMax;
+                    return (
+                      <div key={i} className={`flex justify-between items-center ${isApplied ? 'text-red-600 font-bold' : 'text-slate-400 line-through opacity-50'}`}>
+                        <span>{d.name}</span>
+                        <span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {proposalCalculator.payoffValue > 0 && (
