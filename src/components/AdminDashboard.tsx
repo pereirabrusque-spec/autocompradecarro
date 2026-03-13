@@ -2480,7 +2480,19 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     onSave={async (updatedLead) => {
                       try {
                         console.log("Salvando Lead no AdminDashboard:", updatedLead);
-                        const { error } = await supabase.from('leads_veiculos').update(updatedLead).eq('id', updatedLead.id);
+                        
+                        // Sanitização: Remove campos que não pertencem à tabela ou são apenas para exibição
+                        const { 
+                          id, 
+                          created_at, 
+                          data_negociacao, // Campo virtual do LeadDetailsCard
+                          leads_veiculos, // Caso venha de um join
+                          mensagens,      // Caso venha de um join
+                          profiles,       // Caso venha de um join
+                          ...cleanData 
+                        } = updatedLead;
+
+                        const { error } = await supabase.from('leads_veiculos').update(cleanData).eq('id', id);
                         if (error) {
                           setToast({ message: 'Erro ao salvar: ' + error.message, type: 'error' });
                           setTimeout(() => setToast(null), 5000);
