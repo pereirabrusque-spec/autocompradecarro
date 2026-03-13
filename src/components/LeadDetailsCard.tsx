@@ -1032,6 +1032,18 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                         </div>
                       </div>
                       <div className="flex justify-between text-red-500 group cursor-pointer relative">
+                        <span>Descontos fixo\avaria\doc</span>
+                        <span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fixedCosts)}</span>
+                        <div className="absolute right-0 top-full bg-white border border-slate-200 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
+                          {calc.fixedCostsDetail.map((d, i) => (
+                            <div key={i} className="flex justify-between text-xs mb-1 text-slate-600">
+                              <span>{d.name}</span>
+                              <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex justify-between text-red-500 group cursor-pointer relative">
                         <span>Quitação Estimada</span>
                         <span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.payoff)}</span>
                         <div className="absolute right-0 top-full bg-white border border-slate-200 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
