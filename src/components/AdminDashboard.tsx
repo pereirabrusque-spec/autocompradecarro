@@ -451,14 +451,18 @@ export default function AdminDashboard() {
       }, async (payload) => {
         // Se for uma mensagem do cliente, atualiza a lista de conversas e o chat aberto
         if (payload.new.remetente === 'cliente') {
+          console.log("Received new message from client:", payload.new);
           // Atualiza mensagens do chat se estiver aberto para este lead
           if (selectedConversation?.lead_id === payload.new.lead_id) {
+            console.log("Updating chat messages state");
             setChatMessages(prev => [...prev, payload.new]);
             // Marcar como lida automaticamente se o chat estiver aberto
             await supabase
               .from('mensagens')
               .update({ lida: true })
               .eq('id', payload.new.id);
+          } else {
+            console.log("Message received for different lead. Current:", selectedConversation?.lead_id, "Message:", payload.new.lead_id);
           }
           
           // Atualiza a lista de conversas de forma otimizada
@@ -495,7 +499,7 @@ export default function AdminDashboard() {
     return () => {
       subscription.unsubscribe();
     };
-  }, [selectedConversation, fetchData]);
+  }, [selectedConversation]);
 
   const fetchChatMessages = async (leadId: string) => {
     console.log('Fetching messages for lead:', leadId);
