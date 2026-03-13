@@ -135,30 +135,36 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
       return banks.filter(b => b.is_cooperativa).map(b => b.name.toLowerCase());
     };
 
-    const getCooperativeBankDiscount = (bankName: string) => {
-      if (!bankName) return 0;
-      const name = bankName.toLowerCase();
-      const bank = banks.find(b => name.includes(b.name.toLowerCase()) && b.is_cooperativa);
-      return bank ? (Number(bank.discount_percentage) || 0) : 0;
+    // --- LÓGICA DE DESCONTO DE COOPERATIVA (SENIOR IMPLEMENTATION) ---
+    const bankName = currentLead.banco_financiamento || currentLead.banco_financiador || '';
+    
+    const isCooperativeBank = (name: string) => {
+      if (!name) return false;
+      const normalizedSearch = name.toLowerCase().trim();
+      // Verifica se o nome do banco do lead contém ou é contido por algum banco marcado como cooperativa
+      return banks.some(b => 
+        b.is_cooperativa && 
+        (normalizedSearch.includes(b.name.toLowerCase().trim()) || 
+         b.name.toLowerCase().trim().includes(normalizedSearch))
+      );
     };
+    
+    const isBankCooperative = isCooperativeBank(bankName);
+    const hasCooperativeFlag = currentLead.is_cooperativa === 'true' || 
+                               currentLead.is_cooperativa === true || 
+                               currentLead.is_cooperativa === 'sim';
 
-    // Aplicar desconto de cooperativa antes de tudo
     let fipeBase = fipe;
     let coopDiscount = 0;
     
-    const isCooperativeBank = (bankName: string) => {
-      if (!bankName) return false;
-      const name = bankName.toLowerCase();
-      return banks.some(b => b.is_cooperativa && name.includes(b.name.toLowerCase()));
-    };
-    
-    const isBankCooperative = isCooperativeBank(currentLead.banco_financiamento);
-    
-    if (isCooperativa || isBankCooperative) {
-        // Usa a porcentagem global de cooperativas
+    // Se for identificado como cooperativa (pelo nome do banco ou pela flag no lead)
+    if (hasCooperativeFlag || isBankCooperative) {
+        // Aplica a porcentagem global de desconto de cooperativa (cooperativeDiscount)
+        // vinda das configurações do sistema (Gerenciar lista e descontos)
         coopDiscount = fipe * (cooperativeDiscount / 100);
         fipeBase = fipe - coopDiscount;
     }
+    // --- FIM DA LÓGICA DE COOPERATIVA ---
 
     if (fipeRules && fipeRules.length > 0) {
       fipeRules.forEach(rule => {

@@ -1162,6 +1162,33 @@ Podemos prosseguir com o agendamento da vistoria?`;
     let baseValue = lead.valor_fipe || 0;
     const deductions: { name: string; value: number; type: 'fixed' | 'percent' }[] = [];
 
+    // 0. Desconto de Cooperativa (Antes de tudo)
+    const bankName = lead.banco_financiamento || lead.banco_financiador || '';
+    const isCooperativeBank = (name: string) => {
+      if (!name) return false;
+      const normalizedSearch = name.toLowerCase().trim();
+      return banks.some(b => 
+        b.is_cooperativa && 
+        (normalizedSearch.includes(b.name.toLowerCase().trim()) || 
+         b.name.toLowerCase().trim().includes(normalizedSearch))
+      );
+    };
+    
+    const isBankCooperative = isCooperativeBank(bankName);
+    const hasCooperativeFlag = lead.is_cooperativa === 'true' || 
+                               lead.is_cooperativa === true || 
+                               lead.is_cooperativa === 'sim';
+
+    if (hasCooperativeFlag || isBankCooperative) {
+        const coopValue = baseValue * (cooperativeDiscount / 100);
+        deductions.push({ 
+          name: `Desconto Cooperativa (${cooperativeDiscount}%)`, 
+          value: coopValue, 
+          type: 'percent' 
+        });
+        baseValue -= coopValue;
+    }
+
     // 1. Procedência / Histórico (Deduções por Porcentagem)
     const problemasSelecionados = Array.isArray(lead.problemas) ? lead.problemas : (typeof lead.problemas === 'string' ? lead.problemas.split(',').map((p: string) => p.trim()) : []);
     if (problemasSelecionados.length > 0) {
