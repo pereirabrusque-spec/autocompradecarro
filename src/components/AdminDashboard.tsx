@@ -457,6 +457,7 @@ export default function AdminDashboard() {
         // Se for uma mensagem do cliente, atualiza a lista de conversas e o chat aberto
         if (payload.new.remetente === 'cliente') {
           console.log("Received new message from client:", payload.new);
+          console.log("Current selectedConversationRef:", selectedConversationRef.current);
           // Atualiza mensagens do chat se estiver aberto para este lead
           if (selectedConversationRef.current?.lead_id === payload.new.lead_id) {
             console.log("Updating chat messages state");
@@ -476,10 +477,14 @@ export default function AdminDashboard() {
           }
           
           // Atualiza a lista de conversas de forma otimizada
-          const { data: messagesData } = await supabase
+          const { data: messagesData, error: messagesError } = await supabase
             .from('mensagens')
             .select('*')
             .order('created_at', { ascending: false });
+
+          if (messagesError) {
+            console.error("Error fetching messages in realtime callback:", messagesError);
+          }
 
           if (messagesData) {
             const groupedConversations: any[] = [];
@@ -494,7 +499,7 @@ export default function AdminDashboard() {
                   last_message: msg.conteudo,
                   last_time: msg.created_at,
                   last_message_at: msg.created_at,
-                  lead: msg.leads_veiculos,
+                  // lead: msg.leads_veiculos, // Removido temporariamente para evitar o 400
                   unread: unreadCount,
                   is_unanswered: msg.remetente === 'cliente'
                 });
