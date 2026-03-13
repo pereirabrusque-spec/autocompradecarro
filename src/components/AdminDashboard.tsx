@@ -10,12 +10,13 @@ import { ProposalModal } from './ProposalModal';
 import { LeadCard } from './LeadCard';
 import LeadDetailsCard from './LeadDetailsCard';
 import AdminMessages from './AdminMessages';
+import CooperativesModal from './CooperativesModal';
 
 export default function AdminDashboard() {
   const [leads, setLeads] = useState<any[]>([]);
   const [dbAssets, setDbAssets] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'leads' | 'hero' | 'assets' | 'footer' | 'settings' | 'ai' | 'apis' | 'crm' | 'messages' | 'buyers' | 'tags' | 'users'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'leads' | 'hero' | 'assets' | 'footer' | 'settings' | 'ai' | 'apis' | 'crm' | 'messages' | 'buyers' | 'tags' | 'users' | 'cooperatives'>('dashboard');
   const [messageTab, setMessageTab] = useState<'leads' | 'internal'>('leads');
   const [internalConversations, setInternalConversations] = useState<any[]>([]);
   const [selectedInternalChat, setSelectedInternalChat] = useState<string | null>(null);
@@ -33,6 +34,7 @@ export default function AdminDashboard() {
   const [adminMessage, setAdminMessage] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [showProposalModal, setShowProposalModal] = useState(false);
+  const [showCooperativesModal, setShowCooperativesModal] = useState(false);
   const [searchCode, setSearchCode] = useState('');
   const [isSavingBuyer, setIsSavingBuyer] = useState(false);
   const [newBuyer, setNewBuyer] = useState({ name: '', phone: '', email: '', category: ['carro'], type: ['normal'], sub_category: '' });
@@ -1719,6 +1721,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
               <button onClick={() => setActiveTab('settings')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'settings' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
                 <Wrench className="w-3 h-3" /> Config
               </button>
+              <button onClick={() => setActiveTab('cooperatives')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'cooperatives' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Cooperativas</button>
               <button onClick={() => setActiveTab('tags')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'tags' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Mkt</button>
               
               <button onClick={() => setActiveTab('hero')} className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'hero' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Site</button>
@@ -1752,7 +1755,26 @@ Podemos prosseguir com o agendamento da vistoria?`;
       </header>
 
       <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
-            {activeTab === 'dashboard' && (
+            {activeTab === 'cooperatives' && (
+          <div className="space-y-8">
+            <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm">
+              <h2 className="text-2xl font-bold mb-6">Cooperativas</h2>
+              <button 
+                onClick={() => setShowCooperativesModal(true)}
+                className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold flex items-center gap-2 hover:bg-accent transition-all"
+              >
+                <Plus className="w-5 h-5" />
+                Gerenciar Cooperativas
+              </button>
+            </div>
+          </div>
+        )}
+
+        {showCooperativesModal && (
+          <CooperativesModal onClose={() => setShowCooperativesModal(false)} />
+        )}
+
+        {activeTab === 'dashboard' && (
               <div className="space-y-8">
                 {/* Stats Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -2349,6 +2371,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       setShowWhatsAppBuyerModal(false);
                     }} 
                     forceShowWhatsAppBuyerModal={showWhatsAppBuyerModal}
+                    banks={banks}
                     onSave={async (updatedLead) => {
                       try {
                         console.log("Salvando Lead no AdminDashboard:", updatedLead);

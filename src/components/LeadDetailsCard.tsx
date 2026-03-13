@@ -11,10 +11,11 @@ interface LeadDetailsCardProps {
   onRefresh: () => void;
   fipeRules: any[];
   jurosAtraso: number;
+  banks: any[];
   forceShowWhatsAppBuyerModal?: boolean;
 }
 
-export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRefresh, fipeRules, jurosAtraso, forceShowWhatsAppBuyerModal }: LeadDetailsCardProps) {
+export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRefresh, fipeRules, jurosAtraso, banks, forceShowWhatsAppBuyerModal }: LeadDetailsCardProps) {
   const [currentLead, setCurrentLead] = useState(lead || {});
   const [repairModal, setRepairModal] = useState<{ field: string | null; value: string }>({ field: null, value: '' });
 
@@ -129,22 +130,27 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     const discountOptions: { name: string; value: number; isMax?: boolean }[] = [];
     
     const getCooperativeBanks = () => {
-      // Em um cenário real, isso viria de uma tabela de configuração no Supabase
-      return ['cooperativa', 'sicoob', 'sicredi', 'unicred', 'cresol', 'viacredi'];
+      // Usa a lista de bancos vinda do Supabase
+      return banks.filter(b => b.is_cooperativa).map(b => b.name.toLowerCase());
     };
 
-    const isCooperativeBank = (bankName: string) => {
-      if (!bankName) return false;
+    const getCooperativeBankDiscount = (bankName: string) => {
+      if (!bankName) return 0;
       const name = bankName.toLowerCase();
-      return getCooperativeBanks().some(bank => name.includes(bank));
+      const bank = banks.find(b => name.includes(b.name.toLowerCase()) && b.is_cooperativa);
+      return bank ? (Number(bank.discount_percentage) || 0) : 0;
     };
 
     // Aplicar desconto de cooperativa antes de tudo
     let fipeBase = fipe;
     let coopDiscount = 0;
-    if (isCooperativa || isCooperativeBank(currentLead.banco_financiamento)) {
-        // Exemplo: aplicar 5% de desconto de cooperativa se for cooperativa
-        coopDiscount = fipe * 0.05;
+    
+    const coopDiscountPercentage = getCooperativeBankDiscount(currentLead.banco_financiamento);
+    
+    if (isCooperativa || coopDiscountPercentage > 0) {
+        // Usa a porcentagem do banco ou 5% se for marcado como cooperativa mas sem banco específico
+        const discountRate = coopDiscountPercentage > 0 ? coopDiscountPercentage / 100 : 0.05;
+        coopDiscount = fipe * discountRate;
         fipeBase = fipe - coopDiscount;
     }
 
@@ -193,7 +199,10 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     const discounts = [...discountOptions];
     // Adiciona o desconto de cooperativa na lista de descontos para exibição
     if (coopDiscount > 0) {
-        discounts.unshift({ name: 'Desconto Cooperativa (5%)', value: coopDiscount });
+        const coopName = getCooperativeBankDiscount(currentLead.banco_financiamento) > 0 
+            ? `Desconto Cooperativa (${getCooperativeBankDiscount(currentLead.banco_financiamento)}%)` 
+            : 'Desconto Cooperativa (5%)';
+        discounts.unshift({ name: coopName, value: coopDiscount });
     }
     
     const discountValue = maxRuleDiscountValue + coopDiscount;
