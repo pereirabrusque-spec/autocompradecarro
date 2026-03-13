@@ -128,24 +128,24 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     // Regras de desconto dinâmicas baseadas no fipeRules
     const discountOptions: { name: string; value: number; isMax?: boolean }[] = [];
     
+    const getCooperativeBanks = () => {
+      // Em um cenário real, isso viria de uma tabela de configuração no Supabase
+      return ['cooperativa', 'sicoob', 'sicredi', 'unicred', 'cresol', 'viacredi'];
+    };
+
     const isCooperativeBank = (bankName: string) => {
       if (!bankName) return false;
       const name = bankName.toLowerCase();
-      return name.includes('cooperativa') || 
-             name.includes('sicoob') || 
-             name.includes('sicredi') || 
-             name.includes('unicred') || 
-             name.includes('cresol') ||
-             name.includes('viacredi');
+      return getCooperativeBanks().some(bank => name.includes(bank));
     };
 
     // Aplicar desconto de cooperativa antes de tudo
     let fipeBase = fipe;
+    let coopDiscount = 0;
     if (isCooperativa || isCooperativeBank(currentLead.banco_financiamento)) {
         // Exemplo: aplicar 5% de desconto de cooperativa se for cooperativa
-        const coopDiscount = fipe * 0.05;
+        coopDiscount = fipe * 0.05;
         fipeBase = fipe - coopDiscount;
-        discountOptions.push({ name: 'Desconto Cooperativa (5%)', value: coopDiscount });
     }
 
     if (fipeRules && fipeRules.length > 0) {
@@ -154,7 +154,6 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
         const condition = rule.condition_name.toLowerCase();
         
         // Mapeamento flexível das condições do banco para as variáveis do lead
-        // A condição de cooperativa já foi tratada acima
         if (condition.includes('financiado') && isFinanciado) apply = true;
         if (condition.includes('reajuste') && isReajuste) apply = true;
         if (condition.includes('financiamento atrasado') && isFinanciamentoAtrasado) apply = true;
@@ -192,7 +191,12 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     });
 
     const discounts = [...discountOptions];
-    const discountValue = maxRuleDiscountValue;
+    // Adiciona o desconto de cooperativa na lista de descontos para exibição
+    if (coopDiscount > 0) {
+        discounts.unshift({ name: 'Desconto Cooperativa (5%)', value: coopDiscount });
+    }
+    
+    const discountValue = maxRuleDiscountValue + coopDiscount;
 
     const fixedCostsDetail = [
       { name: 'IPVA/Multas', value: ipvaMulta + ipva + multas },
@@ -1090,7 +1094,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                     <h3 className="font-bold uppercase text-xs tracking-widest text-white/60 border-b border-white/10 pb-4">Análise Financeira</h3>
                     <div className="space-y-4 text-sm">
                       <div className="flex justify-between"><span className="text-white/60">FIPE</span><span className="font-mono">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fipe)}</span></div>
-                      <div className="flex justify-between text-red-400 group cursor-pointer relative"><span className="text-white/60">Descontos e Avarias</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.discountValue + calc.fixedCosts)}</span>
+                      <div className="flex justify-between text-red-400 group cursor-pointer relative"><span className="text-white/60">Descontos Aplicados</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.discountValue)}</span>
                         <div className="absolute right-0 top-full bg-slate-800 border border-white/10 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
                           {calc.discounts.map((d, i) => (
                             <div key={i} className={`flex justify-between text-xs mb-1 ${d.isMax ? 'text-red-400 font-bold' : 'text-white/60'}`}>
@@ -1098,6 +1102,10 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                               <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
                             </div>
                           ))}
+                        </div>
+                      </div>
+                      <div className="flex justify-between text-red-400 group cursor-pointer relative"><span className="text-white/60">Descontos fixo\avaria\doc</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fixedCosts)}</span>
+                        <div className="absolute right-0 top-full bg-slate-800 border border-white/10 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
                           {calc.fixedCostsDetail.map((d, i) => (
                             <div key={i} className="flex justify-between text-xs mb-1 text-white/60">
                               <span>{d.name}</span>
