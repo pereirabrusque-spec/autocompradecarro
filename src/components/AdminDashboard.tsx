@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GoogleGenAI } from "@google/genai";
-import { Car, Phone, Calendar, DollarSign, AlertCircle, AlertTriangle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw, Pencil, Users, Share2, MessageCircle, ChevronRight, ChevronLeft, Search, Filter, ShieldCheck, Wrench, Wallet, User, UserPlus, Mail, Bell, BellOff, Send, UserCheck, LayoutDashboard, Download, TrendingUp, BarChart3, PieChart, Info, X, Settings, Maximize2, Key, Bot } from 'lucide-react';
+import { Car, Phone, Calendar, DollarSign, AlertCircle, AlertTriangle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw, Pencil, Users, Share2, MessageCircle, ChevronRight, ChevronLeft, Search, Filter, ShieldCheck, Wrench, Wallet, User, UserPlus, Mail, Bell, BellOff, Send, UserCheck, LayoutDashboard, Download, TrendingUp, BarChart3, PieChart, Info, X, Settings, Maximize2, Key, Bot, Database } from 'lucide-react';
 import ChatThemeSettings from './ChatThemeSettings';
 import { useAssets } from '../lib/assetsContext';
 import { supabase } from '../lib/supabase';
@@ -105,12 +105,16 @@ export default function AdminDashboard() {
   const [profitMarginPercentage, setProfitMarginPercentage] = useState(20);
   const [savingSettings, setSavingSettings] = useState(false);
   const [selectedLead, setSelectedLead] = useState<any>(null);
+  const selectedLeadRef = useRef<any>(null);
+  useEffect(() => {
+    selectedLeadRef.current = selectedLead;
+  }, [selectedLead]);
   const { refreshAssets } = useAssets();
 
   const [showApiKeyForm, setShowApiKeyForm] = useState(false);
   const [isSavingKey, setIsSavingKey] = useState(false);
 
-  const [activeLeadTab, setActiveLeadTab] = useState<'novo' | 'proposta_enviada' | 'fechado' | 'recusado' | 'sem_interesse'>('novo');
+  const [activeLeadTab, setActiveLeadTab] = useState<'todos' | 'novo' | 'em_contato' | 'proposta_enviada' | 'fechado' | 'perdido'>('novo');
   const [leadsViewMode, setLeadsViewMode] = useState<'grid' | 'list'>('list');
   const [showBuyerPermissionsModal, setShowBuyerPermissionsModal] = useState(false);
   const [selectedBuyer, setSelectedBuyer] = useState<any>(null);
@@ -465,6 +469,28 @@ export default function AdminDashboard() {
         // Se for uma mensagem do cliente, atualiza a lista de conversas e o chat aberto
         if (payload.new.remetente === 'cliente') {
           console.log("Received new message from client:", payload.new);
+          
+          // Automação de Status: Se o cliente responde, muda para "Em Contato"
+          const { data: leadData } = await supabase
+            .from('leads_veiculos')
+            .select('status')
+            .eq('id', payload.new.lead_id)
+            .single();
+
+          if (leadData && (leadData.status === 'novo' || leadData.status === 'proposta_enviada')) {
+            await supabase
+              .from('leads_veiculos')
+              .update({ status: 'em_contato' })
+              .eq('id', payload.new.lead_id);
+            console.log("Lead status updated to 'em_contato' automatically");
+            
+            // Atualiza a lista de leads e o lead selecionado se for o caso
+            fetchData();
+            if (selectedLeadRef.current?.id === payload.new.lead_id) {
+              setSelectedLead(prev => prev ? { ...prev, status: 'em_contato' } : null);
+            }
+          }
+
           console.log("Current selectedConversationRef:", selectedConversationRef.current);
           // Atualiza mensagens do chat se estiver aberto para este lead
           if (selectedConversationRef.current?.lead_id === payload.new.lead_id) {
@@ -1833,9 +1859,12 @@ Podemos prosseguir com o agendamento da vistoria?`;
               <div className="space-y-8">
                 {/* Stats Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                  <div 
+                    onClick={() => setActiveTab('leads')}
+                    className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer group"
+                  >
                     <div className="flex items-center gap-4 mb-4">
-                      <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
+                      <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl group-hover:bg-blue-600 group-hover:text-white transition-colors">
                         <Car className="w-6 h-6" />
                       </div>
                       <div>
@@ -1843,46 +1872,71 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         <h3 className="text-2xl font-black text-slate-900">{leads.length}</h3>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 text-[10px] text-emerald-500 font-bold">
-                      <TrendingUp className="w-3 h-3" />
-                      <span>+12% este mês</span>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[10px] font-bold">
+                        <span className="text-blue-500">{leads.filter(l => l.status === 'novo').length} Novos</span>
+                        <span className="text-amber-500">{leads.filter(l => l.status === 'em_contato').length} Em Contato</span>
+                      </div>
+                      <p className="text-[9px] text-slate-300 italic">Fonte: Tabela leads_veiculos</p>
                     </div>
                   </div>
 
-                  <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                  <div 
+                    onClick={() => {
+                      setActiveTab('leads');
+                      setActiveLeadTab('fechado');
+                    }}
+                    className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer group"
+                  >
                     <div className="flex items-center gap-4 mb-4">
-                      <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl">
+                      <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl group-hover:bg-emerald-600 group-hover:text-white transition-colors">
                         <DollarSign className="w-6 h-6" />
                       </div>
                       <div>
-                        <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Vendas (Mês)</p>
+                        <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Vendas (Total)</p>
                         <h3 className="text-2xl font-black text-slate-900">{leads.filter(l => l.status === 'fechado').length}</h3>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 text-[10px] text-emerald-500 font-bold">
-                      <TrendingUp className="w-3 h-3" />
-                      <span>Meta: 85%</span>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[10px] font-bold">
+                        <span className="text-emerald-500">
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                            leads.filter(l => l.status === 'fechado').reduce((acc, l) => acc + (l.preco_cliente || 0), 0)
+                          )}
+                        </span>
+                      </div>
+                      <p className="text-[9px] text-slate-300 italic">Fonte: Status 'fechado'</p>
                     </div>
                   </div>
 
-                  <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                  <div 
+                    onClick={() => setActiveTab('messages')}
+                    className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer group"
+                  >
                     <div className="flex items-center gap-4 mb-4">
-                      <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl">
+                      <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl group-hover:bg-amber-600 group-hover:text-white transition-colors">
                         <MessageCircle className="w-6 h-6" />
                       </div>
                       <div>
-                        <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Conversas Ativas</p>
+                        <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Conversas</p>
                         <h3 className="text-2xl font-black text-slate-900">{conversations.length}</h3>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 text-[10px] text-slate-400 font-bold">
-                      <span>Tempo médio: 4min</span>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[10px] font-bold">
+                        <span className="text-red-500">{conversations.reduce((acc, c) => acc + (c.unread || 0), 0)} Não lidas</span>
+                        <span className="text-slate-400">{conversations.filter(c => c.is_unanswered).length} Aguardando</span>
+                      </div>
+                      <p className="text-[9px] text-slate-300 italic">Fonte: Tabela mensagens</p>
                     </div>
                   </div>
 
-                  <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                  <div 
+                    onClick={() => setActiveTab('buyers')}
+                    className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer group"
+                  >
                     <div className="flex items-center gap-4 mb-4">
-                      <div className="p-3 bg-purple-50 text-purple-600 rounded-2xl">
+                      <div className="p-3 bg-purple-50 text-purple-600 rounded-2xl group-hover:bg-purple-600 group-hover:text-white transition-colors">
                         <Users className="w-6 h-6" />
                       </div>
                       <div>
@@ -1890,9 +1944,11 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         <h3 className="text-2xl font-black text-slate-900">{interestedBuyers.length}</h3>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 text-[10px] text-emerald-500 font-bold">
-                      <TrendingUp className="w-3 h-3" />
-                      <span>+5 novos hoje</span>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[10px] font-bold">
+                        <span className="text-purple-500">{interestedBuyers.filter(b => b.status === 'active' || !b.status).length} Ativos</span>
+                      </div>
+                      <p className="text-[9px] text-slate-300 italic">Fonte: Tabela interested_buyers</p>
                     </div>
                   </div>
                 </div>
@@ -1932,20 +1988,41 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     </div>
                     <div className="space-y-4">
                       {[
-                        { label: 'Novos', count: leads.filter(l => !l.status || l.status === 'novo').length, color: 'bg-blue-500' },
-                        { label: 'Em Negociação', count: leads.filter(l => l.status === 'proposta_enviada').length, color: 'bg-amber-500' },
-                        { label: 'Fechados', count: leads.filter(l => l.status === 'fechado').length, color: 'bg-emerald-500' },
-                        { label: 'Recusados', count: leads.filter(l => l.status === 'recusado').length, color: 'bg-red-500' },
+                        { label: 'Novos', status: 'novo' as const, count: leads.filter(l => !l.status || l.status === 'novo').length, color: 'bg-blue-500' },
+                        { label: 'Em Negociação', status: 'proposta_enviada' as const, count: leads.filter(l => l.status === 'proposta_enviada').length, color: 'bg-amber-500' },
+                        { label: 'Fechados', status: 'fechado' as const, count: leads.filter(l => l.status === 'fechado').length, color: 'bg-emerald-500' },
+                        { label: 'Perdidos', status: 'perdido' as const, count: leads.filter(l => l.status === 'perdido').length, color: 'bg-red-500' },
                       ].map((item, i) => (
-                        <div key={i} className="flex items-center justify-between">
+                        <div 
+                          key={i} 
+                          onClick={() => {
+                            setActiveTab('leads');
+                            setActiveLeadTab(item.status);
+                          }}
+                          className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-xl transition-all cursor-pointer group"
+                        >
                           <div className="flex items-center gap-3">
-                            <div className={`w-3 h-3 rounded-full ${item.color}`} />
+                            <div className={`w-3 h-3 rounded-full ${item.color} group-hover:scale-125 transition-transform`} />
                             <span className="text-sm font-medium text-slate-600">{item.label}</span>
                           </div>
                           <span className="text-sm font-bold text-slate-900">{item.count}</span>
                         </div>
                       ))}
                     </div>
+                  </div>
+                </div>
+
+                {/* Data Source Info Footer */}
+                <div className="mt-8 p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-3">
+                  <div className="p-2 bg-white rounded-lg shadow-sm">
+                    <Database className="w-4 h-4 text-slate-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-700">Origem dos Dados</p>
+                    <p className="text-[10px] text-slate-400">
+                      As informações deste painel são sincronizadas em tempo real com as tabelas <code className="bg-slate-200 px-1 rounded text-slate-600">leads_veiculos</code>, 
+                      <code className="bg-slate-200 px-1 rounded text-slate-600">mensagens</code> e <code className="bg-slate-200 px-1 rounded text-slate-600">interested_buyers</code> do Supabase.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -2363,6 +2440,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     </button>
                     <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-100 overflow-x-auto">
                     {[
+                      { id: 'todos', label: 'Todos' },
                       { id: 'novo', label: 'Novos' },
                       { id: 'em_contato', label: 'Em Contato' },
                       { id: 'proposta_enviada', label: 'Proposta Enviada' },
@@ -2464,7 +2542,30 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     onSave={async (updatedLead) => {
                       try {
                         console.log("Salvando Lead no AdminDashboard:", updatedLead);
-                        const { error } = await supabase.from('leads_veiculos').update(updatedLead).eq('id', updatedLead.id);
+                        
+                        // Sanitização: Remove campos que não pertencem à tabela ou são apenas para exibição
+                        const { 
+                          id, 
+                          created_at, 
+                          data_negociacao, // Campo virtual do LeadDetailsCard
+                          leads_veiculos, // Caso venha de um join
+                          mensagens,      // Caso venha de um join
+                          profiles,       // Caso venha de um join
+                          ...cleanData 
+                        } = updatedLead;
+
+                        // Segurança extra: Garante que campos de array/json não sejam strings vazias
+                        const complexFields = [
+                          'fotos', 'videos', 'problemas', 'selected_items', 'avarias', 
+                          'avarias_manuais', 'fotos_url', 'detalhes_proposta', 'metadata'
+                        ];
+                        complexFields.forEach(field => {
+                          if (cleanData[field] === '') {
+                            cleanData[field] = null;
+                          }
+                        });
+
+                        const { error } = await supabase.from('leads_veiculos').update(cleanData).eq('id', id);
                         if (error) {
                           setToast({ message: 'Erro ao salvar: ' + error.message, type: 'error' });
                           setTimeout(() => setToast(null), 5000);
@@ -3241,7 +3342,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   {leadsViewMode === 'grid' ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
                       {leads
-                        .filter(l => l.status === activeLeadTab)
+                        .filter(l => activeLeadTab === 'todos' || l.status === activeLeadTab)
                         .filter(l => !searchCode || (l.vehicle_code && l.vehicle_code.includes(searchCode)))
                         .filter(l => !filterBrand || l.marca === filterBrand)
                         .filter(l => !filterYear || l.ano_modelo === parseInt(filterYear))
@@ -3297,21 +3398,21 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         <table className="w-full text-left border-collapse">
                           <thead className="sticky top-0 z-20 bg-slate-50 shadow-sm">
                             <tr className="border-b border-slate-200">
-                              <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Data</th>
-                              <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Status</th>
-                              <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Veículo</th>
-                              <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Código</th>
-                              <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Ano/Modelo</th>
-                              <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">FIPE</th>
-                              <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Desejado</th>
-                              <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Sugerido</th>
-                              <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Contato</th>
-                              <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-slate-400">Ações</th>
+                              <th className="px-2 pr-1 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Data</th>
+                              <th className="px-2 pl-1 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Status</th>
+                              <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Veículo</th>
+                              <th className="px-2 pr-1 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Código</th>
+                              <th className="px-2 px-1 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Ano/Modelo</th>
+                              <th className="px-2 pl-1 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">FIPE</th>
+                              <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Desejado</th>
+                              <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Sugerido</th>
+                              <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Contato</th>
+                              <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 text-center">Ações</th>
                             </tr>
                           </thead>
                           <tbody>
                             {leads
-                              .filter(l => l.status === activeLeadTab)
+                              .filter(l => activeLeadTab === 'todos' || l.status === activeLeadTab)
                               .filter(l => !searchCode || (l.vehicle_code && l.vehicle_code.includes(searchCode)))
                               .filter(l => !filterBrand || l.marca === filterBrand)
                               .filter(l => !filterYear || l.ano_modelo === parseInt(filterYear))
@@ -3338,16 +3439,16 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 return true;
                               })
                               .map((lead) => (
-                              <tr key={lead.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => {
+                              <tr key={lead.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer group" onClick={() => {
                                 setSelectedLead(lead);
                                 setProposalCalculator(calculateProposal(lead));
                                 setSelectedBuyers([]);
                                 setCurrentPhotoIndex(0);
                               }}>
-                                <td className="px-6 py-4 text-xs font-bold text-slate-500">
+                                <td className="px-2 pr-1 py-1.5 text-[11px] font-bold text-slate-900">
                                   {new Date(lead.created_at).toLocaleDateString()}
                                 </td>
-                                <td className="px-6 py-4">
+                                <td className="px-2 pl-1 py-1.5">
                                   <select 
                                     value={lead.status || 'novo'} 
                                     onClick={(e) => e.stopPropagation()}
@@ -3356,7 +3457,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                       setLeads(leads.map(l => l.id === lead.id ? { ...l, status: newStatus } : l));
                                       await supabase.from('leads_veiculos').update({ status: newStatus }).eq('id', lead.id);
                                     }}
-                                    className={`text-xs font-bold uppercase px-2 py-1 rounded border-none outline-none cursor-pointer ${
+                                    className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border-none outline-none cursor-pointer tracking-tighter ${
                                       lead.status === 'fechado' ? 'bg-emerald-100 text-emerald-700' :
                                       lead.status === 'perdido' ? 'bg-red-100 text-red-700' :
                                       lead.status === 'proposta_enviada' ? 'bg-blue-100 text-blue-700' :
@@ -3364,47 +3465,47 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                       'bg-slate-100 text-slate-600'
                                     }`}
                                   >
-                                    <option value="novo">Novo</option>
-                                    <option value="em_contato">Em Contato</option>
-                                    <option value="proposta_enviada">Proposta Enviada</option>
-                                    <option value="fechado">Fechado</option>
-                                    <option value="perdido">Perdido</option>
+                                    <option value="novo">NOVO</option>
+                                    <option value="em_contato">EM CONTATO</option>
+                                    <option value="proposta_enviada">PROPOSTA ENVIADA</option>
+                                    <option value="fechado">FECHADO</option>
+                                    <option value="perdido">PERDIDO</option>
                                   </select>
                                 </td>
-                                <td className="px-6 py-4">
-                                  <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 rounded-lg bg-slate-100 overflow-hidden flex-shrink-0">
+                                <td className="px-2 py-1.5">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-lg bg-slate-100 overflow-hidden flex-shrink-0 border border-slate-200">
                                       {lead.fotos && lead.fotos[0] ? (
                                         <img src={lead.fotos[0]} alt="Veículo" className="w-full h-full object-cover" />
                                       ) : (
                                         <div className="w-full h-full flex items-center justify-center text-slate-300">
-                                          <ImageIcon className="w-6 h-6" />
+                                          <Car className="w-4 h-4" />
                                         </div>
                                       )}
                                     </div>
-                                    <div>
-                                      <p className="font-bold text-slate-900">{lead.marca} {lead.modelo}</p>
-                                      <p className="text-xs text-slate-400">{lead.cliente_nome}</p>
+                                    <div className="overflow-hidden">
+                                      <p className="text-[11px] font-black text-slate-900 truncate leading-tight">{lead.marca} {lead.modelo}</p>
+                                      <p className="text-[9px] text-slate-500 truncate">{lead.cliente_nome}</p>
                                     </div>
                                   </div>
                                 </td>
-                                <td className="px-6 py-4">
-                                  <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded text-xs font-mono font-bold">
+                                <td className="px-2 pr-1 py-1.5">
+                                  <span className="px-1.5 py-0.5 bg-slate-100 text-slate-900 rounded text-[10px] font-mono font-bold">
                                     {lead.vehicle_code || '----'}
                                   </span>
                                 </td>
-                                <td className="px-6 py-4 text-sm text-slate-600">{lead.ano_modelo}</td>
-                                <td className="px-6 py-4 text-sm font-bold text-slate-900">
+                                <td className="px-2 px-1 py-1.5 text-[11px] font-bold text-slate-900">{lead.ano_modelo}</td>
+                                <td className="px-2 pl-1 py-1.5 text-[11px] font-bold text-slate-900">
                                   {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.valor_fipe || 0)}
                                 </td>
-                                <td className="px-6 py-4 text-sm font-bold text-green-600">
+                                <td className="px-2 py-1.5 text-[11px] font-black text-emerald-600">
                                   {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.preco_cliente || 0)}
                                 </td>
-                                <td className="px-6 py-4 text-sm font-bold text-accent">
+                                <td className="px-2 py-1.5 text-[11px] font-black text-accent">
                                   {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.suggested_value || calculateProposal(lead).finalValue)}
                                 </td>
-                                <td className="px-6 py-4">
-                                  <div className="flex items-center gap-2">
+                                <td className="px-2 py-1.5">
+                                  <div className="flex items-center gap-1">
                                     {lead.telefone && (
                                       <button 
                                         onClick={(e) => { 
@@ -3415,10 +3516,10 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                           const encodedMessage = generateOwnerMessage(lead, calc);
                                           window.open(`https://wa.me/${formattedPhone}?text=${encodedMessage}`, '_blank');
                                         }} 
-                                        className="p-2 bg-green-50 hover:bg-green-100 rounded-lg transition-colors text-green-600" 
+                                        className="p-1.5 bg-green-50 hover:bg-green-100 rounded-lg transition-colors text-green-600" 
                                         title="WhatsApp Proposta"
                                       >
-                                        <Phone className="w-4 h-4" />
+                                        <Phone className="w-3.5 h-3.5" />
                                       </button>
                                     )}
                                     {lead.telefone && (
@@ -3428,31 +3529,26 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                           setSelectedLead(lead);
                                           setShowWhatsAppBuyerModal(true);
                                         }} 
-                                        className="p-2 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors text-emerald-600" 
+                                        className="p-1.5 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors text-emerald-600" 
                                         title="WhatsApp Comprador"
                                       >
-                                        <MessageCircle className="w-4 h-4" />
+                                        <MessageCircle className="w-3.5 h-3.5" />
                                       </button>
-                                    )}
-                                    {lead.email && (
-                                      <a href={`mailto:${lead.email}`} className="p-2 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors text-blue-600" onClick={(e) => e.stopPropagation()} title="E-mail">
-                                        <MessageCircle className="w-4 h-4" />
-                                      </a>
                                     )}
                                   </div>
                                 </td>
-                                <td className="px-6 py-4">
-                                  <div className="flex items-center gap-2">
+                                <td className="px-2 py-1.5">
+                                  <div className="flex items-center gap-1">
                                     <button 
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setSelectedLead(lead);
                                         setProposalCalculator(calculateProposal(lead));
                                       }}
-                                      className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-accent transition-colors"
+                                      className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-accent transition-colors"
                                       title="Editar"
                                     >
-                                      <Pencil className="w-4 h-4" />
+                                      <Pencil className="w-3.5 h-3.5" />
                                     </button>
                                     <button 
                                       onClick={(e) => {
@@ -3460,10 +3556,10 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                         setConfirmDeleteLeadId(lead.id);
                                       }}
                                       disabled={isDeletingLead === lead.id}
-                                      className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                                      className="p-1.5 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50"
                                       title="Excluir"
                                     >
-                                      {isDeletingLead === lead.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                      {isDeletingLead === lead.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                                     </button>
                                   </div>
                                 </td>
