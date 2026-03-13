@@ -145,12 +145,15 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     let fipeBase = fipe;
     let coopDiscount = 0;
     
-    const coopDiscountPercentage = getCooperativeBankDiscount(currentLead.banco_financiamento);
+    const isCooperativeBank = (bankName: string) => {
+      if (!bankName) return false;
+      const name = bankName.toLowerCase();
+      return banks.some(b => b.is_cooperativa && name.includes(b.name.toLowerCase()));
+    };
     
-    if (isCooperativa || coopDiscountPercentage > 0) {
-        // Usa a porcentagem do banco ou 5% se for marcado como cooperativa mas sem banco específico
-        const discountRate = coopDiscountPercentage > 0 ? coopDiscountPercentage / 100 : 0.05;
-        coopDiscount = fipe * discountRate;
+    if (isCooperativa || isCooperativeBank(currentLead.banco_financiamento)) {
+        // Usa a porcentagem global de cooperativas
+        coopDiscount = fipe * (cooperativeDiscount / 100);
         fipeBase = fipe - coopDiscount;
     }
 
@@ -199,10 +202,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     const discounts = [...discountOptions];
     // Adiciona o desconto de cooperativa na lista de descontos para exibição
     if (coopDiscount > 0) {
-        const coopName = getCooperativeBankDiscount(currentLead.banco_financiamento) > 0 
-            ? `Desconto Cooperativa (${getCooperativeBankDiscount(currentLead.banco_financiamento)}%)` 
-            : 'Desconto Cooperativa (5%)';
-        discounts.unshift({ name: coopName, value: coopDiscount });
+        discounts.unshift({ name: `Desconto Cooperativa (${cooperativeDiscount}%)`, value: coopDiscount });
     }
     
     const discountValue = maxRuleDiscountValue + coopDiscount;

@@ -7,11 +7,13 @@ interface CooperativesModalProps {
   onClose: () => void;
   banks: any[];
   onRefresh: () => void;
+  cooperativeDiscount: number;
 }
 
-export default function CooperativesModal({ isOpen, onClose, banks, onRefresh }: CooperativesModalProps) {
+export default function CooperativesModal({ isOpen, onClose, banks, onRefresh, cooperativeDiscount }: CooperativesModalProps) {
   const [newBank, setNewBank] = useState({ name: '', discount_percentage: '' });
   const [isSaving, setIsSaving] = useState(false);
+  const [globalDiscount, setGlobalDiscount] = useState(cooperativeDiscount);
 
   if (!isOpen) return null;
 
@@ -37,6 +39,37 @@ export default function CooperativesModal({ isOpen, onClose, banks, onRefresh }:
           <button onClick={onClose}><X /></button>
         </div>
         <div className="space-y-4 mb-6">
+          <div className="p-4 bg-slate-50 rounded-xl space-y-2">
+            <label className="text-sm font-bold">Porcentagem Global de Cooperativas (%)</label>
+            <input 
+              type="number"
+              className="w-full p-2 border rounded"
+              value={globalDiscount}
+              onChange={e => setGlobalDiscount(parseFloat(e.target.value))}
+            />
+            <button 
+              onClick={async () => {
+                await supabase.from('settings').upsert({ key: 'COOPERATIVE_DISCOUNT_PERCENTAGE', value: globalDiscount.toString() }, { onConflict: 'key' });
+                onRefresh();
+              }}
+              className="w-full p-2 bg-slate-900 text-white rounded font-bold"
+            >
+              Salvar Porcentagem Global
+            </button>
+          </div>
+          <button 
+            onClick={async () => {
+              const banksToPopulate = ['Sicoob', 'Sicredi', 'Unicred', 'Cresol', 'Viacredi', 'Ailos', 'Credisis', 'Credicoamo'];
+              for (const name of banksToPopulate) {
+                await supabase.from('banks').insert({ name, discount_percentage: globalDiscount, is_cooperativa: true });
+              }
+              onRefresh();
+            }}
+            className="w-full p-2 bg-slate-100 text-slate-900 rounded font-bold"
+          >
+            Popular com Cooperativas Padrão
+          </button>
+          <hr />
           <input 
             placeholder="Nome da Cooperativa" 
             className="w-full p-2 border rounded"

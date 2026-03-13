@@ -58,6 +58,7 @@ export default function AdminDashboard() {
   const [aiSystemPrompt, setAiSystemPrompt] = useState('');
   const [aiMemory, setAiMemory] = useState('');
   const [banks, setBanks] = useState<any[]>([]);
+  const [cooperativeDiscount, setCooperativeDiscount] = useState<number>(5);
   const [repairCosts, setRepairCosts] = useState<any[]>([]);
   const [repairMultipliers, setRepairMultipliers] = useState<{id: string, min: number, max: number, multiplier: number}[]>([]);
   const [fipeRules, setFipeRules] = useState<any[]>([]);
@@ -289,6 +290,11 @@ export default function AdminDashboard() {
             { id: '2', min: 20000, max: 60000, multiplier: 2 },
             { id: '3', min: 60000, max: 100000, multiplier: 3 }
           ]);
+        }
+        
+        const coopDiscountSetting = settingsData.find((s: any) => s.key === 'COOPERATIVE_DISCOUNT_PERCENTAGE');
+        if (coopDiscountSetting) {
+          setCooperativeDiscount(Number(coopDiscountSetting.value));
         }
         
         const chatEnabledSetting = settingsData.find((s: any) => s.key === 'CHAT_ENABLED');
@@ -1771,7 +1777,13 @@ Podemos prosseguir com o agendamento da vistoria?`;
         )}
 
         {showCooperativesModal && (
-          <CooperativesModal onClose={() => setShowCooperativesModal(false)} />
+          <CooperativesModal 
+            isOpen={showCooperativesModal}
+            onClose={() => setShowCooperativesModal(false)} 
+            banks={banks} 
+            onRefresh={fetchData}
+            cooperativeDiscount={cooperativeDiscount}
+          />
         )}
 
         {activeTab === 'dashboard' && (
@@ -2372,6 +2384,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     }} 
                     forceShowWhatsAppBuyerModal={showWhatsAppBuyerModal}
                     banks={banks}
+                    cooperativeDiscount={cooperativeDiscount}
                     onSave={async (updatedLead) => {
                       try {
                         console.log("Salvando Lead no AdminDashboard:", updatedLead);
