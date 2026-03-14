@@ -132,7 +132,15 @@ function AppContent() {
   }, [user, isAdmin, isLoading]);
 
   useEffect(() => {
+    console.log('[AUTH-DEBUG] Verificando view auth-callback:', {
+      view,
+      isLoading,
+      isAdmin,
+      isBuyer
+    });
+    
     if (view === 'auth-callback' && !isLoading) {
+      console.log('[AUTH-DEBUG] Processando callback...');
       if (isAdmin) {
         window.history.pushState({}, '', '/admin');
         setView('admin');
