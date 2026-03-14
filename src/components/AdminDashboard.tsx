@@ -7113,13 +7113,15 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 </button>
                 <button 
                   onClick={async () => {
+                    console.log('Tentando atualizar usuário:', editingUser.id, editUserForm);
                     const { error } = await supabase.from('profiles').update(editUserForm).eq('id', editingUser.id);
                     if (!error) {
                       refreshUsers();
                       setIsEditUserModalOpen(false);
                       setToast({ message: 'Usuário atualizado com sucesso!', type: 'success' });
                     } else {
-                      setToast({ message: 'Erro ao atualizar usuário.', type: 'error' });
+                      console.error('Erro detalhado ao atualizar usuário:', error);
+                      setToast({ message: `Erro ao atualizar usuário: ${error.message}`, type: 'error' });
                     }
                   }}
                   className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all"
