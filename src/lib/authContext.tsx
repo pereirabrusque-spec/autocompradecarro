@@ -207,6 +207,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await refreshProfile();
   };
 
+  const updateNotificationPreference = async (enabled: boolean) => {
+    if (!profile) return;
+    await supabase
+      .from('profiles')
+      .update({ notification_enabled: enabled })
+      .eq('id', profile.id);
+    await refreshProfile();
+  };
+
   const value = useMemo(() => ({
     user,
     profile,
@@ -216,7 +225,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signInWithGoogle,
     signOut,
     refreshProfile,
-    promoteUser
+    promoteUser,
+    updateNotificationPreference
   }), [user, profile, isLoading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
