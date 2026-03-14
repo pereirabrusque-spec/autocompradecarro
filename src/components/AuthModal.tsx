@@ -65,11 +65,16 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
         alert('E-mail de redefinição enviado! Verifique sua caixa de entrada.');
         setMode('login');
       } else {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
+        console.log('[AuthModal] Tentando login com:', { email });
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
-        if (signInError) throw signInError;
+        if (signInError) {
+          console.error('[AuthModal] Erro no signInWithPassword:', signInError);
+          throw signInError;
+        }
+        console.log('[AuthModal] Login bem-sucedido. Dados do usuário:', data.user);
         await refreshProfile();
         onClose();
       }

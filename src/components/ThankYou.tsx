@@ -19,7 +19,7 @@ export default function ThankYou() {
         
         <p className="text-slate-500 text-lg mb-10 leading-relaxed">
           Obrigado por confiar na <span className="text-accent font-bold">Auto Compra</span>. 
-          Nossa equipe de especialistas já está analisando os dados do seu veículo e entrará em contato em breve via WhatsApp ou telefone.
+          Nossa equipe de especialistas já está analisando os dados do seu veículo e em até 24 horas você receberá uma mensagem pelo chat ou WhatsApp.
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -41,12 +41,6 @@ export default function ThankYou() {
             Falar no Chat
             <MessageCircle className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </button>
-        </div>
-
-        <div className="mt-12 pt-8 border-t border-slate-50">
-          <p className="text-slate-400 text-sm">
-            Dúvidas? Ligue para <span className="text-slate-600 font-bold">(11) 99999-9999</span>
-          </p>
         </div>
       </motion.div>
     </div>

@@ -71,22 +71,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // This avoids 406 errors on every load for normal users
         const isSuperAdmin = targetUser.email === 'pereira.brusque@gmail.com';
         
+        let updates: any = { last_login: new Date().toISOString() };
+        
         if (isSuperAdmin && data.role !== 'admin') {
+          updates.role = 'admin';
+        }
+        
+        // Force pull name and photo from Google Auth if missing or different
+        if (targetUser.user_metadata?.full_name && data.full_name !== targetUser.user_metadata.full_name) {
+          updates.full_name = targetUser.user_metadata.full_name;
+        }
+        if (targetUser.user_metadata?.avatar_url && data.avatar_url !== targetUser.user_metadata.avatar_url) {
+          updates.avatar_url = targetUser.user_metadata.avatar_url;
+        }
+        
+        if (Object.keys(updates).length > 0) {
           try {
             await supabase
               .from('profiles')
-              .update({ role: 'admin', last_login: new Date().toISOString() })
+              .update(updates)
               .eq('id', targetUser.id);
-            setProfile({ ...data, role: 'admin' } as Profile);
-          } catch (e) {}
-        } else {
-          // Just update last login
-          try {
-            await supabase
-              .from('profiles')
-              .update({ last_login: new Date().toISOString() })
-              .eq('id', targetUser.id);
-          } catch (e) {}
+            setProfile({ ...data, ...updates } as Profile);
+          } catch (e) {
+            console.error('Failed to update profile with Google data:', e);
+          }
         }
       } else {
         // Profile doesn't exist, create a default one
@@ -133,7 +141,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log(`[Auth] Evento de mudança de estado: ${event}`, session?.user);
       const currentUser = session?.user ?? null;
       setUser(currentUser);
       if (!currentUser) {
@@ -154,13 +163,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   const signInWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
+    console.log('[Auth] Iniciando login com Google...');
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/auth/callback`
       }
     });
-    if (error) throw error;
+    if (error) {
+      console.error('[Auth] Erro no signInWithGoogle:', error);
+      throw error;
+    }
+    console.log('[Auth] Resposta do signInWithGoogle:', data);
   };
 
   const signOut = async () => {

@@ -33,12 +33,18 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
     setError('');
 
     try {
+      console.log('[Login] Tentando login com:', { email });
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[Login] Erro no signInWithPassword:', error);
+        throw error;
+      }
+      
+      console.log('[Login] Login bem-sucedido. Dados do usuário:', data.user);
 
       if (data.user) {
         // Check if user is admin

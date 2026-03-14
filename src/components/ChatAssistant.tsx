@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MessageSquare, Send, X, Bot, User, Loader2, Camera, Paperclip, FileText, Video, ShieldCheck } from 'lucide-react';
 import { triggerAdsConversion } from './GoogleTags';
-import { GoogleGenAI } from '@google/genai';
 import OpenAI from 'openai';
 import Markdown from 'react-markdown';
 import { supabase } from '../lib/supabase';
@@ -337,7 +336,8 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
       const { error } = await supabase.from('mensagens').insert({
         lead_id: leadId,
         remetente: 'cliente',
-        conteudo: userText
+        conteudo: userText,
+        metadata: { from_chat_widget: true }
       });
       if (error) {
         console.error("Erro ao salvar mensagem:", error);
@@ -491,7 +491,10 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
       
       // Check if botText contains a JSON block for lead submission or notification authorization
       const jsonMatch = botText.match(/```json\n([\s\S]*?)\n```/);
+      let textToShow = botText;
+
       if (jsonMatch) {
+        textToShow = botText.replace(jsonMatch[0], '').trim();
         try {
           const data = JSON.parse(jsonMatch[1]);
           
@@ -502,7 +505,10 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
                 if (permission === 'granted') {
                   supabase.from('leads_veiculos').update({ notifications_enabled: true }).eq('id', leadId);
                   playNotificationSound();
-                  setMessages(prev => [...prev, { role: 'bot', text: '✅ **Notificações ativadas!** Você receberá atualizações sobre sua negociação.' }]);
+                  setMessages(prev => [...prev, 
+                    ...(textToShow ? [{ role: 'bot' as const, text: textToShow }] : []),
+                    { role: 'bot' as const, text: '✅ **Notificações ativadas!** Você receberá atualizações sobre sua negociação.' }
+                  ]);
                 }
               });
             }
@@ -546,7 +552,19 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
 
           setIsFormFilled(true);
           playNotificationSound();
-          setMessages(prev => [...prev, { role: 'bot', text: '✅ **Dados registrados!** Nossa equipe analisará sua proposta e retornará em até 24 horas. Deseja receber notificações sobre o status da sua negociação?' }]);
+          setMessages(prev => [...prev, 
+            ...(textToShow ? [{ role: 'bot' as const, text: textToShow }] : []),
+            { role: 'bot' as const, text: '✅ **Dados registrados!** Nossa equipe analisará sua proposta e retornará em até 24 horas. Deseja receber notificações sobre o status da sua negociação?' }
+          ]);
+          
+          // Salvar resposta do bot (o texto que a IA gerou)
+          if (leadId && textToShow) {
+            await supabase.from('mensagens').insert({
+              lead_id: leadId,
+              remetente: 'bot',
+              conteudo: textToShow
+            });
+          }
           return;
         } catch (e) {
           console.error('Failed to parse or save JSON:', e);
@@ -554,14 +572,14 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
       }
 
       playNotificationSound();
-      setMessages(prev => [...prev, { role: 'bot', text: botText }]);
+      setMessages(prev => [...prev, { role: 'bot', text: textToShow }]);
       
       // Salvar resposta do bot
-      if (leadId) {
+      if (leadId && textToShow) {
         await supabase.from('mensagens').insert({
           lead_id: leadId,
           remetente: 'bot',
-          conteudo: botText
+          conteudo: textToShow
         });
       }
     } catch (error) {

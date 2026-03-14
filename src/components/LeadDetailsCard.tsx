@@ -418,7 +418,7 @@ export default function LeadDetailsCard({
     if (!file) return;
 
     setIsUploadingCRLV(true);
-    const apiKey = (import.meta.env.VITE_GEMINI_API_KEY || '').trim();
+    const apiKey = (process.env.GEMINI_API_KEY || '').trim();
     console.log("DEBUG: GEMINI_API_KEY:", apiKey ? "DEFINIDA" : "NÃO DEFINIDA");
     const ai = new GoogleGenAI({ apiKey });
 

@@ -33,6 +33,7 @@ import AuthModal from './components/AuthModal';
 import { GoogleTags } from './components/GoogleTags';
 import NotificationPermissionModal from './components/NotificationPermissionModal';
 import ThankYou from './components/ThankYou';
+import { AIService } from './services/aiService';
 
 function AppContent() {
   const [view, setView] = useState<'home' | 'admin' | 'buyer' | 'login' | 'forgot-password' | 'reset-password' | 'sell' | 'auth-callback' | 'thank-you'>('home');
@@ -48,6 +49,15 @@ function AppContent() {
   const tawkToEnabled = settings['TAWKTO_ENABLED'] === 'true';
 
   const [isChatOpen, setIsChatOpen] = useState(false);
+
+  useEffect(() => {
+    // Test API connections on startup and every 4 hours
+    AIService.testConnections();
+    const interval = setInterval(() => {
+      AIService.testConnections();
+    }, 4 * 60 * 60 * 1000); // 4 hours
+    return () => clearInterval(interval);
+  }, []);
 
   const showChat = (primaryContact === 'chat' || (specialistButtonEnabled && specialistAction === 'chat')) && chatEnabled;
   const showWhatsApp = (primaryContact === 'whatsapp' || (specialistButtonEnabled && specialistAction === 'whatsapp')) && whatsappEnabled;

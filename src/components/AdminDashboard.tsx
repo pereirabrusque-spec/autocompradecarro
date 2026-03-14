@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GoogleGenAI } from "@google/genai";
+import { AIService } from '../services/aiService';
 import { createClient } from '@supabase/supabase-js';
 import { Car, Phone, Calendar, DollarSign, AlertCircle, AlertTriangle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw, Pencil, Users, Share2, MessageCircle, ChevronRight, ChevronLeft, Search, Filter, ShieldCheck, Wrench, Wallet, User, UserPlus, Mail, Bell, BellOff, Send, UserCheck, LayoutDashboard, Download, TrendingUp, BarChart3, PieChart, Info, X, Settings, Maximize2, Key, Bot, Database, Zap } from 'lucide-react';
 import ChatThemeSettings from './ChatThemeSettings';
@@ -597,7 +597,7 @@ export default function AdminDashboard() {
           }
 
           // RESPOSTA AUTOMÁTICA DA IA
-          if (autoProposalEnabled || proposalModeEnabled) {
+          if ((autoProposalEnabled || proposalModeEnabled) && !payload.new.metadata?.from_chat_widget) {
             setTimeout(() => {
               handleAIAutoResponse(payload.new);
             }, 2000);
@@ -975,18 +975,14 @@ Podemos prosseguir com o agendamento da vistoria?`;
     try {
       const chatHistory = chatMessages.map(m => `${m.remetente === 'admin' ? 'Humano' : 'Cliente'}: ${m.conteudo}`).join('\n');
       
-      // Use Gemini to extract triggers
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `Analise a conversa abaixo e extraia apenas os gatilhos de venda, informações técnicas do veículo e condições comerciais mencionadas. Ignore saudações e conversas genéricas.
+      const prompt = `Analise a conversa abaixo e extraia apenas os gatilhos de venda, informações técnicas do veículo e condições comerciais mencionadas. Ignore saudações e conversas genéricas.
         
         Conversa:
-        ${chatHistory}`,
-        config: {
-          systemInstruction: "Você é um assistente especializado em extrair informações estratégicas de vendas de veículos de conversas de chat. Retorne apenas os pontos relevantes encontrados de forma concisa.",
-        }
-      });
+        ${chatHistory}`;
+      
+      const systemInstruction = "Você é um assistente especializado em extrair informações estratégicas de vendas de veículos de conversas de chat. Retorne apenas os pontos relevantes encontrados de forma concisa.";
+
+      const response = await AIService.generateContent(prompt, systemInstruction);
       
       const extractedInfo = response.text;
       if (!extractedInfo || extractedInfo.trim().length < 10) {
@@ -1095,19 +1091,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
       const chatHistory = history?.reverse().map(m => `${m.remetente === 'cliente' ? 'Cliente' : 'Atendente'}: ${m.conteudo}`).join('\n');
       
-      const apiKey = process.env.GEMINI_API_KEY || '';
-      if (!apiKey) {
-        console.error("GEMINI_API_KEY not found");
-        return;
-      }
-
-      const ai = new GoogleGenAI({ apiKey });
       const isProposalMode = lead.detalhes_proposta?.proposal_mode || proposalModeEnabled;
 
       const prompt = `
-        Você é o assistente virtual inteligente da AUTOCOMPRA, especializado em compra de veículos.
-        Seu objetivo é converter o cliente e fechar o negócio.
-        
         DADOS DO VEÍCULO:
         Marca/Modelo: ${lead.marca} ${lead.modelo}
         Ano: ${lead.ano_modelo}
@@ -1121,7 +1107,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
         CONFIGURAÇÕES ATUAIS:
         Modo Proposta: ${isProposalMode ? 'ATIVADO (Envie uma proposta formal ou tente fechar o valor)' : 'DESATIVADO (Apenas converse e tire dúvidas)'}
         Memória da IA: ${aiMemory}
-        System Prompt: ${aiSystemPrompt}
         
         INSTRUÇÃO:
         Responda de forma curta, direta e profissional. Use gatilhos mentais de urgência e escassez.
@@ -1129,23 +1114,27 @@ Podemos prosseguir com o agendamento da vistoria?`;
         Responda apenas com o texto da mensagem.
       `;
 
-      const result = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: prompt
-      });
-      const aiResponse = result.text;
+      try {
+        const result = await AIService.generateContent(
+          prompt, 
+          aiSystemPrompt || "Você é o assistente virtual inteligente da AUTOCOMPRA, especializado em compra de veículos. Seu objetivo é converter o cliente e fechar o negócio."
+        );
+        const aiResponse = result.text;
 
-      if (aiResponse) {
-        const { error: sendError } = await supabase.from('mensagens').insert({
-          lead_id: lead.id,
-          remetente: 'admin',
-          conteudo: aiResponse,
-          tipo: 'texto',
-          metadata: { ai_generated: true, proposal_mode: isProposalMode }
-        });
+        if (aiResponse) {
+          const { error: sendError } = await supabase.from('mensagens').insert({
+            lead_id: lead.id,
+            remetente: 'admin',
+            conteudo: aiResponse,
+            tipo: 'texto',
+            metadata: { ai_generated: true, proposal_mode: isProposalMode, provider: result.provider, model: result.model }
+          });
 
-        if (sendError) throw sendError;
-        console.log("AI Auto Response sent successfully");
+          if (sendError) throw sendError;
+          console.log("AI Auto Response sent successfully via", result.provider);
+        }
+      } catch (aiError: any) {
+        console.error("AI Auto Response failed:", aiError);
       }
 
     } catch (err) {
