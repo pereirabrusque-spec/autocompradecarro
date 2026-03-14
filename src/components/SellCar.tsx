@@ -637,6 +637,31 @@ export default function SellCar() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  if (!user) {
+    return (
+      <div className="pt-32 pb-24 bg-slate-50 min-h-screen flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white rounded-[32px] p-8 shadow-xl text-center">
+          <div className="w-16 h-16 bg-accent/10 text-accent rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <ShieldCheck className="w-8 h-8" />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-4">Autenticação Necessária</h2>
+          <p className="text-slate-500 mb-8">
+            Para garantir a segurança e a qualidade das nossas avaliações, você precisa estar logado para preencher o formulário.
+          </p>
+          <div className="space-y-4">
+            <button 
+              onClick={() => setShowAuthModal(true)}
+              className="w-full py-4 bg-accent text-white rounded-2xl font-bold hover:bg-accent/90 transition-all shadow-lg shadow-accent/20"
+            >
+              Entrar ou Cadastrar-se
+            </button>
+          </div>
+        </div>
+        <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+      </div>
+    );
+  }
+
   return (
     <div className="pt-24 pb-24 bg-slate-50 min-h-screen">
       {/* Modal IPVA/Multas */}

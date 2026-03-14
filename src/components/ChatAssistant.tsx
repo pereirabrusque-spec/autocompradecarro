@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { MessageSquare, Send, X, Bot, User, Loader2, Camera, Paperclip, FileText, Video } from 'lucide-react';
+import { MessageSquare, Send, X, Bot, User, Loader2, Camera, Paperclip, FileText, Video, ShieldCheck } from 'lucide-react';
 import { triggerAdsConversion } from './GoogleTags';
 import { GoogleGenAI } from '@google/genai';
 import OpenAI from 'openai';
@@ -8,6 +8,8 @@ import Markdown from 'react-markdown';
 import { supabase } from '../lib/supabase';
 import { AIService } from '../services/aiService';
 import { useAssets } from '../lib/assetsContext';
+import { useAuth } from '../lib/authContext';
+import AuthModal from './AuthModal';
 
 interface Message {
   role: 'user' | 'bot';
@@ -25,7 +27,8 @@ interface ChatAssistantProps {
 
 export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistantProps) {
   const { settings } = useAssets();
-  const [user, setUser] = useState<any>(null);
+  const { user } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [leadId, setLeadId] = useState<string | null>(null);
   const [isFormFilled, setIsFormFilled] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -109,12 +112,9 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
   useEffect(() => {
     const initializeChat = async () => {
       // Get user and create/get lead
-      const { data: { user } } = await supabase.auth.getUser();
       let currentLeadId = localStorage.getItem('chat_lead_id');
 
       if (user) {
-        setUser(user);
-        
         // Find or create lead for logged in user
         const { data: existingLead } = await supabase
           .from('leads_veiculos')
@@ -368,31 +368,14 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         - Base FIPE: R$ ${lastProposal.base_value}
         - Deduções: ${lastProposal.deductions?.map((d: any) => `${d.name} (R$ ${d.value})`).join(', ')}
         
-        **INSTRUÇÃO DE FASE 2 (COMPRADOR NATO):** O cliente já preencheu o formulário e recebeu uma proposta. Agora você é um **COMPRADOR NATO EXPERIENTE**. 
-        - Use gatilhos mentais de compra.
-        - Sinta a "dor" do cliente (ex: dívidas, parcelas atrasadas, carro quebrado).
-        - Faça-o se sentir confiante de que vender para nós é a melhor decisão da vida dele.
-        - Seja persuasivo para fechar o negócio AGORA.
-        - Diga que o pagamento é à vista no PIX e resolvemos toda a burocracia.
-        - Se o valor for baixo, foque na conveniência e no "limpa nome".
-      ` : `
-        **INSTRUÇÃO DE FASE 1 (CONVERSÃO):** O cliente ainda não preencheu o formulário ou não recebeu proposta. 
-        - Seja extremamente atencioso e persuasivo.
-        - Seu objetivo único é CONVENCER o usuário a preencher o formulário "Vender Meu Carro" ou fornecer todos os dados aqui.
-        - Destaque os benefícios: Avaliação Gratuita, Pagamento no PIX, Resolvemos Dívidas.
-      `;
+        **INSTRUÇÃO:** O consultor humano já enviou esta proposta. Sua missão agora é **PERSUADIR** o cliente a aceitá-la. Use gatilhos mentais de urgência e segurança. Se o cliente tentar mudar o valor, diga que esta é a melhor oferta técnica possível e que o pagamento é à vista. NÃO ENVIE NOVAS PROPOSTAS.
+      ` : '';
 
       const defaultRules = `Você é o **ASSISTENTE DE ATENDIMENTO** da plataforma "LOJA ONLINE - SOLUÇÕES AUTOMOTIVAS".
-        Sua função evolui conforme o status do cliente.
+        Sua função é **COLETAR DADOS, TIRAR DÚVIDAS E PREPARAR O CLIENTE PARA O CONSULTOR HUMANO**.
         
-        **REGRA DE OURO ABSOLUTA: VOCÊ NUNCA, SOB NENHUMA HIPÓTESE, DEVE INVENTAR UMA PROPOSTA DE VALOR.**
-        Apenas o consultor humano pode enviar propostas oficiais. Se o cliente pedir um valor e não houver proposta no histórico, diga que os dados estão sendo analisados.
-
-        ### COMPORTAMENTO POR FASE:
-        ${isFormFilled || lastProposal ? 
-          'FASE 2: COMPRADOR EXPERIENTE. Foque em fechar o negócio, segurança, PIX na hora e resolver o problema do cliente.' : 
-          'FASE 1: PERSUASÃO PARA CADASTRO. Foque em coletar dados e levar o cliente ao formulário de venda.'
-        }
+        **REGRA DE OURO ABSOLUTA: VOCÊ NUNCA, SOB NENHUMA HIPÓTESE, DEVE ENVIAR UMA PROPOSTA DE VALOR PARA O CLIENTE.**
+        Apenas o consultor humano (após análise no painel) pode enviar propostas. Se o cliente pedir um valor, diga que os dados estão sendo analisados pela equipe de avaliação e que um consultor enviará a proposta oficial em breve.
 
         ### 1. CAPACIDADE DE VISÃO (OCR E ANÁLISE)
         - **Se o usuário enviar foto de documento (CRLV/CNH):** Extraia IMEDIATAMENTE: Placa, Renavam, Nome do Proprietário, Ano, Modelo e Cor. Confirme esses dados com o usuário.
@@ -640,7 +623,26 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
             </div>
 
             <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/30">
-              {messages.map((msg, i) => (
+              {!user ? (
+                <div className="h-full flex flex-col items-center justify-center text-center p-4">
+                  <div className="w-16 h-16 bg-accent/10 text-accent rounded-2xl flex items-center justify-center mb-4">
+                    <ShieldCheck className="w-8 h-8" />
+                  </div>
+                  <h4 className="text-lg font-bold text-slate-900 mb-2">Autenticação Necessária</h4>
+                  <p className="text-sm text-slate-500 mb-6">
+                    Para conversar com nosso assistente e receber uma avaliação, você precisa estar logado.
+                  </p>
+                  <button 
+                    onClick={() => setShowAuthModal(true)}
+                    className="w-full py-3 bg-accent text-white rounded-xl font-bold hover:bg-accent/90 transition-all shadow-lg shadow-accent/20"
+                  >
+                    Entrar ou Cadastrar-se
+                  </button>
+                  <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+                </div>
+              ) : (
+                <>
+                  {messages.map((msg, i) => (
                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`flex gap-3 max-w-[90%] ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${
@@ -688,7 +690,9 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
                   </div>
                 </div>
               )}
-            </div>
+            </>
+          )}
+        </div>
 
             {/* Proposal Modal */}
             {selectedProposal && (

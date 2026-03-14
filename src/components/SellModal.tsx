@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, ChevronRight, ChevronLeft, CheckCircle2, Loader2, Camera, AlertTriangle } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, CheckCircle2, Loader2, Camera, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../lib/authContext';
 import { triggerAdsConversion } from './GoogleTags';
+import AuthModal from './AuthModal';
 
 export default function SellModal() {
+  const { user } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
@@ -225,7 +229,22 @@ export default function SellModal() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-8">
-              {isSuccess ? (
+              {!user ? (
+                <div className="py-12 text-center">
+                  <div className="w-20 h-20 bg-accent/10 text-accent rounded-full flex items-center justify-center mx-auto mb-6">
+                    <ShieldCheck className="w-10 h-10" />
+                  </div>
+                  <h4 className="text-xl font-bold mb-2">Autenticação Necessária</h4>
+                  <p className="text-slate-500 mb-8">Você precisa estar logado para solicitar uma avaliação.</p>
+                  <button 
+                    onClick={() => setShowAuthModal(true)}
+                    className="w-full py-4 bg-accent text-white rounded-2xl font-bold hover:bg-accent/90 transition-all shadow-lg shadow-accent/20"
+                  >
+                    Entrar ou Cadastrar-se
+                  </button>
+                  <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+                </div>
+              ) : isSuccess ? (
                 <div className="py-12 text-center">
                   <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
                     <CheckCircle2 className="w-10 h-10" />
@@ -512,7 +531,7 @@ export default function SellModal() {
               )}
             </div>
 
-            {!isSuccess && (
+            {!isSuccess && user && (
               <div className="p-8 border-t border-slate-100 bg-slate-50 flex justify-between items-center">
                 <button 
                   disabled={step === 1}
