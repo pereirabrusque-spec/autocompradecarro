@@ -118,17 +118,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
         
         try {
+          console.log('[AUTH-DEBUG] Tentando criar perfil para:', targetUser.id);
           const { data: createdProfile, error: createError } = await supabase
             .from('profiles')
             .insert([newProfile])
             .select()
             .single();
             
-          if (!createError && createdProfile) {
+          if (createError) {
+            console.error('[AUTH-DEBUG] ERRO AO CRIAR PERFIL:', createError);
+          } else if (createdProfile) {
+            console.log('[AUTH-DEBUG] Perfil criado com sucesso:', createdProfile);
             setProfile(createdProfile as Profile);
           }
         } catch (e) {
-          console.error('Failed to create profile:', e);
+          console.error('[AUTH-DEBUG] EXCEÇÃO AO CRIAR PERFIL:', e);
         }
       }
     } catch (error) {
