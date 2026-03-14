@@ -359,15 +359,15 @@ export default function BuyerView() {
                     <div className="grid grid-cols-1 gap-3">
                       <div className="flex justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
                         <span className="text-sm text-slate-500">Situação</span>
-                        <span className="text-sm font-bold text-slate-900">{selectedLead.situacao || 'Não informada'}</span>
+                        <span className="text-sm font-bold text-slate-900">{selectedLead.classificacao || 'Não informada'}</span>
                       </div>
                       <div className="flex justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
                         <span className="text-sm text-slate-500">Pneus</span>
-                        <span className="text-sm font-bold text-slate-900">{selectedLead.pneus || 'Não informado'}</span>
+                        <span className="text-sm font-bold text-slate-900">{selectedLead.estado_pneus || 'Não informado'}</span>
                       </div>
                       <div className="flex justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
                         <span className="text-sm text-slate-500">Pintura</span>
-                        <span className="text-sm font-bold text-slate-900">{selectedLead.pintura || 'Não informada'}</span>
+                        <span className="text-sm font-bold text-slate-900">{selectedLead.estado_pintura || 'Não informada'}</span>
                       </div>
                     </div>
                   </div>
