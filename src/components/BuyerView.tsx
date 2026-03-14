@@ -17,7 +17,11 @@ import {
 import InternalChat from './InternalChat';
 
 const DetailRow = ({ label, value, show = true }: { label: string, value: any, show?: boolean }) => {
-  if (!show || value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0)) return null;
+  // Verifica nulos, vazios, arrays vazios E a string "Não informado" (case-insensitive)
+  if (!show || value === undefined || value === null || value === '' || 
+      (typeof value === 'string' && value.toLowerCase().includes('não informado')) ||
+      (Array.isArray(value) && value.length === 0)) return null;
+  
   return (
     <div className="flex justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
       <span className="text-sm text-slate-500">{label}</span>
@@ -34,10 +38,10 @@ export default function BuyerView() {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
   const [permissions, setPermissions] = useState({
-    show_price: true,
+    show_price: false, // Seguro por padrão
     show_photos: true,
     show_plate: false,
-    show_details: true,
+    show_details: false, // Seguro por padrão
     show_history: false
   });
 
