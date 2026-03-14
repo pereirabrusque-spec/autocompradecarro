@@ -114,7 +114,7 @@ export default function AdminDashboard() {
   const [showApiKeyForm, setShowApiKeyForm] = useState(false);
   const [isSavingKey, setIsSavingKey] = useState(false);
 
-  const [activeLeadTab, setActiveLeadTab] = useState<'todos' | 'novo' | 'em_contato' | 'proposta_enviada' | 'fechado' | 'perdido'>('novo');
+  const [activeLeadTab, setActiveLeadTab] = useState<'todos' | 'novo' | 'em_contato' | 'proposta_enviada' | 'fechado' | 'perdido'>('todos');
   const [leadsViewMode, setLeadsViewMode] = useState<'grid' | 'list'>('list');
   const [showBuyerPermissionsModal, setShowBuyerPermissionsModal] = useState(false);
   const [selectedBuyer, setSelectedBuyer] = useState<any>(null);
@@ -1406,6 +1406,19 @@ Podemos prosseguir com o agendamento da vistoria?`;
       repairDebts: repairTotal,
       bankNotRegistered
     };
+  };
+
+  const getProposalClass = (value: number, vehicleType: string) => {
+    if (value <= 0) return "";
+    const typeLower = vehicleType?.toLowerCase() || "";
+    if (typeLower.includes("caminh")) {
+      if (value < 10000) return "animate-blink text-red-600";
+    } else if (typeLower.includes("moto")) {
+      if (value < 2000) return "animate-blink text-red-600";
+    } else { // Assume carro por padrão
+      if (value < 5000) return "animate-blink text-red-600";
+    }
+    return "";
   };
 
   const generateOwnerMessage = (lead: any, calc: any) => {
@@ -3217,7 +3230,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                   </div>
                                   <div className="p-5 bg-slate-900 rounded-2xl text-white">
                                     <p className="text-xs font-bold uppercase text-slate-400 mb-1">Valor Sugerido</p>
-                                    <p className="text-3xl font-black text-accent">
+                                    <p className={`text-3xl font-black ${getProposalClass(proposalCalculator.finalValue, selectedLead?.tipo_veiculo) || 'text-accent'}`}>
                                       {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}
                                     </p>
                                   </div>
@@ -3260,7 +3273,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                   onClick={() => setShowProposalDetails(true)}
                                 >
                                   <p className="font-bold text-accent flex items-center justify-between">
-                                    <span>Sugerido: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}</span>
+                                    <span className={getProposalClass(proposalCalculator.finalValue, selectedLead?.tipo_veiculo)}>Sugerido: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}</span>
                                     <Info className="w-4 h-4" />
                                   </p>
                                 </div>
@@ -3489,7 +3502,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 <td className="px-2 py-1.5 text-[11px] font-black text-emerald-600">
                                   {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.preco_cliente || 0)}
                                 </td>
-                                <td className="px-2 py-1.5 text-[11px] font-black text-accent">
+                                <td className={`px-2 py-1.5 text-[11px] font-black ${getProposalClass(lead.suggested_value || calculateProposal(lead).finalValue, lead.tipo_veiculo) || 'text-accent'}`}>
                                   {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.suggested_value || calculateProposal(lead).finalValue)}
                                 </td>
                                 <td className="px-2 py-1.5">
@@ -4721,7 +4734,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
                           <div className="p-6 bg-slate-900 rounded-2xl text-white">
                             <p className="text-xs font-bold uppercase text-slate-400 mb-1">Valor Final Sugerido</p>
-                            <p className="text-3xl font-black text-accent">
+                            <p className={`text-3xl font-black ${getProposalClass(proposalCalculator.finalValue, selectedLead?.tipo_veiculo) || 'text-accent'}`}>
                               {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}
                             </p>
                           </div>
@@ -6048,7 +6061,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 <div className="pt-4 border-t border-slate-200 mt-4">
                   <div className="flex justify-between items-center">
                     <span className="font-bold text-xl text-slate-900">Valor Final</span>
-                    <span className="font-black text-2xl text-accent">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}</span>
+                    <span className={`font-black text-2xl ${getProposalClass(proposalCalculator.finalValue, selectedLead?.tipo_veiculo) || 'text-accent'}`}>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}</span>
                   </div>
                 </div>
               </div>

@@ -247,7 +247,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
     const optionB = valorDesejado > 0 ? valorDesejado * 0.6 : optionA;
     
     // Proposta Final é o menor valor entre as duas opções
-    const finalProposal = Math.min(optionA, optionB);
+    const finalProposal = Math.max(0, Math.min(optionA, optionB));
     
     // Lucro Estimado: (Tabela FIPE - 20%) - Todos os Descontos
     const profit = (fipe * 0.8) - (discountValue + fixedCosts + payoff);
@@ -279,6 +279,24 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
   };
 
   const calc = calculateFinance();
+
+  const getProposalClass = (value: number) => {
+    if (value <= 0) return "";
+    const typeLower = currentLead.tipo_veiculo?.toLowerCase() || "";
+    if (typeLower.includes("caminh")) {
+      if (value < 10000) return "animate-blink text-red-600";
+    } else if (typeLower.includes("moto")) {
+      if (value < 2000) return "animate-blink text-red-600";
+    } else { // Assume carro por padrão
+      if (value < 5000) return "animate-blink text-red-600";
+    }
+    return "";
+  };
+
+  const formatProposalValue = (value: number) => {
+    if (value <= 0) return "R$ 0,00";
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+  };
 
   useEffect(() => {
     const fetchBuyers = async () => {
@@ -1160,7 +1178,9 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                       </div>
                       <div className="pt-4 border-t border-slate-200 flex justify-between items-center group cursor-pointer relative">
                         <span className="font-bold text-lg text-slate-900">Proposta Final</span>
-                        <span className="font-bold text-lg text-slate-900">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalProposal)}</span>
+                        <span className={`font-bold text-lg ${getProposalClass(calc.finalProposal) || 'text-slate-900'}`}>
+                          {formatProposalValue(calc.finalProposal)}
+                        </span>
                         <div className="absolute right-0 bottom-full mb-2 bg-white border border-slate-200 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-72">
                           <div className="text-xs font-bold mb-2 border-b pb-1 text-slate-900">Comparativo de Propostas</div>
                           <div className={`flex justify-between text-xs mb-1 ${calc.optionA <= calc.optionB ? 'text-emerald-600 font-bold' : 'text-red-500'}`}>
@@ -1241,7 +1261,9 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                       </div>
                       <div className="pt-6 border-t border-white/10 flex justify-between items-center group cursor-pointer relative">
                         <span className="text-accent font-bold">PROPOSTA FINAL</span>
-                        <span className="text-2xl font-bold font-display">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalProposal)}</span>
+                        <span className={`text-2xl font-bold font-display ${getProposalClass(calc.finalProposal) || 'text-white'}`}>
+                          {formatProposalValue(calc.finalProposal)}
+                        </span>
                         <div className="absolute right-0 bottom-full mb-2 bg-slate-800 border border-white/10 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-72">
                           <div className="text-xs font-bold mb-2 border-b border-white/10 pb-1 text-white">Comparativo de Propostas</div>
                           <div className={`flex justify-between text-xs mb-1 ${calc.optionA <= calc.optionB ? 'text-emerald-400 font-bold' : 'text-red-400'}`}>
@@ -1331,7 +1353,11 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                         </div>
                         <div className="text-right font-bold text-red-600">-{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.discountValue + calc.fixedCosts + calc.payoff)}</div>
                         <div className="text-blue-900 font-black pt-1 border-t border-blue-200">VALOR FINAL:</div>
-                        <div className="text-right font-black text-blue-900 pt-1 border-t border-blue-200 text-xs">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalProposal)}</div>
+                        <div className="text-right font-black text-blue-900 pt-1 border-t border-blue-200 text-xs">
+                          <span className={getProposalClass(calc.finalProposal)}>
+                            {formatProposalValue(calc.finalProposal)}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
