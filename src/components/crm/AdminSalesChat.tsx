@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Send, Bot, User } from 'lucide-react';
+import { Send, Bot, User, MessageCircle } from 'lucide-react';
 
 export const AdminSalesChat = ({ conversationId, role }: { conversationId: string, role: string }) => {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
   const [isAiMode, setIsAiMode] = useState(true);
+  const [userPhone, setUserPhone] = useState('');
 
   useEffect(() => {
     // Fetch messages for this CRM chat
@@ -17,7 +18,18 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
         .order('created_at', { ascending: true });
       setMessages(data || []);
     };
+    
+    const fetchUserPhone = async () => {
+        const { data } = await supabase
+          .from('interested_buyers')
+          .select('telefone')
+          .eq('id', conversationId)
+          .single();
+        if (data) setUserPhone(data.telefone);
+    };
+
     fetchMessages();
+    fetchUserPhone();
   }, [conversationId]);
 
   const sendMessage = async () => {
@@ -38,12 +50,24 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
     <div className="flex flex-col h-full bg-white rounded-2xl border border-slate-200">
       <div className="p-4 border-b border-slate-100 flex justify-between items-center">
         <h3 className="font-bold">Chat de Vendas</h3>
-        <button 
-          onClick={() => setIsAiMode(!isAiMode)}
-          className={`px-3 py-1 rounded-full text-xs font-bold ${isAiMode ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'}`}
-        >
-          {isAiMode ? 'IA Ativa' : 'Humano Ativo'}
-        </button>
+        <div className="flex gap-2">
+          {userPhone && (
+            <a 
+              href={`https://wa.me/${userPhone.replace(/\D/g, '')}`} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="p-2 rounded-full hover:bg-emerald-100 text-emerald-600"
+            >
+              <MessageCircle className="w-4 h-4" />
+            </a>
+          )}
+          <button 
+            onClick={() => setIsAiMode(!isAiMode)}
+            className={`px-3 py-1 rounded-full text-xs font-bold ${isAiMode ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'}`}
+          >
+            {isAiMode ? 'IA Ativa' : 'Humano Ativo'}
+          </button>
+        </div>
       </div>
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map(m => (

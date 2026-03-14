@@ -38,6 +38,7 @@ export default function BuyerView() {
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [whatsappNumber, setWhatsappNumber] = useState('');
   const [permissions, setPermissions] = useState({
     show_price: false, // Seguro por padrão
@@ -227,7 +228,7 @@ export default function BuyerView() {
             <p className="text-slate-500 max-w-md mx-auto">
               Você ainda não possui autorizações para visualizar veículos. Entre em contato com o administrador para solicitar acesso ao estoque.
             </p>
-            <button className="mt-8 px-8 py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all flex items-center gap-2 mx-auto">
+            <button onClick={() => setIsChatOpen(true)} className="mt-8 px-8 py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all flex items-center gap-2 mx-auto">
               <MessageCircle className="w-5 h-5" />
               Falar com Administrador
             </button>
@@ -456,6 +457,10 @@ export default function BuyerView() {
                     Enviar WhatsApp
                   </a>
                 )}
+                <button onClick={() => setIsChatOpen(true)} className="w-full py-5 bg-slate-900 text-white rounded-[24px] font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-3 shadow-lg shadow-slate-200">
+                  <MessageCircle className="w-5 h-5" />
+                  Chat com Equipe
+                </button>
                 <button className="w-full py-5 bg-slate-900 text-white rounded-[24px] font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-3 shadow-lg shadow-slate-200">
                   <FileText className="w-5 h-5" />
                   Solicitar Laudo Técnico
@@ -477,6 +482,8 @@ export default function BuyerView() {
       <InternalChat 
         leadId={selectedLead?.id} 
         leadTitle={selectedLead ? `${selectedLead.marca} ${selectedLead.modelo}` : 'Atendimento Geral'} 
+        isOpen={isChatOpen}
+        onToggle={() => setIsChatOpen(!isChatOpen)}
       />
 
       {/* Notification Prompt Popup */}

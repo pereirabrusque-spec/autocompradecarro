@@ -3,9 +3,11 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/authContext';
 import { Send, MessageCircle, X } from 'lucide-react';
 
-export default function InternalChat({ leadId, leadTitle }: { leadId?: string, leadTitle?: string }) {
+export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { leadId?: string, leadTitle?: string, isOpen?: boolean, onToggle?: () => void }) {
   const { user } = useAuth();
-  const [isOpen, setIsOpen] = useState(false);
+  const [isInternalOpen, setIsInternalOpen] = useState(false);
+  const isOpenState = isOpen !== undefined ? isOpen : isInternalOpen;
+  const setIsOpen = onToggle || setIsInternalOpen;
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
@@ -15,20 +17,17 @@ export default function InternalChat({ leadId, leadTitle }: { leadId?: string, l
 
   useEffect(() => {
     if (user) {
-      // Fetch initial unread count (assuming we don't have a read status yet, we just count all messages from admin)
-      // For a real app, we'd need an 'is_read' column. For now, we'll just increment the badge on new messages when closed.
-      
       const subscription = supabase
         .channel('internal_messages_global')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'internal_messages' }, (payload) => {
           if (payload.new.receiver_id === user.id) {
-            if (isOpen) {
+            if (isOpenState) {
               setMessages(prev => [...prev, payload.new]);
               scrollToBottom();
             } else {
               setUnreadCount(prev => prev + 1);
             }
-          } else if (payload.new.sender_id === user.id && isOpen) {
+          } else if (payload.new.sender_id === user.id && isOpenState) {
             setMessages(prev => [...prev, payload.new]);
             scrollToBottom();
           }
@@ -39,14 +38,14 @@ export default function InternalChat({ leadId, leadTitle }: { leadId?: string, l
         subscription.unsubscribe();
       };
     }
-  }, [user, isOpen]);
+  }, [user, isOpenState]);
 
   useEffect(() => {
-    if (isOpen && user) {
+    if (isOpenState && user) {
       setUnreadCount(0);
       fetchMessages();
     }
-  }, [isOpen, user]);
+  }, [isOpenState, user]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

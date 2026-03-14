@@ -12,7 +12,7 @@ import { ProposalModal } from './ProposalModal';
 import { LeadCard } from './LeadCard';
 import LeadDetailsCard from './LeadDetailsCard';
 import AdminMessages from './AdminMessages';
-import { AdminSalesChat } from './crm/AdminSalesChat';
+import { CRMChatContainer } from './crm/CRMChatContainer';
 import CooperativesModal from './CooperativesModal';
 import { logToStorage, getStorageLogs, clearStorageLogs } from '../lib/logger';
 
@@ -2114,7 +2114,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
           >
             {activeTab === 'crm_chat' && (
               <div className="h-[700px]">
-                <AdminSalesChat conversationId="general" role={userProfile?.role || 'admin'} />
+                <CRMChatContainer role={userProfile?.role || 'admin'} />
               </div>
             )}
             {activeTab === 'logs' && (
