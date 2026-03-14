@@ -122,12 +122,14 @@ export default function SellModal() {
     setIsLoading(true);
     console.log("formData antes do insert:", formData);
     try {
+      const yearNumber = parseInt(formData.year.substring(0, 4)) || 0;
+
       const { error } = await supabase.from('leads_veiculos').insert([{
         cliente_nome: formData.owner_name,
         telefone: formData.owner_phone,
         marca: formData.brand,
         modelo: formData.model,
-        ano_modelo: formData.year,
+        ano_modelo: yearNumber,
         cor: formData.color,
         quilometragem: parseInt(formData.mileage) || 0,
         placa: formData.plate,
@@ -139,7 +141,7 @@ export default function SellModal() {
         email: formData.email,
         cpf: formData.cpf,
         chassi: formData.chassi,
-        ano_fabricacao: formData.year,
+        ano_fabricacao: yearNumber,
         multas: parseFloat(formData.multas) || 0,
         motor_reparo: parseFloat(formData.motor_reparo) || 0,
         cambio_reparo: parseFloat(formData.cambio_reparo) || 0,

@@ -8,6 +8,10 @@ interface Profile {
   role: 'admin' | 'user' | 'buyer';
   full_name: string;
   avatar_url?: string;
+  phone?: string;
+  last_login?: string;
+  view_auth?: boolean;
+  send_config?: any;
 }
 
 interface AuthContextType {

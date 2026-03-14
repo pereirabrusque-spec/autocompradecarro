@@ -39,7 +39,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
 
     try {
       if (mode === 'signup') {
-        const { error: signUpError } = await supabase.auth.signUp({
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -49,8 +49,14 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
           },
         });
         if (signUpError) throw signUpError;
-        alert('Cadastro realizado com sucesso! Verifique seu email para confirmar.');
-        setMode('login');
+        
+        if (signUpData.session) {
+          await refreshProfile(signUpData.user);
+          onClose();
+        } else {
+          alert('Cadastro realizado com sucesso! Verifique seu email para confirmar sua conta e poder fazer login.');
+          setMode('login');
+        }
       } else if (mode === 'forgot_password') {
         const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/reset-password`,

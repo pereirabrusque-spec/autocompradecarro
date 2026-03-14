@@ -122,7 +122,11 @@ export default function AdminDashboard() {
     show_photos: true,
     show_price: true,
     show_plate: false,
-    show_details: true
+    show_details: true,
+    send_whatsapp: true,
+    send_chat: true,
+    send_fipe: true,
+    send_banco: false
   });
   const [filterBrand, setFilterBrand] = useState('');
   const [filterYear, setFilterYear] = useState('');
@@ -154,8 +158,42 @@ export default function AdminDashboard() {
   const [avarias, setAvarias] = useState<{id: string, description: string, value: number}[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [filterUser, setFilterUser] = useState('');
+  const [isRefreshingUsers, setIsRefreshingUsers] = useState(false);
+
+  const refreshUsers = async () => {
+    if (activeTab !== 'users') return;
+    setIsRefreshingUsers(true);
+    try {
+      const { data } = await supabase.from('profiles').select('*').order('last_login', { ascending: false });
+      setUsers(data || []);
+    } catch (error) {
+      console.error('Error refreshing users:', error);
+    } finally {
+      setIsRefreshingUsers(false);
+    }
+  };
+
+  useEffect(() => {
+    let interval: any;
+    if (activeTab === 'users') {
+      refreshUsers();
+      interval = setInterval(refreshUsers, 30000); // Refresh every 30s
+    }
+    return () => clearInterval(interval);
+  }, [activeTab]);
   const [showAvariasModal, setShowAvariasModal] = useState(false);
   const [showProposalDetails, setShowProposalDetails] = useState(false);
+  const [userManagementTab, setUserManagementTab] = useState<'equipe' | 'compradores' | 'crm'>('equipe');
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [newUserForm, setNewUserForm] = useState({
+    full_name: '',
+    email: '',
+    password: '',
+    role: 'user' as 'admin' | 'user' | 'buyer',
+    phone: ''
+  });
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+
   const [confirmDeleteLeadId, setConfirmDeleteLeadId] = useState<string | null>(null);
   const [confirmDeleteUserId, setConfirmDeleteUserId] = useState<string | null>(null);
   const [confirmDeleteAssetId, setConfirmDeleteAssetId] = useState<string | null>(null);
@@ -949,6 +987,34 @@ Podemos prosseguir com o agendamento da vistoria?`;
       console.error('Error deleting user:', error);
       setToast({ message: 'Erro ao excluir usuário: ' + error.message, type: 'error' });
       setTimeout(() => setToast(null), 5000);
+    }
+  };
+
+  const handleCreateUser = async () => {
+    if (!newUserForm.email || !newUserForm.full_name) {
+      alert('Preencha os campos obrigatórios');
+      return;
+    }
+    setIsCreatingUser(true);
+    try {
+      const { error } = await supabase.from('profiles').insert([{
+        full_name: newUserForm.full_name,
+        email: newUserForm.email,
+        role: newUserForm.role,
+        phone: newUserForm.phone,
+        last_login: new Date().toISOString()
+      }]);
+      
+      if (error) throw error;
+      
+      alert('Usuário pré-cadastrado com sucesso! Ele deve se registrar com este email para acessar.');
+      setShowAddUserModal(false);
+      setNewUserForm({ full_name: '', email: '', password: '', role: 'user', phone: '' });
+      refreshUsers();
+    } catch (error: any) {
+      alert('Erro ao criar usuário: ' + error.message);
+    } finally {
+      setIsCreatingUser(false);
     }
   };
 
@@ -1755,9 +1821,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 { id: 'dashboard', label: 'Início', icon: LayoutDashboard },
                 { id: 'leads', label: 'Leads', icon: Car },
                 { id: 'messages', label: 'Mensagens', icon: MessageCircle, badge: conversations.reduce((acc, curr) => acc + (curr.unread || 0), 0) },
-                { id: 'buyers', label: 'Compradores', icon: Users },
-                { id: 'users', label: 'Equipe', icon: UserPlus },
-                { id: 'crm', label: 'CRM', icon: TrendingUp },
+                { id: 'users', label: 'Equipe & CRM', icon: Users },
                 { id: 'settings', label: 'Config', icon: Settings },
                 { id: 'apis', label: 'APIs', icon: Key },
                 { id: 'ai', label: 'IA', icon: Bot },
@@ -2362,79 +2426,190 @@ Podemos prosseguir com o agendamento da vistoria?`;
               </div>
             )}
             {activeTab === 'users' && (
-              <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-bold">Usuários Logados</h2>
-                  <input 
-                    type="text" 
-                    placeholder="Filtrar por nome, email ou telefone..." 
-                    className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm w-64"
-                    value={filterUser}
-                    onChange={(e) => setFilterUser(e.target.value)}
-                  />
+              <div className="space-y-6">
+                {/* Cabeçalho e Sub-Navegação */}
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div>
+                    <h2 className="text-3xl font-black text-slate-900 font-display">Gestão de Usuários & CRM</h2>
+                    <p className="text-slate-500 font-medium">Gerencie sua equipe, compradores e leads em um só lugar.</p>
+                  </div>
+                  <button 
+                    onClick={() => setShowAddUserModal(true)}
+                    className="px-6 py-3 bg-slate-900 text-white rounded-2xl font-bold flex items-center gap-2 hover:bg-accent transition-all shadow-lg shadow-slate-900/20"
+                  >
+                    <UserPlus className="w-5 h-5" />
+                    Novo Usuário
+                  </button>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left">
-                    <thead className="text-xs text-slate-500 uppercase bg-slate-50 sticky top-0 z-10 shadow-sm">
-                      <tr>
-                        <th className="px-6 py-3">Nome</th>
-                        <th className="px-6 py-3">Email</th>
-                        <th className="px-6 py-3">WhatsApp</th>
-                        <th className="px-6 py-3">Data de Cadastro</th>
-                        <th className="px-6 py-3">Status</th>
-                        <th className="px-6 py-3">Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {users.filter(u => 
-                        u.email?.toLowerCase().includes(filterUser.toLowerCase()) || 
-                        (u.name && u.name.toLowerCase().includes(filterUser.toLowerCase())) ||
-                        (u.phone && u.phone.includes(filterUser))
-                      ).map((user) => (
-                        <tr key={user.id} className="bg-white border-b hover:bg-slate-50">
-                          <td className="px-6 py-4 font-medium text-slate-900">{user.name || 'N/A'}</td>
-                          <td className="px-6 py-4 text-slate-600">{user.email}</td>
-                          <td className="px-6 py-4 text-slate-600">{user.phone || 'N/A'}</td>
-                          <td className="px-6 py-4 text-slate-600">{user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}</td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
-                              <div className={`w-2 h-2 rounded-full ${
-                                (new Date().getTime() - new Date(user.last_login).getTime()) < 120000
-                                  ? 'bg-emerald-500 animate-pulse' 
-                                  : 'bg-slate-300'
-                              }`} />
-                              <span className="text-xs text-slate-500">
-                                {(new Date().getTime() - new Date(user.last_login).getTime()) < 120000
-                                  ? 'Online agora' 
-                                  : new Date(user.last_login).toLocaleString()}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
-                              <button 
-                                onClick={() => {
-                                  setBuyerToAuth(user);
-                                  setShowAuthModal(true);
-                                }}
-                                className="px-3 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-accent transition-all flex items-center gap-2"
-                              >
-                                <UserCheck className="w-3 h-3" />
-                                Tornar Comprador
-                              </button>
-                              <button 
-                                onClick={() => setConfirmDeleteUserId(user.id)}
-                                className="p-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-all"
-                                title="Excluir Usuário"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </td>
+
+                {/* Sub-Tabs */}
+                <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-slate-100 w-fit">
+                  {[
+                    { id: 'equipe', label: 'Equipe', icon: ShieldCheck },
+                    { id: 'compradores', label: 'Compradores', icon: UserCheck },
+                    { id: 'crm', label: 'CRM / Leads', icon: Users }
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setUserManagementTab(tab.id as any)}
+                      className={`px-6 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2.5 ${
+                        userManagementTab === tab.id 
+                          ? 'bg-slate-900 text-white shadow-lg shadow-slate-900/10' 
+                          : 'text-slate-500 hover:bg-slate-50'
+                      }`}
+                    >
+                      <tab.icon className="w-4 h-4" />
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Filtros e Busca */}
+                <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-100 flex flex-col md:flex-row gap-4 items-center">
+                  <div className="relative flex-1 w-full">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input 
+                      type="text" 
+                      placeholder="Buscar por nome, email ou telefone..." 
+                      className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:ring-2 focus:ring-accent/20 outline-none transition-all"
+                      value={filterUser}
+                      onChange={(e) => setFilterUser(e.target.value)}
+                    />
+                  </div>
+                  <button 
+                    onClick={refreshUsers}
+                    className="p-3 bg-slate-50 text-slate-600 rounded-2xl hover:bg-slate-100 transition-all"
+                  >
+                    <RefreshCw className={`w-5 h-5 ${isRefreshingUsers ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
+
+                {/* Tabela de Usuários */}
+                <div className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-slate-100">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                      <thead>
+                        <tr className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black bg-slate-50/50">
+                          <th className="px-8 py-5">Usuário</th>
+                          <th className="px-8 py-5">Cargo / Tipo</th>
+                          <th className="px-8 py-5">Status</th>
+                          {userManagementTab === 'compradores' && <th className="px-8 py-5">Permissões</th>}
+                          <th className="px-8 py-5 text-right">Ações</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {users.filter(u => {
+                          const matchesSearch = u.email?.toLowerCase().includes(filterUser.toLowerCase()) || 
+                                              (u.full_name && u.full_name.toLowerCase().includes(filterUser.toLowerCase()));
+                          
+                          if (userManagementTab === 'equipe') return matchesSearch && (u.role === 'admin' || u.role === 'user');
+                          if (userManagementTab === 'compradores') return matchesSearch && u.role === 'buyer';
+                          return matchesSearch; // CRM shows all
+                        }).map((user) => {
+                          const isOnline = (new Date().getTime() - new Date(user.last_login).getTime()) < 120000;
+                          const initials = (user.full_name || user.email || 'U').split(' ').map((n: any) => n[0]).join('').substring(0, 2).toUpperCase();
+                          
+                          return (
+                            <tr key={user.id} className="hover:bg-slate-50/50 transition-colors group">
+                              <td className="px-8 py-5">
+                                <div className="flex items-center gap-4">
+                                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-sm border-2 ${
+                                    user.role === 'admin' ? 'bg-indigo-50 border-indigo-100 text-indigo-600' :
+                                    user.role === 'buyer' ? 'bg-amber-50 border-amber-100 text-amber-600' :
+                                    'bg-slate-50 border-slate-100 text-slate-600'
+                                  }`}>
+                                    {user.avatar_url ? (
+                                      <img src={user.avatar_url} alt="" className="w-full h-full object-cover rounded-2xl" />
+                                    ) : initials}
+                                  </div>
+                                  <div>
+                                    <p className="font-bold text-slate-900">{user.full_name || 'Sem Nome'}</p>
+                                    <p className="text-xs text-slate-400">{user.email}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-8 py-5">
+                                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                                  user.role === 'admin' ? 'bg-indigo-100 text-indigo-700' :
+                                  user.role === 'buyer' ? 'bg-amber-100 text-amber-700' :
+                                  'bg-slate-100 text-slate-600'
+                                }`}>
+                                  {user.role === 'admin' ? 'Administrador' :
+                                   user.role === 'buyer' ? 'Comprador' : 'Cliente'}
+                                </span>
+                              </td>
+                              <td className="px-8 py-5">
+                                <div className="flex items-center gap-2.5">
+                                  <div className={`w-2.5 h-2.5 rounded-full ${
+                                    isOnline ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.4)] animate-pulse' : 'bg-slate-300'
+                                  }`} />
+                                  <div>
+                                    <p className={`text-xs font-bold ${isOnline ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                      {isOnline ? 'Online agora' : 'Offline'}
+                                    </p>
+                                    {!isOnline && user.last_login && (
+                                      <p className="text-[10px] text-slate-400">
+                                        Visto em: {new Date(user.last_login).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                              {userManagementTab === 'compradores' && (
+                                <td className="px-8 py-5">
+                                  <div className="flex flex-col gap-1">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                      <input 
+                                        type="checkbox" 
+                                        checked={user.view_auth} 
+                                        onChange={async (e) => {
+                                          const { error } = await supabase.from('profiles').update({ view_auth: e.target.checked }).eq('id', user.id);
+                                          if (!error) refreshUsers();
+                                        }}
+                                        className="w-3.5 h-3.5 accent-accent" 
+                                      />
+                                      <span className="text-[10px] font-bold text-slate-500 uppercase">Ver Veículos</span>
+                                    </label>
+                                    <button 
+                                      onClick={() => {
+                                        setSelectedBuyer(user);
+                                        setShowBuyerPermissionsModal(true);
+                                      }}
+                                      className="text-[10px] font-bold text-accent hover:underline text-left"
+                                    >
+                                      Configurar Envio (Zap/Chat)
+                                    </button>
+                                  </div>
+                                </td>
+                              )}
+                              <td className="px-8 py-5 text-right">
+                                <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  {user.role !== 'buyer' && user.role !== 'admin' && (
+                                    <button 
+                                      onClick={async () => {
+                                        const { error } = await supabase.from('profiles').update({ role: 'buyer' }).eq('id', user.id);
+                                        if (!error) refreshUsers();
+                                      }}
+                                      className="px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-accent transition-all flex items-center gap-2"
+                                    >
+                                      <UserCheck className="w-3.5 h-3.5" />
+                                      Tornar Comprador
+                                    </button>
+                                  )}
+                                  <button 
+                                    onClick={() => setConfirmDeleteUserId(user.id)}
+                                    className="p-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-all"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             )}
@@ -6110,6 +6285,48 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   className="w-5 h-5 accent-slate-900"
                 />
               </div>
+
+              <div className="pt-4 border-t border-slate-100">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Configurações de Envio</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={buyerPermissionsForm.send_whatsapp}
+                      onChange={e => setBuyerPermissionsForm({...buyerPermissionsForm, send_whatsapp: e.target.checked})}
+                      className="w-4 h-4 accent-accent"
+                    />
+                    <span className="text-xs font-bold">WhatsApp</span>
+                  </label>
+                  <label className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={buyerPermissionsForm.send_chat}
+                      onChange={e => setBuyerPermissionsForm({...buyerPermissionsForm, send_chat: e.target.checked})}
+                      className="w-4 h-4 accent-accent"
+                    />
+                    <span className="text-xs font-bold">Chat Interno</span>
+                  </label>
+                  <label className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={buyerPermissionsForm.send_fipe}
+                      onChange={e => setBuyerPermissionsForm({...buyerPermissionsForm, send_fipe: e.target.checked})}
+                      className="w-4 h-4 accent-accent"
+                    />
+                    <span className="text-xs font-bold">Dados FIPE</span>
+                  </label>
+                  <label className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={buyerPermissionsForm.send_banco}
+                      onChange={e => setBuyerPermissionsForm({...buyerPermissionsForm, send_banco: e.target.checked})}
+                      className="w-4 h-4 accent-accent"
+                    />
+                    <span className="text-xs font-bold">Dados Banco</span>
+                  </label>
+                </div>
+              </div>
             </div>
 
             <div className="flex gap-4">
@@ -6164,6 +6381,86 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
       {/* Modal de Confirmação de Exclusão */}
       <AnimatePresence>
+        {showAddUserModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-[32px] p-8 max-w-md w-full shadow-2xl"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-2xl font-bold">Novo Usuário</h3>
+                <button onClick={() => setShowAddUserModal(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                  <X className="w-6 h-6 text-slate-400" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Nome Completo</label>
+                  <input 
+                    type="text" 
+                    value={newUserForm.full_name}
+                    onChange={e => setNewUserForm({...newUserForm, full_name: e.target.value})}
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-accent/20"
+                    placeholder="Ex: João Silva"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Email</label>
+                  <input 
+                    type="email" 
+                    value={newUserForm.email}
+                    onChange={e => setNewUserForm({...newUserForm, email: e.target.value})}
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-accent/20"
+                    placeholder="email@exemplo.com"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Telefone</label>
+                  <input 
+                    type="text" 
+                    value={newUserForm.phone}
+                    onChange={e => setNewUserForm({...newUserForm, phone: e.target.value})}
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-accent/20"
+                    placeholder="(00) 00000-0000"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Cargo / Perfil</label>
+                  <select 
+                    value={newUserForm.role}
+                    onChange={e => setNewUserForm({...newUserForm, role: e.target.value as any})}
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-accent/20 font-bold"
+                  >
+                    <option value="user">Cliente / Lead</option>
+                    <option value="buyer">Comprador</option>
+                    <option value="admin">Administrador</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex gap-4 mt-8">
+                <button 
+                  onClick={() => setShowAddUserModal(false)}
+                  className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={handleCreateUser}
+                  disabled={isCreatingUser}
+                  className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-accent transition-all flex items-center justify-center gap-2"
+                >
+                  {isCreatingUser ? <Loader2 className="w-5 h-5 animate-spin" /> : <UserPlus className="w-5 h-5" />}
+                  Criar Usuário
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
         {confirmDeleteLeadId && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <motion.div 
