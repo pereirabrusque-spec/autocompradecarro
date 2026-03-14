@@ -4458,7 +4458,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                     const { data: authData } = await supabase
                                       .from('buyer_authorizations')
                                       .select('permissions')
-                                      .eq('user_id', buyer.user_id)
+                                      .eq('buyer_id', buyer.id)
                                       .single();
 
                                     let permissions = authData?.permissions;
@@ -6918,9 +6918,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   const { error } = await supabase
                     .from('buyer_authorizations')
                     .upsert({
-                      user_id: targetUserId,
+                      buyer_id: selectedBuyer.id,
                       permissions: buyerPermissionsForm
-                    }, { onConflict: 'user_id' });
+                    }, { onConflict: 'buyer_id' });
 
                   if (error) {
                     alert('Erro: ' + error.message);
