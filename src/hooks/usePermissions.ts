@@ -15,7 +15,7 @@ export const usePermissions = () => {
 
     const fetchPermissions = async () => {
       const { data } = await supabase
-        .from('buyer_authorizations')
+        .from('buyer_crm_permissions')
         .select('permissions')
         .eq('user_id', user.id)
         .single();

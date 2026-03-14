@@ -124,7 +124,7 @@ export default function BuyerView() {
     try {
       // 1. Buscar permissões específicas do usuário
       const { data: userAuth } = await supabase
-        .from('buyer_authorizations')
+        .from('buyer_crm_permissions')
         .select('permissions')
         .eq('user_id', user.id)
         .single();

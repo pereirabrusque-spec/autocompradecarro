@@ -315,7 +315,7 @@ export default function AdminDashboard() {
       const { data: buyersData, error: buyersError } = await supabase.from('interested_buyers').select('*').order('created_at', { ascending: false });
       if (buyersError) console.error('Erro ao buscar buyers:', buyersError);
       else console.log('Buyers buscados:', buyersData);
-      const { data: authsData } = await supabase.from('buyer_authorizations').select('*');
+      const { data: authsData } = await supabase.from('buyer_crm_permissions').select('*');
       const { data: sentData } = await supabase.from('sent_leads').select('*');
       const { data: messagesData } = await supabase
         .from('mensagens')
@@ -4456,7 +4456,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                   onClick={async () => {
                                     // Busca as permissões mais recentes do banco antes de abrir
                                     const { data: authData } = await supabase
-                                      .from('buyer_authorizations')
+                                      .from('buyer_crm_permissions')
                                       .select('permissions')
                                       .eq('buyer_id', buyer.id)
                                       .single();
@@ -4555,13 +4555,13 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                       checked={isAuthorized}
                                       onChange={async (e) => {
                                         if (e.target.checked) {
-                                          const { data, error } = await supabase.from('buyer_authorizations').insert({
+                                          const { data, error } = await supabase.from('buyer_crm_permissions').insert({
                                             buyer_id: buyer.id,
                                             lead_id: selectedLead.id
                                           }).select().single();
                                           if (!error) setBuyerAuthorizations(prev => [...prev, data]);
                                         } else {
-                                          const { error } = await supabase.from('buyer_authorizations').delete().eq('buyer_id', buyer.id).eq('lead_id', selectedLead.id);
+                                          const { error } = await supabase.from('buyer_crm_permissions').delete().eq('buyer_id', buyer.id).eq('lead_id', selectedLead.id);
                                           if (!error) setBuyerAuthorizations(prev => prev.filter(a => !(a.buyer_id === buyer.id && a.lead_id === selectedLead.id)));
                                         }
                                       }}
@@ -6657,13 +6657,13 @@ Podemos prosseguir com o agendamento da vistoria?`;
                             checked={isAuthorized}
                             onChange={async (e) => {
                               if (e.target.checked) {
-                                const { data, error } = await supabase.from('buyer_authorizations').insert({
+                                const { data, error } = await supabase.from('buyer_crm_permissions').insert({
                                   buyer_id: buyerToAuth.id,
                                   lead_id: lead.id
                                 }).select().single();
                                 if (!error) setBuyerAuthorizations(prev => [...prev, data]);
                               } else {
-                                const { error } = await supabase.from('buyer_authorizations').delete().eq('buyer_id', buyerToAuth.id).eq('lead_id', lead.id);
+                                const { error } = await supabase.from('buyer_crm_permissions').delete().eq('buyer_id', buyerToAuth.id).eq('lead_id', lead.id);
                                 if (!error) setBuyerAuthorizations(prev => prev.filter(a => !(a.buyer_id === buyerToAuth.id && a.lead_id === lead.id)));
                               }
                             }}
@@ -6916,7 +6916,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   }
 
                   const { error } = await supabase
-                    .from('buyer_authorizations')
+                    .from('buyer_crm_permissions')
                     .upsert({
                       buyer_id: selectedBuyer.id,
                       permissions: buyerPermissionsForm
