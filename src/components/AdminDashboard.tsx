@@ -11,12 +11,13 @@ import { LeadCard } from './LeadCard';
 import LeadDetailsCard from './LeadDetailsCard';
 import AdminMessages from './AdminMessages';
 import CooperativesModal from './CooperativesModal';
+import { logToStorage, getStorageLogs, clearStorageLogs } from '../lib/logger';
 
 export default function AdminDashboard() {
   const [leads, setLeads] = useState<any[]>([]);
   const [dbAssets, setDbAssets] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'leads' | 'hero' | 'assets' | 'footer' | 'settings' | 'ai' | 'apis' | 'crm' | 'messages' | 'buyers' | 'tags' | 'users' | 'cooperatives'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'leads' | 'hero' | 'assets' | 'footer' | 'settings' | 'ai' | 'apis' | 'crm' | 'messages' | 'buyers' | 'tags' | 'users' | 'cooperatives' | 'logs'>('dashboard');
   const [messageTab, setMessageTab] = useState<'leads' | 'internal'>('leads');
   const [internalConversations, setInternalConversations] = useState<any[]>([]);
   const [selectedInternalChat, setSelectedInternalChat] = useState<string | null>(null);
@@ -157,11 +158,27 @@ export default function AdminDashboard() {
   const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null);
   const [avarias, setAvarias] = useState<{id: string, description: string, value: number}[]>([]);
   const [users, setUsers] = useState<any[]>([]);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [logs, setLogs] = useState<any[]>([]);
+  
+  const addLog = (message: string, type: 'info' | 'error' | 'debug' = 'info', data?: any) => {
+    logToStorage(message, type, data);
+    setLogs(getStorageLogs());
+  };
+
+  useEffect(() => {
+    setLogs(getStorageLogs());
+    const interval = setInterval(() => {
+      setLogs(getStorageLogs());
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
   const [filterUser, setFilterUser] = useState('');
   const [isRefreshingUsers, setIsRefreshingUsers] = useState(false);
 
   const refreshUsers = async () => {
-    if (activeTab !== 'users') return;
+    if (activeTab !== 'users' && activeTab !== 'dashboard') return;
     setIsRefreshingUsers(true);
     try {
       const { data } = await supabase.from('profiles').select('*').order('last_login', { ascending: false });
@@ -175,7 +192,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     let interval: any;
-    if (activeTab === 'users') {
+    if (activeTab === 'users' || activeTab === 'dashboard') {
       refreshUsers();
       interval = setInterval(refreshUsers, 30000); // Refresh every 30s
     }
@@ -223,6 +240,7 @@ export default function AdminDashboard() {
 
   const fetchData = async () => {
     setIsLoading(true);
+    addLog('Iniciando busca de dados...', 'info');
     try {
       console.log('Fetching leads from Supabase...');
       const { data: leadsData, error: leadsError } = await supabase
@@ -231,11 +249,13 @@ export default function AdminDashboard() {
         .order('created_at', { ascending: false });
 
       if (leadsError) {
+        addLog('Erro ao buscar leads', 'error', leadsError);
         console.error('Error fetching leads:', leadsError);
         alert(`Erro ao buscar leads: ${leadsError.message}`);
         throw leadsError;
       }
 
+      addLog(`Leads buscados: ${leadsData?.length || 0}`, 'debug');
       console.log('Leads fetched successfully:', leadsData);
 
       const { data: assetsData, error: assetsError } = await supabase
@@ -700,8 +720,22 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) setCurrentUser(data.user);
+    supabase.auth.getUser().then(async ({ data }) => {
+      if (data.user) {
+        setCurrentUser(data.user);
+        addLog('Usuário autenticado: ' + data.user.email, 'info');
+        
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+        
+        if (profile) {
+          setUserProfile(profile);
+          addLog('Perfil carregado: ' + profile.role, 'info');
+        }
+      }
     });
   }, []);
 
@@ -996,6 +1030,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
       return;
     }
     setIsCreatingUser(true);
+    addLog('Tentando criar usuário...', 'info', newUserForm);
     try {
       const { error } = await supabase.from('profiles').insert([{
         full_name: newUserForm.full_name,
@@ -1005,8 +1040,12 @@ Podemos prosseguir com o agendamento da vistoria?`;
         last_login: new Date().toISOString()
       }]);
       
-      if (error) throw error;
+      if (error) {
+        addLog('Erro ao criar usuário no Supabase', 'error', error);
+        throw error;
+      }
       
+      addLog('Usuário criado com sucesso', 'info');
       alert('Usuário pré-cadastrado com sucesso! Ele deve se registrar com este email para acessar.');
       setShowAddUserModal(false);
       setNewUserForm({ full_name: '', email: '', password: '', role: 'user', phone: '' });
@@ -1830,6 +1869,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 { id: 'hero', label: 'Site', icon: ImageIcon },
                 { id: 'assets', label: 'Fotos', icon: Maximize2 },
                 { id: 'footer', label: 'Rodapé', icon: Info },
+                { id: 'logs', label: 'Logs', icon: Database },
               ].map((tab) => (
                 <button 
                   key={tab.id}
@@ -1887,7 +1927,90 @@ Podemos prosseguir com o agendamento da vistoria?`;
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
           >
-            {activeTab === 'cooperatives' && (
+            {activeTab === 'logs' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-2xl font-black text-slate-900">Logs do Sistema</h2>
+                <p className="text-slate-500">Monitoramento de variáveis e eventos em tempo real</p>
+              </div>
+              <button 
+                onClick={() => {
+                  clearStorageLogs();
+                  setLogs([]);
+                }}
+                className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl font-bold text-xs hover:bg-slate-200 transition-all flex items-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                Limpar Logs
+              </button>
+            </div>
+
+            <div className="bg-slate-900 rounded-[32px] p-6 font-mono text-xs overflow-hidden border border-slate-800 shadow-2xl">
+              <div className="flex items-center gap-4 mb-4 pb-4 border-b border-slate-800">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-emerald-500 font-bold uppercase tracking-widest">Live Console</span>
+                </div>
+                <div className="h-4 w-px bg-slate-800" />
+                <span className="text-slate-500">Mostrando os últimos 100 eventos</span>
+              </div>
+
+              <div className="space-y-2 max-h-[600px] overflow-y-auto no-scrollbar">
+                {logs.length === 0 ? (
+                  <p className="text-slate-600 italic">Nenhum log registrado ainda...</p>
+                ) : (
+                  logs.map((log, i) => (
+                    <div key={i} className="group flex gap-4 hover:bg-white/5 p-1 rounded transition-colors">
+                      <span className="text-slate-600 shrink-0">[{new Date(log.timestamp).toLocaleTimeString()}]</span>
+                      <span className={`font-bold shrink-0 w-12 ${
+                        log.type === 'error' ? 'text-red-500' : 
+                        log.type === 'debug' ? 'text-blue-400' : 'text-emerald-400'
+                      }`}>
+                        {log.type.toUpperCase()}
+                      </span>
+                      <div className="flex-1">
+                        <p className="text-slate-300">{log.message}</p>
+                        {log.data && (
+                          <pre className="mt-1 p-2 bg-black/50 rounded text-[10px] text-slate-500 overflow-x-auto">
+                            {JSON.stringify(log.data, null, 2)}
+                          </pre>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                <h4 className="font-bold text-slate-900 mb-2">Estado da Sessão</h4>
+                <div className="space-y-1 text-[10px] font-mono">
+                  <p className="text-slate-500">User ID: <span className="text-slate-900">{currentUser?.id || 'N/A'}</span></p>
+                  <p className="text-slate-500">Email: <span className="text-slate-900">{currentUser?.email || 'N/A'}</span></p>
+                  <p className="text-slate-500">Role: <span className="text-slate-900 font-bold text-accent">{userProfile?.role || 'N/A'}</span></p>
+                </div>
+              </div>
+              <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                <h4 className="font-bold text-slate-900 mb-2">Variáveis de Ambiente</h4>
+                <div className="space-y-1 text-[10px] font-mono">
+                  <p className="text-slate-500">Supabase URL: <span className="text-slate-900">Configurado</span></p>
+                  <p className="text-slate-500">Anon Key: <span className="text-slate-900">Configurado</span></p>
+                </div>
+              </div>
+              <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                <h4 className="font-bold text-slate-900 mb-2">Conectividade</h4>
+                <div className="flex items-center gap-2 text-[10px] font-mono">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                  <span className="text-slate-900">Supabase Realtime: Ativo</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'cooperatives' && (
           <div className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm">
@@ -1935,7 +2058,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
         {activeTab === 'dashboard' && (
               <div className="space-y-8">
                 {/* Stats Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                   <div 
                     onClick={() => setActiveTab('leads')}
                     className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer group"
@@ -2009,7 +2132,10 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   </div>
 
                   <div 
-                    onClick={() => setActiveTab('buyers')}
+                    onClick={() => {
+                      setActiveTab('users');
+                      setUserManagementTab('compradores');
+                    }}
                     className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer group"
                   >
                     <div className="flex items-center gap-4 mb-4">
@@ -2018,14 +2144,48 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       </div>
                       <div>
                         <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Compradores</p>
-                        <h3 className="text-2xl font-black text-slate-900">{interestedBuyers.length}</h3>
+                        <h3 className="text-2xl font-black text-slate-900">{users.filter(u => u.role === 'buyer').length}</h3>
                       </div>
                     </div>
                     <div className="space-y-1">
                       <div className="flex items-center justify-between text-[10px] font-bold">
-                        <span className="text-purple-500">{interestedBuyers.filter(b => b.status === 'active' || !b.status).length} Ativos</span>
+                        <span className="text-emerald-500">
+                          {users.filter(u => u.role === 'buyer' && u.last_login && (new Date().getTime() - new Date(u.last_login).getTime()) < 300000).length} Online
+                        </span>
+                        <span className="text-slate-400">
+                          {users.filter(u => u.role === 'buyer' && (!u.last_login || (new Date().getTime() - new Date(u.last_login).getTime()) >= 300000)).length} Off
+                        </span>
                       </div>
-                      <p className="text-[9px] text-slate-300 italic">Fonte: Tabela interested_buyers</p>
+                      <p className="text-[9px] text-slate-300 italic">Fonte: Perfis 'buyer'</p>
+                    </div>
+                  </div>
+
+                  <div 
+                    onClick={() => {
+                      setActiveTab('users');
+                      setUserManagementTab('crm');
+                    }}
+                    className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                        <UserPlus className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Usuários (Novo)</p>
+                        <h3 className="text-2xl font-black text-slate-900">{users.filter(u => u.role === 'user').length}</h3>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[10px] font-bold">
+                        <span className="text-emerald-500">
+                          {users.filter(u => u.role === 'user' && u.last_login && (new Date().getTime() - new Date(u.last_login).getTime()) < 300000).length} Online
+                        </span>
+                        <span className="text-slate-400">
+                          {users.filter(u => u.role === 'user' && (!u.last_login || (new Date().getTime() - new Date(u.last_login).getTime()) >= 300000)).length} Off
+                        </span>
+                      </div>
+                      <p className="text-[9px] text-slate-300 italic">Fonte: Perfis 'user'</p>
                     </div>
                   </div>
                 </div>
@@ -2491,6 +2651,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       <thead>
                         <tr className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black bg-slate-50/50">
                           <th className="px-8 py-5">Usuário</th>
+                          <th className="px-8 py-5">Cadastro</th>
+                          <th className="px-8 py-5">WhatsApp</th>
                           <th className="px-8 py-5">Cargo / Tipo</th>
                           <th className="px-8 py-5">Status</th>
                           {userManagementTab === 'compradores' && <th className="px-8 py-5">Permissões</th>}
@@ -2527,6 +2689,14 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                     <p className="text-xs text-slate-400">{user.email}</p>
                                   </div>
                                 </div>
+                              </td>
+                              <td className="px-8 py-5">
+                                <p className="text-xs font-bold text-slate-600">
+                                  {user.created_at ? new Date(user.created_at).toLocaleDateString('pt-BR') : '-'}
+                                </p>
+                              </td>
+                              <td className="px-8 py-5">
+                                <p className="text-xs font-bold text-slate-600">{user.phone || '-'}</p>
                               </td>
                               <td className="px-8 py-5">
                                 <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
@@ -3170,20 +3340,29 @@ Podemos prosseguir com o agendamento da vistoria?`;
                               <Users className="w-5 h-5 text-accent" />
                               Dados do Cadastro
                             </h3>
-                            <div className="space-y-3 text-sm">
-                              <div>
-                                <p className="text-slate-400 font-bold uppercase text-[10px]">Cliente</p>
-                                <p className="font-bold">{selectedLead.cliente_nome}</p>
+                            {userProfile?.role === 'admin' ? (
+                              <div className="space-y-3 text-sm">
+                                <div>
+                                  <p className="text-slate-400 font-bold uppercase text-[10px]">Cliente</p>
+                                  <p className="font-bold">{selectedLead.cliente_nome}</p>
+                                </div>
+                                <div>
+                                  <p className="text-slate-400 font-bold uppercase text-[10px]">Telefone</p>
+                                  <p className="font-bold">{selectedLead.telefone}</p>
+                                </div>
+                                <div>
+                                  <p className="text-slate-400 font-bold uppercase text-[10px]">Data</p>
+                                  <p className="font-bold">{new Date(selectedLead.created_at).toLocaleString()}</p>
+                                </div>
                               </div>
-                              <div>
-                                <p className="text-slate-400 font-bold uppercase text-[10px]">Telefone</p>
-                                <p className="font-bold">{selectedLead.telefone}</p>
+                            ) : (
+                              <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl flex items-start gap-3">
+                                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
+                                <p className="text-xs text-amber-700 font-medium leading-relaxed">
+                                  Dados do cliente estão ocultos. Apenas administradores podem visualizar informações de contato.
+                                </p>
                               </div>
-                              <div>
-                                <p className="text-slate-400 font-bold uppercase text-[10px]">Data</p>
-                                <p className="font-bold">{new Date(selectedLead.created_at).toLocaleString()}</p>
-                              </div>
-                            </div>
+                            )}
                           </div>
                         </div>
 

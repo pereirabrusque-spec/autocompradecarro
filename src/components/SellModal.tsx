@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, ChevronRight, ChevronLeft, CheckCircle2, Loader2, Camera, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { logToStorage } from '../lib/logger';
 import { useAuth } from '../lib/authContext';
 import { triggerAdsConversion } from './GoogleTags';
 import AuthModal from './AuthModal';
@@ -120,6 +121,7 @@ export default function SellModal() {
 
   const handleSubmit = async () => {
     setIsLoading(true);
+    logToStorage('Iniciando submissão de formulário de venda', 'info', formData);
     console.log("formData antes do insert:", formData);
     try {
       const yearNumber = parseInt(formData.year.substring(0, 4)) || 0;
@@ -179,8 +181,12 @@ export default function SellModal() {
         juros_atraso: 2,
       }]);
 
-      if (error) throw error;
+      if (error) {
+        logToStorage('Erro ao salvar lead no Supabase', 'error', error);
+        throw error;
+      }
 
+      logToStorage('Lead salvo com sucesso!', 'info');
       // Trigger Google Ads Conversion
       triggerAdsConversion();
 
@@ -193,6 +199,7 @@ export default function SellModal() {
         window.dispatchEvent(new PopStateEvent('popstate'));
       }, 2000);
     } catch (error) {
+      logToStorage('Exceção capturada no handleSubmit', 'error', error);
       console.error(error);
       alert('Erro ao enviar proposta. Tente novamente.');
     } finally {
