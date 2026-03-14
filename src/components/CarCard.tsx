@@ -4,6 +4,7 @@ import { Fuel, Gauge, Settings2, Heart, X, CheckCircle2, Loader2 } from 'lucide-
 import { Car } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAssets } from '../lib/assetsContext';
+import { usePermissions } from '../hooks/usePermissions';
 
 interface CarCardProps {
   car: Car;
@@ -11,6 +12,7 @@ interface CarCardProps {
 
 export default function CarCard({ car }: CarCardProps) {
   const { settings } = useAssets();
+  const { permissions, loading } = usePermissions();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -18,6 +20,7 @@ export default function CarCard({ car }: CarCardProps) {
 
   const buttonText = settings['CAR_CARD_BUTTON_TEXT'] || 'Tenho Interesse';
 
+  // ... (handleSubmit mantido igual)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -50,6 +53,8 @@ export default function CarCard({ car }: CarCardProps) {
     }
   };
 
+  if (loading) return null;
+
   return (
     <>
       <motion.div
@@ -58,22 +63,24 @@ export default function CarCard({ car }: CarCardProps) {
         animate={{ opacity: 1, scale: 1 }}
         className="group bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300"
       >
-        <div className="relative aspect-[16/10] overflow-hidden">
-          <img
-            src={car.image}
-            alt={`${car.brand} ${car.model}`}
-            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-            referrerPolicy="no-referrer"
-          />
-          <button className="absolute top-4 right-4 p-2.5 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white hover:text-red-500 transition-all">
-            <Heart className="w-5 h-5" />
-          </button>
-          <div className="absolute bottom-4 left-4">
-            <span className="px-3 py-1 bg-accent text-white text-xs font-bold rounded-full">
-              {car.year}
-            </span>
+        {permissions?.show_photos && (
+          <div className="relative aspect-[16/10] overflow-hidden">
+            <img
+              src={car.image}
+              alt={`${car.brand} ${car.model}`}
+              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+              referrerPolicy="no-referrer"
+            />
+            <button className="absolute top-4 right-4 p-2.5 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white hover:text-red-500 transition-all">
+              <Heart className="w-5 h-5" />
+            </button>
+            <div className="absolute bottom-4 left-4">
+              <span className="px-3 py-1 bg-accent text-white text-xs font-bold rounded-full">
+                {car.year}
+              </span>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="p-6">
           <div className="flex justify-between items-start mb-4">
@@ -81,27 +88,32 @@ export default function CarCard({ car }: CarCardProps) {
               <h3 className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">{car.brand}</h3>
               <h2 className="font-display text-xl font-bold text-slate-900">{car.model}</h2>
             </div>
-            <div className="text-right">
-              <p className="text-accent font-display text-xl font-bold">
-                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(car.price)}
-              </p>
-            </div>
+            {permissions?.show_price && (
+              <div className="text-right">
+                <p className="text-accent font-display text-xl font-bold">
+                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(car.price)}
+                </p>
+              </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-3 gap-2 mb-6">
-            <div className="flex flex-col items-center p-2 bg-slate-50 rounded-2xl">
-              <Gauge className="w-4 h-4 text-slate-400 mb-1" />
-              <span className="text-[10px] text-slate-500 font-medium">{car.mileage.toLocaleString()} km</span>
+          {permissions?.show_details && (
+            <div className="grid grid-cols-3 gap-2 mb-6">
+              <div className="flex flex-col items-center p-2 bg-slate-50 rounded-2xl">
+                <Gauge className="w-4 h-4 text-slate-400 mb-1" />
+                <span className="text-[10px] text-slate-500 font-medium">{car.mileage.toLocaleString()} km</span>
+              </div>
+              <div className="flex flex-col items-center p-2 bg-slate-50 rounded-2xl">
+                <Fuel className="w-4 h-4 text-slate-400 mb-1" />
+                <span className="text-[10px] text-slate-500 font-medium">{car.fuel}</span>
+              </div>
+              <div className="flex flex-col items-center p-2 bg-slate-50 rounded-2xl">
+                <Settings2 className="w-4 h-4 text-slate-400 mb-1" />
+                <span className="text-[10px] text-slate-500 font-medium">{car.transmission}</span>
+              </div>
             </div>
-            <div className="flex flex-col items-center p-2 bg-slate-50 rounded-2xl">
-              <Fuel className="w-4 h-4 text-slate-400 mb-1" />
-              <span className="text-[10px] text-slate-500 font-medium">{car.fuel}</span>
-            </div>
-            <div className="flex flex-col items-center p-2 bg-slate-50 rounded-2xl">
-              <Settings2 className="w-4 h-4 text-slate-400 mb-1" />
-              <span className="text-[10px] text-slate-500 font-medium">{car.transmission}</span>
-            </div>
-          </div>
+          )}
+
 
           <button 
             onClick={() => setIsModalOpen(true)}
