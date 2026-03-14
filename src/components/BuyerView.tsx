@@ -12,7 +12,8 @@ import {
   LogOut,
   MessageCircle,
   FileText,
-  DollarSign
+  DollarSign,
+  User
 } from 'lucide-react';
 import InternalChat from './InternalChat';
 
@@ -37,12 +38,14 @@ export default function BuyerView() {
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
+  const [whatsappNumber, setWhatsappNumber] = useState('');
   const [permissions, setPermissions] = useState({
     show_price: false, // Seguro por padrão
     show_photos: true,
     show_plate: false,
     show_details: false, // Seguro por padrão
-    show_history: false
+    show_history: false,
+    send_whatsapp: false // Adicionado
   });
 
   const roleDisplay = {
@@ -58,6 +61,16 @@ export default function BuyerView() {
   useEffect(() => {
     fetchAuthorizedLeads();
     checkNotificationStatus();
+    
+    const fetchSettings = async () => {
+      const { data } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'WHATSAPP_NUMBER')
+        .single();
+      if (data) setWhatsappNumber(data.value);
+    };
+    fetchSettings();
     
     // Heartbeat to update last_seen
     const updateLastSeen = async () => {
@@ -121,13 +134,13 @@ export default function BuyerView() {
         // Fallback: Definir permissões baseadas no cargo
         const role = profile?.role;
         if (role === 'buyer') {
-          setPermissions({ show_photos: true, show_price: false, show_plate: false, show_details: false, show_history: false });
+          setPermissions({ show_photos: true, show_price: false, show_plate: false, show_details: false, show_history: false, send_whatsapp: false });
         } else if (role === 'buyer_premium') {
-          setPermissions({ show_photos: true, show_price: true, show_plate: true, show_details: true, show_history: true });
+          setPermissions({ show_photos: true, show_price: true, show_plate: true, show_details: true, show_history: true, send_whatsapp: true });
         } else if (role === 'buyer_master') {
-          setPermissions({ show_photos: true, show_price: true, show_plate: true, show_details: true, show_history: true });
+          setPermissions({ show_photos: true, show_price: true, show_plate: true, show_details: true, show_history: true, send_whatsapp: true });
         } else {
-          setPermissions({ show_photos: true, show_price: true, show_plate: false, show_details: true, show_history: false });
+          setPermissions({ show_photos: true, show_price: true, show_plate: false, show_details: true, show_history: false, send_whatsapp: false });
         }
       }
 
@@ -146,6 +159,11 @@ export default function BuyerView() {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    console.log('Permissions:', permissions);
+    console.log('Selected Lead:', selectedLead);
+  }, [permissions, selectedLead]);
 
   if (isLoading) {
     return (
@@ -364,6 +382,20 @@ export default function BuyerView() {
               </div>
 
               {permissions.show_details && (
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <User className="w-4 h-4 text-accent" />
+                    Dados do Cliente
+                  </h4>
+                  <div className="grid grid-cols-1 gap-3">
+                    <DetailRow label="Nome" value={selectedLead.cliente_nome} />
+                    <DetailRow label="Telefone" value={selectedLead.telefone} />
+                    <DetailRow label="Email" value={selectedLead.email} />
+                  </div>
+                </div>
+              )}
+
+              {permissions.show_details && (
                 <div className="space-y-8 mb-12">
                   <div>
                     <h4 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
@@ -413,6 +445,17 @@ export default function BuyerView() {
               )}
 
               <div className="flex flex-col gap-4">
+                {permissions.send_whatsapp && whatsappNumber && (
+                  <a
+                    href={`https://wa.me/${whatsappNumber}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-5 bg-emerald-500 text-white rounded-[24px] font-bold hover:bg-emerald-600 transition-all flex items-center justify-center gap-3 shadow-lg shadow-emerald-200"
+                  >
+                    <MessageCircle className="w-5 h-5" />
+                    Enviar WhatsApp
+                  </a>
+                )}
                 <button className="w-full py-5 bg-slate-900 text-white rounded-[24px] font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-3 shadow-lg shadow-slate-200">
                   <FileText className="w-5 h-5" />
                   Solicitar Laudo Técnico

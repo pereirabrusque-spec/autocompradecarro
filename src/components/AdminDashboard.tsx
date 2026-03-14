@@ -12,6 +12,7 @@ import { ProposalModal } from './ProposalModal';
 import { LeadCard } from './LeadCard';
 import LeadDetailsCard from './LeadDetailsCard';
 import AdminMessages from './AdminMessages';
+import { AdminSalesChat } from './crm/AdminSalesChat';
 import CooperativesModal from './CooperativesModal';
 import { logToStorage, getStorageLogs, clearStorageLogs } from '../lib/logger';
 
@@ -19,7 +20,7 @@ export default function AdminDashboard() {
   const [leads, setLeads] = useState<any[]>([]);
   const [dbAssets, setDbAssets] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'leads' | 'hero' | 'assets' | 'footer' | 'settings' | 'ai' | 'apis' | 'crm' | 'messages' | 'buyers' | 'tags' | 'users' | 'cooperatives' | 'logs'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'leads' | 'hero' | 'assets' | 'footer' | 'settings' | 'ai' | 'apis' | 'crm' | 'messages' | 'buyers' | 'tags' | 'users' | 'cooperatives' | 'logs' | 'crm_chat'>('dashboard');
   const [messageTab, setMessageTab] = useState<'leads' | 'internal'>('leads');
   const [internalConversations, setInternalConversations] = useState<any[]>([]);
   const [selectedInternalChat, setSelectedInternalChat] = useState<string | null>(null);
@@ -2043,6 +2044,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 { id: 'dashboard', label: 'Início', icon: LayoutDashboard, roles: ['admin'] },
                 { id: 'leads', label: 'Leads', icon: Car, roles: ['admin', 'buyer_premium', 'buyer_master'] },
                 { id: 'messages', label: 'Mensagens', icon: MessageCircle, badge: conversations.reduce((acc, curr) => acc + (curr.unread || 0), 0), roles: ['admin'] },
+                { id: 'crm_chat', label: 'CRM Chat', icon: MessageCircle, roles: ['admin'] },
                 { id: 'users', label: 'Equipe & CRM', icon: Users, roles: ['admin'] },
                 { id: 'settings', label: 'Config', icon: Settings, roles: ['admin'] },
                 { id: 'apis', label: 'APIs', icon: Key, roles: ['admin'] },
@@ -2110,6 +2112,11 @@ Podemos prosseguir com o agendamento da vistoria?`;
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
           >
+            {activeTab === 'crm_chat' && (
+              <div className="h-[700px]">
+                <AdminSalesChat conversationId="general" role={userProfile?.role || 'admin'} />
+              </div>
+            )}
             {activeTab === 'logs' && (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
