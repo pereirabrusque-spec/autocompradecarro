@@ -16,6 +16,16 @@ import {
 } from 'lucide-react';
 import InternalChat from './InternalChat';
 
+const DetailRow = ({ label, value, show = true }: { label: string, value: any, show?: boolean }) => {
+  if (!show || value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0)) return null;
+  return (
+    <div className="flex justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
+      <span className="text-sm text-slate-500">{label}</span>
+      <span className="text-sm font-bold text-slate-900">{value}</span>
+    </div>
+  );
+};
+
 export default function BuyerView() {
   const { user, profile, signOut } = useAuth();
   const [authorizedLeads, setAuthorizedLeads] = useState<any[]>([]);
@@ -357,18 +367,33 @@ export default function BuyerView() {
                       Detalhes Técnicos & Situação
                     </h4>
                     <div className="grid grid-cols-1 gap-3">
-                      <div className="flex justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
-                        <span className="text-sm text-slate-500">Situação</span>
-                        <span className="text-sm font-bold text-slate-900">{selectedLead.classificacao || 'Não informada'}</span>
-                      </div>
-                      <div className="flex justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
-                        <span className="text-sm text-slate-500">Pneus</span>
-                        <span className="text-sm font-bold text-slate-900">{selectedLead.estado_pneus || 'Não informado'}</span>
-                      </div>
-                      <div className="flex justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
-                        <span className="text-sm text-slate-500">Pintura</span>
-                        <span className="text-sm font-bold text-slate-900">{selectedLead.estado_pintura || 'Não informada'}</span>
-                      </div>
+                      <DetailRow label="Situação" value={selectedLead.classificacao} />
+                      <DetailRow label="Pneus" value={selectedLead.estado_pneus} />
+                      <DetailRow label="Pintura" value={selectedLead.estado_pintura} />
+                      <DetailRow label="Motor" value={selectedLead.motor_reparo} />
+                      <DetailRow label="Câmbio" value={selectedLead.cambio_reparo} />
+                      <DetailRow label="Lataria" value={selectedLead.batido_reparo} />
+                      <DetailRow label="Avarias" value={selectedLead.avarias} />
+                      <DetailRow label="Renajud" value={selectedLead.renajud} />
+                      <DetailRow label="Recuperado Banco" value={selectedLead.recuperado_banco} />
+                      <DetailRow label="Histórico Furto/Roubo" value={selectedLead.historico_furto_roubo} />
+                      <DetailRow label="Sinistro" value={selectedLead.tem_sinistro} />
+                      <DetailRow label="Leilão" value={selectedLead.passagem_leilao} />
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
+                      <DollarSign className="w-4 h-4 text-accent" />
+                      Proposta & Financeiro
+                    </h4>
+                    <div className="grid grid-cols-1 gap-3">
+                      <DetailRow label="Valor FIPE" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.valor_fipe || 0)} />
+                      <DetailRow label="Entrada" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.entrada || 0)} />
+                      <DetailRow label="Valor Parcela" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.valor_parcela || 0)} />
+                      <DetailRow label="Qtd Parcelas" value={selectedLead.total_parcelas} />
+                      <DetailRow label="Banco Financiamento" value={selectedLead.banco_financiamento} />
+                      <DetailRow label="Multas" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.multas || 0)} />
                     </div>
                   </div>
 
