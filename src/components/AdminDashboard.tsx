@@ -764,6 +764,10 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
+    console.log('AdminDashboard: userProfile carregado:', userProfile);
+  }, [userProfile]);
+
+  useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
       if (data.user) {
         setCurrentUser(data.user);
@@ -2044,7 +2048,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 { id: 'assets', label: 'Fotos', icon: Maximize2, roles: ['admin'] },
                 { id: 'footer', label: 'Rodapé', icon: Info, roles: ['admin'] },
                 { id: 'logs', label: 'Logs', icon: Database, roles: ['admin'] },
-              ].filter(tab => !tab.roles || tab.roles.includes(userProfile?.role)).map((tab) => (
+              ].filter(tab => !tab.roles || tab.roles.includes(userProfile?.role) || currentUser?.email === 'pereira.brusque@gmail.com').map((tab) => (
                 <button 
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)} 
