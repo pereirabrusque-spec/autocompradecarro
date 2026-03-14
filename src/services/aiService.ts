@@ -21,10 +21,13 @@ export class AIService {
       return [];
     }
 
-    // Ordena: 'ok' primeiro, depois tenta as outras
+    // Ordena: 'ok' primeiro, depois 'rate_limited', depois outros
     return (data || []).sort((a, b) => {
-      if (a.status === 'ok' && b.status !== 'ok') return -1;
-      if (a.status !== 'ok' && b.status === 'ok') return 1;
+      const statusOrder = { 'ok': 0, 'rate_limited': 1, 'no_credit': 2, 'disconnected': 3 };
+      const orderA = statusOrder[a.status as keyof typeof statusOrder] ?? 4;
+      const orderB = statusOrder[b.status as keyof typeof statusOrder] ?? 4;
+      
+      if (orderA !== orderB) return orderA - orderB;
       
       const lastUsedA = a.last_used ? new Date(a.last_used).getTime() : 0;
       const lastUsedB = b.last_used ? new Date(b.last_used).getTime() : 0;
@@ -32,7 +35,7 @@ export class AIService {
     });
   }
 
-  private static async updateKeyStatus(id: string, status: 'ok' | 'no_credit' | 'disconnected', errorCount: number = 0) {
+  private static async updateKeyStatus(id: string, status: 'ok' | 'no_credit' | 'disconnected' | 'rate_limited', errorCount: number = 0) {
     if (id === 'env-key') return;
     try {
       const { error } = await supabase
@@ -262,11 +265,15 @@ export class AIService {
         await this.updateKeyStatus(apiKey.id, 'ok', 0);
         console.log(`[AIService] API ${apiKey.provider} (${apiKey.id}) está OK.`);
       } catch (error: any) {
-        let newStatus: 'ok' | 'no_credit' | 'disconnected' = 'disconnected';
         const errMsg = error.message?.toLowerCase() || '';
-        if (errMsg.includes('credit') || errMsg.includes('quota') || errMsg.includes('limit') || errMsg.includes('429') || errMsg.includes('too many requests')) {
+        let newStatus: 'ok' | 'no_credit' | 'disconnected' | 'rate_limited' = 'disconnected';
+        
+        if (errMsg.includes('429') || errMsg.includes('too many requests')) {
+          newStatus = 'rate_limited';
+        } else if (errMsg.includes('credit') || errMsg.includes('quota') || errMsg.includes('limit')) {
           newStatus = 'no_credit';
         }
+        
         await this.updateKeyStatus(apiKey.id, newStatus, (apiKey.error_count || 0) + 1);
         console.warn(`[AIService] API ${apiKey.provider} (${apiKey.id}) falhou. Status: ${newStatus}`);
       }

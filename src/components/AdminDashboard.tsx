@@ -244,6 +244,9 @@ export default function AdminDashboard() {
     phone: ''
   });
   const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<any>(null);
+  const [editUserForm, setEditUserForm] = useState({ full_name: '', phone: '', role: 'user' });
 
   const [confirmDeleteLeadId, setConfirmDeleteLeadId] = useState<string | null>(null);
   const [confirmDeleteUserId, setConfirmDeleteUserId] = useState<string | null>(null);
@@ -3039,6 +3042,20 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                       Tornar Comprador
                                     </button>
                                   )}
+                                  <button 
+                                    onClick={() => {
+                                      setEditingUser(user);
+                                      setEditUserForm({
+                                        full_name: user.full_name || '',
+                                        phone: user.phone || '',
+                                        role: user.role || 'user'
+                                      });
+                                      setIsEditUserModalOpen(true);
+                                    }}
+                                    className="p-2.5 bg-slate-50 text-slate-600 rounded-xl hover:bg-slate-100 transition-all"
+                                  >
+                                    <Pencil className="w-4 h-4" />
+                                  </button>
                                   <button 
                                     onClick={() => setConfirmDeleteUserId(user.id)}
                                     className="p-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-all"
@@ -7038,6 +7055,76 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 >
                   <Trash2 className="w-5 h-5" />
                   Excluir Agora
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {isEditUserModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-[32px] p-8 max-w-md w-full shadow-2xl"
+            >
+              <h3 className="text-2xl font-bold mb-6">Editar Usuário</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">Nome Completo</label>
+                  <input 
+                    type="text" 
+                    value={editUserForm.full_name}
+                    onChange={(e) => setEditUserForm({...editUserForm, full_name: e.target.value})}
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">WhatsApp</label>
+                  <input 
+                    type="text" 
+                    value={editUserForm.phone}
+                    onChange={(e) => setEditUserForm({...editUserForm, phone: e.target.value})}
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">Cargo</label>
+                  <select 
+                    value={editUserForm.role}
+                    onChange={(e) => setEditUserForm({...editUserForm, role: e.target.value})}
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl"
+                  >
+                    <option value="user">Usuário (Vendedor)</option>
+                    <option value="buyer">Comprador</option>
+                    <option value="buyer_premium">Comprador Premium</option>
+                    <option value="buyer_master">Comprador Master</option>
+                    <option value="admin">Administrador</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex gap-4 mt-8">
+                <button 
+                  onClick={() => setIsEditUserModalOpen(false)}
+                  className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={async () => {
+                    const { error } = await supabase.from('profiles').update(editUserForm).eq('id', editingUser.id);
+                    if (!error) {
+                      refreshUsers();
+                      setIsEditUserModalOpen(false);
+                      setToast({ message: 'Usuário atualizado com sucesso!', type: 'success' });
+                    } else {
+                      setToast({ message: 'Erro ao atualizar usuário.', type: 'error' });
+                    }
+                  }}
+                  className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all"
+                >
+                  Salvar
                 </button>
               </div>
             </motion.div>
