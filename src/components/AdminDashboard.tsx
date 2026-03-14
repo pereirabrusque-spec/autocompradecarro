@@ -2948,7 +2948,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                     onChange={async (e) => {
                                       const newRole = e.target.value;
                                       addLog(`Alterando cargo de ${user.email} para ${newRole}`, 'info');
+                                      console.log('Updating role for:', user.id, 'to:', newRole);
                                       const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', user.id);
+                                      console.log('Update result:', { error });
                                       if (!error) {
                                         refreshUsers();
                                         addLog('Cargo alterado com sucesso', 'info');
@@ -6042,6 +6044,24 @@ Podemos prosseguir com o agendamento da vistoria?`;
                             <h4 className="font-bold text-slate-900">{key.service || 'Modelo não selecionado'}</h4>
                           </div>
                           <div className="flex gap-2">
+                            <button 
+                              onClick={async () => {
+                                const { error } = await supabase
+                                  .from('api_keys')
+                                  .update({ status: 'ok', error_count: 0 })
+                                  .eq('id', key.id);
+                                if (!error) {
+                                  fetchData();
+                                  alert('Status resetado para OK.');
+                                } else {
+                                  alert('Erro ao resetar status.');
+                                }
+                              }}
+                              className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"
+                              title="Resetar Status"
+                            >
+                              <RefreshCw className="w-4 h-4" />
+                            </button>
                             <button 
                               onClick={async () => {
                                 setTestingKey(key.id);
