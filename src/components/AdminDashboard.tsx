@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GoogleGenAI } from "@google/genai";
-import { Car, Phone, Calendar, DollarSign, AlertCircle, AlertTriangle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw, Pencil, Users, Share2, MessageCircle, ChevronRight, ChevronLeft, Search, Filter, ShieldCheck, Wrench, Wallet, User, UserPlus, Mail, Bell, BellOff, Send, UserCheck, LayoutDashboard, Download, TrendingUp, BarChart3, PieChart, Info, X, Settings, Maximize2, Key, Bot, Database, FileText } from 'lucide-react';
+import { Car, Phone, Calendar, DollarSign, AlertCircle, AlertTriangle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw, Pencil, Users, Share2, MessageCircle, ChevronRight, ChevronLeft, Search, Filter, ShieldCheck, Wrench, Wallet, User, UserPlus, Mail, Bell, BellOff, Send, UserCheck, LayoutDashboard, Download, TrendingUp, BarChart3, PieChart, Info, X, Settings, Maximize2, Key, Bot, Database } from 'lucide-react';
 import ChatThemeSettings from './ChatThemeSettings';
 import { useAssets } from '../lib/assetsContext';
 import { supabase } from '../lib/supabase';
@@ -145,7 +145,6 @@ export default function AdminDashboard() {
     clientPayoffValue: number;
     docDebts: number;
     repairDebts: number;
-    isLimpaNome?: boolean;
     bankNotRegistered?: boolean;
   } | null>(null);
   const [proposalOverrides, setProposalOverrides] = useState<{ rules: Record<string, number>, repairs: Record<string, number> }>({ rules: {}, repairs: {} });
@@ -185,19 +184,10 @@ export default function AdminDashboard() {
 
     if (newFinalValue < 0) newFinalValue = 0;
 
-    // Lógica de Alerta de Proposta
-    const vehicleType = selectedLead?.tipo_veiculo?.toLowerCase() || 'carro';
-    let isLimpaNome = false;
-    
-    if (newFinalValue <= 0 || (vehicleType === 'carro' && newFinalValue < 2500)) {
-      isLimpaNome = true;
-    }
-
     setProposalCalculator({
       ...newCalc,
       finalValue: newFinalValue,
-      profitMargin: newProfitMargin,
-      isLimpaNome
+      profitMargin: newProfitMargin
     });
   };
 
@@ -2833,12 +2823,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       </div>
                     )}
                   </div>
-                </div>
-              </div>
-            </div>
-          )}
-              
-              {selectedLead && (
+                  
+                  {selectedLead && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setSelectedLead(null)}>
                       <div className="bg-white rounded-[32px] w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
                       <LeadDetailsCard 
@@ -4912,6 +4898,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
             </div>
           </div>
         )}
+          </motion.div>
+        </AnimatePresence>
+      </main>
 
         {/* Modal de WhatsApp */}
         {showWhatsAppModal && leadToWhatsApp && (
@@ -5589,52 +5578,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   <CurrencyInput 
                     value={proposalCalculator.finalValue}
                     onChange={(val) => updateProposalCalculator({ finalValue: val })}
-                    className={`w-full bg-transparent text-3xl font-black outline-none ${proposalCalculator.isLimpaNome ? 'text-red-500' : 'text-accent'}`}
+                    className="w-full bg-transparent text-3xl font-black text-accent outline-none"
                   />
-
-                  {/* Alertas de Proposta */}
-                  {(() => {
-                    const type = selectedLead.tipo_veiculo?.toLowerCase() || 'carro';
-                    const val = proposalCalculator.finalValue;
-                    
-                    if (proposalCalculator.isLimpaNome) {
-                      return (
-                        <div className="mt-2 p-3 bg-red-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest animate-flash flex items-center gap-2">
-                          <AlertTriangle className="w-4 h-4" />
-                          PROPOSTA LIMPA NOME: ASSUMIMOS TUDO
-                        </div>
-                      );
-                    }
-                    
-                    if (type === 'caminhao' && val < 10000) {
-                      return (
-                        <div className="mt-2 p-3 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-                          <AlertCircle className="w-4 h-4" />
-                          ALERTA: VALOR BAIXO PARA CAMINHÃO
-                        </div>
-                      );
-                    }
-                    
-                    if (type === 'moto' && val < 1000) {
-                      return (
-                        <div className="mt-2 p-3 bg-red-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest animate-flash flex items-center gap-2">
-                          <AlertTriangle className="w-4 h-4" />
-                          ALERTA: VALOR CRÍTICO PARA MOTO
-                        </div>
-                      );
-                    }
-                    
-                    if (type === 'carro' && val < 5000) {
-                      return (
-                        <div className="mt-2 p-3 bg-red-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest animate-flash flex items-center gap-2">
-                          <AlertTriangle className="w-4 h-4" />
-                          ALERTA: VALOR CRÍTICO PARA CARRO
-                        </div>
-                      );
-                    }
-                    
-                    return null;
-                  })()}
                   
                   {/* Tooltip com detalhes das deduções */}
                   <div className="absolute bottom-full left-0 mb-2 w-full bg-slate-800 text-slate-200 text-xs rounded-lg p-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-xl border border-slate-700">
@@ -5702,9 +5647,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
           </div>
         </div>
       )}
-          </motion.div>
-        </AnimatePresence>
-      </main>
-    </>
+    </div>
   );
 }
