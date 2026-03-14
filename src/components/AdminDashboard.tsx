@@ -6915,12 +6915,29 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     if (profile) targetUserId = profile.id;
                   }
 
-                  const { error } = await supabase
+                  const { data: existingRecord } = await supabase
                     .from('buyer_crm_permissions')
-                    .upsert({
-                      buyer_id: selectedBuyer.id,
-                      permissions: buyerPermissionsForm
-                    }, { onConflict: 'buyer_id' });
+                    .select('id')
+                    .eq('buyer_id', selectedBuyer.id)
+                    .single();
+
+                  let error;
+
+                  if (existingRecord) {
+                    const { error: updateError } = await supabase
+                      .from('buyer_crm_permissions')
+                      .update({ permissions: buyerPermissionsForm })
+                      .eq('id', existingRecord.id);
+                    error = updateError;
+                  } else {
+                    const { error: insertError } = await supabase
+                      .from('buyer_crm_permissions')
+                      .insert({
+                        buyer_id: selectedBuyer.id,
+                        permissions: buyerPermissionsForm
+                      });
+                    error = insertError;
+                  }
 
                   if (error) {
                     alert('Erro: ' + error.message);
