@@ -14,9 +14,22 @@ interface LeadDetailsCardProps {
   banks: any[];
   cooperativeDiscount: number;
   forceShowWhatsAppBuyerModal?: boolean;
+  userRole?: string;
 }
 
-export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRefresh, fipeRules, jurosAtraso, banks, cooperativeDiscount, forceShowWhatsAppBuyerModal }: LeadDetailsCardProps) {
+export default function LeadDetailsCard({ 
+  lead, 
+  onClose, 
+  onSave, 
+  onDelete, 
+  onRefresh, 
+  fipeRules, 
+  jurosAtraso, 
+  banks, 
+  cooperativeDiscount, 
+  forceShowWhatsAppBuyerModal,
+  userRole 
+}: LeadDetailsCardProps) {
   const [currentLead, setCurrentLead] = useState(lead || {});
   const [repairModal, setRepairModal] = useState<{ field: string | null; value: string }>({ field: null, value: '' });
 
@@ -557,7 +570,9 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
             </div>
             <div className="flex flex-col">
               <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Cliente</span>
-              <span className="text-xs font-bold text-slate-700 truncate">{currentLead.cliente_nome || 'N/A'}</span>
+              <span className="text-xs font-bold text-slate-700 truncate">
+                {userRole === 'buyer_premium' ? 'Oculto' : (currentLead.cliente_nome || 'N/A')}
+              </span>
             </div>
           </div>
           
@@ -566,27 +581,31 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
             <button onClick={onClose} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-bold text-slate-700 flex items-center justify-center gap-1.5">
               <ArrowLeft className="w-4 h-4" /> Voltar
             </button>
-            <button 
-              onClick={() => {
-                const phone = currentLead.telefone?.replace(/\D/g, '');
-                const formattedPhone = phone?.startsWith('55') ? phone : `55${phone}`;
-                const rawMessage = generateOwnerMessage();
-                const encodedMessage = encodeURIComponent(rawMessage);
-                window.open(`https://wa.me/${formattedPhone}?text=${encodedMessage}`, '_blank');
-              }} 
-              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5 shadow-md"
-            >
-              <MessageCircle className="w-4 h-4" /> WhatsApp Proposta
-            </button>
-            <button onClick={() => setShowWhatsAppBuyerModal(true)} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5">
-              <MessageCircle className="w-4 h-4" /> WhatsApp Comprador
-            </button>
-            <button 
-              onClick={handleSendProposalToChat} 
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5 shadow-md"
-            >
-              <MessageSquare className="w-4 h-4" /> Chat Proposta
-            </button>
+            {(userRole === 'admin' || userRole === 'buyer_master') && (
+              <>
+                <button 
+                  onClick={() => {
+                    const phone = currentLead.telefone?.replace(/\D/g, '');
+                    const formattedPhone = phone?.startsWith('55') ? phone : `55${phone}`;
+                    const rawMessage = generateOwnerMessage();
+                    const encodedMessage = encodeURIComponent(rawMessage);
+                    window.open(`https://wa.me/${formattedPhone}?text=${encodedMessage}`, '_blank');
+                  }} 
+                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5 shadow-md"
+                >
+                  <MessageCircle className="w-4 h-4" /> WhatsApp Proposta
+                </button>
+                <button onClick={() => setShowWhatsAppBuyerModal(true)} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5">
+                  <MessageCircle className="w-4 h-4" /> WhatsApp Comprador
+                </button>
+                <button 
+                  onClick={handleSendProposalToChat} 
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5 shadow-md"
+                >
+                  <MessageSquare className="w-4 h-4" /> Chat Proposta
+                </button>
+              </>
+            )}
             <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5">
               <Edit2 className="w-4 h-4" /> {showForm ? 'Fechar Edição' : 'Editar'}
             </button>
@@ -1010,9 +1029,9 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-fit">
                           {[
                             { label: 'Tipo de Veículo', key: 'tipo_veiculo' },
-                            { label: 'Cliente', key: 'cliente_nome' },
-                            { label: 'Telefone', key: 'telefone' },
-                            { label: 'E-mail', key: 'email' },
+                            { label: 'Cliente', key: 'cliente_nome', hidden: userRole === 'buyer_premium' },
+                            { label: 'Telefone', key: 'telefone', hidden: userRole === 'buyer_premium' },
+                            { label: 'E-mail', key: 'email', hidden: userRole === 'buyer_premium' },
                             { label: 'Placa', key: 'placa' },
                             { label: 'Marca', key: 'marca' },
                             { label: 'Modelo', key: 'modelo' },
@@ -1040,7 +1059,7 @@ export default function LeadDetailsCard({ lead, onClose, onSave, onDelete, onRef
                             { label: 'Busca e Apreensão', key: 'busca_apreensao' },
                             { label: 'Renajud / Bloqueio Judicial', key: 'renajud_bloqueio' },
                             { label: 'Sinistrado / Leilão', key: 'sinistrado_leilao' },
-                          ].map(field => (
+                          ].filter(field => !field.hidden).map(field => (
                             <div key={field.key} className="space-y-1">
                               <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-1">{field.label}</label>
                               {field.key === 'tipo_veiculo' ? (

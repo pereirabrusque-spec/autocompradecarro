@@ -206,7 +206,7 @@ export default function AdminDashboard() {
     full_name: '',
     email: '',
     password: '',
-    role: 'user' as 'admin' | 'user' | 'buyer',
+    role: 'user' as 'admin' | 'user' | 'buyer' | 'buyer_premium' | 'buyer_master',
     phone: ''
   });
   const [isCreatingUser, setIsCreatingUser] = useState(false);
@@ -734,6 +734,11 @@ export default function AdminDashboard() {
         if (profile) {
           setUserProfile(profile);
           addLog('Perfil carregado: ' + profile.role, 'info');
+          
+          // Set initial tab based on role
+          if (profile.role === 'buyer_premium' || profile.role === 'buyer_master') {
+            setActiveTab('leads');
+          }
         }
       }
     });
@@ -1857,20 +1862,20 @@ Podemos prosseguir com o agendamento da vistoria?`;
             {/* Navigation Menu */}
             <nav className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-2">
               {[
-                { id: 'dashboard', label: 'Início', icon: LayoutDashboard },
-                { id: 'leads', label: 'Leads', icon: Car },
-                { id: 'messages', label: 'Mensagens', icon: MessageCircle, badge: conversations.reduce((acc, curr) => acc + (curr.unread || 0), 0) },
-                { id: 'users', label: 'Equipe & CRM', icon: Users },
-                { id: 'settings', label: 'Config', icon: Settings },
-                { id: 'apis', label: 'APIs', icon: Key },
-                { id: 'ai', label: 'IA', icon: Bot },
-                { id: 'cooperatives', label: 'Cooperativas', icon: Wallet },
-                { id: 'tags', label: 'Marketing', icon: BarChart3 },
-                { id: 'hero', label: 'Site', icon: ImageIcon },
-                { id: 'assets', label: 'Fotos', icon: Maximize2 },
-                { id: 'footer', label: 'Rodapé', icon: Info },
-                { id: 'logs', label: 'Logs', icon: Database },
-              ].map((tab) => (
+                { id: 'dashboard', label: 'Início', icon: LayoutDashboard, roles: ['admin'] },
+                { id: 'leads', label: 'Leads', icon: Car, roles: ['admin', 'buyer_premium', 'buyer_master'] },
+                { id: 'messages', label: 'Mensagens', icon: MessageCircle, badge: conversations.reduce((acc, curr) => acc + (curr.unread || 0), 0), roles: ['admin'] },
+                { id: 'users', label: 'Equipe & CRM', icon: Users, roles: ['admin'] },
+                { id: 'settings', label: 'Config', icon: Settings, roles: ['admin'] },
+                { id: 'apis', label: 'APIs', icon: Key, roles: ['admin'] },
+                { id: 'ai', label: 'IA', icon: Bot, roles: ['admin'] },
+                { id: 'cooperatives', label: 'Cooperativas', icon: Wallet, roles: ['admin'] },
+                { id: 'tags', label: 'Marketing', icon: BarChart3, roles: ['admin'] },
+                { id: 'hero', label: 'Site', icon: ImageIcon, roles: ['admin'] },
+                { id: 'assets', label: 'Fotos', icon: Maximize2, roles: ['admin'] },
+                { id: 'footer', label: 'Rodapé', icon: Info, roles: ['admin'] },
+                { id: 'logs', label: 'Logs', icon: Database, roles: ['admin'] },
+              ].filter(tab => !tab.roles || tab.roles.includes(userProfile?.role)).map((tab) => (
                 <button 
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)} 
@@ -2665,10 +2670,10 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                               (u.full_name && u.full_name.toLowerCase().includes(filterUser.toLowerCase()));
                           
                           if (userManagementTab === 'equipe') return matchesSearch && (u.role === 'admin' || u.role === 'user');
-                          if (userManagementTab === 'compradores') return matchesSearch && u.role === 'buyer';
+                          if (userManagementTab === 'compradores') return matchesSearch && (u.role === 'buyer' || u.role === 'buyer_premium' || u.role === 'buyer_master');
                           return matchesSearch; // CRM shows all
                         }).map((user) => {
-                          const isOnline = (new Date().getTime() - new Date(user.last_login).getTime()) < 120000;
+                          const isOnline = (new Date().getTime() - new Date(user.last_login).getTime()) < 300000;
                           const initials = (user.full_name || user.email || 'U').split(' ').map((n: any) => n[0]).join('').substring(0, 2).toUpperCase();
                           
                           return (
@@ -2677,7 +2682,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 <div className="flex items-center gap-4">
                                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-sm border-2 ${
                                     user.role === 'admin' ? 'bg-indigo-50 border-indigo-100 text-indigo-600' :
-                                    user.role === 'buyer' ? 'bg-amber-50 border-amber-100 text-amber-600' :
+                                    user.role?.includes('buyer') ? 'bg-amber-50 border-amber-100 text-amber-600' :
                                     'bg-slate-50 border-slate-100 text-slate-600'
                                   }`}>
                                     {user.avatar_url ? (
@@ -2699,14 +2704,42 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 <p className="text-xs font-bold text-slate-600">{user.phone || '-'}</p>
                               </td>
                               <td className="px-8 py-5">
-                                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                                  user.role === 'admin' ? 'bg-indigo-100 text-indigo-700' :
-                                  user.role === 'buyer' ? 'bg-amber-100 text-amber-700' :
-                                  'bg-slate-100 text-slate-600'
-                                }`}>
-                                  {user.role === 'admin' ? 'Administrador' :
-                                   user.role === 'buyer' ? 'Comprador' : 'Cliente'}
-                                </span>
+                                {userProfile?.role === 'admin' ? (
+                                  <select
+                                    value={user.role}
+                                    onChange={async (e) => {
+                                      const newRole = e.target.value;
+                                      addLog(`Alterando cargo de ${user.email} para ${newRole}`, 'info');
+                                      const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', user.id);
+                                      if (!error) {
+                                        refreshUsers();
+                                        addLog('Cargo alterado com sucesso', 'info');
+                                      } else {
+                                        addLog('Erro ao alterar cargo', 'error', error);
+                                      }
+                                    }}
+                                    className="bg-slate-100 border-none rounded-lg text-[10px] font-black uppercase tracking-widest p-1 cursor-pointer hover:bg-slate-200 transition-all"
+                                  >
+                                    <option value="user">Usuário (Vendedor)</option>
+                                    <option value="buyer">Comprador</option>
+                                    <option value="buyer_premium">Comprador Premium</option>
+                                    <option value="buyer_master">Comprador Master</option>
+                                    <option value="admin">Administrador</option>
+                                  </select>
+                                ) : (
+                                  <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                                    user.role === 'admin' ? 'bg-indigo-100 text-indigo-700' :
+                                    user.role === 'buyer' ? 'bg-amber-100 text-amber-700' :
+                                    user.role === 'buyer_premium' ? 'bg-purple-100 text-purple-700' :
+                                    user.role === 'buyer_master' ? 'bg-emerald-100 text-emerald-700' :
+                                    'bg-slate-100 text-slate-600'
+                                  }`}>
+                                    {user.role === 'admin' ? 'Administrador' :
+                                     user.role === 'buyer' ? 'Comprador' :
+                                     user.role === 'buyer_premium' ? 'Comprador Premium' :
+                                     user.role === 'buyer_master' ? 'Comprador Master' : 'Usuário'}
+                                  </span>
+                                )}
                               </td>
                               <td className="px-8 py-5">
                                 <div className="flex items-center gap-2.5">
@@ -2897,6 +2930,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     forceShowWhatsAppBuyerModal={showWhatsAppBuyerModal}
                     banks={banks}
                     cooperativeDiscount={cooperativeDiscount}
+                    userRole={userProfile?.role}
                     onSave={async (updatedLead) => {
                       try {
                         console.log("Salvando Lead no AdminDashboard:", updatedLead);
@@ -3739,6 +3773,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                             key={lead.id} 
                             lead={lead} 
                             suggestedValue={calculateProposal(lead).finalValue}
+                            hideClientInfo={userProfile?.role === 'buyer_premium'}
                             onClick={() => {
                               setSelectedLead(lead);
                               setProposalCalculator(calculateProposal(lead));
@@ -6615,6 +6650,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   >
                     <option value="user">Cliente / Lead</option>
                     <option value="buyer">Comprador</option>
+                    <option value="buyer_premium">Comprador Premium</option>
+                    <option value="buyer_master">Comprador Master</option>
                     <option value="admin">Administrador</option>
                   </select>
                 </div>

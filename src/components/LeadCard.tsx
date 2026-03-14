@@ -5,9 +5,10 @@ interface LeadCardProps {
   lead: any;
   suggestedValue?: number;
   onClick: () => void;
+  hideClientInfo?: boolean;
 }
 
-export const LeadCard: React.FC<LeadCardProps> = ({ lead, suggestedValue, onClick }) => {
+export const LeadCard: React.FC<LeadCardProps> = ({ lead, suggestedValue, onClick, hideClientInfo = false }) => {
   const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 
   return (
@@ -96,11 +97,15 @@ export const LeadCard: React.FC<LeadCardProps> = ({ lead, suggestedValue, onClic
       <div className="pt-4 border-t border-slate-100 flex justify-between items-center">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-400">
-            {lead.cliente_nome?.substring(0, 2).toUpperCase()}
+            {hideClientInfo ? '??' : lead.cliente_nome?.substring(0, 2).toUpperCase()}
           </div>
           <div>
-            <p className="text-[11px] font-bold text-slate-900 leading-none">{lead.cliente_nome}</p>
-            <p className="text-[9px] text-slate-400 mt-1">{lead.telefone}</p>
+            <p className="text-[11px] font-bold text-slate-900 leading-none">
+              {hideClientInfo ? 'Cliente Oculto' : lead.cliente_nome}
+            </p>
+            <p className="text-[9px] text-slate-400 mt-1">
+              {hideClientInfo ? '(Dados Protegidos)' : lead.telefone}
+            </p>
           </div>
         </div>
         <span className="text-[10px] text-slate-400 font-medium">{new Date(lead.created_at).toLocaleDateString()}</span>
