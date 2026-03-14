@@ -179,7 +179,7 @@ export class AIService {
         let newStatus: 'ok' | 'no_credit' | 'disconnected' = 'disconnected';
         const errMsg = error.message?.toLowerCase() || '';
         
-        if (errMsg.includes('credit') || errMsg.includes('quota') || errMsg.includes('limit') || errMsg.includes('429')) {
+        if (errMsg.includes('credit') || errMsg.includes('quota') || errMsg.includes('limit') || errMsg.includes('429') || errMsg.includes('too many requests')) {
           newStatus = 'no_credit';
         } else if (errMsg === 'timeout') {
           console.warn(`API ${apiKey.provider} timed out after 10s. Switching to next...`);
@@ -259,7 +259,7 @@ export class AIService {
       } catch (error: any) {
         let newStatus: 'ok' | 'no_credit' | 'disconnected' = 'disconnected';
         const errMsg = error.message?.toLowerCase() || '';
-        if (errMsg.includes('credit') || errMsg.includes('quota') || errMsg.includes('limit') || errMsg.includes('429')) {
+        if (errMsg.includes('credit') || errMsg.includes('quota') || errMsg.includes('limit') || errMsg.includes('429') || errMsg.includes('too many requests')) {
           newStatus = 'no_credit';
         }
         await this.updateKeyStatus(apiKey.id, newStatus, (apiKey.error_count || 0) + 1);
