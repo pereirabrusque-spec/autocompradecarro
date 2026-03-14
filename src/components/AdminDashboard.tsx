@@ -246,7 +246,7 @@ export default function AdminDashboard() {
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
-  const [editUserForm, setEditUserForm] = useState({ full_name: '', phone: '', role: 'user' });
+  const [editUserForm, setEditUserForm] = useState({ full_name: '', email: '', phone: '', role: 'user' });
 
   const [confirmDeleteLeadId, setConfirmDeleteLeadId] = useState<string | null>(null);
   const [confirmDeleteUserId, setConfirmDeleteUserId] = useState<string | null>(null);
@@ -7081,6 +7081,15 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   />
                 </div>
                 <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">Email</label>
+                  <input 
+                    type="email" 
+                    value={editUserForm.email}
+                    onChange={(e) => setEditUserForm({...editUserForm, email: e.target.value})}
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl"
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-bold text-slate-700 mb-1">WhatsApp</label>
                   <input 
                     type="text" 
@@ -7114,7 +7123,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 <button 
                   onClick={async () => {
                     console.log('Tentando atualizar usuário:', editingUser.id, editUserForm);
-                    const { error } = await supabase.from('profiles').update(editUserForm).eq('id', editingUser.id);
+                    // Filtra apenas campos que existem na tabela profiles (full_name, phone, role)
+                    const { email, ...dataToUpdate } = editUserForm;
+                    const { error } = await supabase.from('profiles').update(dataToUpdate).eq('id', editingUser.id);
                     if (!error) {
                       refreshUsers();
                       setIsEditUserModalOpen(false);
