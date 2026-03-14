@@ -31,6 +31,7 @@ export default function CarCard({ car }: CarCardProps) {
         ano_modelo: car.year,
         preco_cliente: car.price,
         status: 'novo',
+        origem: 'catalogo',
         observacoes: `Interesse no veículo ID: ${car.id}`
       }]);
 

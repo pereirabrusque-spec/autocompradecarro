@@ -179,6 +179,7 @@ export default function SellModal() {
         is_sinistrado_leilao: formData.is_sinistrado_leilao ? 'sim' : 'nao',
         data_negociacao: new Date().toISOString(),
         juros_atraso: 2,
+        origem: 'formulario',
       }]);
 
       if (error) {

@@ -2237,23 +2237,37 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                   <div 
                     onClick={() => setActiveTab('leads')}
-                    className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer group"
+                    className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
                   >
-                    <div className="flex items-center gap-4 mb-4">
-                      <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                        <Car className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Total de Leads</p>
-                        <h3 className="text-2xl font-black text-slate-900">{leads.length}</h3>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                          <Car className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Total de Leads</p>
+                          <h3 className="text-2xl font-black text-slate-900">{leads.length}</h3>
+                        </div>
                       </div>
                     </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-[10px] font-bold">
-                        <span className="text-blue-500">{leads.filter(l => l.status === 'novo').length} Novos</span>
-                        <span className="text-amber-500">{leads.filter(l => l.status === 'em_contato').length} Em Contato</span>
+                    
+                    <div className="grid grid-cols-2 gap-y-3 gap-x-4 mt-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase">Novos</span>
+                        <span className="text-sm font-black text-blue-500">{leads.filter(l => l.status === 'novo').length}</span>
                       </div>
-                      <p className="text-[9px] text-slate-300 italic">Fonte: Tabela leads_veiculos</p>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase">Em Contato</span>
+                        <span className="text-sm font-black text-amber-500">{leads.filter(l => l.status === 'em_contato').length}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase">Propostas</span>
+                        <span className="text-sm font-black text-purple-500">{leads.filter(l => l.status === 'proposta_enviada').length}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase">Fechados/Perd.</span>
+                        <span className="text-sm font-black text-emerald-500">{leads.filter(l => l.status === 'fechado' || l.status === 'perdido').length}</span>
+                      </div>
                     </div>
                   </div>
 
@@ -2415,19 +2429,43 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       </h3>
                     </div>
                     <div className="h-64 flex items-end gap-4">
-                      {[60, 45, 80, 55, 90, 70, 40].map((h, i) => (
-                        <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                          <div 
-                            className="w-full bg-slate-100 rounded-t-xl transition-all hover:bg-accent/20 cursor-pointer relative group"
-                            style={{ height: `${h}%` }}
-                          >
-                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                              {h}
+                      {(() => {
+                        const channels = [
+                          { id: 'chat', label: 'Chat', color: 'bg-blue-500' },
+                          { id: 'formulario', label: 'Formulário', color: 'bg-emerald-500' },
+                          { id: 'catalogo', label: 'Catálogo', color: 'bg-purple-500' },
+                          { id: 'whatsapp', label: 'WhatsApp', color: 'bg-green-500' },
+                          { id: 'outros', label: 'Outros', color: 'bg-slate-400' }
+                        ];
+                        
+                        const channelCounts = channels.map(c => {
+                          if (c.id === 'outros') {
+                            return leads.filter(l => !['chat', 'formulario', 'catalogo', 'whatsapp'].includes(l.origem)).length;
+                          }
+                          return leads.filter(l => l.origem === c.id).length;
+                        });
+                        
+                        const maxCount = Math.max(...channelCounts, 1); // Avoid division by zero
+                        
+                        return channels.map((c, i) => {
+                          const count = channelCounts[i];
+                          const height = Math.max((count / maxCount) * 100, 5); // Min height 5%
+                          
+                          return (
+                            <div key={c.id} className="flex-1 flex flex-col items-center gap-2">
+                              <div 
+                                className={`w-full ${c.color} rounded-t-xl transition-all hover:opacity-80 cursor-pointer relative group`}
+                                style={{ height: `${height}%` }}
+                              >
+                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                                  {count} leads
+                                </div>
+                              </div>
+                              <span className="text-[10px] text-slate-500 font-bold truncate w-full text-center">{c.label}</span>
                             </div>
-                          </div>
-                          <span className="text-[10px] text-slate-400 font-bold">D{i+1}</span>
-                        </div>
-                      ))}
+                          );
+                        });
+                      })()}
                     </div>
                   </div>
 
@@ -2441,7 +2479,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     <div className="space-y-4">
                       {[
                         { label: 'Novos', status: 'novo' as const, count: leads.filter(l => !l.status || l.status === 'novo').length, color: 'bg-blue-500' },
-                        { label: 'Em Negociação', status: 'proposta_enviada' as const, count: leads.filter(l => l.status === 'proposta_enviada').length, color: 'bg-amber-500' },
+                        { label: 'Em Contato', status: 'em_contato' as const, count: leads.filter(l => l.status === 'em_contato').length, color: 'bg-amber-500' },
+                        { label: 'Proposta Enviada', status: 'proposta_enviada' as const, count: leads.filter(l => l.status === 'proposta_enviada').length, color: 'bg-purple-500' },
                         { label: 'Fechados', status: 'fechado' as const, count: leads.filter(l => l.status === 'fechado').length, color: 'bg-emerald-500' },
                         { label: 'Perdidos', status: 'perdido' as const, count: leads.filter(l => l.status === 'perdido').length, color: 'bg-red-500' },
                       ].map((item, i) => (
