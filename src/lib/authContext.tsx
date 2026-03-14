@@ -5,7 +5,7 @@ import { User } from '@supabase/supabase-js';
 interface Profile {
   id: string;
   email: string;
-  role: 'admin' | 'user' | 'buyer';
+  role: 'admin' | 'user' | 'buyer' | 'buyer_premium' | 'buyer_master';
   full_name: string;
   avatar_url?: string;
   phone?: string;
@@ -189,7 +189,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     profile,
     isLoading,
     isAdmin: profile?.role === 'admin' || user?.email === 'pereira.brusque@gmail.com',
-    isBuyer: profile?.role === 'buyer',
+    isBuyer: profile?.role === 'buyer' || profile?.role === 'buyer_premium' || profile?.role === 'buyer_master',
     signInWithGoogle,
     signOut,
     refreshProfile

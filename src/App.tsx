@@ -163,9 +163,8 @@ function AppContent() {
       case 'login':
         return <Login 
           onLogin={() => {
-            if (isAdmin) window.location.href = '/admin';
-            else if (isBuyer) window.location.href = '/comprar';
-            else window.location.href = '/';
+            // Force a reload or state update to trigger redirection logic
+            window.location.reload();
           }} 
           onForgotPassword={() => setView('forgot-password')} 
         />;
