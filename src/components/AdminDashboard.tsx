@@ -4446,20 +4446,24 @@ Podemos prosseguir com o agendamento da vistoria?`;
                               <td className="px-6 py-4">
                               <div className="flex items-center gap-2">
                                 <button 
-                                  onClick={() => {
-                                    let permissions = buyer.permissions;
+                                  onClick={async () => {
+                                    // Busca as permissões mais recentes do banco antes de abrir
+                                    const { data: authData } = await supabase
+                                      .from('buyer_authorizations')
+                                      .select('permissions')
+                                      .eq('user_id', buyer.user_id)
+                                      .single();
+
+                                    let permissions = authData?.permissions;
+                                    
                                     if (!permissions) {
-                                      // Define default permissions based on role
-                                      if (buyer.role === 'buyer') {
-                                        permissions = { show_photos: true, show_price: false, show_plate: false, show_details: false, show_client_data: false, send_whatsapp: false, send_chat: true, send_fipe: false, send_banco: false };
-                                      } else if (buyer.role === 'buyer_premium') {
-                                        permissions = { show_photos: true, show_price: true, show_plate: true, show_details: true, show_client_data: false, send_whatsapp: false, send_chat: true, send_fipe: true, send_banco: true };
-                                      } else if (buyer.role === 'buyer_master') {
-                                        permissions = { show_photos: true, show_price: true, show_plate: true, show_details: true, show_client_data: true, send_whatsapp: true, send_chat: true, send_fipe: true, send_banco: true };
-                                      } else {
-                                        permissions = { show_photos: true, show_price: true, show_plate: false, show_details: true, show_client_data: false, send_whatsapp: false, send_chat: false, send_fipe: false, send_banco: false };
-                                      }
+                                      // Lógica de pré-definição baseada no cargo
+                                      if (buyer.role === 'buyer') permissions = { show_photos: true, show_price: false, show_plate: false, show_details: false, show_client_data: false, send_whatsapp: false, send_chat: true, send_fipe: false, send_banco: false };
+                                      else if (buyer.role === 'buyer_premium') permissions = { show_photos: true, show_price: true, show_plate: true, show_details: true, show_client_data: false, send_whatsapp: false, send_chat: true, send_fipe: true, send_banco: true };
+                                      else if (buyer.role === 'buyer_master') permissions = { show_photos: true, show_price: true, show_plate: true, show_details: true, show_client_data: true, send_whatsapp: true, send_chat: true, send_fipe: true, send_banco: true };
+                                      else permissions = { show_photos: true, show_price: true, show_plate: false, show_details: true, show_client_data: false, send_whatsapp: false, send_chat: false, send_fipe: false, send_banco: false };
                                     }
+                                    
                                     setBuyerPermissionsForm(permissions);
                                     setSelectedBuyer(buyer);
                                     setShowBuyerPermissionsModal(true);

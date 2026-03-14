@@ -104,19 +104,16 @@ export default function BuyerView() {
       if (userAuth && userAuth.permissions) {
         setPermissions(userAuth.permissions);
       } else {
-        // Fallback: Buscar permissões globais
-        const { data: settingsData } = await supabase
-          .from('banners')
-          .select('*')
-          .eq('key', 'BUYER_VIEW_PERMISSIONS')
-          .single();
-        
-        if (settingsData && settingsData.value) {
-          try {
-            setPermissions(JSON.parse(settingsData.value));
-          } catch (e) {
-            console.error('Error parsing global permissions:', e);
-          }
+        // Fallback: Definir permissões baseadas no cargo
+        const role = profile?.role;
+        if (role === 'buyer') {
+          setPermissions({ show_photos: true, show_price: false, show_plate: false, show_details: false, show_history: false });
+        } else if (role === 'buyer_premium') {
+          setPermissions({ show_photos: true, show_price: true, show_plate: true, show_details: true, show_history: true });
+        } else if (role === 'buyer_master') {
+          setPermissions({ show_photos: true, show_price: true, show_plate: true, show_details: true, show_history: true });
+        } else {
+          setPermissions({ show_photos: true, show_price: true, show_plate: false, show_details: true, show_history: false });
         }
       }
 
