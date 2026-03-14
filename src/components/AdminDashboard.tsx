@@ -4447,7 +4447,20 @@ Podemos prosseguir com o agendamento da vistoria?`;
                               <div className="flex items-center gap-2">
                                 <button 
                                   onClick={() => {
-                                    setBuyerPermissionsForm(buyer.permissions || { show_photos: true, show_price: true, show_plate: false, show_details: true });
+                                    let permissions = buyer.permissions;
+                                    if (!permissions) {
+                                      // Define default permissions based on role
+                                      if (buyer.role === 'buyer') {
+                                        permissions = { show_photos: true, show_price: false, show_plate: false, show_details: false, show_client_data: false, send_whatsapp: false, send_chat: true, send_fipe: false, send_banco: false };
+                                      } else if (buyer.role === 'buyer_premium') {
+                                        permissions = { show_photos: true, show_price: true, show_plate: true, show_details: true, show_client_data: false, send_whatsapp: false, send_chat: true, send_fipe: true, send_banco: true };
+                                      } else if (buyer.role === 'buyer_master') {
+                                        permissions = { show_photos: true, show_price: true, show_plate: true, show_details: true, show_client_data: true, send_whatsapp: true, send_chat: true, send_fipe: true, send_banco: true };
+                                      } else {
+                                        permissions = { show_photos: true, show_price: true, show_plate: false, show_details: true, show_client_data: false, send_whatsapp: false, send_chat: false, send_fipe: false, send_banco: false };
+                                      }
+                                    }
+                                    setBuyerPermissionsForm(permissions);
                                     setSelectedBuyer(buyer);
                                     setShowBuyerPermissionsModal(true);
                                   }}
@@ -6824,6 +6837,16 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 />
               </div>
 
+              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+                <span className="font-bold text-sm">Dados do Cliente</span>
+                <input 
+                  type="checkbox" 
+                  checked={buyerPermissionsForm.show_client_data}
+                  onChange={e => setBuyerPermissionsForm({...buyerPermissionsForm, show_client_data: e.target.checked})}
+                  className="w-5 h-5 accent-slate-900"
+                />
+              </div>
+
               <div className="pt-4 border-t border-slate-100">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Configurações de Envio</p>
                 <div className="grid grid-cols-2 gap-3">
@@ -6870,10 +6893,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
             <div className="flex gap-4">
               <button 
                 onClick={async () => {
-                  // Tentar encontrar o user_id do comprador pelo email se não tiver
                   let targetUserId = selectedBuyer.user_id || selectedBuyer.id;
                   
-                  // Se o ID não parecer um UUID, tentar buscar no profiles pelo email
                   if (targetUserId && targetUserId.length < 30) {
                     const { data: profile } = await supabase
                       .from('profiles')
@@ -6887,22 +6908,17 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     .from('buyer_authorizations')
                     .upsert({
                       user_id: targetUserId,
-                      permissions: buyerPermissionsForm,
-                      updated_at: new Date().toISOString()
+                      permissions: buyerPermissionsForm
                     }, { onConflict: 'user_id' });
 
                   if (error) {
-                    if (error.code === '42P01') {
-                      alert('Erro: Tabela de autorizações não encontrada. Execute o script SQL fornecido.');
-                    } else {
-                      alert('Erro: ' + error.message);
-                    }
+                    alert('Erro: ' + error.message);
                   } else {
-                    alert('Permissões salvas!');
+                    alert('Permissões salvas com sucesso!');
                     setShowBuyerPermissionsModal(false);
                   }
                 }}
-                className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-accent transition-all"
+                className="flex-1 bg-slate-900 text-white py-3 rounded-xl font-bold hover:bg-slate-800 transition-all"
               >
                 Salvar
               </button>
