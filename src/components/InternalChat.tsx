@@ -14,6 +14,11 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const [unreadCount, setUnreadCount] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    audioRef.current = new Audio('/notification.mp3');
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -29,6 +34,7 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
               scrollToBottom();
             } else {
               setUnreadCount(prev => prev + 1);
+              audioRef.current?.play().catch(e => console.error('Audio play failed', e));
             }
           } else if (payload.new.sender_id === user.id && isOpenState) {
             setMessages(prev => [...prev, payload.new]);
@@ -61,12 +67,13 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
   const fetchMessages = async () => {
     const { data, error } = await supabase
       .from('internal_messages')
-      .select('*')
+      .select('*, profiles(full_name, avatar_url)')
       .or(`sender_id.eq.${user?.id},receiver_id.eq.${user?.id}`)
       .order('created_at', { ascending: true });
 
     if (data) setMessages(data);
   };
+
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,11 +133,16 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
             )}
             {messages.map((msg) => (
               <div key={msg.id} className={`flex ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] p-3 rounded-2xl text-sm shadow-sm ${msg.sender_id === user?.id ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-slate-800 text-white rounded-tl-none'}`}>
-                  {msg.content}
-                  <p className={`text-[9px] mt-1 text-right ${msg.sender_id === user?.id ? 'text-blue-100' : 'text-slate-400'}`}>
-                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </p>
+                <div className={`max-w-[80%] p-3 rounded-2xl text-sm shadow-sm flex items-end gap-2 ${msg.sender_id === user?.id ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-slate-800 text-white rounded-tl-none'}`}>
+                  {msg.sender_id !== user?.id && (
+                    <img src={msg.profiles?.avatar_url || '/default-avatar.png'} alt="Avatar" className="w-6 h-6 rounded-full" />
+                  )}
+                  <div>
+                    {msg.content}
+                    <p className={`text-[9px] mt-1 text-right ${msg.sender_id === user?.id ? 'text-blue-100' : 'text-slate-400'}`}>
+                      {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
                 </div>
               </div>
             ))}
