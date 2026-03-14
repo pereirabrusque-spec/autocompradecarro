@@ -307,8 +307,13 @@ export default function AdminDashboard() {
       const { data: fipeData } = await supabase.from('fipe_rules').select('*').order('condition_name');
       const { data: apiKeysData } = await supabase.from('api_keys').select('*').order('created_at', { ascending: false });
       const { data: providersData } = await supabase.from('providers').select('*').order('name');
-      const { data: profilesData } = await supabase.from('profiles').select('*').order('last_login', { ascending: false });
-      const { data: buyersData } = await supabase.from('interested_buyers').select('*').order('created_at', { ascending: false });
+      const { data: profilesData, error: profilesError } = await supabase.from('profiles').select('*').order('last_login', { ascending: false });
+      if (profilesError) console.error('Erro ao buscar profiles:', profilesError);
+      else console.log('Profiles buscados:', profilesData);
+
+      const { data: buyersData, error: buyersError } = await supabase.from('interested_buyers').select('*').order('created_at', { ascending: false });
+      if (buyersError) console.error('Erro ao buscar buyers:', buyersError);
+      else console.log('Buyers buscados:', buyersData);
       const { data: authsData } = await supabase.from('buyer_authorizations').select('*');
       const { data: sentData } = await supabase.from('sent_leads').select('*');
       const { data: messagesData } = await supabase
