@@ -31,6 +31,16 @@ export default function BuyerView() {
     show_history: false
   });
 
+  const roleDisplay = {
+    buyer: 'Comprador',
+    buyer_premium: 'Comprador Premium',
+    buyer_master: 'Comprador Master'
+  };
+
+  const handleUpgradeRequest = () => {
+    alert('Solicitação de upgrade enviada para a equipe administrativa. Entraremos em contato em breve!');
+  };
+
   useEffect(() => {
     fetchAuthorizedLeads();
     checkNotificationStatus();
@@ -148,7 +158,14 @@ export default function BuyerView() {
             </div>
             <div>
               <h1 className="font-bold text-slate-900">Área do Investidor</h1>
-              <p className="text-[10px] text-slate-400 uppercase tracking-widest font-black">Acesso Restrito</p>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-slate-500 uppercase">
+                  {roleDisplay[profile?.role as keyof typeof roleDisplay] || 'Comprador'}
+                </span>
+                {profile?.role !== 'buyer_master' && (
+                  <button onClick={handleUpgradeRequest} className="text-[10px] font-bold text-accent">Upgrade</button>
+                )}
+              </div>
             </div>
           </div>
 
