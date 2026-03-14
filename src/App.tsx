@@ -131,26 +131,30 @@ function AppContent() {
     return () => window.removeEventListener('popstate', checkRoute);
   }, [user, isAdmin, isLoading]);
 
+import { authManager } from './lib/authManager';
+
+// ... (dentro do useEffect do auth-callback)
   useEffect(() => {
     const handleAuthCallback = async () => {
       if (view === 'auth-callback' && !isLoading) {
-        console.log('[AUTH-DEBUG] Forçando troca de código por sessão...');
-        const { data, error } = await supabase.auth.getSession();
-        if (error) {
-          console.error('[AUTH-DEBUG] Erro ao buscar sessão no callback:', error);
-        } else {
-          console.log('[AUTH-DEBUG] Sessão recuperada:', !!data.session);
-        }
+        console.log('[AUTH-DEBUG] Usando authManager para processar callback...');
+        const result = await authManager.handleCallback();
         
-        if (isAdmin) {
-          window.history.pushState({}, '', '/admin');
-          setView('admin');
-        } else if (isBuyer) {
-          window.history.pushState({}, '', '/comprar');
-          setView('buyer');
+        if (!result.success) {
+          console.error('[AUTH-DEBUG] Erro no callback:', result.error);
+          setView('login');
         } else {
-          window.history.pushState({}, '', '/');
-          setView('home');
+          console.log('[AUTH-DEBUG] Sessão trocada com sucesso via authManager!');
+          if (isAdmin) {
+            window.history.pushState({}, '', '/admin');
+            setView('admin');
+          } else if (isBuyer) {
+            window.history.pushState({}, '', '/comprar');
+            setView('buyer');
+          } else {
+            window.history.pushState({}, '', '/');
+            setView('home');
+          }
         }
       }
     };
