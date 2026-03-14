@@ -48,6 +48,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Handle missing table or recursion error
       if (error) {
+        console.error('[AUTH-DEBUG] Erro detalhado ao buscar perfil:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          context: 'refreshProfile',
+          userId: targetUser.id
+        });
         if (error.code === 'PGRST116') {
           // Profile not found, will create below
         } else if (error.code === '42P17' || error.message?.includes('recursion')) {
@@ -142,7 +150,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log(`[Auth] Evento de mudança de estado: ${event}`, session?.user);
+      console.log(`[AUTH-DEBUG] Evento: ${event}`, {
+        user: session?.user?.email,
+        userId: session?.user?.id,
+        sessionExists: !!session
+      });
       const currentUser = session?.user ?? null;
       setUser(currentUser);
       if (!currentUser) {
