@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import { supabase } from './supabase';
 import { User } from '@supabase/supabase-js';
+import { userService } from '../services/userService';
 
 interface Profile {
   id: string;
@@ -23,6 +24,7 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: (currentUser?: User) => Promise<void>;
+  promoteUser: (userId: string, newRole: 'client' | 'buyer' | 'buyer_premium' | 'buyer_master') => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -200,6 +202,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.location.href = '/';
   };
 
+  const promoteUser = async (userId: string, newRole: 'client' | 'buyer' | 'buyer_premium' | 'buyer_master') => {
+    await userService.promoteUser(userId, newRole);
+    await refreshProfile();
+  };
+
   const value = useMemo(() => ({
     user,
     profile,
@@ -208,7 +215,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isBuyer: profile?.role === 'buyer' || profile?.role === 'buyer_premium' || profile?.role === 'buyer_master',
     signInWithGoogle,
     signOut,
-    refreshProfile
+    refreshProfile,
+    promoteUser
   }), [user, profile, isLoading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
