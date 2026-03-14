@@ -102,6 +102,7 @@ export default function AdminDashboard() {
   const [chatWidth, setChatWidth] = useState('360');
   const [chatColor, setChatColor] = useState('#F27D26');
   const [autoProposalEnabled, setAutoProposalEnabled] = useState(false);
+  const [proposalModeEnabled, setProposalModeEnabled] = useState(false);
   const [chatAvatarUrl, setChatAvatarUrl] = useState('');
   const [bannerHeight, setBannerHeight] = useState('100vh');
   const [profitMarginPercentage, setProfitMarginPercentage] = useState(20);
@@ -594,6 +595,13 @@ export default function AdminDashboard() {
           } else {
             console.log("Message received for different lead. Current:", selectedConversationRef.current?.lead_id, "Message:", payload.new.lead_id);
           }
+
+          // RESPOSTA AUTOMÁTICA DA IA
+          if (autoProposalEnabled || proposalModeEnabled) {
+            setTimeout(() => {
+              handleAIAutoResponse(payload.new);
+            }, 2000);
+          }
           
           // Atualiza a lista de conversas de forma otimizada
           const { data: messagesData, error: messagesError } = await supabase
@@ -1053,6 +1061,96 @@ Podemos prosseguir com o agendamento da vistoria?`;
       console.error('Error deleting user:', error);
       setToast({ message: 'Erro ao excluir usuário: ' + error.message, type: 'error' });
       setTimeout(() => setToast(null), 5000);
+    }
+  };
+
+  const handleAIAutoResponse = async (incomingMessage: any) => {
+    try {
+      console.log("Starting AI Auto Response for message:", incomingMessage.id);
+      
+      // 1. Buscar o lead e as últimas mensagens para contexto
+      const { data: lead } = await supabase
+        .from('leads_veiculos')
+        .select('*')
+        .eq('id', incomingMessage.lead_id)
+        .single();
+
+      if (!lead) {
+        console.error("Lead not found for AI response");
+        return;
+      }
+
+      // Se a IA estiver desativada para este lead, não responde
+      if (lead.detalhes_proposta?.ai_disabled) {
+        console.log("AI is disabled for this lead, skipping auto-response");
+        return;
+      }
+
+      const { data: history } = await supabase
+        .from('mensagens')
+        .select('*')
+        .eq('lead_id', incomingMessage.lead_id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      const chatHistory = history?.reverse().map(m => `${m.remetente === 'cliente' ? 'Cliente' : 'Atendente'}: ${m.conteudo}`).join('\n');
+      
+      const apiKey = process.env.GEMINI_API_KEY || '';
+      if (!apiKey) {
+        console.error("GEMINI_API_KEY not found");
+        return;
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
+      const isProposalMode = lead.detalhes_proposta?.proposal_mode || proposalModeEnabled;
+
+      const prompt = `
+        Você é o assistente virtual inteligente da AUTOCOMPRA, especializado em compra de veículos.
+        Seu objetivo é converter o cliente e fechar o negócio.
+        
+        DADOS DO VEÍCULO:
+        Marca/Modelo: ${lead.marca} ${lead.modelo}
+        Ano: ${lead.ano_modelo}
+        Placa: ${lead.placa}
+        Código do Lead: #${lead.vehicle_code}
+        Valor FIPE: ${lead.valor_fipe}
+        
+        HISTÓRICO DA CONVERSA:
+        ${chatHistory}
+        
+        CONFIGURAÇÕES ATUAIS:
+        Modo Proposta: ${isProposalMode ? 'ATIVADO (Envie uma proposta formal ou tente fechar o valor)' : 'DESATIVADO (Apenas converse e tire dúvidas)'}
+        Memória da IA: ${aiMemory}
+        System Prompt: ${aiSystemPrompt}
+        
+        INSTRUÇÃO:
+        Responda de forma curta, direta e profissional. Use gatilhos mentais de urgência e escassez.
+        Se o Modo Proposta estiver ATIVADO, você deve ser mais agressivo na negociação para finalizar o lead quente.
+        Responda apenas com o texto da mensagem.
+      `;
+
+      const result = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: prompt
+      });
+      const aiResponse = result.text;
+
+      if (aiResponse) {
+        const { error: sendError } = await supabase.from('mensagens').insert({
+          lead_id: lead.id,
+          remetente: 'admin',
+          conteudo: aiResponse,
+          tipo: 'texto',
+          metadata: { ai_generated: true, proposal_mode: isProposalMode }
+        });
+
+        if (sendError) throw sendError;
+        console.log("AI Auto Response sent successfully");
+      }
+
+    } catch (err) {
+      console.error('Erro na resposta automática da IA:', err);
+      addLog('Erro na resposta automática da IA', 'error', err);
     }
   };
 
@@ -4782,42 +4880,82 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         <div className="flex items-center gap-2">
                           {selectedConversation.lead && (
                             <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-100 mr-2">
-                              <div className="text-right">
-                                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Modo</p>
-                                <p className="text-[10px] font-bold text-slate-700 leading-none">{selectedConversation.lead.detalhes_proposta?.ai_disabled ? 'Humano' : 'IA'}</p>
+                              {/* Toggle Modo IA */}
+                              <div className="flex items-center gap-2 pr-2 border-r border-slate-200">
+                                <div className="text-right">
+                                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Modo IA</p>
+                                  <p className="text-[10px] font-bold text-slate-700 leading-none">{selectedConversation.lead.detalhes_proposta?.ai_disabled ? 'OFF' : 'ON'}</p>
+                                </div>
+                                <button 
+                                  onClick={async () => {
+                                    const newValue = !selectedConversation.lead.detalhes_proposta?.ai_disabled;
+                                    const newDetalhes = { ...(selectedConversation.lead.detalhes_proposta || {}), ai_disabled: newValue };
+                                    try {
+                                      const { error } = await supabase
+                                        .from('leads_veiculos')
+                                        .update({ detalhes_proposta: newDetalhes })
+                                        .eq('id', selectedConversation.lead.id);
+                                      
+                                      if (error) throw error;
+                                      
+                                      // Update local state
+                                      setConversations(prev => prev.map(c => 
+                                        c.lead_id === selectedConversation.lead_id 
+                                          ? { ...c, lead: { ...c.lead, detalhes_proposta: newDetalhes } } 
+                                          : c
+                                      ));
+                                      setSelectedConversation({
+                                        ...selectedConversation,
+                                        lead: { ...selectedConversation.lead, detalhes_proposta: newDetalhes }
+                                      });
+                                    } catch (err) {
+                                      console.error(err);
+                                      alert('Erro ao alterar modo de resposta.');
+                                    }
+                                  }}
+                                  title={selectedConversation.lead.detalhes_proposta?.ai_disabled ? "Ativar IA para esta conversa" : "Desativar IA (Modo Humano)"}
+                                  className={`w-10 h-5 rounded-full transition-colors flex items-center px-0.5 ${selectedConversation.lead.detalhes_proposta?.ai_disabled ? 'bg-orange-500' : 'bg-indigo-500'}`}
+                                >
+                                  <div className={`w-4 h-4 bg-white rounded-full transition-transform ${selectedConversation.lead.detalhes_proposta?.ai_disabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                                </button>
                               </div>
-                              <button 
-                                onClick={async () => {
-                                  const newValue = !selectedConversation.lead.detalhes_proposta?.ai_disabled;
-                                  const newDetalhes = { ...(selectedConversation.lead.detalhes_proposta || {}), ai_disabled: newValue };
-                                  try {
+
+                              {/* Toggle Modo Proposta */}
+                              <div className="flex items-center gap-2">
+                                <div className="text-right">
+                                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Proposta</p>
+                                  <p className="text-[10px] font-bold text-slate-700 leading-none">{selectedConversation.lead.detalhes_proposta?.proposal_mode ? 'AUTO' : 'MAN'}</p>
+                                </div>
+                                <button 
+                                  onClick={async () => {
+                                    const currentMode = selectedConversation.lead.detalhes_proposta?.proposal_mode || false;
+                                    const newDetails = { 
+                                      ...(selectedConversation.lead.detalhes_proposta || {}), 
+                                      proposal_mode: !currentMode 
+                                    };
+                                    
                                     const { error } = await supabase
                                       .from('leads_veiculos')
-                                      .update({ detalhes_proposta: newDetalhes })
+                                      .update({ detalhes_proposta: newDetails })
                                       .eq('id', selectedConversation.lead.id);
-                                    
-                                    if (error) throw error;
-                                    
-                                    // Update local state
-                                    setConversations(prev => prev.map(c => 
-                                      c.lead_id === selectedConversation.lead_id 
-                                        ? { ...c, lead: { ...c.lead, detalhes_proposta: newDetalhes } } 
-                                        : c
-                                    ));
-                                    setSelectedConversation({
-                                      ...selectedConversation,
-                                      lead: { ...selectedConversation.lead, detalhes_proposta: newDetalhes }
-                                    });
-                                  } catch (err) {
-                                    console.error(err);
-                                    alert('Erro ao alterar modo de resposta.');
-                                  }
-                                }}
-                                title={selectedConversation.lead.detalhes_proposta?.ai_disabled ? "Ativar IA para esta conversa" : "Desativar IA (Modo Humano)"}
-                                className={`w-10 h-5 rounded-full transition-colors flex items-center px-0.5 ${selectedConversation.lead.detalhes_proposta?.ai_disabled ? 'bg-orange-500' : 'bg-indigo-500'}`}
-                              >
-                                <div className={`w-4 h-4 bg-white rounded-full transition-transform ${selectedConversation.lead.detalhes_proposta?.ai_disabled ? 'translate-x-5' : 'translate-x-0'}`} />
-                              </button>
+
+                                    if (!error) {
+                                      setConversations(prev => prev.map(c => 
+                                        c.lead_id === selectedConversation.lead_id 
+                                          ? { ...c, lead: { ...c.lead, detalhes_proposta: newDetails } } 
+                                          : c
+                                      ));
+                                      setSelectedConversation({
+                                        ...selectedConversation,
+                                        lead: { ...selectedConversation.lead, detalhes_proposta: newDetails }
+                                      });
+                                    }
+                                  }}
+                                  className={`w-10 h-5 rounded-full transition-colors flex items-center px-0.5 ${selectedConversation.lead.detalhes_proposta?.proposal_mode ? 'bg-indigo-500' : 'bg-slate-300'}`}
+                                >
+                                  <div className={`w-4 h-4 bg-white rounded-full transition-transform ${selectedConversation.lead.detalhes_proposta?.proposal_mode ? 'translate-x-5' : 'translate-x-0'}`} />
+                                </button>
+                              </div>
                             </div>
                           )}
                           <button 

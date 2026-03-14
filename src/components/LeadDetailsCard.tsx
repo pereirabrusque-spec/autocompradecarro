@@ -581,7 +581,9 @@ export default function LeadDetailsCard({
             <button onClick={onClose} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-bold text-slate-700 flex items-center justify-center gap-1.5">
               <ArrowLeft className="w-4 h-4" /> Voltar
             </button>
-            {(userRole === 'admin' || userRole === 'buyer_master') && (
+
+            {/* Ações para Admin */}
+            {userRole === 'admin' && (
               <>
                 <button 
                   onClick={() => {
@@ -606,9 +608,61 @@ export default function LeadDetailsCard({
                 </button>
               </>
             )}
-            <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5">
-              <Edit2 className="w-4 h-4" /> {showForm ? 'Fechar Edição' : 'Editar'}
-            </button>
+
+            {/* Ações para Comprador Master */}
+            {userRole === 'buyer_master' && (
+              <button 
+                onClick={async () => {
+                  const phone = currentLead.telefone?.replace(/\D/g, '');
+                  const formattedPhone = phone?.startsWith('55') ? phone : `55${phone}`;
+                  const rawMessage = generateOwnerMessage();
+                  const encodedMessage = encodeURIComponent(rawMessage);
+                  
+                  // Log de uso do lead
+                  try {
+                    await supabase.from('internal_messages').insert({
+                      sender_id: 'system',
+                      content: `[LOG] Comprador Master enviou WhatsApp para Lead #${currentLead.vehicle_code}`,
+                      metadata: { lead_id: currentLead.id, action: 'whatsapp_click', role: 'buyer_master', timestamp: new Date().toISOString() }
+                    });
+                  } catch (e) {}
+
+                  window.open(`https://wa.me/${formattedPhone}?text=${encodedMessage}`, '_blank');
+                }} 
+                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5 shadow-md"
+              >
+                <MessageCircle className="w-4 h-4" /> WhatsApp Proposta
+              </button>
+            )}
+
+            {/* Ações para Comprador Premium */}
+            {userRole === 'buyer_premium' && (
+              <button 
+                onClick={async () => {
+                  const message = `Olá Admin, tenho interesse no veículo #${currentLead.vehicle_code} (${currentLead.marca} ${currentLead.modelo}). Gostaria de negociar a proposta.`;
+                  try {
+                    const { error } = await supabase.from('internal_messages').insert({
+                      sender_id: 'buyer_premium',
+                      content: message,
+                      metadata: { lead_id: currentLead.id, type: 'proposal_request', vehicle_code: currentLead.vehicle_code }
+                    });
+                    if (error) throw error;
+                    alert('Proposta enviada para o administrador via chat interno!');
+                  } catch (err) {
+                    alert('Erro ao enviar proposta.');
+                  }
+                }} 
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5 shadow-md"
+              >
+                <MessageSquare className="w-4 h-4" /> Mandar Proposta p/ Admin
+              </button>
+            )}
+
+            {userRole === 'admin' && (
+              <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5">
+                <Edit2 className="w-4 h-4" /> {showForm ? 'Fechar Edição' : 'Editar'}
+              </button>
+            )}
           </div>
 
           {showForm && (
