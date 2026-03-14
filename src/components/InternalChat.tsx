@@ -17,6 +17,10 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
+    // Request notification permission
+    if (Notification.permission !== 'granted') {
+      Notification.requestPermission();
+    }
     audioRef.current = new Audio('/notification.mp3');
   }, []);
 
@@ -37,8 +41,15 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
               scrollToBottom();
             } else {
               setUnreadCount(prev => prev + 1);
-              console.log('[InternalChat] Tentando tocar som...');
+              console.log('[InternalChat] Tentando tocar som e notificar...');
               audioRef.current?.play().catch(e => console.error('[InternalChat] Audio play failed', e));
+              
+              if (Notification.permission === 'granted') {
+                new Notification('Nova mensagem', {
+                  body: payload.new.content,
+                  icon: '/favicon.ico'
+                });
+              }
             }
           } else if (payload.new.sender_id === user.id && isOpenState) {
             setMessages(prev => [...prev, payload.new]);

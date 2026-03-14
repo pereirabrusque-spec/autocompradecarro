@@ -13,18 +13,17 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
     // Fetch messages for this CRM chat
     const fetchMessages = async () => {
       const { data } = await supabase
-        .from('crm_sales_messages')
-        .select('*')
-        .eq('conversation_id', conversationId)
+        .from('internal_messages')
+        .select('*, profiles(full_name, avatar_url)')
+        .eq('lead_id', conversationId)
         .order('created_at', { ascending: true });
       setMessages(data || []);
       
       // Mark messages as read
       await supabase
-        .from('crm_sales_messages')
+        .from('internal_messages')
         .update({ is_read: true })
-        .eq('conversation_id', conversationId)
-        .eq('sender_type', 'human') // Assuming we only mark human messages as read
+        .eq('lead_id', conversationId)
         .is('is_read', false);
     };
     
@@ -44,7 +43,7 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
     // Real-time subscription
     const subscription = supabase
       .channel(`crm_chat_${conversationId}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'crm_sales_messages', filter: `conversation_id=eq.${conversationId}` }, (payload) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'internal_messages', filter: `lead_id=eq.${conversationId}` }, (payload) => {
         setMessages(prev => [...prev, payload.new]);
       })
       .subscribe();
@@ -54,24 +53,15 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
     };
   }, [conversationId]);
 
-  const logWhatsAppUsage = async () => {
-    console.log('WhatsApp clicked for:', conversationId);
-    await supabase.from('whatsapp_logs').insert({
-      buyer_id: conversationId,
-      timestamp: new Date().toISOString()
-    });
-  };
-
   const sendMessage = async () => {
     if (!input.trim()) return;
     
     // Save to DB
-    const { error } = await supabase.from('crm_sales_messages').insert({
-      conversation_id: conversationId,
+    const { error } = await supabase.from('internal_messages').insert({
+      lead_id: conversationId,
       content: input,
-      sender_type: isAiMode ? 'ai' : 'human',
       sender_id: 'admin',
-      is_read: false
+      is_read: true // Admin messages are read
     });
     
     if (error) console.error('Error sending message:', error);
@@ -119,8 +109,8 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map(m => (
-          <div key={m.id} className={`flex ${m.sender_type === 'human' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`p-3 rounded-xl text-sm max-w-[80%] ${m.sender_type === 'human' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-900'}`}>
+          <div key={m.id} className={`flex ${m.sender_id === 'admin' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`p-3 rounded-xl text-sm max-w-[80%] ${m.sender_id === 'admin' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-900'}`}>
               {m.content}
             </div>
           </div>
