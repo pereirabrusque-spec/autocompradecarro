@@ -183,10 +183,9 @@ export class AIService {
         const errMsg = error.message?.toLowerCase() || '';
         
         if (errMsg.includes('credit') || errMsg.includes('quota') || errMsg.includes('limit') || errMsg.includes('429') || errMsg.includes('too many requests')) {
-          newStatus = 'no_credit';
+          newStatus = 'rate_limited';
         } else if (errMsg === 'timeout') {
           console.warn(`API ${apiKey.provider} timed out after 10s. Switching to next...`);
-          // We can keep it disconnected or just count as error
           newStatus = 'disconnected';
         }
         
@@ -195,7 +194,12 @@ export class AIService {
       }
     }
 
-    throw new Error('Todas as chaves de API falharam ou estão sem crédito.');
+    // If all keys failed, try a full re-test and then try one more time
+    console.warn('[AIService] Todas as chaves falharam. Forçando re-teste de todas...');
+    await this.testConnections();
+    
+    // Try one more time with fresh statuses
+    return await this.generateContent(prompt, systemInstruction, image);
   }
 
   static async testConnections(): Promise<void> {

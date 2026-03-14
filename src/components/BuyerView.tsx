@@ -446,7 +446,7 @@ export default function BuyerView() {
               )}
 
               <div className="flex flex-col gap-4">
-                {permissions.send_whatsapp && whatsappNumber && (
+                {whatsappNumber && (
                   <a
                     href={`https://wa.me/${whatsappNumber}`}
                     target="_blank"

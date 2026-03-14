@@ -25,16 +25,20 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
       const subscription = supabase
         .channel('internal_messages_global')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'internal_messages' }, (payload) => {
+          console.log('[InternalChat] Nova mensagem recebida:', payload.new);
           // If admin, receive all messages. If user, receive only messages where receiver_id is user.id
           const isForMe = payload.new.receiver_id === user.id || (payload.new.receiver_id === null && user.role === 'admin');
           
+          console.log('[InternalChat] É para mim?', isForMe, 'receiver_id:', payload.new.receiver_id, 'user.id:', user.id, 'user.role:', user.role);
+
           if (isForMe) {
             if (isOpenState) {
               setMessages(prev => [...prev, payload.new]);
               scrollToBottom();
             } else {
               setUnreadCount(prev => prev + 1);
-              audioRef.current?.play().catch(e => console.error('Audio play failed', e));
+              console.log('[InternalChat] Tentando tocar som...');
+              audioRef.current?.play().catch(e => console.error('[InternalChat] Audio play failed', e));
             }
           } else if (payload.new.sender_id === user.id && isOpenState) {
             setMessages(prev => [...prev, payload.new]);
