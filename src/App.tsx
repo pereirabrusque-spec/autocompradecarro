@@ -34,6 +34,7 @@ import { GoogleTags } from './components/GoogleTags';
 import NotificationPermissionModal from './components/NotificationPermissionModal';
 import ThankYou from './components/ThankYou';
 import { AIService } from './services/aiService';
+import { authManager } from './lib/authManager';
 
 function AppContent() {
   const [view, setView] = useState<'home' | 'admin' | 'buyer' | 'login' | 'forgot-password' | 'reset-password' | 'sell' | 'auth-callback' | 'thank-you'>('home');
@@ -131,9 +132,6 @@ function AppContent() {
     return () => window.removeEventListener('popstate', checkRoute);
   }, [user, isAdmin, isLoading]);
 
-import { authManager } from './lib/authManager';
-
-// ... (dentro do useEffect do auth-callback)
   useEffect(() => {
     const handleAuthCallback = async () => {
       if (view === 'auth-callback' && !isLoading) {
