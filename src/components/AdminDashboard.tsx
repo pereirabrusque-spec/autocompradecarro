@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AIService } from '../services/aiService';
 import { createClient } from '@supabase/supabase-js';
-import { Car, Phone, Calendar, DollarSign, AlertCircle, AlertTriangle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw, Pencil, Users, Share2, MessageCircle, ChevronRight, ChevronLeft, Search, Filter, ShieldCheck, Wrench, Wallet, User, UserPlus, Mail, Bell, BellOff, Send, UserCheck, LayoutDashboard, Download, TrendingUp, BarChart3, PieChart, Info, X, Settings, Maximize2, Key, Bot, Database, Zap } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
+import { Car, Phone, Calendar, DollarSign, AlertCircle, AlertTriangle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw, Pencil, Users, Share2, MessageCircle, ChevronRight, ChevronLeft, Search, Filter, ShieldCheck, Wrench, Wallet, User, UserPlus, Mail, Bell, BellOff, Send, UserCheck, LayoutDashboard, Download, TrendingUp, BarChart3, PieChart as PieChartIcon, Info, X, Settings, Maximize2, Key, Bot, Database, Zap } from 'lucide-react';
 import ChatThemeSettings from './ChatThemeSettings';
 import { useAssets } from '../lib/assetsContext';
 import { supabase } from '../lib/supabase';
@@ -209,8 +210,13 @@ export default function AdminDashboard() {
     if (activeTab !== 'users' && activeTab !== 'dashboard') return;
     setIsRefreshingUsers(true);
     try {
-      const { data } = await supabase.from('profiles').select('*').order('last_login', { ascending: false });
-      setUsers(data || []);
+      const { data, error } = await supabase.from('profiles').select('*').order('last_login', { ascending: false });
+      if (error) {
+        console.error('Error refreshing users:', error);
+      } else {
+        console.log('Users refreshed:', data);
+        setUsers(data || []);
+      }
     } catch (error) {
       console.error('Error refreshing users:', error);
     } finally {
@@ -2436,24 +2442,19 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         
                         const maxCount = Math.max(...channelCounts, 1); // Avoid division by zero
                         
-                        return channels.map((c, i) => {
-                          const count = channelCounts[i];
-                          const height = Math.max((count / maxCount) * 100, 5); // Min height 5%
-                          
-                          return (
-                            <div key={c.id} className="flex-1 flex flex-col items-center gap-2">
-                              <div 
-                                className={`w-full ${c.color} rounded-t-xl transition-all hover:opacity-80 cursor-pointer relative group`}
-                                style={{ height: `${height}%` }}
-                              >
-                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
-                                  {count} leads
-                                </div>
-                              </div>
-                              <span className="text-[10px] text-slate-500 font-bold truncate w-full text-center">{c.label}</span>
-                            </div>
-                          );
-                        });
+                        const chartData = channels.map((c, i) => ({ name: c.label, value: channelCounts[i] }));
+                        
+                        return (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={chartData}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                              <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false} />
+                              <YAxis fontSize={10} tickLine={false} axisLine={false} />
+                              <Tooltip cursor={{fill: 'transparent'}} />
+                              <Bar dataKey="value" fill="#f97316" radius={[8, 8, 0, 0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        );
                       })()}
                     </div>
                   </div>
@@ -2747,8 +2748,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 </div>
 
                 <div className="border-t pt-6 space-y-4">
-                  <h3 className="text-xl font-bold">Custos de Reparo (Valor Fixo)</h3>
-                  <p className="text-sm text-slate-500">Configure os valores fixos para reparos de peças e avarias.</p>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {repairCosts.map(cost => (
                       <div key={cost.id} className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col gap-3">
