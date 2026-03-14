@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GoogleGenAI } from "@google/genai";
-import { Car, Phone, Calendar, DollarSign, AlertCircle, AlertTriangle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw, Pencil, Users, Share2, MessageCircle, ChevronRight, ChevronLeft, Search, Filter, ShieldCheck, Wrench, Wallet, User, UserPlus, Mail, Bell, BellOff, Send, UserCheck, LayoutDashboard, Download, TrendingUp, BarChart3, PieChart, Info, X, Settings, Maximize2, Key, Bot, Database } from 'lucide-react';
+import { createClient } from '@supabase/supabase-js';
+import { Car, Phone, Calendar, DollarSign, AlertCircle, AlertTriangle, CheckCircle, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw, Pencil, Users, Share2, MessageCircle, ChevronRight, ChevronLeft, Search, Filter, ShieldCheck, Wrench, Wallet, User, UserPlus, Mail, Bell, BellOff, Send, UserCheck, LayoutDashboard, Download, TrendingUp, BarChart3, PieChart, Info, X, Settings, Maximize2, Key, Bot, Database, Zap } from 'lucide-react';
 import ChatThemeSettings from './ChatThemeSettings';
 import { useAssets } from '../lib/assetsContext';
 import { supabase } from '../lib/supabase';
@@ -159,6 +160,32 @@ export default function AdminDashboard() {
   const [avarias, setAvarias] = useState<{id: string, description: string, value: number}[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [userProfile, setUserProfile] = useState<any>(null);
+
+  // Calculate User Stats for Dashboard
+  const userStats = {
+    online: users.filter(u => (new Date().getTime() - new Date(u.last_login).getTime()) < 300000).length,
+    buyers: {
+      total: users.filter(u => u.role === 'buyer').length,
+      online: users.filter(u => u.role === 'buyer' && (new Date().getTime() - new Date(u.last_login).getTime()) < 300000).length,
+    },
+    master: {
+      total: users.filter(u => u.role === 'buyer_master').length,
+      online: users.filter(u => u.role === 'buyer_master' && (new Date().getTime() - new Date(u.last_login).getTime()) < 300000).length,
+    },
+    premium: {
+      total: users.filter(u => u.role === 'buyer_premium').length,
+      online: users.filter(u => u.role === 'buyer_premium' && (new Date().getTime() - new Date(u.last_login).getTime()) < 300000).length,
+    },
+    users: {
+      total: users.filter(u => u.role === 'user').length,
+      online: users.filter(u => u.role === 'user' && (new Date().getTime() - new Date(u.last_login).getTime()) < 300000).length,
+    },
+    admins: {
+      total: users.filter(u => u.role === 'admin').length,
+      online: users.filter(u => u.role === 'admin' && (new Date().getTime() - new Date(u.last_login).getTime()) < 300000).length,
+    }
+  };
+
   const [logs, setLogs] = useState<any[]>([]);
   
   const addLog = (message: string, type: 'info' | 'error' | 'debug' = 'info', data?: any) => {
@@ -1030,33 +1057,79 @@ Podemos prosseguir com o agendamento da vistoria?`;
   };
 
   const handleCreateUser = async () => {
-    if (!newUserForm.email || !newUserForm.full_name) {
-      alert('Preencha os campos obrigatórios');
+    if (!newUserForm.email || !newUserForm.full_name || !newUserForm.password) {
+      alert('Preencha os campos obrigatórios (Nome, Email e Senha)');
+      addLog('Tentativa de criação de usuário sem campos obrigatórios', 'info', newUserForm);
       return;
     }
     setIsCreatingUser(true);
-    addLog('Tentando criar usuário...', 'info', newUserForm);
+    addLog('Iniciando criação de usuário completa (Auth + Profile)...', 'info', { email: newUserForm.email, role: newUserForm.role });
+    console.log('Criando usuário:', newUserForm);
+
     try {
-      const { error } = await supabase.from('profiles').insert([{
+      // 1. Criar no Auth usando um cliente temporário para não deslogar o admin
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      if (!supabaseUrl || !supabaseAnonKey) {
+        throw new Error('Configurações do Supabase não encontradas no ambiente.');
+      }
+
+      const tempSupabase = createClient(supabaseUrl, supabaseAnonKey, {
+        auth: { persistSession: false }
+      });
+
+      addLog('Chamando signUp no Supabase Auth...', 'debug');
+      const { data: authData, error: authError } = await tempSupabase.auth.signUp({
+        email: newUserForm.email,
+        password: newUserForm.password,
+        options: {
+          data: {
+            full_name: newUserForm.full_name,
+            role: newUserForm.role
+          }
+        }
+      });
+
+      if (authError) {
+        addLog('Erro no Supabase Auth signUp', 'error', authError);
+        console.error('Auth Error:', authError);
+        throw authError;
+      }
+
+      if (!authData.user) {
+        addLog('Usuário não retornado pelo Auth', 'error');
+        throw new Error('O Supabase não retornou o usuário criado. Verifique se o email já existe ou se há restrições de segurança.');
+      }
+
+      addLog('Usuário criado no Auth com sucesso. ID: ' + authData.user.id, 'info');
+
+      // 2. Garantir que o perfil existe com os dados corretos
+      addLog('Sincronizando perfil na tabela profiles...', 'debug');
+      const { error: profileError } = await supabase.from('profiles').upsert({
+        id: authData.user.id,
         full_name: newUserForm.full_name,
         email: newUserForm.email,
         role: newUserForm.role,
         phone: newUserForm.phone,
         last_login: new Date().toISOString()
-      }]);
-      
-      if (error) {
-        addLog('Erro ao criar usuário no Supabase', 'error', error);
-        throw error;
+      });
+
+      if (profileError) {
+        addLog('Erro ao sincronizar perfil', 'error', profileError);
+        console.error('Profile Sync Error:', profileError);
+        throw profileError;
       }
       
-      addLog('Usuário criado com sucesso', 'info');
-      alert('Usuário pré-cadastrado com sucesso! Ele deve se registrar com este email para acessar.');
+      addLog('Fluxo de criação finalizado com sucesso', 'info');
+      alert('Usuário criado com sucesso! Ele já pode acessar o sistema com o email e senha definidos.');
       setShowAddUserModal(false);
       setNewUserForm({ full_name: '', email: '', password: '', role: 'user', phone: '' });
       refreshUsers();
     } catch (error: any) {
-      alert('Erro ao criar usuário: ' + error.message);
+      console.error('Erro detalhado na criação de usuário:', error);
+      addLog('Falha crítica na criação de usuário', 'error', { message: error.message, stack: error.stack });
+      alert('Erro ao criar usuário: ' + (error.message || 'Erro desconhecido. Verifique o console (F12) para detalhes.'));
     } finally {
       setIsCreatingUser(false);
     }
@@ -2149,50 +2222,89 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       </div>
                       <div>
                         <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Compradores</p>
-                        <h3 className="text-2xl font-black text-slate-900">{users.filter(u => u.role === 'buyer').length}</h3>
+                        <h3 className="text-2xl font-black text-slate-900">{users.filter(u => u.role?.includes('buyer')).length}</h3>
                       </div>
                     </div>
                     <div className="space-y-1">
                       <div className="flex items-center justify-between text-[10px] font-bold">
-                        <span className="text-emerald-500">
-                          {users.filter(u => u.role === 'buyer' && u.last_login && (new Date().getTime() - new Date(u.last_login).getTime()) < 300000).length} Online
-                        </span>
-                        <span className="text-slate-400">
-                          {users.filter(u => u.role === 'buyer' && (!u.last_login || (new Date().getTime() - new Date(u.last_login).getTime()) >= 300000)).length} Off
-                        </span>
+                        <span className="text-purple-500">{users.filter(u => u.role === 'buyer_master').length} Master</span>
+                        <span className="text-emerald-500">{users.filter(u => u.role === 'buyer_premium').length} Premium</span>
                       </div>
-                      <p className="text-[9px] text-slate-300 italic">Fonte: Perfis 'buyer'</p>
+                      <p className="text-[9px] text-slate-300 italic">Fonte: Tabela profiles</p>
                     </div>
                   </div>
 
                   <div 
                     onClick={() => {
                       setActiveTab('users');
-                      setUserManagementTab('crm');
+                      setUserManagementTab('equipe');
                     }}
                     className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer group"
                   >
                     <div className="flex items-center gap-4 mb-4">
                       <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                        <UserPlus className="w-6 h-6" />
+                        <ShieldCheck className="w-6 h-6" />
                       </div>
                       <div>
-                        <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Usuários (Novo)</p>
-                        <h3 className="text-2xl font-black text-slate-900">{users.filter(u => u.role === 'user').length}</h3>
+                        <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Administradores</p>
+                        <h3 className="text-2xl font-black text-slate-900">{users.filter(u => u.role === 'admin').length}</h3>
                       </div>
                     </div>
                     <div className="space-y-1">
                       <div className="flex items-center justify-between text-[10px] font-bold">
-                        <span className="text-emerald-500">
-                          {users.filter(u => u.role === 'user' && u.last_login && (new Date().getTime() - new Date(u.last_login).getTime()) < 300000).length} Online
-                        </span>
-                        <span className="text-slate-400">
-                          {users.filter(u => u.role === 'user' && (!u.last_login || (new Date().getTime() - new Date(u.last_login).getTime()) >= 300000)).length} Off
-                        </span>
+                        <span className="text-indigo-500">{users.filter(u => u.role === 'admin' && (new Date().getTime() - new Date(u.last_login).getTime()) < 300000).length} Online</span>
+                        <span className="text-slate-400">{users.filter(u => u.role === 'admin').length} Total</span>
                       </div>
-                      <p className="text-[9px] text-slate-300 italic">Fonte: Perfis 'user'</p>
+                      <p className="text-[9px] text-slate-300 italic">Fonte: Tabela profiles</p>
                     </div>
                   </div>
+                </div>
+
+                {/* User Status Cards - Detailed */}
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                  {/* Logged In Card */}
+                  <div className="bg-slate-900 p-5 rounded-[32px] border border-slate-800 shadow-xl relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                      <Zap className="w-12 h-12 text-emerald-400" />
+                    </div>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_12px_rgba(16,185,129,0.8)]" />
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Online Agora</p>
+                    </div>
+                    <h3 className="text-3xl font-black text-white leading-none mb-1">{userStats.online}</h3>
+                    <p className="text-[10px] text-slate-500 font-bold">Usuários ativos (5min)</p>
+                  </div>
+
+                  {/* Role Stats Cards */}
+                  {[
+                    { label: 'Compradores', stats: userStats.buyers, color: 'amber', icon: Users, role: 'buyer', desc: 'Padrão' },
+                    { label: 'Master', stats: userStats.master, color: 'emerald', icon: ShieldCheck, role: 'buyer_master', desc: 'Acesso Total' },
+                    { label: 'Premium', stats: userStats.premium, color: 'purple', icon: Zap, role: 'buyer_premium', desc: 'Acesso Restrito' },
+                    { label: 'Usuários/Cli', stats: userStats.users, color: 'blue', icon: User, role: 'user', desc: 'Vendedores' },
+                    { label: 'Admins', stats: userStats.admins, color: 'indigo', icon: ShieldCheck, role: 'admin', desc: 'Gestão' },
+                  ].map((item) => (
+                    <div key={item.label} className="bg-white p-5 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-md transition-all group">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.label}</p>
+                          <p className="text-[9px] text-slate-300 font-bold">{item.desc}</p>
+                        </div>
+                        <div className={`p-2 rounded-xl bg-${item.color}-50 text-${item.color}-500 group-hover:bg-${item.color}-500 group-hover:text-white transition-colors`}>
+                          <item.icon className="w-4 h-4" />
+                        </div>
+                      </div>
+                      <div className="flex items-end justify-between">
+                        <h3 className="text-2xl font-black text-slate-900 leading-none">{item.stats.total}</h3>
+                        <div className="text-right">
+                          <div className="flex items-center gap-1.5 justify-end">
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            <p className="text-[10px] font-black text-emerald-600">{item.stats.online} ON</p>
+                          </div>
+                          <p className="text-[10px] font-bold text-slate-300">{item.stats.total - item.stats.online} OFF</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
 
                 {/* Charts Placeholder */}
