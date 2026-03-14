@@ -112,8 +112,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           id: targetUser.id,
           email: targetUser.email,
           role: isSuperAdmin ? 'admin' : 'user',
-          full_name: targetUser.user_metadata.full_name || targetUser.email?.split('@')[0],
-          avatar_url: targetUser.user_metadata.avatar_url,
+          full_name: targetUser.user_metadata?.full_name || targetUser.email?.split('@')[0] || 'Usuário',
+          avatar_url: targetUser.user_metadata?.avatar_url,
           last_login: new Date().toISOString()
         };
         

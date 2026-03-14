@@ -132,27 +132,30 @@ function AppContent() {
   }, [user, isAdmin, isLoading]);
 
   useEffect(() => {
-    console.log('[AUTH-DEBUG] Verificando view auth-callback:', {
-      view,
-      isLoading,
-      isAdmin,
-      isBuyer
-    });
-    
-    if (view === 'auth-callback' && !isLoading) {
-      console.log('[AUTH-DEBUG] Processando callback...');
-      if (isAdmin) {
-        window.history.pushState({}, '', '/admin');
-        setView('admin');
-      } else if (isBuyer) {
-        window.history.pushState({}, '', '/comprar');
-        setView('buyer');
-      } else {
-        window.history.pushState({}, '', '/');
-        setView('home');
+    const handleAuthCallback = async () => {
+      if (view === 'auth-callback' && !isLoading) {
+        console.log('[AUTH-DEBUG] Forçando troca de código por sessão...');
+        const { data, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error('[AUTH-DEBUG] Erro ao buscar sessão no callback:', error);
+        } else {
+          console.log('[AUTH-DEBUG] Sessão recuperada:', !!data.session);
+        }
+        
+        if (isAdmin) {
+          window.history.pushState({}, '', '/admin');
+          setView('admin');
+        } else if (isBuyer) {
+          window.history.pushState({}, '', '/comprar');
+          setView('buyer');
+        } else {
+          window.history.pushState({}, '', '/');
+          setView('home');
+        }
       }
-    }
-  }, [view, isAdmin, isLoading]);
+    };
+    handleAuthCallback();
+  }, [view, isAdmin, isBuyer, isLoading]);
 
   if (isLoading) {
     return (
