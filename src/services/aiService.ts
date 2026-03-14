@@ -236,6 +236,7 @@ export class AIService {
             const baseUrl = apiKey.provider === 'openai' ? 'https://api.openai.com/v1' :
                             apiKey.provider === 'grok' ? 'https://api.x.ai/v1' :
                             `https://api.${apiKey.provider}.com/v1`;
+            console.log(`[AIService] Testando API: ${apiKey.provider} (${apiKey.id}), URL: ${baseUrl}/chat/completions, Modelo: ${modelName}`);
             const response = await fetch(`${baseUrl}/chat/completions`, {
               method: 'POST',
               headers: {
@@ -248,7 +249,11 @@ export class AIService {
                 max_tokens: 5
               })
             });
-            if (!response.ok) throw new Error('API Error');
+            if (!response.ok) {
+              const errorData = await response.json().catch(() => ({}));
+              console.error(`[AIService] Erro na API ${apiKey.provider} (${apiKey.id}):`, response.status, errorData);
+              throw new Error(`API Error: ${response.status}`);
+            }
             return true;
           }
         };
