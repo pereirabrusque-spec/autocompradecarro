@@ -18,6 +18,14 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: true });
       setMessages(data || []);
+      
+      // Mark messages as read
+      await supabase
+        .from('crm_sales_messages')
+        .update({ is_read: true })
+        .eq('conversation_id', conversationId)
+        .eq('sender_type', 'human') // Assuming we only mark human messages as read
+        .is('is_read', false);
     };
     
     const fetchUserPhone = async () => {
@@ -27,6 +35,7 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
           .eq('id', conversationId)
           .single();
         if (data) setUserPhone(data.telefone);
+        else console.error('Error fetching phone: No data found for ID', conversationId);
     };
 
     fetchMessages();
@@ -46,6 +55,7 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
   }, [conversationId]);
 
   const logWhatsAppUsage = async () => {
+    console.log('WhatsApp clicked for:', conversationId);
     await supabase.from('whatsapp_logs').insert({
       buyer_id: conversationId,
       timestamp: new Date().toISOString()
@@ -56,14 +66,16 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
     if (!input.trim()) return;
     
     // Save to DB
-    await supabase.from('crm_sales_messages').insert({
+    const { error } = await supabase.from('crm_sales_messages').insert({
       conversation_id: conversationId,
       content: input,
       sender_type: isAiMode ? 'ai' : 'human',
-      sender_id: 'admin'
+      sender_id: 'admin',
+      is_read: false
     });
     
-    setInput('');
+    if (error) console.error('Error sending message:', error);
+    else setInput('');
   };
 
   return (
@@ -72,8 +84,8 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
         <h3 className="font-bold">Chat de Vendas</h3>
         <div className="flex gap-2">
           <button 
-            onClick={() => setShowAiRules(true)}
-            className="p-2 rounded-full hover:bg-slate-100 text-slate-600"
+            onClick={() => setShowAiRules(!showAiRules)}
+            className={`p-2 rounded-full hover:bg-slate-100 ${showAiRules ? 'text-blue-600' : 'text-slate-600'}`}
           >
             <Bot className="w-4 h-4" />
           </button>
@@ -100,10 +112,10 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
       {showAiRules && (
         <div className="p-4 bg-slate-50 border-b border-slate-100 text-xs text-slate-600">
           <h4 className="font-bold mb-1">Regras da IA:</h4>
-          <p>Memória: ...</p>
-          <button onClick={() => setShowAiRules(false)} className="mt-2 text-blue-600 font-bold">Fechar</button>
+          <p>A IA responde automaticamente baseada no histórico da conversa.</p>
         </div>
       )}
+
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map(m => (

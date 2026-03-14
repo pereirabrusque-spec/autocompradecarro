@@ -5,6 +5,7 @@ import { MessageCircle } from 'lucide-react';
 
 export const CRMChatContainer = ({ role }: { role: string }) => {
   const [conversations, setConversations] = useState<any[]>([]);
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -14,6 +15,21 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
         .select('id, cliente_nome, telefone')
         .order('created_at', { ascending: false });
       setConversations(data || []);
+      
+      // Fetch unread counts
+      if (data) {
+        const counts: Record<string, number> = {};
+        for (const conv of data) {
+          const { count } = await supabase
+            .from('crm_sales_messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('conversation_id', conv.id)
+            .eq('is_read', false)
+            .eq('sender_type', 'human');
+          counts[conv.id] = count || 0;
+        }
+        setUnreadCounts(counts);
+      }
     };
     fetchConversations();
   }, []);
@@ -26,10 +42,17 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
           <div 
             key={conv.id} 
             onClick={() => setSelectedConversationId(conv.id)}
-            className={`p-4 border-b border-slate-100 cursor-pointer hover:bg-slate-50 ${selectedConversationId === conv.id ? 'bg-slate-100' : ''}`}
+            className={`p-4 border-b border-slate-100 cursor-pointer hover:bg-slate-50 flex justify-between items-center ${selectedConversationId === conv.id ? 'bg-slate-100' : ''}`}
           >
-            <div className="font-bold">{conv.cliente_nome}</div>
-            <div className="text-xs text-slate-500">{conv.telefone}</div>
+            <div>
+                <div className="font-bold">{conv.cliente_nome}</div>
+                <div className="text-xs text-slate-500">{conv.telefone}</div>
+            </div>
+            {unreadCounts[conv.id] > 0 && (
+                <span className="bg-red-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                    {unreadCounts[conv.id]}
+                </span>
+            )}
           </div>
         ))}
       </div>
