@@ -461,14 +461,6 @@ export default function BuyerView() {
                   <MessageCircle className="w-5 h-5" />
                   Chat com Equipe
                 </button>
-                <button className="w-full py-5 bg-slate-900 text-white rounded-[24px] font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-3 shadow-lg shadow-slate-200">
-                  <FileText className="w-5 h-5" />
-                  Solicitar Laudo Técnico
-                </button>
-                <button className="w-full py-5 bg-accent text-white rounded-[24px] font-bold hover:bg-orange-600 transition-all flex items-center justify-center gap-3 shadow-lg shadow-orange-200">
-                  <MessageCircle className="w-5 h-5" />
-                  Fazer Proposta de Compra
-                </button>
               </div>
               
               <p className="text-[10px] text-center text-slate-400 mt-6">

@@ -7,6 +7,7 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
   const [input, setInput] = useState('');
   const [isAiMode, setIsAiMode] = useState(true);
   const [userPhone, setUserPhone] = useState('');
+  const [showAiRules, setShowAiRules] = useState(false);
 
   useEffect(() => {
     // Fetch messages for this CRM chat
@@ -30,7 +31,26 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
 
     fetchMessages();
     fetchUserPhone();
+
+    // Real-time subscription
+    const subscription = supabase
+      .channel(`crm_chat_${conversationId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'crm_sales_messages', filter: `conversation_id=eq.${conversationId}` }, (payload) => {
+        setMessages(prev => [...prev, payload.new]);
+      })
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [conversationId]);
+
+  const logWhatsAppUsage = async () => {
+    await supabase.from('whatsapp_logs').insert({
+      buyer_id: conversationId,
+      timestamp: new Date().toISOString()
+    });
+  };
 
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -40,7 +60,7 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
       conversation_id: conversationId,
       content: input,
       sender_type: isAiMode ? 'ai' : 'human',
-      sender_id: 'admin' // Should be current user ID
+      sender_id: 'admin'
     });
     
     setInput('');
@@ -51,11 +71,18 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
       <div className="p-4 border-b border-slate-100 flex justify-between items-center">
         <h3 className="font-bold">Chat de Vendas</h3>
         <div className="flex gap-2">
+          <button 
+            onClick={() => setShowAiRules(true)}
+            className="p-2 rounded-full hover:bg-slate-100 text-slate-600"
+          >
+            <Bot className="w-4 h-4" />
+          </button>
           {userPhone && (
             <a 
               href={`https://wa.me/${userPhone.replace(/\D/g, '')}`} 
               target="_blank" 
               rel="noopener noreferrer"
+              onClick={logWhatsAppUsage}
               className="p-2 rounded-full hover:bg-emerald-100 text-emerald-600"
             >
               <MessageCircle className="w-4 h-4" />
@@ -69,6 +96,15 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
           </button>
         </div>
       </div>
+      
+      {showAiRules && (
+        <div className="p-4 bg-slate-50 border-b border-slate-100 text-xs text-slate-600">
+          <h4 className="font-bold mb-1">Regras da IA:</h4>
+          <p>Memória: ...</p>
+          <button onClick={() => setShowAiRules(false)} className="mt-2 text-blue-600 font-bold">Fechar</button>
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map(m => (
           <div key={m.id} className={`flex ${m.sender_type === 'human' ? 'justify-end' : 'justify-start'}`}>
