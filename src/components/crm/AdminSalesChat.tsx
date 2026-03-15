@@ -147,15 +147,16 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
     if (!user) return;
 
     // Save to DB
-    const { error } = await supabase.from('internal_messages').insert({
+    const { data, error } = await supabase.from('internal_messages').insert({
       receiver_id: conversationId,
       content: input,
       sender_id: user.id
-    });
+    }).select().single();
     
     if (error) console.error('Error sending message:', error);
     else {
-        console.log('[AdminSalesChat] Message sent successfully');
+        console.log('[AdminSalesChat] Message sent successfully', data);
+        setMessages(prev => [...prev, data]);
         setInput('');
     }
   };
