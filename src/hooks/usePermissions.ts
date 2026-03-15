@@ -17,11 +17,12 @@ export const usePermissions = () => {
       const { data } = await supabase
         .from('buyer_crm_permissions')
         .select('permissions')
-        .eq('user_id', user.id)
-        .single();
+        .eq('buyer_id', user.id)
+        .is('lead_id', null)
+        .limit(1);
       
-      if (data) {
-        setPermissions(data.permissions);
+      if (data && data.length > 0 && data[0].permissions) {
+        setPermissions(data[0].permissions);
       } else {
         // Default based on role
         const role = profile?.role;

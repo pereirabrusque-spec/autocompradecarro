@@ -123,16 +123,6 @@ export default function AdminDashboard() {
   const [leadsViewMode, setLeadsViewMode] = useState<'grid' | 'list'>('list');
   const [showBuyerPermissionsModal, setShowBuyerPermissionsModal] = useState(false);
   const [selectedBuyer, setSelectedBuyer] = useState<any>(null);
-  const [buyerPermissionsForm, setBuyerPermissionsForm] = useState({
-    show_photos: true,
-    show_price: true,
-    show_plate: false,
-    show_details: true,
-    send_whatsapp: true,
-    send_chat: true,
-    send_fipe: true,
-    send_banco: false
-  });
   const [filterBrand, setFilterBrand] = useState('');
   const [filterYear, setFilterYear] = useState('');
   const [filterMinPrice, setFilterMinPrice] = useState('');
@@ -4499,24 +4489,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 <button 
                                   onClick={async () => {
                                     // Busca as permissões mais recentes do banco antes de abrir (globais)
-                                    const { data: authData } = await supabase
-                                      .from('buyer_crm_permissions')
-                                      .select('permissions')
-                                      .eq('buyer_id', buyer.id)
-                                      .is('lead_id', null)
-                                      .maybeSingle();
-
-                                    let permissions = authData?.permissions;
-                                    
-                                    if (!permissions) {
-                                      // Lógica de pré-definição baseada no cargo
-                                      if (buyer.role === 'buyer') permissions = { show_photos: true, show_price: false, show_plate: false, show_details: false, show_client_data: false, send_whatsapp: false, send_chat: true, send_fipe: false, send_banco: false };
-                                      else if (buyer.role === 'buyer_premium') permissions = { show_photos: true, show_price: true, show_plate: true, show_details: true, show_client_data: false, send_whatsapp: false, send_chat: true, send_fipe: true, send_banco: true };
-                                      else if (buyer.role === 'buyer_master') permissions = { show_photos: true, show_price: true, show_plate: true, show_details: true, show_client_data: true, send_whatsapp: true, send_chat: true, send_fipe: true, send_banco: true };
-                                      else permissions = { show_photos: true, show_price: true, show_plate: false, show_details: true, show_client_data: false, send_whatsapp: false, send_chat: false, send_fipe: false, send_banco: false };
-                                    }
-                                    
-                                    setBuyerPermissionsForm(permissions);
                                     setSelectedBuyer(buyer);
                                     setShowBuyerPermissionsModal(true);
                                   }}
@@ -7153,31 +7125,57 @@ const BuyerPermissionsModal = ({ buyer, onClose }: { buyer: any, onClose: () => 
         .select('permissions')
         .eq('buyer_id', buyer.id)
         .is('lead_id', null)
-        .maybeSingle();
+        .limit(1);
       
-      if (data?.permissions) {
-        setForm(data.permissions);
+      if (data && data.length > 0 && data[0].permissions) {
+        setForm(data[0].permissions);
+      } else {
+        // Lógica de pré-definição baseada no cargo
+        let permissions;
+        if (buyer.role === 'buyer') permissions = { show_photos: true, show_price: false, show_plate: false, show_details: false, show_client_data: false, send_whatsapp: false, send_chat: true, send_fipe: false, send_banco: false };
+        else if (buyer.role === 'buyer_premium') permissions = { show_photos: true, show_price: true, show_plate: true, show_details: true, show_client_data: false, send_whatsapp: false, send_chat: true, send_fipe: true, send_banco: true };
+        else if (buyer.role === 'buyer_master') permissions = { show_photos: true, show_price: true, show_plate: true, show_details: true, show_client_data: true, send_whatsapp: true, send_chat: true, send_fipe: true, send_banco: true };
+        else permissions = { show_photos: true, show_price: true, show_plate: false, show_details: true, show_client_data: false, send_whatsapp: false, send_chat: false, send_fipe: false, send_banco: false };
+        setForm(permissions);
       }
       setLoading(false);
     };
     fetchPermissions();
-  }, [buyer.id]);
+  }, [buyer.id, buyer.role]);
 
   const handleSave = async () => {
     setLoading(true);
     try {
-      const { error } = await supabase
+      // Check if exists
+      const { data: existing } = await supabase
         .from('buyer_crm_permissions')
-        .upsert({ 
-          buyer_id: buyer.id, 
-          lead_id: null,
-          permissions: form,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'buyer_id,lead_id'
-        });
+        .select('id')
+        .eq('buyer_id', buyer.id)
+        .is('lead_id', null)
+        .limit(1);
 
-      if (error) throw error;
+      if (existing && existing.length > 0) {
+        // Update
+        const { error } = await supabase
+          .from('buyer_crm_permissions')
+          .update({ 
+            permissions: form,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existing[0].id);
+        if (error) throw error;
+      } else {
+        // Insert
+        const { error } = await supabase
+          .from('buyer_crm_permissions')
+          .insert({ 
+            buyer_id: buyer.id, 
+            lead_id: null,
+            permissions: form,
+            updated_at: new Date().toISOString()
+          });
+        if (error) throw error;
+      }
       
       alert('Permissões salvas com sucesso!');
       onClose();
