@@ -66,6 +66,9 @@ function AppContent() {
   const showWhatsApp = (primaryContact === 'whatsapp' || (specialistButtonEnabled && specialistAction === 'whatsapp')) && whatsappEnabled;
   const showTawkTo = primaryContact === 'tawkto' && tawkToEnabled;
 
+  const buyerSendSettings = settings['BUYER_SEND_SETTINGS'] ? JSON.parse(settings['BUYER_SEND_SETTINGS']) : {};
+  const isWhatsAppEnabledInCRM = buyerSendSettings.whatsapp !== false;
+
   useEffect(() => {
     if (user) {
       const updateLastLogin = async () => {
@@ -225,8 +228,8 @@ function AppContent() {
       
       {/* Contact Widgets */}
       {showChat && <ChatAssistant isOpen={isChatOpen} onOpen={() => setIsChatOpen(true)} onClose={() => setIsChatOpen(false)} />}
-      {(showWhatsApp || (view === 'buyer' && isBuyerMaster)) && (
-        <WhatsAppButton forceShow={view === 'buyer' && isBuyerMaster} />
+      {(showWhatsApp || (view === 'buyer' && isBuyerMaster && isWhatsAppEnabledInCRM)) && (
+        <WhatsAppButton forceShow={view === 'buyer' && isBuyerMaster && isWhatsAppEnabledInCRM} />
       )}
       {showTawkTo && <TawkTo />}
       

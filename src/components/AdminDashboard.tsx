@@ -273,7 +273,8 @@ export default function AdminDashboard() {
     opcionais: true,
     avarias: true,
     proposta: true,
-    observacoes: false
+    observacoes: false,
+    whatsapp: true
   });
 
   const fetchData = async () => {
@@ -340,6 +341,24 @@ export default function AdminDashboard() {
               lead: msg.leads_veiculos,
               unread: unreadCount,
               is_unanswered: msg.remetente === 'cliente'
+            });
+          }
+        });
+      }
+
+      // Adicionar leads que não possuem mensagens
+      if (leadsData) {
+        leadsData.forEach((lead: any) => {
+          if (!leadIds.has(lead.id)) {
+            leadIds.add(lead.id);
+            groupedConversations.push({
+              lead_id: lead.id,
+              last_message: 'Nenhuma mensagem ainda',
+              last_time: lead.created_at,
+              last_message_at: lead.created_at,
+              lead: lead,
+              unread: 0,
+              is_unanswered: false
             });
           }
         });
@@ -720,6 +739,31 @@ export default function AdminDashboard() {
             userName: buyer?.name || profile?.email || `Usuário ${otherUserId.substring(0, 8)}`,
             lastMessage: msg.content,
             lastMessageTime: msg.created_at,
+            unreadCount: 0
+          });
+        }
+      });
+
+      // Adicionar todos os usuários/compradores que não possuem mensagens
+      profiles?.forEach(p => {
+        if (p.id !== currentUser.id && !conversationsMap.has(p.id)) {
+          conversationsMap.set(p.id, {
+            userId: p.id,
+            userName: p.email || `Usuário ${p.id.substring(0, 8)}`,
+            lastMessage: 'Nenhuma conversa iniciada',
+            lastMessageTime: new Date().toISOString(),
+            unreadCount: 0
+          });
+        }
+      });
+
+      buyers?.forEach(b => {
+        if (!conversationsMap.has(b.id)) {
+          conversationsMap.set(b.id, {
+            userId: b.id,
+            userName: b.name,
+            lastMessage: 'Nenhuma conversa iniciada',
+            lastMessageTime: new Date().toISOString(),
             unreadCount: 0
           });
         }
@@ -4607,7 +4651,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       { key: 'opcionais', label: 'Opcionais' },
                       { key: 'avarias', label: 'Avarias / Reparos' },
                       { key: 'proposta', label: 'Proposta Final' },
-                      { key: 'observacoes', label: 'Observações Internas' }
+                      { key: 'observacoes', label: 'Observações Internas' },
+                      { key: 'whatsapp', label: 'Botão WhatsApp' }
                     ].map((item) => (
                       <label key={item.key} className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
                         <input 
@@ -6876,20 +6921,20 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 </div>
               </div>
 
-              <div className="flex gap-4 mt-8">
+              <div className="flex flex-col sm:flex-row gap-3 mt-8">
                 <button 
-                  onClick={() => setShowAddUserModal(false)}
+                  onClick={handleSave}
+                  disabled={loading}
+                  className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-accent transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
+                  Salvar Alterações
+                </button>
+                <button 
+                  onClick={onClose}
                   className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all"
                 >
                   Cancelar
-                </button>
-                <button 
-                  onClick={handleCreateUser}
-                  disabled={isCreatingUser}
-                  className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-accent transition-all flex items-center justify-center gap-2"
-                >
-                  {isCreatingUser ? <Loader2 className="w-5 h-5 animate-spin" /> : <UserPlus className="w-5 h-5" />}
-                  Criar Usuário
                 </button>
               </div>
             </motion.div>
@@ -7192,8 +7237,15 @@ const BuyerPermissionsModal = ({ buyer, onClose }: { buyer: any, onClose: () => 
               </label>
             </div>
           </div>
-          <button onClick={handleSave} className="flex-1 bg-slate-900 text-white py-3 rounded-xl font-bold">Salvar</button>
-          <button onClick={onClose} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">Cancelar</button>
+          <div className="flex gap-3 pt-4">
+            <button onClick={handleSave} className="flex-1 bg-slate-900 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2">
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              Salvar
+            </button>
+            <button onClick={onClose} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">
+              Cancelar
+            </button>
+          </div>
         </div>
       </div>
     </div>

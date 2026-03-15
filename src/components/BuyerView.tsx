@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/authContext';
+import { useAssets } from '../lib/assetsContext';
 import { motion } from 'motion/react';
 import { 
   Car, 
@@ -33,6 +34,7 @@ const DetailRow = ({ label, value, show = true }: { label: string, value: any, s
 
 export default function BuyerView() {
   const { user, profile, signOut } = useAuth();
+  const { settings } = useAssets();
   const [authorizedLeads, setAuthorizedLeads] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedLead, setSelectedLead] = useState<any>(null);
@@ -49,6 +51,9 @@ export default function BuyerView() {
     show_history: false,
     send_whatsapp: false
   });
+
+  const buyerSendSettings = settings['BUYER_SEND_SETTINGS'] ? JSON.parse(settings['BUYER_SEND_SETTINGS']) : {};
+  const isWhatsAppEnabledInCRM = buyerSendSettings.whatsapp !== false;
 
   const roleDisplay = {
     buyer: 'Comprador',
@@ -483,7 +488,7 @@ export default function BuyerView() {
               )}
 
               <div className="flex flex-col gap-4">
-                {whatsappNumber && (permissions.send_whatsapp || profile?.role === 'buyer_master') && (
+                {whatsappNumber && (permissions?.send_whatsapp || profile?.role === 'buyer_master') && isWhatsAppEnabledInCRM && (
                   <a
                     href={`https://wa.me/${whatsappNumber}`}
                     target="_blank"
@@ -491,9 +496,25 @@ export default function BuyerView() {
                     className="w-full py-5 bg-emerald-500 text-white rounded-[24px] font-bold hover:bg-emerald-600 transition-all flex items-center justify-center gap-3 shadow-lg shadow-emerald-200"
                   >
                     <MessageCircle className="w-5 h-5" />
-                    Enviar WhatsApp
+                    WhatsApp Equipe
                   </a>
                 )}
+                
+                {profile?.role === 'buyer_master' && selectedLead.telefone && (
+                  <button
+                    onClick={() => {
+                      const phone = selectedLead.telefone.replace(/\D/g, '');
+                      const formattedPhone = phone.startsWith('55') ? phone : `55${phone}`;
+                      const message = `Olá, tenho interesse no seu veículo ${selectedLead.marca} ${selectedLead.modelo} ${selectedLead.ano_modelo}. Podemos conversar?`;
+                      window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`, '_blank');
+                    }}
+                    className="w-full py-5 bg-emerald-600 text-white rounded-[24px] font-bold hover:bg-emerald-700 transition-all flex items-center justify-center gap-3 shadow-lg shadow-emerald-100"
+                  >
+                    <MessageCircle className="w-5 h-5" />
+                    WhatsApp Cliente (Proposta)
+                  </button>
+                )}
+
                 <button onClick={() => setIsChatOpen(true)} className="w-full py-5 bg-slate-900 text-white rounded-[24px] font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-3 shadow-lg shadow-slate-200">
                   <MessageCircle className="w-5 h-5" />
                   Chat com Equipe
