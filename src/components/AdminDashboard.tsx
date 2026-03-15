@@ -2949,9 +2949,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
                           const matchesSearch = u.email?.toLowerCase().includes(filterUser.toLowerCase()) || 
                                               (u.full_name && u.full_name.toLowerCase().includes(filterUser.toLowerCase()));
                           
-                          console.log('User object:', u);
-                          // Show all users without any filtering
-                          return true; 
+                          if (userManagementTab === 'equipe') return matchesSearch && (u.role === 'admin' || u.role === 'user');
+                          if (userManagementTab === 'compradores') return matchesSearch && (u.role === 'buyer' || u.role === 'buyer_premium' || u.role === 'buyer_master');
+                          return matchesSearch; // CRM shows all
                         }).map((user) => {
                           const isOnline = (new Date().getTime() - new Date(user.last_login).getTime()) < 300000;
                           const initials = (user.full_name || user.email || 'U').split(' ').map((n: any) => n[0]).join('').substring(0, 2).toUpperCase();
@@ -6885,15 +6885,15 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
               <div className="flex flex-col sm:flex-row gap-3 mt-8">
                 <button 
-                  onClick={handleSave}
-                  disabled={loading}
+                  onClick={handleCreateUser}
+                  disabled={isCreatingUser}
                   className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-accent transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
+                  {isCreatingUser ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
                   Salvar Alterações
                 </button>
                 <button 
-                  onClick={onClose}
+                  onClick={() => setShowAddUserModal(false)}
                   className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all"
                 >
                   Cancelar
