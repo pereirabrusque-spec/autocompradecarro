@@ -121,7 +121,7 @@ export default function ChatWidget() {
       // If only one lead, select it automatically
       if (data && data.length === 1) {
         setActiveLead(data[0]);
-        fetchMessages(data[0].id);
+        fetchMessages();
       }
     } catch (error) {
       console.error('Error fetching leads:', error);
@@ -130,12 +130,13 @@ export default function ChatWidget() {
     }
   };
 
-  const fetchMessages = async (leadId: string) => {
+  const fetchMessages = async () => {
+    if (!user) return;
     try {
       const { data, error } = await supabase
-        .from('mensagens')
+        .from('internal_messages')
         .select('*')
-        .eq('lead_id', leadId)
+        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
@@ -147,16 +148,17 @@ export default function ChatWidget() {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !activeLead) return;
+    if (!newMessage.trim() || !user || !activeLead) return;
 
     setSending(true);
     try {
       const { error } = await supabase
-        .from('mensagens')
+        .from('internal_messages')
         .insert([{
+          sender_id: user.id,
+          content: newMessage.trim(),
           lead_id: activeLead.id,
-          remetente: 'cliente',
-          conteudo: newMessage.trim()
+          // receiver_id is NULL for messages to admin
         }]);
 
       if (error) throw error;
@@ -234,7 +236,7 @@ export default function ChatWidget() {
                       key={lead.id}
                       onClick={() => {
                         setActiveLead(lead);
-                        fetchMessages(lead.id);
+                        fetchMessages();
                       }}
                       className="w-full text-left p-3 bg-white rounded-xl border border-slate-200 hover:border-accent hover:shadow-md transition-all group"
                     >
