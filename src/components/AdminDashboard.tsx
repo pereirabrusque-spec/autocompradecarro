@@ -2950,8 +2950,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                               (u.full_name && u.full_name.toLowerCase().includes(filterUser.toLowerCase()));
                           
                           console.log('User object:', u);
-                          if (userManagementTab === 'equipe') return matchesSearch && (u.role === 'admin' || u.role === 'user');
-                          if (userManagementTab === 'compradores') return matchesSearch && (u.role === 'buyer' || u.role === 'buyer_premium' || u.role === 'buyer_master');
+                          if (userManagementTab === 'equipe') return matchesSearch && (u.role === 'admin' || u.role === 'user' || u.role === 'equipe');
+                          if (userManagementTab === 'compradores') return matchesSearch && (u.role === 'buyer' || u.role === 'buyer_premium' || u.role === 'buyer_master' || u.role === 'comprador');
                           return matchesSearch; // CRM shows all
                         }).map((user) => {
                           const isOnline = (new Date().getTime() - new Date(user.last_login).getTime()) < 300000;
