@@ -55,11 +55,11 @@ function AppContent() {
 
   useEffect(() => {
     // Test API connections on startup and every 4 hours
-    // AIService.testConnections();
-    // const interval = setInterval(() => {
-    //   AIService.testConnections();
-    // }, 4 * 60 * 60 * 1000); // 4 hours
-    // return () => clearInterval(interval);
+    AIService.testConnections();
+    const interval = setInterval(() => {
+      AIService.testConnections();
+    }, 4 * 60 * 60 * 1000); // 4 hours
+    return () => clearInterval(interval);
   }, []);
 
   const showChat = (primaryContact === 'chat' || (specialistButtonEnabled && specialistAction === 'chat')) && chatEnabled;
@@ -227,24 +227,9 @@ function AppContent() {
       {view !== 'admin' && view !== 'buyer' && <Footer />}
       
       {/* Contact Widgets */}
-      {showChat && <ChatAssistant isOpen={isChatOpen} onOpen={() => setIsChatOpen(true)} onClose={() => setIsChatOpen(false)} />}
-      {(showWhatsApp || (view === 'buyer' && isBuyerMaster && isWhatsAppEnabledInCRM)) && (
-        <WhatsAppButton forceShow={view === 'buyer' && isBuyerMaster && isWhatsAppEnabledInCRM} />
-      )}
-      {showTawkTo && <TawkTo />}
-      
-      {/* Botão flutuante para abrir o Chat se configurado */}
-      {specialistButtonEnabled && specialistAction === 'chat' && (
-        <button 
-          onClick={() => setIsChatOpen(true)}
-          className="fixed bottom-24 right-6 z-50 p-4 bg-accent text-white rounded-full shadow-lg hover:scale-110 transition-transform"
-        >
-          <MessageCircle className="w-6 h-6" />
-        </button>
-      )}
+      {/* Contact widgets removed as requested */}
       
       {/* Real-time Chat Widget for logged users */}
-      {!isAdmin && <ChatWidget />}
       
       <SellModal />
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
