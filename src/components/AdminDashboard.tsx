@@ -710,8 +710,8 @@ export default function AdminDashboard() {
 
       if (error) throw error;
 
-      // Buscar perfis (apenas clientes/usuários)
-      const { data: profiles } = await supabase.from('profiles').select('id, email, full_name, role, avatar_url').eq('role', 'user');
+      // Buscar perfis (apenas clientes/usuários e vendedores)
+      const { data: profiles } = await supabase.from('profiles').select('id, email, full_name, role, avatar_url').in('role', ['user', 'seller']);
 
       const conversationsMap = new Map();
       

@@ -65,6 +65,7 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
   }, [user, isOpenState]);
 
   useEffect(() => {
+    console.log('[InternalChat] isOpenState:', isOpenState, 'user:', user);
     if (isOpenState && user) {
       setUnreadCount(0);
       fetchMessages();
@@ -80,7 +81,7 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
   }, [messages]);
 
   const fetchMessages = async () => {
-    console.log('[InternalChat] Fetching messages for user:', user?.id);
+    console.log('[InternalChat] Fetching messages for user:', user?.id, 'leadId:', leadId);
     const { data, error } = await supabase
       .from('internal_messages')
       .select('*, profiles(full_name, avatar_url)')
@@ -90,6 +91,7 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
     if (error) {
       console.error('[InternalChat] Error fetching messages:', error);
     } else {
+      console.log('[InternalChat] Messages fetched:', data);
       setMessages(data || []);
     }
   };

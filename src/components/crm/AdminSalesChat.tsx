@@ -41,12 +41,19 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
   useEffect(() => {
     // Fetch messages for this CRM chat
     const fetchMessages = async () => {
-      const { data } = await supabase
+      console.log('[AdminSalesChat] Fetching messages for conversationId:', conversationId);
+      const { data, error } = await supabase
         .from('internal_messages')
         .select('*, profiles(full_name, avatar_url)')
         .or(`sender_id.eq.${conversationId},receiver_id.eq.${conversationId}`)
         .order('created_at', { ascending: true });
-      setMessages(data || []);
+      
+      if (error) {
+        console.error('[AdminSalesChat] Error fetching messages:', error);
+      } else {
+        console.log('[AdminSalesChat] Messages fetched:', data);
+        setMessages(data || []);
+      }
       
       // Mark messages as read
       await supabase
@@ -57,17 +64,19 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
     };
     
     const fetchUserData = async () => {
-        const { data } = await supabase
+        console.log('[AdminSalesChat] Fetching user data for conversationId:', conversationId);
+        const { data, error } = await supabase
           .from('profiles')
           .select('phone, email, avatar_url')
           .eq('id', conversationId)
           .single();
         if (data) {
+            console.log('[AdminSalesChat] User data fetched:', data);
             setUserPhone(data.phone);
             setUserEmail(data.email);
             setUserAvatar(data.avatar_url);
         }
-        else console.error('Error fetching user data: No data found for ID', conversationId);
+        else console.error('[AdminSalesChat] Error fetching user data: No data found for ID', conversationId, error);
     };
 
     fetchMessages();
