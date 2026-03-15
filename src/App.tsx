@@ -55,11 +55,11 @@ function AppContent() {
 
   useEffect(() => {
     // Test API connections on startup and every 4 hours
-    AIService.testConnections();
-    const interval = setInterval(() => {
-      AIService.testConnections();
-    }, 4 * 60 * 60 * 1000); // 4 hours
-    return () => clearInterval(interval);
+    // AIService.testConnections();
+    // const interval = setInterval(() => {
+    //   AIService.testConnections();
+    // }, 4 * 60 * 60 * 1000); // 4 hours
+    // return () => clearInterval(interval);
   }, []);
 
   const showChat = (primaryContact === 'chat' || (specialistButtonEnabled && specialistAction === 'chat')) && chatEnabled;
