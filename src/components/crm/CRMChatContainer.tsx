@@ -66,7 +66,7 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
   };
 
   return (
-    <div className="flex h-[calc(100vh-120px)] bg-white rounded-2xl border border-slate-200 overflow-hidden w-full">
+    <div className="flex h-[calc(100vh-100px)] bg-white rounded-2xl border border-slate-200 overflow-hidden w-full">
       {/* Buyer List */}
       <div className="w-1/3 border-r border-slate-200 flex flex-col shrink-0">
         <div className="p-4 border-b border-slate-100 font-bold flex justify-between items-center shrink-0">

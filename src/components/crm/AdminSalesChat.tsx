@@ -9,13 +9,16 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
   
   useEffect(() => {
     supabase.from('settings').select('value').eq('key', 'AI_CRM_MODE').single().then(({ data }) => {
+      console.log('[AdminSalesChat] Loaded AI mode from DB:', data);
       if (data) setIsAiMode(data.value === 'true');
     });
   }, []);
 
   const toggleAiMode = async (newMode: boolean) => {
+    console.log('[AdminSalesChat] Toggling AI mode to:', newMode);
     setIsAiMode(newMode);
-    await supabase.from('settings').upsert({ key: 'AI_CRM_MODE', value: newMode.toString() });
+    const { error } = await supabase.from('settings').upsert({ key: 'AI_CRM_MODE', value: newMode.toString() });
+    if (error) console.error('[AdminSalesChat] Error saving AI mode:', error);
   };
   const [userPhone, setUserPhone] = useState('');
   const [userEmail, setUserEmail] = useState('');
