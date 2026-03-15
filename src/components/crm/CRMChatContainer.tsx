@@ -13,7 +13,7 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
       const { data } = await supabase
         .from('profiles')
         .select('id, full_name, email, avatar_url, role')
-        .in('role', ['buyer', 'buyer_premium', 'buyer_master'])
+        .in('role', ['buyer', 'buyer_premium', 'buyer_master', 'seller']) // Adicionado 'seller'
         .order('created_at', { ascending: false });
       setConversations(data || []);
       

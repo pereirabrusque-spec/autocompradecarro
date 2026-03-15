@@ -80,13 +80,18 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
   }, [messages]);
 
   const fetchMessages = async () => {
+    console.log('[InternalChat] Fetching messages for user:', user?.id);
     const { data, error } = await supabase
       .from('internal_messages')
       .select('*, profiles(full_name, avatar_url)')
       .or(`sender_id.eq.${user?.id},receiver_id.eq.${user?.id}`)
       .order('created_at', { ascending: true });
 
-    if (data) setMessages(data);
+    if (error) {
+      console.error('[InternalChat] Error fetching messages:', error);
+    } else {
+      setMessages(data || []);
+    }
   };
 
 
@@ -95,6 +100,7 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
     if (!newMessage.trim() || !user) return;
 
     setLoading(true);
+    console.log('[InternalChat] Sending message:', newMessage);
     try {
       const { error } = await supabase.from('internal_messages').insert({
         sender_id: user.id,
@@ -103,10 +109,13 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
         // receiver_id is NULL for messages to admin
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[InternalChat] Error sending message:', error);
+        throw error;
+      }
       setNewMessage('');
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('[InternalChat] Exception sending message:', error);
     } finally {
       setLoading(false);
     }

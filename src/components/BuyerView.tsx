@@ -94,7 +94,7 @@ export default function BuyerView() {
   }, [user]);
 
   const checkNotificationStatus = async () => {
-    if (!user) return;
+    if (!user || !user.email) return;
     try {
       const { data, error } = await supabase
         .from('interested_buyers')
@@ -102,11 +102,13 @@ export default function BuyerView() {
         .eq('email', user.email)
         .single();
       
-      if (data && data.notifications_enabled === null) {
+      if (error) {
+        console.error('[BuyerView] Error checking notification status:', error);
+      } else if (data && data.notifications_enabled === null) {
         setShowNotificationPrompt(true);
       }
     } catch (e) {
-      console.error('Error checking notification status:', e);
+      console.error('[BuyerView] Exception checking notification status:', e);
     }
   };
 
