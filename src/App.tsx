@@ -232,6 +232,13 @@ function AppContent() {
       {profile?.role === 'seller' && <ChatWidget />}
       
       {/* Real-time Chat Widget for logged users */}
+      {view !== 'admin' && (
+        <ChatAssistant 
+          isOpen={isChatOpen} 
+          onOpen={() => setIsChatOpen(true)} 
+          onClose={() => setIsChatOpen(false)} 
+        />
+      )}
       
       <SellModal />
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
