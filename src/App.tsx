@@ -227,7 +227,8 @@ function AppContent() {
       {view !== 'admin' && view !== 'buyer' && <Footer />}
       
       {/* Contact Widgets */}
-      {/* Contact widgets removed as requested */}
+      {/* Contact widgets removed as requested, except ChatWidget for sellers */}
+      {profile?.role === 'seller' && <ChatWidget />}
       
       {/* Real-time Chat Widget for logged users */}
       

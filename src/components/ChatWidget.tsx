@@ -8,7 +8,20 @@ import AuthModal from './AuthModal';
 export default function ChatWidget() {
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
-  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      supabase
+        .from('profiles')
+        .select('is_blocked')
+        .eq('id', user.id)
+        .single()
+        .then(({ data }) => {
+          if (data) setIsBlocked(data.is_blocked);
+        });
+    }
+  }, [user]);
   const [leads, setLeads] = useState<any[]>([]);
   const [activeLead, setActiveLead] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
@@ -121,7 +134,7 @@ export default function ChatWidget() {
       // If only one lead, select it automatically
       if (data && data.length === 1) {
         setActiveLead(data[0]);
-        fetchMessages();
+        fetchMessages(data[0].id);
       }
     } catch (error) {
       console.error('Error fetching leads:', error);
@@ -130,13 +143,12 @@ export default function ChatWidget() {
     }
   };
 
-  const fetchMessages = async () => {
-    if (!user) return;
+  const fetchMessages = async (leadId: string) => {
     try {
       const { data, error } = await supabase
-        .from('internal_messages')
+        .from('mensagens')
         .select('*')
-        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+        .eq('lead_id', leadId)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
@@ -148,17 +160,16 @@ export default function ChatWidget() {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !user || !activeLead) return;
+    if (!newMessage.trim() || !activeLead) return;
 
     setSending(true);
     try {
       const { error } = await supabase
-        .from('internal_messages')
+        .from('mensagens')
         .insert([{
-          sender_id: user.id,
-          content: newMessage.trim(),
           lead_id: activeLead.id,
-          // receiver_id is NULL for messages to admin
+          remetente: 'cliente',
+          conteudo: newMessage.trim()
         }]);
 
       if (error) throw error;
@@ -236,7 +247,7 @@ export default function ChatWidget() {
                       key={lead.id}
                       onClick={() => {
                         setActiveLead(lead);
-                        fetchMessages();
+                        fetchMessages(lead.id);
                       }}
                       className="w-full text-left p-3 bg-white rounded-xl border border-slate-200 hover:border-accent hover:shadow-md transition-all group"
                     >
@@ -295,7 +306,7 @@ export default function ChatWidget() {
                           </button>
                         )}
                         <span className={`text-[10px] block mt-1 ${msg.remetente === 'cliente' ? 'text-white/60' : 'text-slate-400'}`}>
-                          {new Date(msg.created_at).toLocaleDateString()} {new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                          {new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                         </span>
                       </div>
                     </div>
@@ -307,7 +318,7 @@ export default function ChatWidget() {
           </div>
 
           {/* Input Area */}
-          {activeLead && (
+          {activeLead && !isBlocked && (
             <form onSubmit={handleSendMessage} className="p-3 bg-white border-t border-slate-100 flex gap-2">
               <input
                 type="text"
@@ -324,6 +335,11 @@ export default function ChatWidget() {
                 {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
               </button>
             </form>
+          )}
+          {activeLead && isBlocked && (
+            <div className="p-3 bg-red-100 text-red-700 text-center text-sm font-bold">
+              Você foi bloqueado e não pode enviar mensagens.
+            </div>
           )}
         </div>
       )}
