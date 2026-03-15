@@ -228,10 +228,19 @@ function AppContent() {
       {view !== 'admin' && view !== 'buyer' && <Footer />}
       
       {/* Contact Widgets */}
-      {/* Contact widgets removed as requested, except ChatWidget for sellers */}
-      {profile?.role === 'seller' && <ChatWidget />}
+      {/* WhatsApp Button for Sellers (Bottom Left) */}
+      {profile?.role === 'seller' && (
+        <a
+          href="https://wa.me/SEU_NUMERO_AQUI"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="fixed bottom-6 left-6 bg-green-500 text-white p-4 rounded-full shadow-lg hover:bg-green-600 transition-all z-50"
+        >
+          <MessageCircle className="w-6 h-6" />
+        </a>
+      )}
       
-      {/* Real-time Chat Widget for logged users */}
+      {/* Real-time Chat Widget for logged users (Bottom Right) */}
       {view !== 'admin' && (
         <ChatAssistant 
           isOpen={isChatOpen} 
