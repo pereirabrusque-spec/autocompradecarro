@@ -30,18 +30,23 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
         .channel('internal_messages_global')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'internal_messages' }, (payload) => {
           console.log('[InternalChat] Nova mensagem recebida:', payload.new);
-          // If admin, receive all messages. If user, receive only messages where receiver_id is user.id
+          
+          // Check if the message belongs to this conversation
+          const isMyMessage = payload.new.sender_id === user.id;
           const isForMe = payload.new.receiver_id === user.id || (payload.new.receiver_id === null && user.role === 'admin');
           
-          console.log('[InternalChat] É para mim?', isForMe, 'receiver_id:', payload.new.receiver_id, 'user.id:', user.id, 'user.role:', user.role);
+          console.log('[InternalChat] É minha?', isMyMessage, 'É para mim?', isForMe);
 
-          if (isForMe) {
-            if (isOpenState) {
-              setMessages(prev => [...prev, payload.new]);
-              scrollToBottom();
-            } else {
+          if (isMyMessage || isForMe) {
+            setMessages(prev => {
+              // Avoid duplicates
+              if (prev.some(m => m.id === payload.new.id)) return prev;
+              return [...prev, payload.new];
+            });
+            scrollToBottom();
+
+            if (!isOpenState && !isMyMessage) {
               setUnreadCount(prev => prev + 1);
-              console.log('[InternalChat] Tentando tocar som e notificar...');
               audioRef.current?.play().catch(e => console.error('[InternalChat] Audio play failed', e));
               
               if (Notification.permission === 'granted') {
@@ -51,9 +56,6 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
                 });
               }
             }
-          } else if (payload.new.sender_id === user.id && isOpenState) {
-            setMessages(prev => [...prev, payload.new]);
-            scrollToBottom();
           }
         })
         .subscribe();
@@ -110,7 +112,7 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
       const { error } = await supabase.from('internal_messages').insert({
         sender_id: user.id,
         content: newMessage,
-        lead_id: leadId,
+        lead_id: leadId || null, // Ensure it's null if undefined
         // receiver_id is NULL for messages to admin
       });
 
