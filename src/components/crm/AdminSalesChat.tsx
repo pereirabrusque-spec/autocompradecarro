@@ -45,7 +45,10 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
 
   const saveAiPrompt = async () => {
     setIsSavingPrompt(true);
-    const { error } = await supabase.from('settings').upsert({ key: 'AI_CRM_PROMPT', value: aiPrompt });
+    const { error } = await supabase.from('settings').upsert(
+        { key: 'AI_CRM_PROMPT', value: aiPrompt },
+        { onConflict: 'key' }
+    );
     if (error) {
         console.error('Erro ao salvar prompt:', error);
         alert(`Erro ao salvar prompt: ${error.message}`);
@@ -176,7 +179,7 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
       
       {showAiRules && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+          <div className="bg-white rounded-2xl p-6 w-[50vw] shadow-xl">
             <h4 className="font-bold mb-4 text-lg">Configurar IA de Atendimento</h4>
             <textarea 
               className="w-full h-40 p-3 border border-slate-200 rounded-lg text-sm mb-4"
