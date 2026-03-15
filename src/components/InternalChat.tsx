@@ -84,7 +84,7 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
     console.log('[InternalChat] Fetching messages for user:', user?.id, 'leadId:', leadId);
     const { data, error } = await supabase
       .from('internal_messages')
-      .select('*, profiles(full_name, avatar_url)')
+      .select('*, profiles:sender_id(full_name, avatar_url)')
       .or(`sender_id.eq.${user?.id},receiver_id.eq.${user?.id}`)
       .order('created_at', { ascending: true });
 
