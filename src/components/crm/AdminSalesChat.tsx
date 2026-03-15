@@ -31,10 +31,16 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
   }, []);
 
   const saveAiPrompt = async () => {
+    console.log('[AdminSalesChat] Saving AI prompt:', aiPrompt);
     setIsSavingPrompt(true);
     const { error } = await supabase.from('settings').upsert({ key: 'AI_CRM_PROMPT', value: aiPrompt });
-    if (error) alert('Erro ao salvar prompt');
-    else alert('Prompt salvo com sucesso!');
+    if (error) {
+      console.error('[AdminSalesChat] Error saving prompt:', error);
+      alert('Erro ao salvar prompt: ' + error.message);
+    } else {
+      console.log('[AdminSalesChat] Prompt saved successfully');
+      alert('Prompt salvo com sucesso!');
+    }
     setIsSavingPrompt(false);
   };
 
@@ -112,10 +118,14 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
   }, [conversationId, currentUserId]);
 
   const sendMessage = async () => {
+    console.log('[AdminSalesChat] sendMessage called, input:', input);
     if (!input.trim()) return;
     
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      console.error('[AdminSalesChat] No user found');
+      return;
+    }
 
     // Save to DB
     const { error } = await supabase.from('internal_messages').insert({
@@ -125,8 +135,13 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
       is_read: true // Admin messages are read
     });
     
-    if (error) console.error('Error sending message:', error);
-    else setInput('');
+    if (error) {
+      console.error('[AdminSalesChat] Error sending message:', error);
+      alert('Erro ao enviar mensagem: ' + error.message);
+    } else {
+      console.log('[AdminSalesChat] Message sent successfully');
+      setInput('');
+    }
   };
 
   return (
@@ -207,14 +222,20 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
             ))}
             <div ref={messagesEndRef} />
           </div>
-          <div className="p-4 border-t border-slate-100 flex gap-2">
+          <div className="p-2 border-t border-slate-100 flex gap-2">
             <input 
               value={input} 
               onChange={e => setInput(e.target.value)} 
-              className="flex-1 p-2 border border-slate-200 rounded-lg text-sm"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  sendMessage();
+                }
+              }}
+              className="flex-1 p-1.5 border border-slate-200 rounded-lg text-xs"
               placeholder="Digite..."
             />
-            <button onClick={sendMessage} className="bg-slate-900 text-white p-2 rounded-lg"><Send className="w-4 h-4" /></button>
+            <button onClick={sendMessage} className="bg-slate-900 text-white p-1.5 rounded-lg"><Send className="w-3 h-3" /></button>
           </div>
         </>
       )}
