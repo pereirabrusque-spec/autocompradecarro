@@ -62,17 +62,9 @@ export class AIService {
   }
 
   static async generateContent(prompt: string, systemInstruction: string, image?: string): Promise<AIResponse> {
-    const keys = await this.getActiveKeys();
+    const { data: allKeys } = await supabase.from('api_keys').select('*');
+    const keys = allKeys || [];
     
-    if (keys.length === 0) {
-      // If no 'ok' keys, try any key
-      const { data: allKeys } = await supabase.from('api_keys').select('*');
-      if (allKeys && allKeys.length > 0) {
-        keys.push(...allKeys);
-      }
-    }
-
-    // Always append the fallback key if available
     if (process.env.GEMINI_API_KEY) {
       keys.push({
         id: 'env-key',
@@ -83,123 +75,111 @@ export class AIService {
       });
     }
 
-    if (keys.length === 0) {
-      throw new Error('Nenhuma chave de API configurada no banco ou no ambiente.');
+    // Filtra chaves que não estão desconectadas
+    const availableKeys = keys.filter(k => k.status !== 'disconnected');
+    
+    if (availableKeys.length === 0) {
+      // Se todas desconectadas, tenta re-testar todas
+      await this.testConnections();
+      return await this.generateContent(prompt, systemInstruction, image);
     }
 
-    // Try each key until one works
-    for (const apiKey of keys) {
-      try {
-        let modelName = apiKey.service || (apiKey.provider === 'gemini' ? 'gemini-3-flash-preview' : 'gpt-4o-mini');
-        if (modelName === 'gemini-1.5-flash' || modelName === 'gemini-pro' || modelName === 'gemini-1.5-pro') {
-          modelName = 'gemini-3-flash-preview';
-        }
+    // Tenta a primeira chave disponível
+    const apiKey = availableKeys[0];
+    
+    try {
+      let modelName = apiKey.service || (apiKey.provider === 'gemini' ? 'gemini-3-flash-preview' : 'gpt-4o-mini');
+      if (modelName === 'gemini-1.5-flash' || modelName === 'gemini-pro' || modelName === 'gemini-1.5-pro') {
+        modelName = 'gemini-3-flash-preview';
+      }
 
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('TIMEOUT')), 30000); // 30s timeout
-        });
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('TIMEOUT')), 30000); // 30s timeout
+      });
 
-        const apiCallPromise = async () => {
-          if (apiKey.provider === 'gemini') {
-            const ai = new GoogleGenAI({ apiKey: apiKey.key });
-            
-            const parts: any[] = [];
-            if (prompt) parts.push({ text: prompt });
-            if (image) {
-              parts.push({
-                inlineData: {
-                  data: image.split(',')[1],
-                  mimeType: 'image/jpeg'
-                }
-              });
-            }
-
-            const response = await ai.models.generateContent({
-              model: modelName,
-              contents: [{ role: 'user', parts }],
-              config: { systemInstruction }
+      const apiCallPromise = async () => {
+        if (apiKey.provider === 'gemini') {
+          const ai = new GoogleGenAI({ apiKey: apiKey.key });
+          
+          const parts: any[] = [];
+          if (prompt) parts.push({ text: prompt });
+          if (image) {
+            parts.push({
+              inlineData: {
+                data: image.split(',')[1],
+                mimeType: 'image/jpeg'
+              }
             });
-            
-            if (response.text) {
-              return {
-                text: response.text,
-                provider: 'gemini',
-                model: modelName
-              };
-            }
-            throw new Error('Empty response from Gemini');
-          } else {
-            // OpenAI-compatible providers (OpenAI, Grok, etc.)
-            const baseUrl = apiKey.provider === 'openai' ? 'https://api.openai.com/v1' :
-                            apiKey.provider === 'grok' ? 'https://api.x.ai/v1' :
-                            `https://api.${apiKey.provider}.com/v1`;
+          }
 
-            const content: any[] = [
-              { type: 'text', text: prompt || 'Analise esta imagem.' }
-            ];
-            if (image) {
-              content.push({ type: 'image_url', image_url: { url: image } });
-            }
-
-            const response = await fetch(`${baseUrl}/chat/completions`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey.key}`
-              },
-              body: JSON.stringify({
-                model: modelName,
-                messages: [
-                  { role: 'system', content: systemInstruction },
-                  { role: 'user', content }
-                ],
-                temperature: 0.4
-              })
-            });
-            
-            if (!response.ok) {
-              const errorData = await response.json().catch(() => ({}));
-              throw new Error(errorData.error?.message || `${apiKey.provider} API Error`);
-            }
-
-            const data = await response.json();
+          const response = await ai.models.generateContent({
+            model: modelName,
+            contents: [{ role: 'user', parts }],
+            config: { systemInstruction }
+          });
+          
+          if (response.text) {
             return {
-              text: data.choices[0].message.content,
-              provider: apiKey.provider,
+              text: response.text,
+              provider: 'gemini',
               model: modelName
             };
           }
-        };
+          throw new Error('Empty response from Gemini');
+        } else {
+          // OpenAI-compatible providers (OpenAI, Grok, etc.)
+          const baseUrl = apiKey.provider === 'openai' ? 'https://api.openai.com/v1' :
+                          apiKey.provider === 'grok' ? 'https://api.x.ai/v1' :
+                          `https://api.${apiKey.provider}.com/v1`;
 
-        const result = await Promise.race([apiCallPromise(), timeoutPromise]);
-        
-        await this.updateKeyStatus(apiKey.id, 'ok', 0);
-        return result as AIResponse;
+          const content: any[] = [
+            { type: 'text', text: prompt || 'Analise esta imagem.' }
+          ];
+          if (image) {
+            content.push({ type: 'image_url', image_url: { url: image } });
+          }
 
-      } catch (error: any) {
-        console.error(`Error with ${apiKey.provider} key ${apiKey.id}:`, error);
-        
-        let newStatus: 'ok' | 'no_credit' | 'disconnected' | 'rate_limited' = 'disconnected';
-        const errMsg = error.message?.toLowerCase() || '';
-        
-        if (errMsg.includes('credit') || errMsg.includes('quota') || errMsg.includes('limit') || errMsg.includes('429') || errMsg.includes('too many requests')) {
-          newStatus = 'rate_limited';
-        } else if (errMsg === 'timeout') {
-          console.warn(`API ${apiKey.provider} timed out after 10s. Switching to next...`);
-          newStatus = 'disconnected';
+          const response = await fetch(`${baseUrl}/chat/completions`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiKey.key}`
+            },
+            body: JSON.stringify({
+              model: modelName,
+              messages: [
+                { role: 'system', content: systemInstruction },
+                { role: 'user', content }
+              ],
+              temperature: 0.4
+            })
+          });
+          
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error?.message || `${apiKey.provider} API Error`);
+          }
+
+          const data = await response.json();
+          return {
+            text: data.choices[0].message.content,
+            provider: apiKey.provider,
+            model: modelName
+          };
         }
-        
-        await this.updateKeyStatus(apiKey.id, newStatus, (apiKey.error_count || 0) + 1);
-        continue;
-      }
-    }
+      };
 
-    // If all keys failed, try a full re-test and then try one more time
-    console.warn('[AIService] Todas as chaves falharam. Forçando re-teste de todas...');
-    await this.testConnections();
-    
-    // Try one more time with fresh statuses
-    return await this.generateContent(prompt, systemInstruction, image);
+      const result = await Promise.race([apiCallPromise(), timeoutPromise]);
+      
+      await this.updateKeyStatus(apiKey.id, 'ok', 0);
+      return result as AIResponse;
+
+    } catch (error: any) {
+      console.error(`Error with ${apiKey.provider} key ${apiKey.id}:`, error);
+      
+      await this.updateKeyStatus(apiKey.id, 'disconnected', (apiKey.error_count || 0) + 1);
+      return await this.generateContent(prompt, systemInstruction, image);
+    }
   }
 
   static async testConnections(): Promise<void> {

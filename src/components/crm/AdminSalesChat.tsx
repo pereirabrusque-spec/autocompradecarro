@@ -40,10 +40,12 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
     // Fetch messages for this CRM chat
     const fetchMessages = async () => {
       console.log('[AdminSalesChat] Fetching messages for conversationId:', conversationId);
+      // Busca mensagens onde o remetente ou destinatário é o conversationId, 
+      // ou mensagens enviadas para o admin (receiver_id is null) pelo conversationId
       const { data, error } = await supabase
         .from('internal_messages')
-        .select('*, profiles(full_name, avatar_url)')
-        .or(`sender_id.eq.${conversationId},receiver_id.eq.${conversationId}`)
+        .select('*, profiles:sender_id(full_name, avatar_url)')
+        .or(`and(sender_id.eq.${conversationId},receiver_id.is.null),and(sender_id.eq.${conversationId},receiver_id.eq.${conversationId}),and(sender_id.eq.${conversationId},receiver_id.eq.${currentUserId}),and(sender_id.eq.${currentUserId},receiver_id.eq.${conversationId})`)
         .order('created_at', { ascending: true });
       
       if (error) {
@@ -84,8 +86,14 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
     const subscription = supabase
       .channel(`crm_chat_${conversationId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'internal_messages' }, (payload) => {
-        if (payload.new.sender_id === conversationId || payload.new.receiver_id === conversationId) {
-          setMessages(prev => [...prev, payload.new]);
+        const msg = payload.new;
+        // Verifica se a mensagem é relevante para esta conversa
+        const isRelevant = 
+          (msg.sender_id === conversationId && (msg.receiver_id === null || msg.receiver_id === conversationId || msg.receiver_id === currentUserId)) ||
+          (msg.sender_id === currentUserId && msg.receiver_id === conversationId);
+        
+        if (isRelevant) {
+          setMessages(prev => [...prev, msg]);
         }
       })
       .subscribe();
