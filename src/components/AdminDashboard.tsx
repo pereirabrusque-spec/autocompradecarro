@@ -198,18 +198,23 @@ export default function AdminDashboard() {
   const [isRefreshingUsers, setIsRefreshingUsers] = useState(false);
 
   const refreshUsers = async () => {
-    if (activeTab !== 'users' && activeTab !== 'dashboard') return;
+    console.log('Iniciando refreshUsers. activeTab:', activeTab);
+    if (activeTab !== 'users' && activeTab !== 'dashboard') {
+      console.log('refreshUsers abortado: tab incorreta');
+      return;
+    }
     setIsRefreshingUsers(true);
     try {
       const { data, error } = await supabase.from('profiles').select('*').order('last_login', { ascending: false });
       if (error) {
-        console.error('Error refreshing users:', error);
+        console.error('Error refreshing users (Supabase):', error);
       } else {
-        console.log('Users refreshed:', data);
+        console.log('Users refreshed successfully. Data length:', data?.length);
+        console.log('Dados recebidos:', data);
         setUsers(data || []);
       }
     } catch (error) {
-      console.error('Error refreshing users:', error);
+      console.error('Error refreshing users (Exception):', error);
     } finally {
       setIsRefreshingUsers(false);
     }
