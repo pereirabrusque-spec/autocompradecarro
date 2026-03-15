@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Send, Bot, User, MessageCircle } from 'lucide-react';
 
@@ -6,6 +6,17 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
   const [isAiMode, setIsAiMode] = useState(true);
+  
+  useEffect(() => {
+    supabase.from('settings').select('value').eq('key', 'AI_CRM_MODE').single().then(({ data }) => {
+      if (data) setIsAiMode(data.value === 'true');
+    });
+  }, []);
+
+  const toggleAiMode = async (newMode: boolean) => {
+    setIsAiMode(newMode);
+    await supabase.from('settings').upsert({ key: 'AI_CRM_MODE', value: newMode.toString() });
+  };
   const [userPhone, setUserPhone] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [userAvatar, setUserAvatar] = useState('');
@@ -35,8 +46,12 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
   const saveAiPrompt = async () => {
     setIsSavingPrompt(true);
     const { error } = await supabase.from('settings').upsert({ key: 'AI_CRM_PROMPT', value: aiPrompt });
-    if (error) alert('Erro ao salvar prompt');
-    else alert('Prompt salvo com sucesso!');
+    if (error) {
+        console.error('Erro ao salvar prompt:', error);
+        alert(`Erro ao salvar prompt: ${error.message}`);
+    } else {
+        alert('Prompt salvo com sucesso!');
+    }
     setIsSavingPrompt(false);
     setShowAiRules(false);
   };
@@ -51,7 +66,7 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
       console.log('[AdminSalesChat] Fetching messages for conversationId:', conversationId);
       const { data, error } = await supabase
         .from('internal_messages')
-        .select('*, profiles(full_name, avatar_url)')
+        .select('*')
         .or(`sender_id.eq.${conversationId},receiver_id.eq.${conversationId}`)
         .order('created_at', { ascending: true });
       
@@ -151,7 +166,7 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
             </a>
           )}
           <button 
-            onClick={() => setIsAiMode(!isAiMode)}
+            onClick={() => toggleAiMode(!isAiMode)}
             className={`px-3 py-1 rounded-full text-xs font-bold ${isAiMode ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'}`}
           >
             {isAiMode ? 'IA Ativa' : 'Humano Ativo'}

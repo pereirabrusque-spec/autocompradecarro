@@ -27,7 +27,6 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
             .from('internal_messages')
             .select('*', { count: 'exact', head: true })
             .eq('sender_id', conv.id)
-            .is('receiver_id', null)
             .eq('is_read', false);
           counts[conv.id] = count || 0;
         }
