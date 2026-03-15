@@ -28,12 +28,46 @@ export default function AdminMessages() {
     }
   };
 
+  const markAsRead = async (senderId: string) => {
+    if (!user) return;
+    const { error } = await supabase
+      .from('internal_messages')
+      .update({ is_read: true })
+      .eq('sender_id', senderId)
+      .eq('receiver_id', user.id);
+    
+    if (error) console.error('Error marking messages as read:', error);
+    else fetchConversations(); // Refresh to update unread counts
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !selectedConversation) return;
+    if (!newMessage.trim() || !selectedConversation || !user) return;
 
-    // Send message logic here
-    setNewMessage('');
+    const { error } = await supabase.from('internal_messages').insert({
+      sender_id: user.id,
+      receiver_id: selectedConversation.sender_id,
+      content: newMessage,
+      is_read: true
+    });
+
+    if (error) {
+      console.error('Error sending message:', error);
+    } else {
+      setNewMessage('');
+      fetchMessagesForConversation(selectedConversation.sender_id);
+    }
+  };
+
+  const fetchMessagesForConversation = async (senderId: string) => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('internal_messages')
+      .select('*')
+      .or(`and(sender_id.eq.${user.id},receiver_id.eq.${senderId}),and(sender_id.eq.${senderId},receiver_id.eq.${user.id})`)
+      .order('created_at', { ascending: true });
+    
+    if (data) setMessages(data);
   };
 
   return (
@@ -62,7 +96,11 @@ export default function AdminMessages() {
         </div>
         <div className="flex-1 overflow-y-auto">
           {conversations.map((conv) => (
-            <div key={conv.id} onClick={() => setSelectedConversation(conv)} className="p-4 border-b border-slate-50 cursor-pointer hover:bg-slate-50">
+            <div key={conv.id} onClick={() => {
+              setSelectedConversation(conv);
+              markAsRead(conv.sender_id);
+              fetchMessagesForConversation(conv.sender_id);
+            }} className="p-4 border-b border-slate-50 cursor-pointer hover:bg-slate-50">
               <h4 className="font-bold text-sm">{conv.sender_id}</h4>
               <p className="text-xs text-slate-500 truncate">{conv.content}</p>
             </div>
