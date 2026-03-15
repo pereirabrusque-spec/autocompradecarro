@@ -37,6 +37,8 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
   };
 
   useEffect(() => {
+    if (!currentUserId) return;
+    
     // Fetch messages for this CRM chat
     const fetchMessages = async () => {
       console.log('[AdminSalesChat] Fetching messages for conversationId:', conversationId);
@@ -45,7 +47,7 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
       const { data, error } = await supabase
         .from('internal_messages')
         .select('*, profiles:sender_id(full_name, avatar_url)')
-        .or(`and(sender_id.eq.${conversationId},receiver_id.is.null),and(sender_id.eq.${conversationId},receiver_id.eq.${conversationId}),and(sender_id.eq.${conversationId},receiver_id.eq.${currentUserId}),and(sender_id.eq.${currentUserId},receiver_id.eq.${conversationId})`)
+        .or(`sender_id.eq.${conversationId},receiver_id.eq.${conversationId}`)
         .order('created_at', { ascending: true });
       
       if (error) {
@@ -101,7 +103,7 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
     return () => {
       subscription.unsubscribe();
     };
-  }, [conversationId]);
+  }, [conversationId, currentUserId]);
 
   const sendMessage = async () => {
     if (!input.trim()) return;
