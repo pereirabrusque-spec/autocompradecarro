@@ -2104,7 +2104,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
       </header>
 
       <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
-        <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
             initial={{ opacity: 0, y: 10 }}
@@ -3063,6 +3062,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                       setEditingUser(user);
                                       setEditUserForm({
                                         full_name: user.full_name || '',
+                                        email: user.email || '',
                                         phone: user.phone || '',
                                         role: user.role || 'user'
                                       });
@@ -4454,12 +4454,13 @@ Podemos prosseguir com o agendamento da vistoria?`;
                               <div className="flex items-center gap-2">
                                 <button 
                                   onClick={async () => {
-                                    // Busca as permissões mais recentes do banco antes de abrir
+                                    // Busca as permissões mais recentes do banco antes de abrir (globais)
                                     const { data: authData } = await supabase
                                       .from('buyer_crm_permissions')
                                       .select('permissions')
                                       .eq('buyer_id', buyer.id)
-                                      .single();
+                                      .is('lead_id', null)
+                                      .maybeSingle();
 
                                     let permissions = authData?.permissions;
                                     
@@ -6546,7 +6547,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
           </div>
         )}
           </motion.div>
-        </AnimatePresence>
       </main>
 
         {/* Modal de WhatsApp */}
@@ -6805,6 +6805,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
             </div>
           </div>
         )}
+
       {showBuyerPermissionsModal && selectedBuyer && (
         <BuyerPermissionsModal 
           buyer={selectedBuyer} 
@@ -6812,141 +6813,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
         />
       )}
 
-      {/* Modal de Confirmação de Exclusão */}
-      <AnimatePresence>
-        {showAddUserModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-[32px] p-8 max-w-md w-full shadow-2xl"
-            >
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-2xl font-bold">Novo Usuário</h3>
-                <button onClick={() => setShowAddUserModal(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-                  <X className="w-6 h-6 text-slate-400" />
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Nome Completo</label>
-                  <input 
-                    type="text" 
-                    value={newUserForm.full_name}
-                    onChange={e => setNewUserForm({...newUserForm, full_name: e.target.value})}
-                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-accent/20"
-                    placeholder="Ex: João Silva"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Email</label>
-                  <input 
-                    type="email" 
-                    value={newUserForm.email}
-                    onChange={e => setNewUserForm({...newUserForm, email: e.target.value})}
-                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-accent/20"
-                    placeholder="email@exemplo.com"
-                  />
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* BuyerPermissionsModal Component */}
-      {showBuyerPermissionsModal && selectedBuyer && (
-        <BuyerPermissionsModal 
-          buyer={selectedBuyer} 
-          onClose={() => setShowBuyerPermissionsModal(false)} 
-        />
-      )}
-    </div>
-  );
-}
-
-const BuyerPermissionsModal = ({ buyer, onClose }: { buyer: any, onClose: () => void }) => {
-  const [form, setForm] = useState({
-    show_photos: true,
-    show_price: true,
-    show_plate: false,
-    show_details: true,
-    show_client_data: false,
-    send_whatsapp: false,
-    send_chat: false,
-    send_fipe: false,
-    send_banco: false
-  });
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchPermissions = async () => {
-      const { data } = await supabase
-        .from('buyer_crm_permissions')
-        .select('permissions')
-        .eq('buyer_id', buyer.id)
-        .single();
-      
-      if (data?.permissions) {
-        setForm(data.permissions);
-      }
-      setLoading(false);
-    };
-    fetchPermissions();
-  }, [buyer.id]);
-
-  const handleSave = async () => {
-    const { data: existingRecord } = await supabase
-      .from('buyer_crm_permissions')
-      .select('id')
-      .eq('buyer_id', buyer.id)
-      .single();
-
-    let error;
-    if (existingRecord) {
-      const { error: updateError } = await supabase
-        .from('buyer_crm_permissions')
-        .update({ permissions: form })
-        .eq('id', existingRecord.id);
-      error = updateError;
-    } else {
-      const { error: insertError } = await supabase
-        .from('buyer_crm_permissions')
-        .insert({ buyer_id: buyer.id, permissions: form });
-      error = insertError;
-    }
-
-    if (error) alert('Erro: ' + error.message);
-    else {
-      alert('Permissões salvas com sucesso!');
-      onClose();
-    }
-  };
-
-  if (loading) return <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">Carregando...</div>;
-
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl p-8 max-w-md w-full space-y-6">
-        <h3 className="text-xl font-bold">Permissões para {buyer.email}</h3>
-        <div className="space-y-4">
-          {/* Checkboxes */}
-          <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
-            <span className="font-bold text-sm">Ver Fotos</span>
-            <input type="checkbox" checked={form.show_photos} onChange={e => setForm({...form, show_photos: e.target.checked})} className="w-5 h-5 accent-slate-900" />
-          </div>
-          {/* ... (repeat for other checkboxes) */}
-          <button onClick={handleSave} className="flex-1 bg-slate-900 text-white py-3 rounded-xl font-bold">Salvar</button>
-          <button onClick={onClose} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">Cancelar</button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-      {/* Modal de Confirmação de Exclusão */}
       <AnimatePresence>
         {showAddUserModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -7217,23 +7083,119 @@ const BuyerPermissionsModal = ({ buyer, onClose }: { buyer: any, onClose: () => 
           </div>
         )}
       </AnimatePresence>
-
-      {/* Toast Notifications */}
-      <AnimatePresence>
-        {toast && (
-          <motion.div 
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-            className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-[110] px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 font-bold text-white ${
-              toast.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'
-            }`}
-          >
-            {toast.type === 'success' ? <ShieldCheck className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
-            {toast.message}
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
+
+const BuyerPermissionsModal = ({ buyer, onClose }: { buyer: any, onClose: () => void }) => {
+  const [form, setForm] = useState({
+    show_photos: true,
+    show_price: true,
+    show_plate: false,
+    show_details: true,
+    show_client_data: false,
+    send_whatsapp: false,
+    send_chat: false,
+    send_fipe: false,
+    send_banco: false
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPermissions = async () => {
+      const { data } = await supabase
+        .from('buyer_crm_permissions')
+        .select('permissions')
+        .eq('buyer_id', buyer.id)
+        .is('lead_id', null)
+        .maybeSingle();
+      
+      if (data?.permissions) {
+        setForm(data.permissions);
+      }
+      setLoading(false);
+    };
+    fetchPermissions();
+  }, [buyer.id]);
+
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('buyer_crm_permissions')
+        .upsert({ 
+          buyer_id: buyer.id, 
+          lead_id: null,
+          permissions: form,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'buyer_id,lead_id'
+        });
+
+      if (error) throw error;
+      
+      alert('Permissões salvas com sucesso!');
+      onClose();
+    } catch (error: any) {
+      console.error('Error saving permissions:', error);
+      alert('Erro ao salvar: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) return <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">Carregando...</div>;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl p-8 max-w-md w-full space-y-6">
+        <h3 className="text-xl font-bold">Permissões para {buyer.email}</h3>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+            <span className="font-bold text-sm">Ver Fotos</span>
+            <input type="checkbox" checked={form.show_photos} onChange={e => setForm({...form, show_photos: e.target.checked})} className="w-5 h-5 accent-slate-900" />
+          </div>
+          <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+            <span className="font-bold text-sm">Ver Preço</span>
+            <input type="checkbox" checked={form.show_price} onChange={e => setForm({...form, show_price: e.target.checked})} className="w-5 h-5 accent-slate-900" />
+          </div>
+          <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+            <span className="font-bold text-sm">Ver Placa</span>
+            <input type="checkbox" checked={form.show_plate} onChange={e => setForm({...form, show_plate: e.target.checked})} className="w-5 h-5 accent-slate-900" />
+          </div>
+          <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+            <span className="font-bold text-sm">Ver Detalhes Técnicos</span>
+            <input type="checkbox" checked={form.show_details} onChange={e => setForm({...form, show_details: e.target.checked})} className="w-5 h-5 accent-slate-900" />
+          </div>
+          <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+            <span className="font-bold text-sm">Dados do Cliente</span>
+            <input type="checkbox" checked={form.show_client_data} onChange={e => setForm({...form, show_client_data: e.target.checked})} className="w-5 h-5 accent-slate-900" />
+          </div>
+          <div className="pt-4 border-t border-slate-100">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Configurações de Envio</p>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl cursor-pointer">
+                <input type="checkbox" checked={form.send_whatsapp} onChange={e => setForm({...form, send_whatsapp: e.target.checked})} className="w-4 h-4 accent-accent" />
+                <span className="text-xs font-bold">WhatsApp</span>
+              </label>
+              <label className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl cursor-pointer">
+                <input type="checkbox" checked={form.send_chat} onChange={e => setForm({...form, send_chat: e.target.checked})} className="w-4 h-4 accent-accent" />
+                <span className="text-xs font-bold">Chat Interno</span>
+              </label>
+              <label className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl cursor-pointer">
+                <input type="checkbox" checked={form.send_fipe} onChange={e => setForm({...form, send_fipe: e.target.checked})} className="w-4 h-4 accent-accent" />
+                <span className="text-xs font-bold">Dados FIPE</span>
+              </label>
+              <label className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl cursor-pointer">
+                <input type="checkbox" checked={form.send_banco} onChange={e => setForm({...form, send_banco: e.target.checked})} className="w-4 h-4 accent-accent" />
+                <span className="text-xs font-bold">Dados Banco</span>
+              </label>
+            </div>
+          </div>
+          <button onClick={handleSave} className="flex-1 bg-slate-900 text-white py-3 rounded-xl font-bold">Salvar</button>
+          <button onClick={onClose} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  );
+};

@@ -38,9 +38,11 @@ import { authManager } from './lib/authManager';
 
 function AppContent() {
   const [view, setView] = useState<'home' | 'admin' | 'buyer' | 'login' | 'forgot-password' | 'reset-password' | 'sell' | 'auth-callback' | 'thank-you'>('home');
-  const { user, isAdmin, isBuyer, isLoading } = useAuth();
+  const { user, profile, isAdmin, isBuyer, isLoading } = useAuth();
   const { settings } = useAssets();
   const [showAuthModal, setShowAuthModal] = useState(false);
+
+  const isBuyerMaster = profile?.role === 'buyer_master';
 
   const specialistButtonEnabled = settings['SPECIALIST_BUTTON_ENABLED'] === 'true';
   const primaryContact = settings['PRIMARY_CONTACT_METHOD'] || 'chat';
@@ -223,7 +225,9 @@ function AppContent() {
       
       {/* Contact Widgets */}
       {showChat && <ChatAssistant isOpen={isChatOpen} onOpen={() => setIsChatOpen(true)} onClose={() => setIsChatOpen(false)} />}
-      {showWhatsApp && <WhatsAppButton />}
+      {(showWhatsApp || (view === 'buyer' && isBuyerMaster)) && (
+        <WhatsAppButton forceShow={view === 'buyer' && isBuyerMaster} />
+      )}
       {showTawkTo && <TawkTo />}
       
       {/* Botão flutuante para abrir o Chat se configurado */}

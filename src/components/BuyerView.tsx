@@ -41,12 +41,13 @@ export default function BuyerView() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [whatsappNumber, setWhatsappNumber] = useState('');
   const [permissions, setPermissions] = useState({
-    show_price: false, // Seguro por padrão
+    show_price: false,
     show_photos: true,
     show_plate: false,
-    show_details: false, // Seguro por padrão
+    show_details: false,
+    show_client_data: false,
     show_history: false,
-    send_whatsapp: false // Adicionado
+    send_whatsapp: false
   });
 
   const roleDisplay = {
@@ -122,26 +123,62 @@ export default function BuyerView() {
     if (!user) return;
     setIsLoading(true);
     try {
-      // 1. Buscar permissões específicas do usuário
+      // 1. Buscar permissões específicas do usuário (globais, onde lead_id é nulo)
       const { data: userAuth } = await supabase
         .from('buyer_crm_permissions')
         .select('permissions')
-        .eq('user_id', user.id)
-        .single();
+        .eq('buyer_id', user.id)
+        .is('lead_id', null)
+        .maybeSingle();
 
       if (userAuth && userAuth.permissions) {
         setPermissions(userAuth.permissions);
       } else {
-        // Fallback: Definir permissões baseadas no cargo
+        // Fallback: Definir permissões baseadas no cargo conforme regras solicitadas
         const role = profile?.role;
         if (role === 'buyer') {
-          setPermissions({ show_photos: true, show_price: false, show_plate: false, show_details: false, show_history: false, send_whatsapp: false });
+          // Comprador: fotos e dados do veículo (básicos)
+          setPermissions({ 
+            show_photos: true, 
+            show_price: false, 
+            show_plate: false, 
+            show_details: false, 
+            show_client_data: false,
+            show_history: false, 
+            send_whatsapp: false 
+          });
         } else if (role === 'buyer_premium') {
-          setPermissions({ show_photos: true, show_price: true, show_plate: true, show_details: true, show_history: true, send_whatsapp: true });
+          // Comprador Premium: fotos e todos dados do formulário (detalhes técnicos)
+          setPermissions({ 
+            show_photos: true, 
+            show_price: true, 
+            show_plate: true, 
+            show_details: true, 
+            show_client_data: false,
+            show_history: true, 
+            send_whatsapp: false 
+          });
         } else if (role === 'buyer_master') {
-          setPermissions({ show_photos: true, show_price: true, show_plate: true, show_details: true, show_history: true, send_whatsapp: true });
+          // Comprador Master: tudo inclusive dados do cliente e whatsapp
+          setPermissions({ 
+            show_photos: true, 
+            show_price: true, 
+            show_plate: true, 
+            show_details: true, 
+            show_client_data: true,
+            show_history: true, 
+            send_whatsapp: true 
+          });
         } else {
-          setPermissions({ show_photos: true, show_price: true, show_plate: false, show_details: true, show_history: false, send_whatsapp: false });
+          setPermissions({ 
+            show_photos: true, 
+            show_price: true, 
+            show_plate: false, 
+            show_details: true, 
+            show_client_data: false,
+            show_history: false, 
+            send_whatsapp: false 
+          });
         }
       }
 
@@ -382,7 +419,7 @@ export default function BuyerView() {
                 </div>
               </div>
 
-              {permissions.show_details && (
+              {permissions.show_client_data && (
                 <div>
                   <h4 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
                     <User className="w-4 h-4 text-accent" />
@@ -446,7 +483,7 @@ export default function BuyerView() {
               )}
 
               <div className="flex flex-col gap-4">
-                {whatsappNumber && (
+                {whatsappNumber && (permissions.send_whatsapp || profile?.role === 'buyer_master') && (
                   <a
                     href={`https://wa.me/${whatsappNumber}`}
                     target="_blank"

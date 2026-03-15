@@ -13,6 +13,7 @@ interface Profile {
   last_login?: string;
   view_auth?: boolean;
   send_config?: any;
+  notification_enabled?: boolean;
 }
 
 interface AuthContextType {

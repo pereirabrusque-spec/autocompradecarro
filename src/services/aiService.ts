@@ -179,7 +179,7 @@ export class AIService {
       } catch (error: any) {
         console.error(`Error with ${apiKey.provider} key ${apiKey.id}:`, error);
         
-        let newStatus: 'ok' | 'no_credit' | 'disconnected' = 'disconnected';
+        let newStatus: 'ok' | 'no_credit' | 'disconnected' | 'rate_limited' = 'disconnected';
         const errMsg = error.message?.toLowerCase() || '';
         
         if (errMsg.includes('credit') || errMsg.includes('quota') || errMsg.includes('limit') || errMsg.includes('429') || errMsg.includes('too many requests')) {

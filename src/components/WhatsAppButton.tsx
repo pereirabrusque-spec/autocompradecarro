@@ -2,10 +2,10 @@ import React from 'react';
 import { MessageCircle } from 'lucide-react';
 import { useAssets } from '../lib/assetsContext';
 
-export default function WhatsAppButton() {
+export default function WhatsAppButton({ forceShow = false }: { forceShow?: boolean }) {
   const { settings } = useAssets();
   
-  const enabled = settings['WHATSAPP_ENABLED'] === 'true';
+  const enabled = settings['WHATSAPP_ENABLED'] === 'true' || forceShow;
   const number = settings['WHATSAPP_NUMBER'] || '';
   const text = settings['WHATSAPP_BUTTON_TEXT'] || 'WhatsApp';
 

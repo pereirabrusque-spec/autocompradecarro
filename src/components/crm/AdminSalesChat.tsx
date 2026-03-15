@@ -9,6 +9,10 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
   const [userPhone, setUserPhone] = useState('');
   const [showAiRules, setShowAiRules] = useState(false);
 
+  const logWhatsAppUsage = () => {
+    console.log('WhatsApp usage logged');
+  };
+
   useEffect(() => {
     // Fetch messages for this CRM chat
     const fetchMessages = async () => {
