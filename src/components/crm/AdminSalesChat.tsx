@@ -150,7 +150,8 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
     const { data, error } = await supabase.from('internal_messages').insert({
       receiver_id: conversationId,
       content: input,
-      sender_id: user.id
+      sender_id: user.id,
+      is_read: true // Admin messages are read
     }).select().single();
     
     if (error) console.error('Error sending message:', error);
