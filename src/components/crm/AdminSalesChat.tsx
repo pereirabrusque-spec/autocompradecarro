@@ -7,14 +7,32 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
   const [input, setInput] = useState('');
   const [isAiMode, setIsAiMode] = useState(true);
   const [userPhone, setUserPhone] = useState('');
+  const [userEmail, setUserEmail] = useState('');
+  const [userAvatar, setUserAvatar] = useState('');
   const [showAiRules, setShowAiRules] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [isSavingPrompt, setIsSavingPrompt] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) setCurrentUserId(user.id);
     });
+    
+    // Load existing prompt
+    supabase.from('settings').select('value').eq('key', 'AI_CRM_PROMPT').single().then(({ data }) => {
+      if (data) setAiPrompt(data.value);
+    });
   }, []);
+
+  const saveAiPrompt = async () => {
+    setIsSavingPrompt(true);
+    const { error } = await supabase.from('settings').upsert({ key: 'AI_CRM_PROMPT', value: aiPrompt });
+    if (error) alert('Erro ao salvar prompt');
+    else alert('Prompt salvo com sucesso!');
+    setIsSavingPrompt(false);
+    setShowAiRules(false);
+  };
 
   const logWhatsAppUsage = () => {
     console.log('WhatsApp usage logged');
@@ -38,18 +56,22 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
         .is('is_read', false);
     };
     
-    const fetchUserPhone = async () => {
+    const fetchUserData = async () => {
         const { data } = await supabase
           .from('profiles')
-          .select('phone')
+          .select('phone, email, avatar_url')
           .eq('id', conversationId)
           .single();
-        if (data) setUserPhone(data.phone);
-        else console.error('Error fetching phone: No data found for ID', conversationId);
+        if (data) {
+            setUserPhone(data.phone);
+            setUserEmail(data.email);
+            setUserAvatar(data.avatar_url);
+        }
+        else console.error('Error fetching user data: No data found for ID', conversationId);
     };
 
     fetchMessages();
-    fetchUserPhone();
+    fetchUserData();
 
     // Real-time subscription
     const subscription = supabase
@@ -87,7 +109,13 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
   return (
     <div className="flex flex-col h-full bg-white rounded-2xl border border-slate-200">
       <div className="p-4 border-b border-slate-100 flex justify-between items-center">
-        <h3 className="font-bold">Chat de Vendas</h3>
+        <div className="flex items-center gap-3">
+            {userAvatar && <img src={userAvatar} alt="Avatar" className="w-10 h-10 rounded-full" />}
+            <div>
+                <h3 className="font-bold">Chat de Vendas</h3>
+                <p className="text-xs text-slate-500">{userEmail}</p>
+            </div>
+        </div>
         <div className="flex gap-2">
           <button 
             onClick={() => setShowAiRules(!showAiRules)}
@@ -116,9 +144,22 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
       </div>
       
       {showAiRules && (
-        <div className="p-4 bg-slate-50 border-b border-slate-100 text-xs text-slate-600">
-          <h4 className="font-bold mb-1">Regras da IA:</h4>
-          <p>A IA responde automaticamente baseada no histórico da conversa.</p>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+            <h4 className="font-bold mb-4 text-lg">Configurar IA de Atendimento</h4>
+            <textarea 
+              className="w-full h-40 p-3 border border-slate-200 rounded-lg text-sm mb-4"
+              value={aiPrompt}
+              onChange={e => setAiPrompt(e.target.value)}
+              placeholder="Cole aqui as regras e memória para a IA..."
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowAiRules(false)} className="px-4 py-2 text-slate-600">Cancelar</button>
+              <button onClick={saveAiPrompt} disabled={isSavingPrompt} className="px-4 py-2 bg-slate-900 text-white rounded-lg">
+                {isSavingPrompt ? 'Salvando...' : 'Salvar'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

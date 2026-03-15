@@ -711,7 +711,7 @@ export default function AdminDashboard() {
       if (error) throw error;
 
       // Buscar perfis (apenas clientes/usuários)
-      const { data: profiles } = await supabase.from('profiles').select('id, email, full_name, role').eq('role', 'user');
+      const { data: profiles } = await supabase.from('profiles').select('id, email, full_name, role, avatar_url').eq('role', 'user');
 
       const conversationsMap = new Map();
       
@@ -726,6 +726,7 @@ export default function AdminDashboard() {
           conversationsMap.set(otherUserId, {
             userId: otherUserId,
             userName: profile.full_name || profile.email || `Usuário ${otherUserId.substring(0, 8)}`,
+            avatarUrl: profile.avatar_url,
             lastMessage: msg.content,
             lastMessageTime: msg.created_at,
             unreadCount: 0
@@ -739,6 +740,7 @@ export default function AdminDashboard() {
           conversationsMap.set(p.id, {
             userId: p.id,
             userName: p.full_name || p.email || `Usuário ${p.id.substring(0, 8)}`,
+            avatarUrl: p.avatar_url,
             lastMessage: 'Nenhuma conversa iniciada',
             lastMessageTime: new Date().toISOString(),
             unreadCount: 0

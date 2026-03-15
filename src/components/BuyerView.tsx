@@ -479,9 +479,11 @@ export default function BuyerView() {
                   {selectedLead.observacoes && (
                     <div>
                       <h4 className="text-sm font-bold text-slate-900 mb-2">Observações Adicionais</h4>
-                      <p className="text-sm text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-2xl italic">
-                        "{selectedLead.observacoes}"
-                      </p>
+                      <div className="text-sm text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-2xl">
+                        {selectedLead.observacoes.split('.').filter((s: string) => s.trim()).map((s: string, i: number) => (
+                          <p key={i} className="mb-1">• {s.trim()}</p>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
