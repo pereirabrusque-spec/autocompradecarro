@@ -244,7 +244,7 @@ function AppContent() {
       )}
       
       {/* Real-time Chat Widget for logged users */}
-      <ChatWidget />
+      {!isAdmin && <ChatWidget />}
       
       <SellModal />
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />

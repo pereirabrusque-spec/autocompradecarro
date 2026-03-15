@@ -12,7 +12,11 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [aiPrompt, setAiPrompt] = useState('Você é um assistente de vendas especializado. Seu objetivo é orientar o comprador a fazer a melhor proposta possível para garantir o fechamento da venda. Seja persuasivo, profissional e foque nos benefícios do veículo. Se o comprador estiver indeciso, destaque os diferenciais do veículo e a oportunidade de negócio. Nunca perca uma venda por falta de negociação.');
   const [isAiMode, setIsAiMode] = useState(true);
-  const [isSavingPrompt, setIsSavingPrompt] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -194,9 +198,13 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
               <div key={m.id} className={`flex ${m.sender_id === currentUserId ? 'justify-end' : 'justify-start'}`}>
                 <div className={`p-3 rounded-xl text-sm max-w-[80%] ${m.sender_id === currentUserId ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-900'}`}>
                   {m.content}
+                  <p className={`text-[9px] mt-1 ${m.sender_id === currentUserId ? 'text-slate-300' : 'text-slate-500'}`}>
+                    {new Date(m.created_at).toLocaleDateString()} {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
                 </div>
               </div>
             ))}
+            <div ref={messagesEndRef} />
           </div>
           <div className="p-4 border-t border-slate-100 flex gap-2">
             <input 

@@ -84,7 +84,7 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
     console.log('[InternalChat] Fetching messages for user:', user?.id, 'leadId:', leadId);
     const { data, error } = await supabase
       .from('internal_messages')
-      .select('*, profiles:sender_id(full_name, avatar_url)')
+      .select('*')
       .or(`sender_id.eq.${user?.id},receiver_id.eq.${user?.id}`)
       .order('created_at', { ascending: true });
 
@@ -171,7 +171,7 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
                   <div>
                     {msg.content}
                     <p className={`text-[9px] mt-1 text-right ${msg.sender_id === user?.id ? 'text-blue-100' : 'text-slate-400'}`}>
-                      {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {new Date(msg.created_at).toLocaleDateString()} {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
                 </div>
