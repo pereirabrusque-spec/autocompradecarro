@@ -5,7 +5,7 @@ import { Send, Bot, User, MessageCircle } from 'lucide-react';
 export const AdminSalesChat = ({ conversationId, role }: { conversationId: string, role: string }) => {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
-  const [isAiMode, setIsAiMode] = useState(false); // Inicia desligado
+  const [isAiMode, setIsAiMode] = useState(false);
   
   useEffect(() => {
     supabase.from('settings').select('value').eq('key', 'AI_CRM_MODE').single().then(({ data }) => {

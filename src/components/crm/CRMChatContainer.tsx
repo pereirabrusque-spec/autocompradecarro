@@ -66,10 +66,10 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
   };
 
   return (
-    <div className="flex h-[calc(100vh-120px)] bg-white rounded-2xl border border-slate-200 overflow-hidden">
+    <div className="flex h-[calc(100vh-120px)] bg-white rounded-2xl border border-slate-200 overflow-hidden w-full">
       {/* Buyer List */}
-      <div className="w-1/3 border-r border-slate-200 flex flex-col">
-        <div className="p-4 border-b border-slate-100 font-bold flex justify-between items-center">
+      <div className="w-1/3 border-r border-slate-200 flex flex-col shrink-0">
+        <div className="p-4 border-b border-slate-100 font-bold flex justify-between items-center shrink-0">
             Conversas
             <button 
                 onClick={() => setShowAiRules(true)}
@@ -85,7 +85,7 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
                 key={conv.id} 
                 onClick={() => setSelectedConversationId(conv.id)}
                 className={`p-2 border-b border-slate-100 cursor-pointer hover:bg-slate-50 flex justify-between items-center ${selectedConversationId === conv.id ? 'bg-slate-100' : ''}`}
-                style={{ height: '48px' }} // 12mm approx
+                style={{ height: '48px' }}
             >
                 <div className="flex items-center gap-3 overflow-hidden">
                     {conv.avatar_url ? (
