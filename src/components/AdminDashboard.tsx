@@ -710,9 +710,8 @@ export default function AdminDashboard() {
 
       if (error) throw error;
 
-      // Buscar perfis e compradores para os nomes
-      const { data: profiles } = await supabase.from('profiles').select('id, email');
-      const { data: buyers } = await supabase.from('interested_buyers').select('id, name');
+      // Buscar perfis (apenas clientes/usuários)
+      const { data: profiles } = await supabase.from('profiles').select('id, email, full_name, role').eq('role', 'user');
 
       const conversationsMap = new Map();
       
@@ -720,13 +719,13 @@ export default function AdminDashboard() {
         const otherUserId = msg.sender_id === currentUser.id ? msg.receiver_id : msg.sender_id;
         if (!otherUserId) return;
         
+        const profile = profiles?.find(p => p.id === otherUserId);
+        if (!profile) return; // Só mostra se for 'user' (cliente)
+        
         if (!conversationsMap.has(otherUserId)) {
-          const profile = profiles?.find(p => p.id === otherUserId);
-          const buyer = buyers?.find(b => b.id === otherUserId);
-          
           conversationsMap.set(otherUserId, {
             userId: otherUserId,
-            userName: buyer?.name || profile?.email || `Usuário ${otherUserId.substring(0, 8)}`,
+            userName: profile.full_name || profile.email || `Usuário ${otherUserId.substring(0, 8)}`,
             lastMessage: msg.content,
             lastMessageTime: msg.created_at,
             unreadCount: 0
@@ -734,24 +733,12 @@ export default function AdminDashboard() {
         }
       });
 
-      // Adicionar todos os usuários/compradores que não possuem mensagens
+      // Adicionar todos os usuários que não possuem mensagens
       profiles?.forEach(p => {
         if (p.id !== currentUser.id && !conversationsMap.has(p.id)) {
           conversationsMap.set(p.id, {
             userId: p.id,
-            userName: p.email || `Usuário ${p.id.substring(0, 8)}`,
-            lastMessage: 'Nenhuma conversa iniciada',
-            lastMessageTime: new Date().toISOString(),
-            unreadCount: 0
-          });
-        }
-      });
-
-      buyers?.forEach(b => {
-        if (!conversationsMap.has(b.id)) {
-          conversationsMap.set(b.id, {
-            userId: b.id,
-            userName: b.name,
+            userName: p.full_name || p.email || `Usuário ${p.id.substring(0, 8)}`,
             lastMessage: 'Nenhuma conversa iniciada',
             lastMessageTime: new Date().toISOString(),
             unreadCount: 0

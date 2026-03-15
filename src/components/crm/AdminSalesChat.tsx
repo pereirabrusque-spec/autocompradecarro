@@ -8,6 +8,13 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
   const [isAiMode, setIsAiMode] = useState(true);
   const [userPhone, setUserPhone] = useState('');
   const [showAiRules, setShowAiRules] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setCurrentUserId(user.id);
+    });
+  }, []);
 
   const logWhatsAppUsage = () => {
     console.log('WhatsApp usage logged');
@@ -19,7 +26,7 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
       const { data } = await supabase
         .from('internal_messages')
         .select('*, profiles(full_name, avatar_url)')
-        .eq('lead_id', conversationId)
+        .or(`sender_id.eq.${conversationId},receiver_id.eq.${conversationId}`)
         .order('created_at', { ascending: true });
       setMessages(data || []);
       
@@ -27,17 +34,17 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
       await supabase
         .from('internal_messages')
         .update({ is_read: true })
-        .eq('lead_id', conversationId)
+        .eq('sender_id', conversationId)
         .is('is_read', false);
     };
     
     const fetchUserPhone = async () => {
         const { data } = await supabase
-          .from('interested_buyers')
-          .select('telefone')
+          .from('profiles')
+          .select('phone')
           .eq('id', conversationId)
           .single();
-        if (data) setUserPhone(data.telefone);
+        if (data) setUserPhone(data.phone);
         else console.error('Error fetching phone: No data found for ID', conversationId);
     };
 
@@ -47,8 +54,10 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
     // Real-time subscription
     const subscription = supabase
       .channel(`crm_chat_${conversationId}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'internal_messages', filter: `lead_id=eq.${conversationId}` }, (payload) => {
-        setMessages(prev => [...prev, payload.new]);
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'internal_messages' }, (payload) => {
+        if (payload.new.sender_id === conversationId || payload.new.receiver_id === conversationId) {
+          setMessages(prev => [...prev, payload.new]);
+        }
       })
       .subscribe();
 
@@ -60,11 +69,14 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
   const sendMessage = async () => {
     if (!input.trim()) return;
     
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
     // Save to DB
     const { error } = await supabase.from('internal_messages').insert({
-      lead_id: conversationId,
+      receiver_id: conversationId,
       content: input,
-      sender_id: 'admin',
+      sender_id: user.id,
       is_read: true // Admin messages are read
     });
     
@@ -113,8 +125,8 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map(m => (
-          <div key={m.id} className={`flex ${m.sender_id === 'admin' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`p-3 rounded-xl text-sm max-w-[80%] ${m.sender_id === 'admin' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-900'}`}>
+          <div key={m.id} className={`flex ${m.sender_id === currentUserId ? 'justify-end' : 'justify-start'}`}>
+            <div className={`p-3 rounded-xl text-sm max-w-[80%] ${m.sender_id === currentUserId ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-900'}`}>
               {m.content}
             </div>
           </div>
