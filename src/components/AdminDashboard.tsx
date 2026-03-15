@@ -710,8 +710,8 @@ export default function AdminDashboard() {
 
       if (error) throw error;
 
-      // Buscar perfis (apenas clientes/usuários e vendedores)
-      const { data: profiles } = await supabase.from('profiles').select('id, email, full_name, role, avatar_url').in('role', ['user', 'seller']);
+      // Buscar todos os perfis para garantir dados de avatar e nome
+      const { data: profiles } = await supabase.from('profiles').select('id, email, full_name, role, avatar_url');
 
       const conversationsMap = new Map();
       
@@ -720,7 +720,7 @@ export default function AdminDashboard() {
         if (!otherUserId) return;
         
         const profile = profiles?.find(p => p.id === otherUserId);
-        if (!profile) return; // Só mostra se for 'user' (cliente)
+        if (!profile) return; // Mostra todos os perfis encontrados
         
         if (!conversationsMap.has(otherUserId)) {
           conversationsMap.set(otherUserId, {
