@@ -12,6 +12,7 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [aiPrompt, setAiPrompt] = useState('Você é um assistente de vendas especializado. Seu objetivo é orientar o comprador a fazer a melhor proposta possível para garantir o fechamento da venda. Seja persuasivo, profissional e foque nos benefícios do veículo. Se o comprador estiver indeciso, destaque os diferenciais do veículo e a oportunidade de negócio. Nunca perca uma venda por falta de negociação.');
   const [isAiMode, setIsAiMode] = useState(true);
+  const [isSavingPrompt, setIsSavingPrompt] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

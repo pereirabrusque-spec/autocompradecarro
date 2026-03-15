@@ -295,7 +295,7 @@ export default function ChatWidget() {
                           </button>
                         )}
                         <span className={`text-[10px] block mt-1 ${msg.remetente === 'cliente' ? 'text-white/60' : 'text-slate-400'}`}>
-                          {new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                          {new Date(msg.created_at).toLocaleDateString()} {new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                         </span>
                       </div>
                     </div>
