@@ -29,6 +29,7 @@ import BuyerView from './components/BuyerView';
 import TawkTo from './components/TawkTo';
 import WhatsAppButton from './components/WhatsAppButton';
 import ChatWidget from './components/ChatWidget';
+import InternalChat from './components/InternalChat';
 import AuthModal from './components/AuthModal';
 import { GoogleTags } from './components/GoogleTags';
 import NotificationPermissionModal from './components/NotificationPermissionModal';
@@ -235,6 +236,7 @@ function AppContent() {
       <SellModal />
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
       <NotificationPermissionModal />
+      {user && <InternalChat />}
     </div>
   );
 }

@@ -136,9 +136,11 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
   }, [conversationId]);
 
   const sendMessage = async () => {
+    console.log('[AdminSalesChat] sendMessage called, input:', input);
     if (!input.trim()) return;
     
     const { data: { user } } = await supabase.auth.getUser();
+    console.log('[AdminSalesChat] user:', user);
     if (!user) return;
 
     // Save to DB
@@ -150,7 +152,10 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
     });
     
     if (error) console.error('Error sending message:', error);
-    else setInput('');
+    else {
+        console.log('[AdminSalesChat] Message sent successfully');
+        setInput('');
+    }
   };
 
   return (
