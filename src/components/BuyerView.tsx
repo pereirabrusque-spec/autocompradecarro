@@ -81,7 +81,7 @@ export default function BuyerView() {
     
     // Heartbeat to update last_seen
     const updateLastSeen = async () => {
-      if (!user) return;
+      if (!user || !user.email) return;
       await supabase
         .from('interested_buyers')
         .update({ last_seen: new Date().toISOString() })

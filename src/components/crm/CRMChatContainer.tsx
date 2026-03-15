@@ -12,7 +12,7 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
     const fetchConversations = async () => {
       const { data } = await supabase
         .from('profiles')
-        .select('id, full_name, phone, role')
+        .select('id, full_name, email, avatar_url, role')
         .in('role', ['buyer', 'buyer_premium', 'buyer_master'])
         .order('created_at', { ascending: false });
       setConversations(data || []);
@@ -45,9 +45,18 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
             onClick={() => setSelectedConversationId(conv.id)}
             className={`p-4 border-b border-slate-100 cursor-pointer hover:bg-slate-50 flex justify-between items-center ${selectedConversationId === conv.id ? 'bg-slate-100' : ''}`}
           >
-            <div>
-                <div className="font-bold">{conv.full_name || 'Sem nome'}</div>
-                <div className="text-xs text-slate-500">{conv.phone || 'Sem telefone'}</div>
+            <div className="flex items-center gap-3">
+                {conv.avatar_url ? (
+                    <img src={conv.avatar_url} alt={conv.full_name} className="w-10 h-10 rounded-full" />
+                ) : (
+                    <div className="w-10 h-10 bg-slate-200 rounded-full flex items-center justify-center font-bold text-slate-500">
+                        {conv.full_name?.charAt(0) || '?'}
+                    </div>
+                )}
+                <div>
+                    <div className="font-bold">{conv.full_name || 'Sem nome'}</div>
+                    <div className="text-xs text-slate-500">{conv.email || 'Sem email'}</div>
+                </div>
             </div>
             {unreadCounts[conv.id] > 0 && (
                 <span className="bg-red-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
