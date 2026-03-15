@@ -5,7 +5,7 @@ import { Send, Bot, User, MessageCircle } from 'lucide-react';
 export const AdminSalesChat = ({ conversationId, role }: { conversationId: string, role: string }) => {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
-  const [isAiMode, setIsAiMode] = useState(true);
+  const [isAiMode, setIsAiMode] = useState(false); // Inicia desligado
   
   useEffect(() => {
     supabase.from('settings').select('value').eq('key', 'AI_CRM_MODE').single().then(({ data }) => {
@@ -151,8 +151,8 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
   };
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-2xl border border-slate-200">
-      <div className="p-4 border-b border-slate-100 flex justify-between items-center">
+    <div className="flex flex-col h-full bg-white">
+      <div className="p-4 border-b border-slate-100 flex justify-between items-center shrink-0">
         <div className="flex items-center gap-3">
             {userAvatar && <img src={userAvatar} alt="Avatar" className="w-10 h-10 rounded-full" />}
             <div>
