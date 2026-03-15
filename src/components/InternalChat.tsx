@@ -171,7 +171,7 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
                   <div>
                     {msg.content}
                     <p className={`text-[9px] mt-1 text-right ${msg.sender_id === user?.id ? 'text-blue-100' : 'text-slate-400'}`}>
-                      {new Date(msg.created_at).toLocaleDateString()} {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {msg.created_at ? `${new Date(msg.created_at).toLocaleDateString()} ${new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Data indisponível'}
                     </p>
                   </div>
                 </div>

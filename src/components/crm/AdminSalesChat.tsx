@@ -51,7 +51,7 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
       // ou mensagens enviadas para o admin (receiver_id is null) pelo conversationId
       const { data, error } = await supabase
         .from('internal_messages')
-        .select('*')
+        .select('id, sender_id, receiver_id, content, created_at, is_read, lead_id')
         .or(`sender_id.eq.${conversationId},receiver_id.eq.${conversationId}`)
         .order('created_at', { ascending: true });
       
