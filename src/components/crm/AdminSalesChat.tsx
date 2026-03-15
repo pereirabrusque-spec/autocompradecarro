@@ -1,17 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Send, Bot, User, MessageCircle } from 'lucide-react';
+import { Send, User, MessageCircle } from 'lucide-react';
 
 export const AdminSalesChat = ({ conversationId, role }: { conversationId: string, role: string }) => {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
-  const [isAiMode, setIsAiMode] = useState(true);
+  const [activeTab, setActiveTab] = useState<'chat' | 'config'>('chat');
   const [userPhone, setUserPhone] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [userAvatar, setUserAvatar] = useState('');
-  const [showAiRules, setShowAiRules] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiPrompt, setAiPrompt] = useState('Você é um assistente de vendas especializado. Seu objetivo é orientar o comprador a fazer a melhor proposta possível para garantir o fechamento da venda. Seja persuasivo, profissional e foque nos benefícios do veículo. Se o comprador estiver indeciso, destaque os diferenciais do veículo e a oportunidade de negócio. Nunca perca uma venda por falta de negociação.');
   const [isSavingPrompt, setIsSavingPrompt] = useState(false);
 
   useEffect(() => {
@@ -21,7 +20,7 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
     
     // Load existing prompt
     supabase.from('settings').select('value').eq('key', 'AI_CRM_PROMPT').single().then(({ data }) => {
-      if (data) setAiPrompt(data.value);
+      if (data && data.value) setAiPrompt(data.value);
     });
   }, []);
 
@@ -31,7 +30,6 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
     if (error) alert('Erro ao salvar prompt');
     else alert('Prompt salvo com sucesso!');
     setIsSavingPrompt(false);
-    setShowAiRules(false);
   };
 
   const logWhatsAppUsage = () => {
@@ -126,12 +124,6 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
             </div>
         </div>
         <div className="flex gap-2">
-          <button 
-            onClick={() => setShowAiRules(!showAiRules)}
-            className={`p-2 rounded-full hover:bg-slate-100 ${showAiRules ? 'text-blue-600' : 'text-slate-600'}`}
-          >
-            <Bot className="w-4 h-4" />
-          </button>
           {userPhone && (
             <a 
               href={`https://wa.me/${userPhone.replace(/\D/g, '')}`} 
@@ -152,45 +144,60 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
         </div>
       </div>
       
-      {showAiRules && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
-            <h4 className="font-bold mb-4 text-lg">Configurar IA de Atendimento</h4>
-            <textarea 
-              className="w-full h-40 p-3 border border-slate-200 rounded-lg text-sm mb-4"
-              value={aiPrompt}
-              onChange={e => setAiPrompt(e.target.value)}
-              placeholder="Cole aqui as regras e memória para a IA..."
-            />
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setShowAiRules(false)} className="px-4 py-2 text-slate-600">Cancelar</button>
-              <button onClick={saveAiPrompt} disabled={isSavingPrompt} className="px-4 py-2 bg-slate-900 text-white rounded-lg">
-                {isSavingPrompt ? 'Salvando...' : 'Salvar'}
-              </button>
-            </div>
-          </div>
+      <div className="flex border-b border-slate-100">
+        <button 
+          onClick={() => setActiveTab('chat')}
+          className={`flex-1 p-3 text-sm font-bold ${activeTab === 'chat' ? 'text-slate-900 border-b-2 border-slate-900' : 'text-slate-500'}`}
+        >
+          Chat
+        </button>
+        <button 
+          onClick={() => setActiveTab('config')}
+          className={`flex-1 p-3 text-sm font-bold ${activeTab === 'config' ? 'text-slate-900 border-b-2 border-slate-900' : 'text-slate-500'}`}
+        >
+          Configuração IA
+        </button>
+      </div>
+
+      {activeTab === 'config' ? (
+        <div className="flex-1 p-6 space-y-4">
+          <h4 className="font-bold text-lg">Regras e Memória do Agente</h4>
+          <textarea 
+            className="w-full h-64 p-4 border border-slate-200 rounded-xl text-sm"
+            value={aiPrompt}
+            onChange={e => setAiPrompt(e.target.value)}
+            placeholder="Cole aqui as regras e memória para a IA..."
+          />
+          <button 
+            onClick={saveAiPrompt} 
+            disabled={isSavingPrompt} 
+            className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 disabled:opacity-50"
+          >
+            {isSavingPrompt ? 'Salvando...' : 'Salvar Regras'}
+          </button>
         </div>
-      )}
-
-
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map(m => (
-          <div key={m.id} className={`flex ${m.sender_id === currentUserId ? 'justify-end' : 'justify-start'}`}>
-            <div className={`p-3 rounded-xl text-sm max-w-[80%] ${m.sender_id === currentUserId ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-900'}`}>
-              {m.content}
-            </div>
+      ) : (
+        <>
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {messages.map(m => (
+              <div key={m.id} className={`flex ${m.sender_id === currentUserId ? 'justify-end' : 'justify-start'}`}>
+                <div className={`p-3 rounded-xl text-sm max-w-[80%] ${m.sender_id === currentUserId ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-900'}`}>
+                  {m.content}
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-      <div className="p-4 border-t border-slate-100 flex gap-2">
-        <input 
-          value={input} 
-          onChange={e => setInput(e.target.value)} 
-          className="flex-1 p-2 border border-slate-200 rounded-lg text-sm"
-          placeholder="Digite..."
-        />
-        <button onClick={sendMessage} className="bg-slate-900 text-white p-2 rounded-lg"><Send className="w-4 h-4" /></button>
-      </div>
+          <div className="p-4 border-t border-slate-100 flex gap-2">
+            <input 
+              value={input} 
+              onChange={e => setInput(e.target.value)} 
+              className="flex-1 p-2 border border-slate-200 rounded-lg text-sm"
+              placeholder="Digite..."
+            />
+            <button onClick={sendMessage} className="bg-slate-900 text-white p-2 rounded-lg"><Send className="w-4 h-4" /></button>
+          </div>
+        </>
+      )}
     </div>
   );
 };

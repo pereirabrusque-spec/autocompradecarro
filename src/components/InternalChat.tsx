@@ -99,10 +99,13 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !user) return;
+    if (!newMessage.trim() || !user) {
+      console.error('[InternalChat] handleSendMessage: No message or user');
+      return;
+    }
 
     setLoading(true);
-    console.log('[InternalChat] Sending message:', newMessage);
+    console.log('[InternalChat] Sending message:', newMessage, 'User ID:', user.id, 'Lead ID:', leadId);
     try {
       const { error } = await supabase.from('internal_messages').insert({
         sender_id: user.id,
@@ -112,9 +115,11 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
       });
 
       if (error) {
-        console.error('[InternalChat] Error sending message:', error);
+        console.error('[InternalChat] Error sending message to Supabase:', error);
+        console.error('[InternalChat] Error details:', JSON.stringify(error, null, 2));
         throw error;
       }
+      console.log('[InternalChat] Message sent successfully');
       setNewMessage('');
     } catch (error) {
       console.error('[InternalChat] Exception sending message:', error);
