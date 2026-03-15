@@ -241,7 +241,7 @@ function AppContent() {
       )}
       
       {/* Real-time Chat Widget for logged users (Bottom Right) */}
-      {view !== 'admin' && (
+      {view !== 'admin' && user && (
         <ChatAssistant 
           isOpen={isChatOpen} 
           onOpen={() => setIsChatOpen(true)} 
