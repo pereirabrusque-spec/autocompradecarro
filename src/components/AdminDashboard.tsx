@@ -367,6 +367,7 @@ export default function AdminDashboard() {
       setApiKeys(apiKeysData || []);
       setProviders(providersData || []);
       setUsers(profilesData || []);
+      console.log('All users:', profilesData);
       setInterestedBuyers(buyersData || []);
       setBuyerAuthorizations(authsData || []);
       setSentLeads(sentData || []);
@@ -2948,6 +2949,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                           const matchesSearch = u.email?.toLowerCase().includes(filterUser.toLowerCase()) || 
                                               (u.full_name && u.full_name.toLowerCase().includes(filterUser.toLowerCase()));
                           
+                          console.log('User object:', u);
                           if (userManagementTab === 'equipe') return matchesSearch && (u.role === 'admin' || u.role === 'user');
                           if (userManagementTab === 'compradores') return matchesSearch && (u.role === 'buyer' || u.role === 'buyer_premium' || u.role === 'buyer_master');
                           return matchesSearch; // CRM shows all
