@@ -1,22 +1,24 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Send, User, MessageCircle } from 'lucide-react';
+import { Send, Bot, User, MessageCircle } from 'lucide-react';
 
 export const AdminSalesChat = ({ conversationId, role }: { conversationId: string, role: string }) => {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
-  const [activeTab, setActiveTab] = useState<'chat' | 'config'>('chat');
+  const [isAiMode, setIsAiMode] = useState(true);
   const [userPhone, setUserPhone] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [userAvatar, setUserAvatar] = useState('');
+  const [showAiRules, setShowAiRules] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [aiPrompt, setAiPrompt] = useState('Você é um assistente de vendas especializado. Seu objetivo é orientar o comprador a fazer a melhor proposta possível para garantir o fechamento da venda. Seja persuasivo, profissional e foque nos benefícios do veículo. Se o comprador estiver indeciso, destaque os diferenciais do veículo e a oportunidade de negócio. Nunca perca uma venda por falta de negociação.');
-  const [isAiMode, setIsAiMode] = useState(true);
+  const [aiPrompt, setAiPrompt] = useState('');
   const [isSavingPrompt, setIsSavingPrompt] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
   }, [messages]);
 
   useEffect(() => {
@@ -26,22 +28,17 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
     
     // Load existing prompt
     supabase.from('settings').select('value').eq('key', 'AI_CRM_PROMPT').single().then(({ data }) => {
-      if (data && data.value) setAiPrompt(data.value);
+      if (data) setAiPrompt(data.value);
     });
   }, []);
 
   const saveAiPrompt = async () => {
-    console.log('[AdminSalesChat] Saving AI prompt:', aiPrompt);
     setIsSavingPrompt(true);
     const { error } = await supabase.from('settings').upsert({ key: 'AI_CRM_PROMPT', value: aiPrompt });
-    if (error) {
-      console.error('[AdminSalesChat] Error saving prompt:', error);
-      alert('Erro ao salvar prompt: ' + error.message);
-    } else {
-      console.log('[AdminSalesChat] Prompt saved successfully');
-      alert('Prompt salvo com sucesso!');
-    }
+    if (error) alert('Erro ao salvar prompt');
+    else alert('Prompt salvo com sucesso!');
     setIsSavingPrompt(false);
+    setShowAiRules(false);
   };
 
   const logWhatsAppUsage = () => {
@@ -49,16 +46,12 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
   };
 
   useEffect(() => {
-    if (!currentUserId) return;
-    
     // Fetch messages for this CRM chat
     const fetchMessages = async () => {
       console.log('[AdminSalesChat] Fetching messages for conversationId:', conversationId);
-      // Busca mensagens onde o remetente ou destinatário é o conversationId, 
-      // ou mensagens enviadas para o admin (receiver_id is null) pelo conversationId
       const { data, error } = await supabase
         .from('internal_messages')
-        .select('id, sender_id, receiver_id, content, created_at, is_read, lead_id')
+        .select('*, profiles(full_name, avatar_url)')
         .or(`sender_id.eq.${conversationId},receiver_id.eq.${conversationId}`)
         .order('created_at', { ascending: true });
       
@@ -100,14 +93,8 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
     const subscription = supabase
       .channel(`crm_chat_${conversationId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'internal_messages' }, (payload) => {
-        const msg = payload.new;
-        // Verifica se a mensagem é relevante para esta conversa
-        const isRelevant = 
-          (msg.sender_id === conversationId && (msg.receiver_id === null || msg.receiver_id === conversationId || msg.receiver_id === currentUserId)) ||
-          (msg.sender_id === currentUserId && msg.receiver_id === conversationId);
-        
-        if (isRelevant) {
-          setMessages(prev => [...prev, msg]);
+        if (payload.new.sender_id === conversationId || payload.new.receiver_id === conversationId) {
+          setMessages(prev => [...prev, payload.new]);
         }
       })
       .subscribe();
@@ -115,17 +102,13 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
     return () => {
       subscription.unsubscribe();
     };
-  }, [conversationId, currentUserId]);
+  }, [conversationId]);
 
   const sendMessage = async () => {
-    console.log('[AdminSalesChat] sendMessage called, input:', input);
     if (!input.trim()) return;
     
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      console.error('[AdminSalesChat] No user found');
-      return;
-    }
+    if (!user) return;
 
     // Save to DB
     const { error } = await supabase.from('internal_messages').insert({
@@ -135,13 +118,8 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
       is_read: true // Admin messages are read
     });
     
-    if (error) {
-      console.error('[AdminSalesChat] Error sending message:', error);
-      alert('Erro ao enviar mensagem: ' + error.message);
-    } else {
-      console.log('[AdminSalesChat] Message sent successfully');
-      setInput('');
-    }
+    if (error) console.error('Error sending message:', error);
+    else setInput('');
   };
 
   return (
@@ -155,6 +133,12 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
             </div>
         </div>
         <div className="flex gap-2">
+          <button 
+            onClick={() => setShowAiRules(!showAiRules)}
+            className={`p-2 rounded-full hover:bg-slate-100 ${showAiRules ? 'text-blue-600' : 'text-slate-600'}`}
+          >
+            <Bot className="w-4 h-4" />
+          </button>
           {userPhone && (
             <a 
               href={`https://wa.me/${userPhone.replace(/\D/g, '')}`} 
@@ -175,70 +159,46 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
         </div>
       </div>
       
-      <div className="flex border-b border-slate-100">
-        <button 
-          onClick={() => setActiveTab('chat')}
-          className={`flex-1 p-3 text-sm font-bold ${activeTab === 'chat' ? 'text-slate-900 border-b-2 border-slate-900' : 'text-slate-500'}`}
-        >
-          Chat
-        </button>
-        <button 
-          onClick={() => setActiveTab('config')}
-          className={`flex-1 p-3 text-sm font-bold ${activeTab === 'config' ? 'text-slate-900 border-b-2 border-slate-900' : 'text-slate-500'}`}
-        >
-          Configuração IA
-        </button>
-      </div>
-
-      {activeTab === 'config' ? (
-        <div className="flex-1 p-6 space-y-4">
-          <h4 className="font-bold text-lg">Regras e Memória do Agente</h4>
-          <textarea 
-            className="w-full h-64 p-4 border border-slate-200 rounded-xl text-sm"
-            value={aiPrompt}
-            onChange={e => setAiPrompt(e.target.value)}
-            placeholder="Cole aqui as regras e memória para a IA..."
-          />
-          <button 
-            onClick={saveAiPrompt} 
-            disabled={isSavingPrompt} 
-            className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 disabled:opacity-50"
-          >
-            {isSavingPrompt ? 'Salvando...' : 'Salvar Regras'}
-          </button>
-        </div>
-      ) : (
-        <>
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {messages.map(m => (
-              <div key={m.id} className={`flex ${m.sender_id === currentUserId ? 'justify-end' : 'justify-start'}`}>
-                <div className={`p-3 rounded-xl text-sm max-w-[80%] ${m.sender_id === currentUserId ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-900'}`}>
-                  {m.content}
-                  <p className={`text-[9px] mt-1 ${m.sender_id === currentUserId ? 'text-slate-300' : 'text-slate-500'}`}>
-                    {new Date(m.created_at).toLocaleDateString()} {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                </div>
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
-          <div className="p-2 border-t border-slate-100 flex gap-2">
-            <input 
-              value={input} 
-              onChange={e => setInput(e.target.value)} 
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  sendMessage();
-                }
-              }}
-              className="flex-1 p-1.5 border border-slate-200 rounded-lg text-xs"
-              placeholder="Digite..."
+      {showAiRules && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+            <h4 className="font-bold mb-4 text-lg">Configurar IA de Atendimento</h4>
+            <textarea 
+              className="w-full h-40 p-3 border border-slate-200 rounded-lg text-sm mb-4"
+              value={aiPrompt}
+              onChange={e => setAiPrompt(e.target.value)}
+              placeholder="Cole aqui as regras e memória para a IA..."
             />
-            <button onClick={sendMessage} className="bg-slate-900 text-white p-1.5 rounded-lg"><Send className="w-3 h-3" /></button>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowAiRules(false)} className="px-4 py-2 text-slate-600">Cancelar</button>
+              <button onClick={saveAiPrompt} disabled={isSavingPrompt} className="px-4 py-2 bg-slate-900 text-white rounded-lg">
+                {isSavingPrompt ? 'Salvando...' : 'Salvar'}
+              </button>
+            </div>
           </div>
-        </>
+        </div>
       )}
+
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-4" ref={chatContainerRef}>
+        {messages.map(m => (
+          <div key={m.id} className={`flex ${m.sender_id === currentUserId ? 'justify-end' : 'justify-start'}`}>
+            <div className={`p-3 rounded-xl text-sm max-w-[80%] ${m.sender_id === currentUserId ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-900'}`}>
+              {m.content}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="p-4 border-t border-slate-100 flex gap-2 shrink-0">
+        <input 
+          value={input} 
+          onChange={e => setInput(e.target.value)} 
+          onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+          className="flex-1 p-2 border border-slate-200 rounded-lg text-sm"
+          placeholder="Digite..."
+        />
+        <button onClick={sendMessage} className="bg-slate-900 text-white p-2 rounded-lg"><Send className="w-4 h-4" /></button>
+      </div>
     </div>
   );
 };
