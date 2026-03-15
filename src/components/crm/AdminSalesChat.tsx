@@ -45,7 +45,8 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
 
   const saveAiPrompt = async () => {
     setIsSavingPrompt(true);
-    const { error } = await supabase.from('settings').upsert(
+    console.log('Saving AI prompt:', aiPrompt);
+    const { data, error } = await supabase.from('settings').upsert(
         { key: 'AI_CRM_PROMPT', value: aiPrompt },
         { onConflict: 'key' }
     );
@@ -53,6 +54,7 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
         console.error('Erro ao salvar prompt:', error);
         alert(`Erro ao salvar prompt: ${error.message}`);
     } else {
+        console.log('Prompt salvo com sucesso:', data);
         alert('Prompt salvo com sucesso!');
     }
     setIsSavingPrompt(false);
@@ -198,7 +200,7 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
       )}
 
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4" ref={chatContainerRef}>
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0" ref={chatContainerRef}>
         {messages.map(m => (
           <div key={m.id} className={`flex ${m.sender_id === currentUserId ? 'justify-end' : 'justify-start'}`}>
             <div className={`p-3 rounded-xl text-sm max-w-[80%] ${m.sender_id === currentUserId ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-900'}`}>
