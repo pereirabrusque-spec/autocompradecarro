@@ -46,15 +46,24 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
   const saveAiPrompt = async () => {
     setIsSavingPrompt(true);
     console.log('Saving AI prompt:', aiPrompt);
-    const { data, error } = await supabase.from('settings').upsert(
-        { key: 'AI_CRM_PROMPT', value: aiPrompt },
-        { onConflict: 'key' }
-    );
+    
+    // Check if exists
+    const { data: existing } = await supabase.from('settings').select('key').eq('key', 'AI_CRM_PROMPT').maybeSingle();
+    
+    let error;
+    if (existing) {
+        const res = await supabase.from('settings').update({ value: aiPrompt }).eq('key', 'AI_CRM_PROMPT');
+        error = res.error;
+    } else {
+        const res = await supabase.from('settings').insert({ key: 'AI_CRM_PROMPT', value: aiPrompt });
+        error = res.error;
+    }
+
     if (error) {
         console.error('Erro ao salvar prompt:', error);
         alert(`Erro ao salvar prompt: ${error.message}`);
     } else {
-        console.log('Prompt salvo com sucesso:', data);
+        console.log('Prompt salvo com sucesso');
         alert('Prompt salvo com sucesso!');
     }
     setIsSavingPrompt(false);
@@ -87,7 +96,7 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
         .from('internal_messages')
         .update({ is_read: true })
         .eq('sender_id', conversationId)
-        .is('is_read', false);
+        .eq('is_read', false);
     };
     
     const fetchUserData = async () => {
@@ -181,7 +190,7 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
       
       {showAiRules && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-[50vw] shadow-xl">
+          <div className="bg-white rounded-2xl p-6 w-[50vw] max-w-none shadow-xl">
             <h4 className="font-bold mb-4 text-lg">Configurar IA de Atendimento</h4>
             <textarea 
               className="w-full h-40 p-3 border border-slate-200 rounded-lg text-sm mb-4"
