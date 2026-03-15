@@ -198,23 +198,18 @@ export default function AdminDashboard() {
   const [isRefreshingUsers, setIsRefreshingUsers] = useState(false);
 
   const refreshUsers = async () => {
-    console.log('Iniciando refreshUsers. activeTab:', activeTab);
-    if (activeTab !== 'users' && activeTab !== 'dashboard') {
-      console.log('refreshUsers abortado: tab incorreta');
-      return;
-    }
+    if (activeTab !== 'users' && activeTab !== 'dashboard') return;
     setIsRefreshingUsers(true);
     try {
       const { data, error } = await supabase.from('profiles').select('*').order('last_login', { ascending: false });
       if (error) {
-        console.error('Error refreshing users (Supabase):', error);
+        console.error('Error refreshing users:', error);
       } else {
-        console.log('Users refreshed successfully. Data length:', data?.length);
-        console.log('Dados recebidos:', data);
+        console.log('Users refreshed:', data);
         setUsers(data || []);
       }
     } catch (error) {
-      console.error('Error refreshing users (Exception):', error);
+      console.error('Error refreshing users:', error);
     } finally {
       setIsRefreshingUsers(false);
     }
@@ -372,7 +367,6 @@ export default function AdminDashboard() {
       setApiKeys(apiKeysData || []);
       setProviders(providersData || []);
       setUsers(profilesData || []);
-      console.log('All users:', profilesData);
       setInterestedBuyers(buyersData || []);
       setBuyerAuthorizations(authsData || []);
       setSentLeads(sentData || []);
@@ -716,8 +710,8 @@ export default function AdminDashboard() {
 
       if (error) throw error;
 
-      // Buscar todos os perfis para garantir dados de avatar e nome
-      const { data: profiles } = await supabase.from('profiles').select('id, email, full_name, role, avatar_url');
+      // Buscar perfis (apenas clientes/usuários e vendedores)
+      const { data: profiles } = await supabase.from('profiles').select('id, email, full_name, role, avatar_url').in('role', ['user', 'seller']);
 
       const conversationsMap = new Map();
       
@@ -726,7 +720,7 @@ export default function AdminDashboard() {
         if (!otherUserId) return;
         
         const profile = profiles?.find(p => p.id === otherUserId);
-        if (!profile) return; // Mostra todos os perfis encontrados
+        if (!profile) return; // Só mostra se for 'user' (cliente)
         
         if (!conversationsMap.has(otherUserId)) {
           conversationsMap.set(otherUserId, {
@@ -2470,7 +2464,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         Leads por Canal
                       </h3>
                     </div>
-                    <div className="h-64 flex items-end gap-4">
+                    <div className="h-64 min-h-[256px] flex items-end gap-4">
                       {(() => {
                         const channels = [
                           { id: 'chat', label: 'Chat', color: 'bg-blue-500' },
@@ -6890,15 +6884,15 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
               <div className="flex flex-col sm:flex-row gap-3 mt-8">
                 <button 
-                  onClick={handleCreateUser}
-                  disabled={isCreatingUser}
+                  onClick={handleSave}
+                  disabled={loading}
                   className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-accent transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  {isCreatingUser ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
+                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
                   Salvar Alterações
                 </button>
                 <button 
-                  onClick={() => setShowAddUserModal(false)}
+                  onClick={onClose}
                   className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all"
                 >
                   Cancelar

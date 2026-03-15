@@ -95,8 +95,7 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
       await supabase
         .from('internal_messages')
         .update({ is_read: true })
-        .eq('sender_id', conversationId)
-        .eq('is_read', false);
+        .eq('sender_id', conversationId);
     };
     
     const fetchUserData = async () => {

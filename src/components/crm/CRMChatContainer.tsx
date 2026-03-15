@@ -26,8 +26,7 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
           const { count } = await supabase
             .from('internal_messages')
             .select('*', { count: 'exact', head: true })
-            .eq('sender_id', conv.id)
-            .eq('is_read', false);
+            .eq('sender_id', conv.id);
           counts[conv.id] = count || 0;
         }
         setUnreadCounts(counts);
@@ -43,9 +42,25 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
 
   const saveAiPrompt = async () => {
     setIsSavingPrompt(true);
-    const { error } = await supabase.from('settings').upsert({ key: 'AI_CRM_PROMPT', value: aiPrompt });
-    if (error) alert('Erro ao salvar prompt');
-    else alert('Prompt salvo com sucesso!');
+    
+    // Check if exists
+    const { data: existing } = await supabase.from('settings').select('key').eq('key', 'AI_CRM_PROMPT').maybeSingle();
+    
+    let error;
+    if (existing) {
+        const res = await supabase.from('settings').update({ value: aiPrompt }).eq('key', 'AI_CRM_PROMPT');
+        error = res.error;
+    } else {
+        const res = await supabase.from('settings').insert({ key: 'AI_CRM_PROMPT', value: aiPrompt });
+        error = res.error;
+    }
+
+    if (error) {
+        console.error('Erro ao salvar prompt:', error);
+        alert(`Erro ao salvar prompt: ${error.message}`);
+    } else {
+        alert('Prompt salvo com sucesso!');
+    }
     setIsSavingPrompt(false);
     setShowAiRules(false);
   };
@@ -108,7 +123,7 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
       {/* IA Rules Modal */}
       {showAiRules && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+          <div className="bg-white rounded-2xl p-6 w-[50vw] max-w-none shadow-xl">
             <h4 className="font-bold mb-4 text-lg">Configurar Memória IA</h4>
             <textarea 
               className="w-full h-40 p-3 border border-slate-200 rounded-lg text-sm mb-4"
