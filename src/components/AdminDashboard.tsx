@@ -2950,8 +2950,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                               (u.full_name && u.full_name.toLowerCase().includes(filterUser.toLowerCase()));
                           
                           console.log('User object:', u);
-                          // Temporarily show all users to debug
-                          return matchesSearch; 
+                          // Show all users without any filtering
+                          return true; 
                         }).map((user) => {
                           const isOnline = (new Date().getTime() - new Date(user.last_login).getTime()) < 300000;
                           const initials = (user.full_name || user.email || 'U').split(' ').map((n: any) => n[0]).join('').substring(0, 2).toUpperCase();
