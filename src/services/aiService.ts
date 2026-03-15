@@ -62,8 +62,7 @@ export class AIService {
   }
 
   static async generateContent(prompt: string, systemInstruction: string, image?: string): Promise<AIResponse> {
-    const { data: allKeys } = await supabase.from('api_keys').select('*');
-    const keys = allKeys || [];
+    const keys = await this.getActiveKeys();
     
     if (process.env.GEMINI_API_KEY) {
       keys.push({
@@ -88,91 +87,10 @@ export class AIService {
     const apiKey = availableKeys[0];
     
     try {
-      let modelName = apiKey.service || (apiKey.provider === 'gemini' ? 'gemini-3-flash-preview' : 'gpt-4o-mini');
-      if (modelName === 'gemini-1.5-flash' || modelName === 'gemini-pro' || modelName === 'gemini-1.5-pro') {
-        modelName = 'gemini-3-flash-preview';
-      }
-
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('TIMEOUT')), 30000); // 30s timeout
-      });
-
-      const apiCallPromise = async () => {
-        if (apiKey.provider === 'gemini') {
-          const ai = new GoogleGenAI({ apiKey: apiKey.key });
-          
-          const parts: any[] = [];
-          if (prompt) parts.push({ text: prompt });
-          if (image) {
-            parts.push({
-              inlineData: {
-                data: image.split(',')[1],
-                mimeType: 'image/jpeg'
-              }
-            });
-          }
-
-          const response = await ai.models.generateContent({
-            model: modelName,
-            contents: [{ role: 'user', parts }],
-            config: { systemInstruction }
-          });
-          
-          if (response.text) {
-            return {
-              text: response.text,
-              provider: 'gemini',
-              model: modelName
-            };
-          }
-          throw new Error('Empty response from Gemini');
-        } else {
-          // OpenAI-compatible providers (OpenAI, Grok, etc.)
-          const baseUrl = apiKey.provider === 'openai' ? 'https://api.openai.com/v1' :
-                          apiKey.provider === 'grok' ? 'https://api.x.ai/v1' :
-                          `https://api.${apiKey.provider}.com/v1`;
-
-          const content: any[] = [
-            { type: 'text', text: prompt || 'Analise esta imagem.' }
-          ];
-          if (image) {
-            content.push({ type: 'image_url', image_url: { url: image } });
-          }
-
-          const response = await fetch(`${baseUrl}/chat/completions`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${apiKey.key}`
-            },
-            body: JSON.stringify({
-              model: modelName,
-              messages: [
-                { role: 'system', content: systemInstruction },
-                { role: 'user', content }
-              ],
-              temperature: 0.4
-            })
-          });
-          
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error?.message || `${apiKey.provider} API Error`);
-          }
-
-          const data = await response.json();
-          return {
-            text: data.choices[0].message.content,
-            provider: apiKey.provider,
-            model: modelName
-          };
-        }
-      };
-
-      const result = await Promise.race([apiCallPromise(), timeoutPromise]);
+      const result = await AIClientManager.execute(apiKey, prompt, systemInstruction, image);
       
       await this.updateKeyStatus(apiKey.id, 'ok', 0);
-      return result as AIResponse;
+      return result;
 
     } catch (error: any) {
       console.error(`Error with ${apiKey.provider} key ${apiKey.id}:`, error);
@@ -262,5 +180,97 @@ export class AIService {
         console.warn(`[AIService] API ${apiKey.provider} (${apiKey.id}) falhou. Status: ${newStatus}`);
       }
     }
+  }
+}
+
+class AIClientManager {
+  private static clients: Map<string, any> = new Map();
+
+  static async execute(apiKey: any, prompt: string, systemInstruction: string, image?: string): Promise<AIResponse> {
+    let modelName = apiKey.service || (apiKey.provider === 'gemini' ? 'gemini-3-flash-preview' : 'gpt-4o-mini');
+    if (modelName === 'gemini-1.5-flash' || modelName === 'gemini-pro' || modelName === 'gemini-1.5-pro') {
+      modelName = 'gemini-3-flash-preview';
+    }
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('TIMEOUT')), 30000); // 30s timeout
+    });
+
+    const apiCallPromise = async () => {
+      if (apiKey.provider === 'gemini') {
+        if (!this.clients.has(apiKey.id)) {
+          this.clients.set(apiKey.id, new GoogleGenAI({ apiKey: apiKey.key }));
+        }
+        const ai = this.clients.get(apiKey.id);
+        
+        const parts: any[] = [];
+        if (prompt) parts.push({ text: prompt });
+        if (image) {
+          parts.push({
+            inlineData: {
+              data: image.split(',')[1],
+              mimeType: 'image/jpeg'
+            }
+          });
+        }
+
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: [{ role: 'user', parts }],
+          config: { systemInstruction }
+        });
+        
+        if (response.text) {
+          return {
+            text: response.text,
+            provider: 'gemini',
+            model: modelName
+          };
+        }
+        throw new Error('Empty response from Gemini');
+      } else {
+        // OpenAI-compatible providers (OpenAI, Grok, etc.)
+        const baseUrl = apiKey.provider === 'openai' ? 'https://api.openai.com/v1' :
+                        apiKey.provider === 'grok' ? 'https://api.x.ai/v1' :
+                        `https://api.${apiKey.provider}.com/v1`;
+
+        const content: any[] = [
+          { type: 'text', text: prompt || 'Analise esta imagem.' }
+        ];
+        if (image) {
+          content.push({ type: 'image_url', image_url: { url: image } });
+        }
+
+        const response = await fetch(`${baseUrl}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey.key}`
+          },
+          body: JSON.stringify({
+            model: modelName,
+            messages: [
+              { role: 'system', content: systemInstruction },
+              { role: 'user', content }
+            ],
+            temperature: 0.4
+          })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error?.message || `${apiKey.provider} API Error`);
+        }
+
+        const data = await response.json();
+        return {
+          text: data.choices[0].message.content,
+          provider: apiKey.provider,
+          model: modelName
+        };
+      }
+    };
+
+    return await Promise.race([apiCallPromise(), timeoutPromise]);
   }
 }
