@@ -9,6 +9,7 @@ import { useAssets } from '../lib/assetsContext';
 import { supabase } from '../lib/supabase';
 import { defaultCards } from '../lib/seedData';
 import { ProposalModal } from './ProposalModal';
+import EditProposalModal from './EditProposalModal';
 import { LeadCard } from './LeadCard';
 import LeadDetailsCard from './LeadDetailsCard';
 import AdminMessages from './AdminMessages';
@@ -39,6 +40,8 @@ export default function AdminDashboard() {
   const [adminMessage, setAdminMessage] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [showProposalModal, setShowProposalModal] = useState(false);
+  const [showEditProposalModal, setShowEditProposalModal] = useState(false);
+  const [selectedLeadForEdit, setSelectedLeadForEdit] = useState<any>(null);
   const [showCooperativesModal, setShowCooperativesModal] = useState(false);
   const [searchCode, setSearchCode] = useState('');
   const [isSavingBuyer, setIsSavingBuyer] = useState(false);
@@ -4977,7 +4980,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 <div className="flex-1 flex flex-col bg-slate-50/50">
                   {messageTab === 'leads' ? (
                     selectedConversation ? (
-                    <>
+                    <div>
                       {/* Cabeçalho do Chat */}
                       <div className="p-4 bg-white border-b border-slate-100 flex justify-between items-center">
                         <div className="flex items-center gap-3">
@@ -5225,7 +5228,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                           Você está assumindo a conversa como <strong>Humano</strong>. A IA aprenderá com suas respostas.
                         </p>
                       </div>
-                    </>
+                    </div>
                   ) : (
                     <div className="flex-1 flex flex-col items-center justify-center text-slate-300 p-12 text-center">
                       <MessageCircle className="w-16 h-16 mb-4 opacity-20" />
@@ -5282,8 +5285,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       <p>Selecione uma conversa interna para ver as mensagens</p>
                     </div>
                   )
-                )}
-                </div>
+                )
 
                 {/* Modal de Proposta (dentro do chat) */}
                 {showProposalModal && selectedLead && proposalCalculator && (
@@ -5294,9 +5296,14 @@ Podemos prosseguir com o agendamento da vistoria?`;
                           <h3 className="text-2xl font-bold">Proposta: {selectedLead.marca} {selectedLead.modelo}</h3>
                           <p className="text-sm text-slate-400">#{selectedLead.vehicle_code} • Cliente: {selectedLead.cliente_nome}</p>
                         </div>
-                        <button onClick={() => setShowProposalModal(false)} className="p-2 hover:bg-slate-100 rounded-full">
-                          <LogOut className="w-6 h-6 rotate-45" />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => { setSelectedLeadForEdit(selectedLead); setShowEditProposalModal(true); }} className="p-2 hover:bg-slate-100 rounded-full text-accent">
+                            <Pencil className="w-6 h-6" />
+                          </button>
+                          <button onClick={() => setShowProposalModal(false)} className="p-2 hover:bg-slate-100 rounded-full">
+                            <LogOut className="w-6 h-6 rotate-45" />
+                          </button>
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -5565,8 +5572,17 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     </div>
                   </div>
                 )}
+                {showEditProposalModal && selectedLeadForEdit && (
+                  <EditProposalModal 
+                    lead={selectedLeadForEdit} 
+                    onClose={() => setShowEditProposalModal(false)} 
+                    onUpdate={(updatedLead) => {
+                      // Update local state if needed
+                      setShowEditProposalModal(false);
+                    }} 
+                  />
+                )}
               </div>
-            )}
 
             {activeTab === 'hero' && (
               <div className="space-y-6">
