@@ -17,6 +17,7 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
   const currentUserIdRef = useRef<string | null>(null);
   const isAiEnabledRef = useRef(false);
   const aiPromptRef = useRef('');
+  const lastProcessedImage = useRef<{ url: string, base64: string } | null>(null);
 
   useEffect(() => {
     selectedConversationIdRef.current = selectedConversationId;
@@ -247,19 +248,26 @@ DETALHES COMPLETOS DO VEÍCULO EM FOCO (DADOS REAIS DO BANCO):
 
                     const { AIService } = await import('../../services/aiService');
                     
-                    // Tenta converter a imagem para base64 para a IA "ver"
+                    // Tenta converter a imagem para base64 para a IA "ver" (com cache)
                     let imageBase64 = "";
                     if (vehiclePhoto) {
-                        try {
-                            const imgResp = await fetch(vehiclePhoto);
-                            const blob = await imgResp.blob();
-                            imageBase64 = await new Promise((resolve) => {
-                                const reader = new FileReader();
-                                reader.onloadend = () => resolve(reader.result as string);
-                                reader.readAsDataURL(blob);
-                            });
-                        } catch (e) {
-                            console.warn('[CRMChatContainer] Não foi possível carregar imagem para análise da IA:', e);
+                        if (lastProcessedImage.current?.url === vehiclePhoto) {
+                            imageBase64 = lastProcessedImage.current.base64;
+                            console.log('[CRMChatContainer] Usando imagem do cache');
+                        } else {
+                            try {
+                                const imgResp = await fetch(vehiclePhoto);
+                                const blob = await imgResp.blob();
+                                imageBase64 = await new Promise((resolve) => {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => resolve(reader.result as string);
+                                    reader.readAsDataURL(blob);
+                                });
+                                lastProcessedImage.current = { url: vehiclePhoto, base64: imageBase64 };
+                                console.log('[CRMChatContainer] Imagem processada e cacheada');
+                            } catch (e) {
+                                console.warn('[CRMChatContainer] Não foi possível carregar imagem para análise da IA:', e);
+                            }
                         }
                     }
 

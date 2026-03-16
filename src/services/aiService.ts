@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { supabase } from "../lib/supabase";
 
 export type AIProvider = string;
@@ -217,7 +217,10 @@ class AIClientManager {
         const response = await ai.models.generateContent({
           model: modelName,
           contents: [{ role: 'user', parts }],
-          config: { systemInstruction }
+          config: { 
+            systemInstruction,
+            thinkingConfig: { thinkingLevel: ThinkingLevel.LOW }
+          }
         });
         
         if (response.text) {
