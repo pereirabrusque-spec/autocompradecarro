@@ -583,9 +583,9 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         });
       }
     } catch (error) {
-      console.error(error);
+      console.error("Erro ao gerar resposta da IA:", error);
       playNotificationSound();
-      setMessages(prev => [...prev, { role: 'bot', text: 'Erro na conexão. Por favor, tente novamente.' }]);
+      setMessages(prev => [...prev, { role: 'bot', text: 'Desculpe, estou com dificuldades técnicas no momento. Por favor, tente novamente em breve ou aguarde um consultor humano.' }]);
     } finally {
       setIsLoading(false);
     }

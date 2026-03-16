@@ -99,7 +99,7 @@ export class AIService {
 
     } catch (error: any) {
       const errMsg = error.message?.toLowerCase() || '';
-      console.error(`[AIService] Falha na API ${apiKey.provider} (${apiKey.id}):`, error);
+      console.error(`[AIService] Falha na API ${apiKey.provider} (${apiKey.id}). Erro completo:`, error);
       
       let newStatus: 'ok' | 'no_credit' | 'disconnected' | 'rate_limited' = 'disconnected';
       if (errMsg.includes('429') || errMsg.includes('too many requests')) {
@@ -111,7 +111,6 @@ export class AIService {
       await this.updateKeyStatus(apiKey.id, newStatus, (apiKey.error_count || 0) + 1);
       
       // Força re-teste de todas as APIs porque uma falhou
-      // Isso ajuda a encontrar se alguma que estava 'no_credit' ou 'rate_limited' já voltou
       console.log('[AIService] API falhou. Forçando re-teste de todas as APIs para encontrar substituta...');
       await this.testConnections();
       

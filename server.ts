@@ -336,8 +336,8 @@ async function startServer() {
     }
   }
 
-  setInterval(runHealthCheck, 4 * 60 * 60 * 1000);
-  runHealthCheck(); // Run on startup
+  // setInterval(runHealthCheck, 4 * 60 * 60 * 1000);
+  // runHealthCheck(); // Run on startup
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
