@@ -54,6 +54,12 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
             [senderId]: (prev[senderId] || 0) + 1
         }));
       })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'internal_messages' }, () => {
+        fetchConversations();
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'internal_messages' }, () => {
+        fetchConversations();
+      })
       .subscribe();
 
     // Real-time subscription for profile changes (role updates)

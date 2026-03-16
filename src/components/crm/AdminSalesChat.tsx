@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Send, Bot, MessageCircle } from 'lucide-react';
+import { Send, Bot, MessageCircle, Trash2 } from 'lucide-react';
 import { useAiMode } from '../../hooks/useAiMode';
 
 export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conversationId: string, role: string, onMessageRead: () => void }) => {
@@ -15,6 +15,7 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [aiPrompt, setAiPrompt] = useState('');
   const [isSavingPrompt, setIsSavingPrompt] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -63,35 +64,49 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
     console.log('WhatsApp usage logged');
   };
 
+  const clearChat = async () => {
+    if (!window.confirm('Tem certeza que deseja apagar TODAS as mensagens desta conversa? Esta ação não pode ser desfeita.')) return;
+    
+    setIsDeleting(true);
+    try {
+        const { error } = await supabase
+            .from('internal_messages')
+            .delete()
+            .or(`sender_id.eq.${conversationId},receiver_id.eq.${conversationId}`);
+        
+        if (error) throw error;
+        setMessages([]);
+        onMessageRead(); // Atualiza a lista lateral
+    } catch (error) {
+        console.error('Erro ao apagar mensagens:', error);
+        alert('Erro ao apagar mensagens.');
+    } finally {
+        setIsDeleting(false);
+    }
+  };
+
   const fetchMessages = async () => {
     if (!currentUserId) return;
-    console.log('[AdminSalesChat] Fetching messages for conversationId:', conversationId);
+    
     const { data, error } = await supabase
       .from('internal_messages')
       .select('*')
       .or(`sender_id.eq.${conversationId},receiver_id.eq.${conversationId}`)
       .order('created_at', { ascending: true });
     
-    if (error) {
-      console.error('[AdminSalesChat] Error fetching messages:', error);
-    } else {
+    if (!error) {
       setMessages(data || []);
     }
     
     // Marca mensagens como lidas NO BANCO DE DADOS
-    const { error: updateError } = await supabase
+    await supabase
       .from('internal_messages')
       .update({ is_read: true })
       .eq('receiver_id', currentUserId)
       .eq('sender_id', conversationId)
       .eq('is_read', false);
     
-    if (!updateError) {
-        console.log('[AdminSalesChat] Mensagens marcadas como lidas no banco');
-        onMessageRead(); // Notifica o container pai para atualizar a lista
-    } else {
-        console.error('[AdminSalesChat] Erro ao marcar como lido:', updateError);
-    }
+    onMessageRead(); // Notifica o container pai para atualizar a lista
   };
   
   const fetchUserData = async () => {
@@ -173,6 +188,14 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
             </div>
         </div>
         <div className="flex gap-2">
+          <button 
+            onClick={clearChat}
+            disabled={isDeleting}
+            className="p-2 rounded-full hover:bg-red-50 text-red-500"
+            title="Apagar todas as mensagens"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
           <button 
             onClick={() => setShowAiRules(!showAiRules)}
             className={`p-2 rounded-full hover:bg-slate-100 ${showAiRules ? 'text-blue-600' : 'text-slate-600'}`}
