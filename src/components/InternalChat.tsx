@@ -24,12 +24,20 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
     audioRef.current = new Audio('/notification.mp3');
   }, []);
 
+  const isOpenStateRef = useRef(isOpenState);
+  useEffect(() => {
+    isOpenStateRef.current = isOpenState;
+  }, [isOpenState]);
+
   useEffect(() => {
     if (user) {
+      const channelName = `internal_messages_${user.id}`;
+      console.log(`[InternalChat] Inscrevendo no canal: ${channelName}`);
+      
       const subscription = supabase
-        .channel('internal_messages_global')
+        .channel(channelName)
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'internal_messages' }, (payload) => {
-          console.log('[InternalChat] Nova mensagem recebida:', payload.new);
+          console.log('[InternalChat] Nova mensagem recebida via Realtime:', payload.new);
           
           // Lógica mais permissiva para garantir que o usuário receba mensagens destinadas a ele
           const isMyMessage = payload.new.sender_id === user.id;
@@ -42,7 +50,7 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
             });
             scrollToBottom();
 
-            if (!isOpenState && !isMyMessage) {
+            if (!isOpenStateRef.current && !isMyMessage) {
               setUnreadCount(prev => prev + 1);
               audioRef.current?.play().catch(() => {});
               
@@ -58,7 +66,7 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
         subscription.unsubscribe();
       };
     }
-  }, [user, isOpenState]);
+  }, [user]);
 
   useEffect(() => {
     console.log('[InternalChat] isOpenState:', isOpenState, 'user:', user);

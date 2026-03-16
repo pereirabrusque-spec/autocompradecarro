@@ -74,10 +74,17 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
     supabase.from('settings').select('value').eq('key', 'AI_CRM_PROMPT').single().then(({ data }) => {
       if (data) setAiPrompt(data.value);
     });
+  }, []);
 
-    // Real-time subscription for new messages
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    // Canal único para o container para evitar conflitos
+    const channelName = `crm_container_${currentUserId}`;
+    console.log(`[CRMChatContainer] Inscrevendo no canal: ${channelName}`);
+
     const messageSubscription = supabase
-      .channel('crm_chat_all')
+      .channel(channelName)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'internal_messages' }, (payload) => {
         console.log('[CRMChatContainer] Nova mensagem recebida:', payload.new);
         
@@ -118,10 +125,11 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
       .subscribe();
 
     return () => {
-      messageSubscription.unsubscribe();
-      profileSubscription.unsubscribe();
+      console.log(`[CRMChatContainer] Desinscrevendo dos canais`);
+      supabase.removeChannel(messageSubscription);
+      supabase.removeChannel(profileSubscription);
     };
-  }, []);
+  }, [currentUserId]);
 
   const saveAiPrompt = async () => {
     setIsSavingPrompt(true);

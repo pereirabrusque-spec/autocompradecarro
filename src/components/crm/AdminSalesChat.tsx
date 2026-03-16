@@ -29,6 +29,26 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
     supabase.from('settings').select('value').eq('key', 'AI_CRM_PROMPT').single().then(({ data }) => {
       if (data) setAiPrompt(data.value);
     });
+
+    // Listener para mudanças no prompt da IA
+    const settingsSubscription = supabase
+      .channel('crm_settings_global')
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'settings',
+        filter: 'key=eq.AI_CRM_PROMPT'
+      }, (payload) => {
+        if (payload.new && payload.new.key === 'AI_CRM_PROMPT') {
+          console.log('[AdminSalesChat] Prompt da IA atualizado via Realtime');
+          setAiPrompt(payload.new.value);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(settingsSubscription);
+    };
   }, []);
 
   const saveAiPrompt = async () => {
@@ -131,39 +151,106 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
       }
   };
 
+  const isAiModeRef = useRef(isAiMode);
+  const aiPromptRef = useRef(aiPrompt);
+
   useEffect(() => {
+    isAiModeRef.current = isAiMode;
+  }, [isAiMode]);
+
+  useEffect(() => {
+    aiPromptRef.current = aiPrompt;
+  }, [aiPrompt]);
+
+  useEffect(() => {
+    if (!conversationId || !currentUserId) return;
+    
     fetchMessages();
     fetchUserData();
 
-    // Real-time subscription
+    // Canal único por conversa para evitar conflitos
+    const channelName = `chat_${conversationId}_${currentUserId}`;
+    console.log(`[AdminSalesChat] Inscrevendo no canal: ${channelName}`);
+    
     const subscription = supabase
-      .channel('crm_chat_all')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'internal_messages' }, (payload) => {
-        if (payload.eventType === 'INSERT') {
-          if (payload.new.sender_id === conversationId || payload.new.receiver_id === conversationId) {
-            setMessages(prev => [payload.new, ...prev]);
+      .channel(channelName)
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'internal_messages' 
+      }, async (payload) => {
+        // Relevante se: eu sou o remetente OU eu sou o destinatário OU (destinatário é nulo e eu sou admin)
+        const isRelevant = payload.new.sender_id === conversationId || 
+                          payload.new.receiver_id === conversationId ||
+                          (payload.new.sender_id === conversationId && !payload.new.receiver_id);
+        
+        if (isRelevant) {
+          console.log('[AdminSalesChat] Nova mensagem relevante recebida:', payload.new);
+          
+          setMessages(prev => {
+            if (prev.some(m => m.id === payload.new.id)) return prev;
+            return [payload.new, ...prev];
+          });
+          
+          // Se a mensagem for do comprador (vinda do conversationId)
+          if (payload.new.sender_id === conversationId) {
+            console.log('[AdminSalesChat] Mensagem do comprador, processando...');
             
-            // Mark as read immediately if it's from the buyer
-            if (payload.new.sender_id === conversationId) {
-              console.log('[AdminSalesChat] Nova mensagem do comprador, marcando como lida:', payload.new.id);
-              supabase
-                .from('internal_messages')
-                .update({ is_read: true })
-                .eq('id', payload.new.id)
-                .then(({ error }) => {
-                    if (error) console.error('[AdminSalesChat] Erro ao marcar nova mensagem como lida:', error);
-                    else onMessageRead();
-                });
+            // Marca como lida
+            supabase
+              .from('internal_messages')
+              .update({ is_read: true })
+              .eq('id', payload.new.id)
+              .then(({ error }) => {
+                  if (error) console.error('[AdminSalesChat] Erro ao marcar como lida:', error);
+                  else onMessageRead();
+              });
+
+            // LÓGICA DE RESPOSTA AUTOMÁTICA DA IA
+            if (isAiModeRef.current) {
+              console.log('[AdminSalesChat] IA Ativa, gerando resposta automática...');
+              try {
+                const { AIService } = await import('../../services/aiService');
+                const response = await AIService.generateContent(
+                  payload.new.content,
+                  aiPromptRef.current || "Você é um assistente de vendas prestativo. Responda de forma curta e direta."
+                );
+
+                if (response && response.text) {
+                  console.log('[AdminSalesChat] IA gerou resposta:', response.text);
+                  
+                  // Envia a resposta da IA como se fosse o admin
+                  const { data: aiMsg, error: aiError } = await supabase.from('internal_messages').insert({
+                    receiver_id: conversationId,
+                    content: response.text,
+                    sender_id: currentUserId,
+                    is_read: true
+                  }).select().single();
+
+                  if (aiError) console.error('[AdminSalesChat] Erro ao enviar resposta da IA:', aiError);
+                  else {
+                    setMessages(prev => [aiMsg, ...prev]);
+                  }
+                }
+              } catch (err) {
+                console.error('[AdminSalesChat] Erro na geração da IA:', err);
+              }
             }
           }
-        } else if (payload.eventType === 'UPDATE') {
-          fetchMessages();
         }
       })
-      .subscribe();
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'internal_messages' }, (payload) => {
+        if (payload.new.sender_id === conversationId || payload.new.receiver_id === conversationId) {
+            fetchMessages();
+        }
+      })
+      .subscribe((status) => {
+        console.log(`[AdminSalesChat] Status da inscrição (${channelName}):`, status);
+      });
 
     return () => {
-      subscription.unsubscribe();
+      console.log(`[AdminSalesChat] Desinscrevendo do canal: ${channelName}`);
+      supabase.removeChannel(subscription);
     };
   }, [conversationId, currentUserId]);
 
