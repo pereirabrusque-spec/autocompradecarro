@@ -44,16 +44,10 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
     // Real-time subscription for new messages
     const subscription = supabase
       .channel('crm_chat_all')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'internal_messages' }, (payload) => {
-        console.log('[CRMChatContainer] New message received:', payload.new);
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'internal_messages' }, (payload) => {
+        console.log('[CRMChatContainer] Event received:', payload.eventType);
         
-        // Update unread count for the sender
-        setUnreadCounts(prev => ({
-          ...prev,
-          [payload.new.sender_id]: (prev[payload.new.sender_id] || 0) + 1
-        }));
-        
-        // Refresh conversations to update the list
+        // Refresh conversations to update the list and counts
         fetchConversations();
       })
       .subscribe();

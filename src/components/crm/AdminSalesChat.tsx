@@ -95,10 +95,14 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
       }
       
       // Mark messages as read
-      await supabase
+      const { error: updateError } = await supabase
         .from('internal_messages')
         .update({ is_read: true })
-        .eq('sender_id', conversationId);
+        .eq('receiver_id', currentUserId) // O admin é o receiver
+        .eq('sender_id', conversationId)  // A mensagem veio do comprador
+        .eq('is_read', false);
+        
+      if (updateError) console.error('Erro ao marcar como lido:', updateError);
     };
     
     const fetchUserData = async () => {
@@ -123,21 +127,25 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
     // Real-time subscription
     const subscription = supabase
       .channel('crm_chat_all')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'internal_messages' }, (payload) => {
-        console.log('[AdminSalesChat] Real-time message received:', payload.new);
-        if (payload.new.sender_id === conversationId || payload.new.receiver_id === conversationId) {
-          setMessages(prev => [...prev, payload.new]);
-          
-          // Mark as read immediately if it's from the buyer
-          if (payload.new.sender_id === conversationId) {
-            supabase
-              .from('internal_messages')
-              .update({ is_read: true })
-              .eq('id', payload.new.id)
-              .then(() => console.log('[AdminSalesChat] Message marked as read in real-time'));
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'internal_messages' }, (payload) => {
+        console.log('[AdminSalesChat] Real-time event received:', payload.eventType);
+        
+        if (payload.eventType === 'INSERT') {
+          if (payload.new.sender_id === conversationId || payload.new.receiver_id === conversationId) {
+            setMessages(prev => [...prev, payload.new]);
+            
+            // Mark as read immediately if it's from the buyer
+            if (payload.new.sender_id === conversationId) {
+              supabase
+                .from('internal_messages')
+                .update({ is_read: true })
+                .eq('id', payload.new.id)
+                .then(() => console.log('[AdminSalesChat] Message marked as read in real-time'));
+            }
           }
-        } else {
-          console.log('[AdminSalesChat] Message ignored (ID mismatch):', payload.new.sender_id, payload.new.receiver_id, conversationId);
+        } else if (payload.eventType === 'UPDATE') {
+          // Refresh messages if an update happened (e.g., message read status changed)
+          fetchMessages();
         }
       })
       .subscribe();
