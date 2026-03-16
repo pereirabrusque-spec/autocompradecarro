@@ -6,7 +6,8 @@ import { useAiMode } from '../../hooks/useAiMode';
 export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conversationId: string, role: string, onMessageRead: () => void }) => {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
-  const { isAiMode, toggleAiMode } = useAiMode();
+  const [isAiMode, setIsAiMode] = useState(false);
+  const [isUpdatingAi, setIsUpdatingAi] = useState(false);
   
   const [userPhone, setUserPhone] = useState('');
   const [userEmail, setUserEmail] = useState('');
@@ -95,14 +96,32 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
   const fetchUserData = async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('phone, email, avatar_url')
+        .select('phone, email, avatar_url, is_ai_enabled')
         .eq('id', conversationId)
         .single();
       if (data) {
           setUserPhone(data.phone);
           setUserEmail(data.email);
           setUserAvatar(data.avatar_url);
+          setIsAiMode(data.is_ai_enabled !== false); // Default to true if null
       }
+  };
+
+  const toggleAiMode = async (val: boolean) => {
+    setIsUpdatingAi(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ is_ai_enabled: val })
+        .eq('id', conversationId);
+      
+      if (error) throw error;
+      setIsAiMode(val);
+    } catch (e) {
+      console.error('Error toggling AI mode:', e);
+    } finally {
+      setIsUpdatingAi(false);
+    }
   };
 
   const isAiModeRef = useRef(false);
@@ -224,6 +243,7 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
         <div className="flex gap-2 items-center">
           <button 
             onClick={() => toggleAiMode(!isAiMode)}
+            disabled={isUpdatingAi}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer hover:scale-105 active:scale-95 ${
               isAiMode 
               ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' 
@@ -231,7 +251,7 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
             }`}
           >
             <Bot className={`w-4 h-4 ${isAiMode ? 'animate-pulse' : ''}`} />
-            {isAiMode ? 'IA ATIVA' : 'IA DESLIGADA'}
+            {isAiMode ? 'IA NESTE CHAT: ON' : 'IA NESTE CHAT: OFF'}
           </button>
 
           <button 

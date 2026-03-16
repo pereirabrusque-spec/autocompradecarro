@@ -243,10 +243,10 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
                             ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' 
                             : 'bg-slate-100 text-slate-400 border border-slate-200'
                     }`}
-                    title={isAiEnabled ? 'IA Automática Ativa' : 'IA Automática Desligada'}
+                    title={isAiEnabled ? 'IA Global Ativa' : 'IA Global Desligada'}
                 >
                     <Bot className={`w-3 h-3 ${isAiEnabled ? 'animate-pulse' : ''}`} />
-                    <span>{isAiEnabled ? 'IA ON' : 'IA OFF'}</span>
+                    <span>{isAiEnabled ? 'IA GLOBAL ON' : 'IA GLOBAL OFF'}</span>
                 </button>
             </div>
             <button 

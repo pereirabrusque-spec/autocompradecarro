@@ -77,27 +77,52 @@ export const BackgroundAIManager = () => {
                 const isForMe = payload.new.receiver_id === uid || (!payload.new.receiver_id && uid);
                 
                 // Só responde se a IA estiver ligada E a mensagem não for minha
-                if (isAiEnabledRef.current && isForMe && payload.new.sender_id !== uid) {
-                    console.log('[BackgroundAIManager] IA Global detectou nova mensagem, aguardando para processar...');
-                    
-                    // Pequeno delay aleatório para evitar que múltiplos admins respondam ao mesmo tempo
-                    const delay = Math.floor(Math.random() * 800) + 200;
-                    await new Promise(resolve => setTimeout(resolve, delay));
+                if (isForMe && payload.new.sender_id !== uid) {
+                    if (!isAiEnabledRef.current) {
+                        console.log('[BackgroundAIManager] IA Global está desligada. Ignorando.');
+                        return;
+                    }
 
                     const senderId = payload.new.sender_id;
+                    const messageId = payload.new.id;
 
-                    // Verifica se há qualquer mensagem mais recente nesta conversa (de admin ou do próprio cliente)
-                    const { data: newerMsg } = await supabase
+                    console.log(`[BackgroundAIManager] IA Global detectou nova mensagem (${messageId}) de ${senderId}`);
+                    
+                    // Verifica se o comprador específico tem a IA ligada
+                    const { data: buyerProfile } = await supabase
+                        .from('profiles')
+                        .select('is_ai_enabled')
+                        .eq('id', senderId)
+                        .single();
+                    
+                    if (buyerProfile && buyerProfile.is_ai_enabled === false) {
+                        console.log(`[BackgroundAIManager] IA desligada para o comprador ${senderId}. Ignorando.`);
+                        return;
+                    }
+
+                    console.log(`[BackgroundAIManager] IA habilitada (Global e Per-User). Aguardando delay...`);
+                    
+                    // Pequeno delay aleatório para evitar que múltiplos admins respondam ao mesmo tempo
+                    // E também para dar um ar mais "humano" de que está lendo
+                    const delay = Math.floor(Math.random() * 1000) + 500;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+
+                    // Verifica se JÁ existe uma resposta de ADMIN para ESTA mensagem específica
+                    // Buscamos mensagens do admin para este comprador criadas APÓS esta mensagem
+                    const { data: recentAdminMsg } = await supabase
                         .from('internal_messages')
                         .select('id')
-                        .or(`sender_id.eq.${senderId},receiver_id.eq.${senderId}`)
+                        .eq('sender_id', uid)
+                        .eq('receiver_id', senderId)
                         .gt('created_at', payload.new.created_at)
                         .limit(1);
 
-                    if (newerMsg && newerMsg.length > 0) {
-                        console.log('[BackgroundAIManager] Já existe uma mensagem mais recente nesta conversa. Cancelando resposta.');
+                    if (recentAdminMsg && recentAdminMsg.length > 0) {
+                        console.log(`[BackgroundAIManager] Já existe uma resposta posterior para a mensagem ${messageId}. Pulando.`);
                         return;
                     }
+
+                    console.log(`[BackgroundAIManager] Nenhuma resposta de admin detectada. Gerando resposta para: "${payload.new.content.substring(0, 30)}..."`);
 
                     try {
                         // Busca histórico recente para contexto

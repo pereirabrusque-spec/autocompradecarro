@@ -85,6 +85,7 @@ export class AIService {
 
     // Tenta a primeira chave disponível
     const apiKey = availableKeys[0];
+    console.log(`[AIService] Usando chave: ${apiKey.provider} (${apiKey.id})`);
     
     try {
       const result = await AIClientManager.execute(apiKey, prompt, systemInstruction, image);
