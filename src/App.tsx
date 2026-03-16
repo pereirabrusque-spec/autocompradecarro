@@ -234,7 +234,7 @@ function AppContent() {
       <NotificationPermissionModal />
       
       {/* Floating Purchasing Chat for Seller Site */}
-      {view === 'home' && <FloatingPurchasingChat context={purchasingContext} />}
+      {view !== 'admin' && view !== 'buyer' && <FloatingPurchasingChat context={purchasingContext} />}
       
       {/* Real-time Chat Widget for logged users (Bottom Right) */}
       {view !== 'admin' && user && !profile?.role?.includes('buyer') && (
