@@ -38,6 +38,24 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
     supabase.from('settings').select('value').eq('key', 'AI_CRM_PROMPT').single().then(({ data }) => {
       if (data) setAiPrompt(data.value);
     });
+
+    // Real-time subscription for new messages
+    const subscription = supabase
+      .channel('crm_chat_all')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'internal_messages' }, (payload) => {
+        console.log('[CRMChatContainer] New message received:', payload.new);
+        
+        // Update unread count for the sender
+        setUnreadCounts(prev => ({
+          ...prev,
+          [payload.new.sender_id]: (prev[payload.new.sender_id] || 0) + 1
+        }));
+      })
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const saveAiPrompt = async () => {
