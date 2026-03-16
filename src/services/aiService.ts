@@ -21,7 +21,14 @@ export class AIService {
     }
 
     // Filter out known invalid providers like 'grod'
-    const filteredData = (data || []).filter(k => k.provider !== 'grod');
+    const filteredData = (data || []).filter(k => {
+      const provider = k.provider?.trim().toLowerCase();
+      if (provider === 'grod') {
+        console.warn(`[AIService] Filtrando provedor inválido: ${k.provider}`);
+        return false;
+      }
+      return true;
+    });
 
     // Prioritize 'ok' status (green). 
     // Among 'ok' keys, sort by last_used DESCENDING to "stick" to the one currently being used.
