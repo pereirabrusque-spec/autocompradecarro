@@ -6113,7 +6113,28 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     </p>
                   </div>
 
-                  <h3 className="text-lg font-bold">Chaves Ativas</h3>
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-bold">Chaves Ativas</h3>
+                    <button 
+                      onClick={async () => {
+                        setIsLoading(true);
+                        try {
+                          await AIService.testConnections();
+                          await fetchData();
+                          alert('Teste de todas as APIs concluído!');
+                        } catch (err) {
+                          console.error('Error testing all APIs:', err);
+                          alert('Erro ao testar APIs.');
+                        } finally {
+                          setIsLoading(false);
+                        }
+                      }}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition-all"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      Testar Todas as APIs
+                    </button>
+                  </div>
                   <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
                     {apiKeys.map(key => (
                       <div key={key.id} className="p-5 bg-slate-50 rounded-[24px] border border-slate-200 flex flex-col gap-4">

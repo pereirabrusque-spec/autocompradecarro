@@ -55,11 +55,11 @@ function AppContent() {
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   useEffect(() => {
-    // Test API connections on startup and every 4 hours
+    // Test API connections on startup and every 6 hours
     AIService.testConnections();
     const interval = setInterval(() => {
       AIService.testConnections();
-    }, 4 * 60 * 60 * 1000); // 4 hours
+    }, 6 * 60 * 60 * 1000); // 6 hours
     return () => clearInterval(interval);
   }, []);
 

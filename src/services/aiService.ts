@@ -11,7 +11,6 @@ export interface AIResponse {
 
 export class AIService {
   private static async getActiveKeys(): Promise<any[]> {
-    // Tenta buscar todas as chaves, independentemente do status
     const { data, error } = await supabase
       .from('api_keys')
       .select('*');
@@ -21,7 +20,7 @@ export class AIService {
       return [];
     }
 
-    // Ordena: 'ok' primeiro, depois 'rate_limited', depois outros
+    // Prioritize 'ok' status (green), then sort by last used to balance load among working keys
     return (data || []).sort((a, b) => {
       const statusOrder = { 'ok': 0, 'rate_limited': 1, 'no_credit': 2, 'disconnected': 3 };
       const orderA = statusOrder[a.status as keyof typeof statusOrder] ?? 4;
@@ -38,7 +37,7 @@ export class AIService {
   private static async updateKeyStatus(id: string, status: 'ok' | 'no_credit' | 'disconnected' | 'rate_limited', errorCount: number = 0) {
     if (id === 'env-key') return;
     try {
-      const { error } = await supabase
+      await supabase
         .from('api_keys')
         .update({ 
           status, 
@@ -46,16 +45,6 @@ export class AIService {
           last_used: new Date().toISOString()
         })
         .eq('id', id);
-      
-      if (error && error.message.includes('status')) {
-        // Fallback: don't update status if column missing
-        await supabase
-          .from('api_keys')
-          .update({ 
-            last_used: new Date().toISOString()
-          })
-          .eq('id', id);
-      }
     } catch (e) {
       console.error('Error updating key status:', e);
     }
@@ -64,39 +53,58 @@ export class AIService {
   static async generateContent(prompt: string, systemInstruction: string, image?: string): Promise<AIResponse> {
     const keys = await this.getActiveKeys();
     
-    if (process.env.GEMINI_API_KEY) {
-      keys.push({
-        id: 'env-key',
-        provider: 'gemini',
-        key: process.env.GEMINI_API_KEY,
-        service: 'gemini-3-flash-preview',
-        status: 'ok'
-      });
-    }
-
-    // Filtra chaves que não estão desconectadas
-    const availableKeys = keys.filter(k => k.status !== 'disconnected');
+    const availableKeys = keys.filter(k => k.status === 'ok');
     
     if (availableKeys.length === 0) {
-      // Se todas desconectadas, tenta re-testar todas
+      console.warn('[AIService] Nenhuma API "OK" encontrada. Forçando teste de todas as conexões...');
       await this.testConnections();
+      const reloadedKeys = await this.getActiveKeys();
+      const stillAvailable = reloadedKeys.filter(k => k.status === 'ok');
+      
+      if (stillAvailable.length === 0) {
+        // Fallback to env key if exists
+        if (process.env.GEMINI_API_KEY) {
+          return await AIClientManager.execute({
+            id: 'env-key',
+            provider: 'gemini',
+            key: process.env.GEMINI_API_KEY,
+            service: 'gemini-3-flash-preview'
+          }, prompt, systemInstruction, image);
+        }
+        throw new Error('Nenhuma API disponível e funcional no momento.');
+      }
       return await this.generateContent(prompt, systemInstruction, image);
     }
 
-    // Tenta a primeira chave disponível
+    // Tenta a primeira chave "OK"
     const apiKey = availableKeys[0];
-    console.log(`[AIService] Usando chave: ${apiKey.provider} (${apiKey.id})`);
+    console.log(`[AIService] Usando API Ativa: ${apiKey.provider} (${apiKey.id})`);
     
     try {
       const result = await AIClientManager.execute(apiKey, prompt, systemInstruction, image);
-      
+      // Atualiza last_used sem mudar o status 'ok'
       await this.updateKeyStatus(apiKey.id, 'ok', 0);
       return result;
 
     } catch (error: any) {
-      console.error(`Error with ${apiKey.provider} key ${apiKey.id}:`, error);
+      const errMsg = error.message?.toLowerCase() || '';
+      console.error(`[AIService] Falha na API ${apiKey.provider} (${apiKey.id}):`, error);
       
-      await this.updateKeyStatus(apiKey.id, 'disconnected', (apiKey.error_count || 0) + 1);
+      let newStatus: 'ok' | 'no_credit' | 'disconnected' | 'rate_limited' = 'disconnected';
+      if (errMsg.includes('429') || errMsg.includes('too many requests')) {
+        newStatus = 'rate_limited';
+      } else if (errMsg.includes('credit') || errMsg.includes('quota') || errMsg.includes('limit')) {
+        newStatus = 'no_credit';
+      }
+
+      await this.updateKeyStatus(apiKey.id, newStatus, (apiKey.error_count || 0) + 1);
+      
+      // Força re-teste de todas as APIs porque uma falhou
+      // Isso ajuda a encontrar se alguma que estava 'no_credit' ou 'rate_limited' já voltou
+      console.log('[AIService] API falhou. Forçando re-teste de todas as APIs para encontrar substituta...');
+      await this.testConnections();
+      
+      // Tenta novamente (vai pegar a próxima 'ok')
       return await this.generateContent(prompt, systemInstruction, image);
     }
   }
