@@ -31,15 +31,12 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'internal_messages' }, (payload) => {
           console.log('[InternalChat] Nova mensagem recebida:', payload.new);
           
-          // Check if the message belongs to this conversation
+          // Lógica mais permissiva para garantir que o usuário receba mensagens destinadas a ele
           const isMyMessage = payload.new.sender_id === user.id;
-          const isForMe = payload.new.receiver_id === user.id || (payload.new.receiver_id === null && user.role === 'admin');
+          const isForMe = !payload.new.receiver_id || payload.new.receiver_id === user.id || (user.role === 'admin' && payload.new.receiver_id === null);
           
-          console.log('[InternalChat] É minha?', isMyMessage, 'É para mim?', isForMe);
-
           if (isMyMessage || isForMe) {
             setMessages(prev => {
-              // Avoid duplicates
               if (prev.some(m => m.id === payload.new.id)) return prev;
               return [...prev, payload.new];
             });
@@ -47,13 +44,10 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
 
             if (!isOpenState && !isMyMessage) {
               setUnreadCount(prev => prev + 1);
-              audioRef.current?.play().catch(e => console.error('[InternalChat] Audio play failed', e));
+              audioRef.current?.play().catch(() => {});
               
               if (Notification.permission === 'granted') {
-                new Notification('Nova mensagem', {
-                  body: payload.new.content,
-                  icon: '/favicon.ico'
-                });
+                new Notification('Nova mensagem', { body: payload.new.content });
               }
             }
           }

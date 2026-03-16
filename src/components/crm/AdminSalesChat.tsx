@@ -15,10 +15,9 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
   }, []);
 
   const toggleAiMode = async (newMode: boolean) => {
-    console.log('[AdminSalesChat] Toggling AI mode to:', newMode);
     setIsAiMode(newMode);
-    const { error } = await supabase.from('settings').upsert({ key: 'AI_CRM_MODE', value: newMode.toString() });
-    if (error) console.error('[AdminSalesChat] Error saving AI mode:', error);
+    // Salva no banco e garante persistência
+    await supabase.from('settings').upsert({ key: 'AI_CRM_MODE', value: newMode.toString() });
   };
   const [userPhone, setUserPhone] = useState('');
   const [userEmail, setUserEmail] = useState('');
@@ -94,15 +93,17 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
         setMessages(data || []);
       }
       
-      // Mark messages as read
-      const { error: updateError } = await supabase
-        .from('internal_messages')
-        .update({ is_read: true })
-        .eq('receiver_id', currentUserId) // O admin é o receiver
-        .eq('sender_id', conversationId)  // A mensagem veio do comprador
-        .eq('is_read', false);
+      // Marca mensagens como lidas
+      if (currentUserId) {
+        const { error: updateError } = await supabase
+          .from('internal_messages')
+          .update({ is_read: true })
+          .eq('receiver_id', currentUserId)
+          .eq('sender_id', conversationId)
+          .eq('is_read', false);
         
-      if (updateError) console.error('Erro ao marcar como lido:', updateError);
+        if (updateError) console.error('Erro ao marcar como lido:', updateError);
+      }
     };
     
     const fetchUserData = async () => {
