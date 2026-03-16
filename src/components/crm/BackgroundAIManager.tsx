@@ -253,7 +253,7 @@ REGRAS:
 
                         const response = await AIService.generateContent(
                             fullPrompt,
-                            "Você é um assistente de vendas prestativo. Siga as regras e memória fornecidas.",
+                            "Você é um assistente de vendas altamente preciso. Responda estritamente com base nos dados técnicos do veículo fornecidos no contexto. Se a informação não estiver nos dados, não invente. Seja direto, profissional e persuasivo.",
                             imageBase64 || undefined
                         );
 

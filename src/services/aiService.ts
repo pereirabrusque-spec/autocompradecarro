@@ -70,63 +70,59 @@ export class AIService {
   }
 
   static async generateContent(prompt: string, systemInstruction: string, image?: string): Promise<AIResponse> {
-    const keys = await this.getActiveKeys();
-    console.log('[AIService] Keys fetched:', keys.length);
-    
-    const availableKeys = keys.filter(k => k.status === 'ok');
-    console.log('[AIService] Available keys:', availableKeys.length);
-    
-    if (availableKeys.length === 0) {
-      console.warn('[AIService] Nenhuma API "OK" encontrada. Forçando teste de todas as conexões...');
-      await this.testConnections();
-      const reloadedKeys = await this.getActiveKeys();
-      const stillAvailable = reloadedKeys.filter(k => k.status === 'ok');
+    let keys = await this.getActiveKeys();
+    let attempts = 0;
+    const maxAttempts = keys.length * 2; // Evita loops infinitos
+
+    while (attempts < maxAttempts) {
+      const availableKeys = keys.filter(k => k.status === 'ok');
       
-      if (stillAvailable.length === 0) {
-        // Fallback to env key if exists
-        if (process.env.GEMINI_API_KEY) {
-          return await AIClientManager.execute({
-            id: 'env-key',
-            provider: 'gemini',
-            key: process.env.GEMINI_API_KEY,
-            service: 'gemini-3-flash-preview'
-          }, prompt, systemInstruction, image);
+      if (availableKeys.length === 0) {
+        console.warn('[AIService] Nenhuma API "OK" encontrada. Forçando teste de todas as conexões...');
+        await this.testConnections();
+        keys = await this.getActiveKeys();
+        if (keys.filter(k => k.status === 'ok').length === 0) {
+          // Fallback to env key if exists
+          if (process.env.GEMINI_API_KEY) {
+            return await AIClientManager.execute({
+              id: 'env-key',
+              provider: 'gemini',
+              key: process.env.GEMINI_API_KEY,
+              service: 'gemini-3-flash-preview'
+            }, prompt, systemInstruction, image);
+          }
+          throw new Error('Nenhuma API disponível e funcional no momento.');
         }
-        throw new Error('Nenhuma API disponível e funcional no momento.');
-      }
-      return await this.generateContent(prompt, systemInstruction, image);
-    }
-
-    // Tenta a primeira chave "OK"
-    const apiKey = availableKeys[0];
-    console.log(`[AIService] Usando API Ativa: ${apiKey.provider} (${apiKey.id})`);
-    
-    try {
-      const result = await AIClientManager.execute(apiKey, prompt, systemInstruction, image);
-      // Atualiza last_used sem mudar o status 'ok'
-      await this.updateKeyStatus(apiKey.id, 'ok', 0);
-      return result;
-
-    } catch (error: any) {
-      const errMsg = error.message?.toLowerCase() || '';
-      console.error(`[AIService] Falha na API ${apiKey.provider} (${apiKey.id}). Erro completo:`, error);
-      
-      let newStatus: 'ok' | 'no_credit' | 'disconnected' | 'rate_limited' = 'disconnected';
-      
-      // Se for erro de rede/DNS (Failed to fetch), marca como disconnected imediatamente
-      if (errMsg.includes('failed to fetch') || errMsg.includes('err_name_not_resolved')) {
-        newStatus = 'disconnected';
-      } else if (errMsg.includes('429') || errMsg.includes('too many requests')) {
-        newStatus = 'rate_limited';
-      } else if (errMsg.includes('credit') || errMsg.includes('quota') || errMsg.includes('limit')) {
-        newStatus = 'no_credit';
+        continue; // Re-tenta com as chaves recarregadas
       }
 
-      await this.updateKeyStatus(apiKey.id, newStatus, (apiKey.error_count || 0) + 1);
+      const apiKey = availableKeys[0];
+      console.log(`[AIService] Usando API Ativa: ${apiKey.provider} (${apiKey.id})`);
       
-      // Tenta novamente (vai pegar a próxima 'ok' disponível)
-      return await this.generateContent(prompt, systemInstruction, image);
+      try {
+        const result = await AIClientManager.execute(apiKey, prompt, systemInstruction, image);
+        await this.updateKeyStatus(apiKey.id, 'ok', 0);
+        return result;
+      } catch (error: any) {
+        const errMsg = error.message?.toLowerCase() || '';
+        console.error(`[AIService] Falha na API ${apiKey.provider} (${apiKey.id}). Erro:`, errMsg);
+        
+        let newStatus: 'ok' | 'no_credit' | 'disconnected' | 'rate_limited' = 'disconnected';
+        
+        if (errMsg.includes('failed to fetch') || errMsg.includes('err_name_not_resolved')) {
+          newStatus = 'disconnected';
+        } else if (errMsg.includes('429') || errMsg.includes('too many requests') || errMsg.includes('quota')) {
+          newStatus = 'rate_limited';
+        }
+
+        await this.updateKeyStatus(apiKey.id, newStatus, (apiKey.error_count || 0) + 1);
+        
+        // Recarrega chaves para a próxima iteração do loop
+        keys = await this.getActiveKeys();
+        attempts++;
+      }
     }
+    throw new Error('Excedido número máximo de tentativas de API.');
   }
 
   static async testConnections(): Promise<void> {
