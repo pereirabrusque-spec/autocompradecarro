@@ -11,6 +11,7 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
   const [aiPrompt, setAiPrompt] = useState('');
   const [isAiEnabled, setIsAiEnabled] = useState(false);
   const [isSavingPrompt, setIsSavingPrompt] = useState(false);
+  const [isUpdatingAi, setIsUpdatingAi] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   
   const selectedConversationIdRef = useRef<string | null>(null);
@@ -179,6 +180,24 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
     };
   }, [currentUserId]);
 
+  const toggleGlobalAi = async () => {
+    setIsUpdatingAi(true);
+    const newValue = !isAiEnabled;
+    try {
+      const { data: existing } = await supabase.from('settings').select('key').eq('key', 'AI_CRM_ENABLED').maybeSingle();
+      if (existing) {
+        await supabase.from('settings').update({ value: newValue.toString() }).eq('key', 'AI_CRM_ENABLED');
+      } else {
+        await supabase.from('settings').insert({ key: 'AI_CRM_ENABLED', value: newValue.toString() });
+      }
+      setIsAiEnabled(newValue);
+    } catch (e) {
+      console.error('Error toggling AI:', e);
+    } finally {
+      setIsUpdatingAi(false);
+    }
+  };
+
   const saveAiPrompt = async () => {
     setIsSavingPrompt(true);
     
@@ -214,7 +233,22 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
       {/* Buyer List */}
       <div className="w-1/3 border-r border-slate-200 flex flex-col shrink-0">
         <div className="p-4 border-b border-slate-100 font-bold flex justify-between items-center shrink-0">
-            Conversas
+            <div className="flex items-center gap-2">
+                Conversas
+                <button 
+                    onClick={toggleGlobalAi}
+                    disabled={isUpdatingAi}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-lg font-bold text-[9px] transition-all ${
+                        isAiEnabled 
+                            ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' 
+                            : 'bg-slate-100 text-slate-400 border border-slate-200'
+                    }`}
+                    title={isAiEnabled ? 'IA Automática Ativa' : 'IA Automática Desligada'}
+                >
+                    <Bot className={`w-3 h-3 ${isAiEnabled ? 'animate-pulse' : ''}`} />
+                    <span>{isAiEnabled ? 'IA ON' : 'IA OFF'}</span>
+                </button>
+            </div>
             <button 
                 onClick={() => setShowAiRules(true)}
                 className="p-1 rounded-full hover:bg-slate-100 text-slate-600"

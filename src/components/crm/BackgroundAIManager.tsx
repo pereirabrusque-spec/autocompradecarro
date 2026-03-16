@@ -81,22 +81,21 @@ export const BackgroundAIManager = () => {
                     console.log('[BackgroundAIManager] IA Global detectou nova mensagem, aguardando para processar...');
                     
                     // Pequeno delay aleatório para evitar que múltiplos admins respondam ao mesmo tempo
-                    const delay = Math.floor(Math.random() * 2000) + 500;
+                    const delay = Math.floor(Math.random() * 800) + 200;
                     await new Promise(resolve => setTimeout(resolve, delay));
 
                     const senderId = payload.new.sender_id;
 
-                    // Verifica se já houve uma resposta de admin após esta mensagem
-                    const { data: recentAdminMsg } = await supabase
+                    // Verifica se há qualquer mensagem mais recente nesta conversa (de admin ou do próprio cliente)
+                    const { data: newerMsg } = await supabase
                         .from('internal_messages')
                         .select('id')
-                        .eq('sender_id', uid) // Ou qualquer admin, mas uid já serve para este contexto
-                        .eq('receiver_id', senderId)
+                        .or(`sender_id.eq.${senderId},receiver_id.eq.${senderId}`)
                         .gt('created_at', payload.new.created_at)
                         .limit(1);
 
-                    if (recentAdminMsg && recentAdminMsg.length > 0) {
-                        console.log('[BackgroundAIManager] Já houve uma resposta para esta mensagem. Cancelando.');
+                    if (newerMsg && newerMsg.length > 0) {
+                        console.log('[BackgroundAIManager] Já existe uma mensagem mais recente nesta conversa. Cancelando resposta.');
                         return;
                     }
 

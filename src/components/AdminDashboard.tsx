@@ -2135,27 +2135,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-             {isAdmin && (
-               <button 
-                  onClick={toggleGlobalAi}
-                  disabled={isUpdatingAi}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-xl font-bold text-[10px] transition-all ${
-                      isGlobalAiEnabled 
-                          ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' 
-                          : 'bg-slate-800 text-slate-500 border border-slate-700'
-                  }`}
-                  title={isGlobalAiEnabled ? 'IA Automática Ativa' : 'IA Automática Desligada'}
-               >
-                  <Bot className={`w-4 h-4 ${isGlobalAiEnabled ? 'animate-pulse' : ''}`} />
-                  <span className="uppercase tracking-widest hidden sm:inline">
-                      {isGlobalAiEnabled ? 'IA ON' : 'IA OFF'}
-                  </span>
-                  <div className={`w-8 h-4 rounded-full relative transition-colors ${isGlobalAiEnabled ? 'bg-blue-500' : 'bg-slate-600'}`}>
-                      <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${isGlobalAiEnabled ? 'left-4.5' : 'left-0.5'}`} />
-                  </div>
-               </button>
-             )}
-
              <button 
               onClick={() => window.location.href = '/'}
               className="p-2.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"
@@ -2174,8 +2153,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
         </div>
       </header>
 
-      {isAdmin && <BackgroundAIManager />}
-
       <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
           <motion.div
             key={activeTab}
@@ -2185,7 +2162,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
             transition={{ duration: 0.2 }}
           >
             {activeTab === 'crm_chat' && (
-              <div className="h-[700px]">
+              <div className="h-[700px] flex flex-col gap-4">
+                {isAdmin && <BackgroundAIManager />}
                 <CRMChatContainer role={userProfile?.role || 'admin'} />
               </div>
             )}
