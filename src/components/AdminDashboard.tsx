@@ -154,6 +154,7 @@ export default function AdminDashboard() {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null);
   const [avarias, setAvarias] = useState<{id: string, description: string, value: number}[]>([]);
+  const [isLearning, setIsLearning] = useState(false);
   const [users, setUsers] = useState<any[]>([]);
   const [userProfile, setUserProfile] = useState<any>(null);
   const isAdmin = userProfile?.role === 'admin' || currentUser?.email === 'pereira.brusque@gmail.com';
