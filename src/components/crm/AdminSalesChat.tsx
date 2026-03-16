@@ -101,6 +101,7 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
       setMessages(data || []);
       
       // Marca mensagens como lidas NO BANCO DE DADOS
+      console.log('[AdminSalesChat] Marcando mensagens como lidas para:', conversationId);
       const { error: updateError } = await supabase
         .from('internal_messages')
         .update({ is_read: true })
@@ -108,7 +109,10 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
         .eq('sender_id', conversationId)
         .eq('is_read', false);
       
-      if (!updateError) {
+      if (updateError) {
+          console.error('[AdminSalesChat] Erro ao marcar como lidas:', updateError);
+      } else {
+          console.log('[AdminSalesChat] Mensagens marcadas como lidas com sucesso');
           onMessageRead(); // Notifica o container pai para atualizar a lista lateral
       }
     }
@@ -141,12 +145,14 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
             
             // Mark as read immediately if it's from the buyer
             if (payload.new.sender_id === conversationId) {
+              console.log('[AdminSalesChat] Nova mensagem do comprador, marcando como lida:', payload.new.id);
               supabase
                 .from('internal_messages')
                 .update({ is_read: true })
                 .eq('id', payload.new.id)
-                .then(() => {
-                    onMessageRead();
+                .then(({ error }) => {
+                    if (error) console.error('[AdminSalesChat] Erro ao marcar nova mensagem como lida:', error);
+                    else onMessageRead();
                 });
             }
           }

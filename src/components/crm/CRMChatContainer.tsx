@@ -10,8 +10,23 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
   const [showAiRules, setShowAiRules] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [isSavingPrompt, setIsSavingPrompt] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  
+  const selectedConversationIdRef = useRef<string | null>(null);
+  const currentUserIdRef = useRef<string | null>(null);
 
-  const fetchConversations = async () => {
+  useEffect(() => {
+    selectedConversationIdRef.current = selectedConversationId;
+  }, [selectedConversationId]);
+
+  useEffect(() => {
+    currentUserIdRef.current = currentUserId;
+  }, [currentUserId]);
+
+  const fetchConversations = async (userId?: string) => {
+      const uid = userId || currentUserId;
+      console.log('[CRMChatContainer] Buscando conversas para UID:', uid);
+      
       const { data: profiles } = await supabase
         .from('profiles')
         .select('id, full_name, email, avatar_url, role')
@@ -21,28 +36,39 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
       if (profiles) {
         setConversations(profiles);
         
-        // Busca todos os contadores de uma vez para ser mais rápido e preciso
-        const { data: unreadData } = await supabase
-          .from('internal_messages')
-          .select('sender_id')
-          .eq('is_read', false);
+        // Busca contadores APENAS para mensagens destinadas ao admin logado
+        if (uid) {
+            const { data: unreadData, error: unreadError } = await supabase
+              .from('internal_messages')
+              .select('sender_id')
+              .eq('receiver_id', uid)
+              .eq('is_read', false);
 
-        const counts: Record<string, number> = {};
-        profiles.forEach(p => counts[p.id] = 0);
-        
-        if (unreadData) {
-          unreadData.forEach(msg => {
-            if (counts[msg.sender_id] !== undefined) {
-              counts[msg.sender_id]++;
+            if (unreadError) console.error('[CRMChatContainer] Erro ao buscar não lidas:', unreadError);
+
+            const counts: Record<string, number> = {};
+            profiles.forEach(p => counts[p.id] = 0);
+            
+            if (unreadData) {
+              unreadData.forEach(msg => {
+                if (counts[msg.sender_id] !== undefined) {
+                  counts[msg.sender_id]++;
+                }
+              });
             }
-          });
+            console.log('[CRMChatContainer] Contadores atualizados:', counts);
+            setUnreadCounts(counts);
         }
-        setUnreadCounts(counts);
       }
     };
 
   useEffect(() => {
-    fetchConversations();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+          setCurrentUserId(user.id);
+          fetchConversations(user.id);
+      }
+    });
 
     // Load existing prompt
     supabase.from('settings').select('value').eq('key', 'AI_CRM_PROMPT').single().then(({ data }) => {
@@ -53,14 +79,26 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
     const messageSubscription = supabase
       .channel('crm_chat_all')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'internal_messages' }, (payload) => {
-        console.log('[CRMChatContainer] Event received:', payload.eventType);
+        console.log('[CRMChatContainer] Nova mensagem recebida:', payload.new);
         
-        // Update unread count locally for the specific conversation
-        const senderId = payload.new.sender_id;
-        setUnreadCounts(prev => ({
-            ...prev,
-            [senderId]: (prev[senderId] || 0) + 1
-        }));
+        const uid = currentUserIdRef.current;
+        const selId = selectedConversationIdRef.current;
+
+        // Só incrementa se a mensagem for para o admin logado
+        if (uid && payload.new.receiver_id === uid) {
+            const senderId = payload.new.sender_id;
+            
+            // Se o admin já estiver com o chat aberto, não incrementa (ou zera logo)
+            if (selId === senderId) {
+                console.log('[CRMChatContainer] Chat aberto, ignorando incremento');
+                return;
+            }
+
+            setUnreadCounts(prev => ({
+                ...prev,
+                [senderId]: (prev[senderId] || 0) + 1
+            }));
+        }
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'internal_messages' }, () => {
         fetchConversations();
