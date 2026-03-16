@@ -41,6 +41,22 @@ export default function ChatWidget() {
     }
   }, []);
 
+  // Update last_login periodically to show as online in AdminDashboard
+  useEffect(() => {
+    if (user && isOpen) {
+      const updateOnlineStatus = async () => {
+        await supabase
+          .from('profiles')
+          .update({ last_login: new Date().toISOString() })
+          .eq('id', user.id);
+      };
+      
+      updateOnlineStatus();
+      const interval = setInterval(updateOnlineStatus, 60000); // Every minute
+      return () => clearInterval(interval);
+    }
+  }, [user, isOpen]);
+
   // Fetch user leads on mount or when user changes
   useEffect(() => {
     if (user) {
@@ -164,17 +180,34 @@ export default function ChatWidget() {
     if (!newMessage.trim() || !activeLead) return;
 
     setSending(true);
+    const tempId = Math.random().toString(36).substring(7);
+    const optimisticMessage = {
+      id: tempId,
+      lead_id: activeLead.id,
+      remetente: 'cliente',
+      conteudo: newMessage.trim(),
+      created_at: new Date().toISOString()
+    };
+    
+    // Adiciona a mensagem localmente de forma otimista
+    setMessages(prev => [...prev, optimisticMessage]);
+    const messageText = newMessage.trim();
+    setNewMessage('');
+
     try {
       const { error } = await supabase
         .from('mensagens')
         .insert([{
           lead_id: activeLead.id,
           remetente: 'cliente',
-          conteudo: newMessage.trim()
+          conteudo: messageText
         }]);
 
-      if (error) throw error;
-      setNewMessage('');
+      if (error) {
+        // Se houver erro, remove a mensagem otimista
+        setMessages(prev => prev.filter(m => m.id !== tempId));
+        throw error;
+      }
     } catch (error) {
       console.error('Error sending message:', error);
     } finally {

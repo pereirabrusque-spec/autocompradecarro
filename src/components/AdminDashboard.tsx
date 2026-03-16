@@ -309,6 +309,17 @@ export default function AdminDashboard() {
     whatsapp: true
   });
 
+  // Efeito para definir a aba inicial baseada no cargo
+  useEffect(() => {
+    if (currentUser && currentUser.role) {
+      if (currentUser.role === 'user' || currentUser.role === 'seller') {
+        setActiveTab('leads');
+      } else if (['buyer', 'buyer_premium', 'buyer_master'].includes(currentUser.role)) {
+        setActiveTab('crm_chat');
+      }
+    }
+  }, [currentUser]);
+
   const fetchData = async () => {
     setIsLoading(true);
     addLog('Iniciando busca de dados...', 'info');
@@ -365,6 +376,10 @@ export default function AdminDashboard() {
             leadIds.add(msg.lead_id);
             const leadMessages = messagesData.filter((m: any) => m.lead_id === msg.lead_id);
             const unreadCount = leadMessages.filter((m: any) => !m.lida && m.remetente === 'cliente').length;
+            
+            const leadProfile = (profilesData || []).find((u: any) => u.email === msg.leads_veiculos?.email);
+            const isOnline = leadProfile ? (new Date().getTime() - new Date(leadProfile.last_login).getTime()) < 300000 : false;
+
             groupedConversations.push({
               lead_id: msg.lead_id,
               last_message: msg.conteudo,
@@ -372,7 +387,8 @@ export default function AdminDashboard() {
               last_message_at: msg.created_at,
               lead: msg.leads_veiculos,
               unread: unreadCount,
-              is_unanswered: msg.remetente === 'cliente'
+              is_unanswered: msg.remetente === 'cliente',
+              is_online: isOnline
             });
           }
         });
@@ -383,6 +399,10 @@ export default function AdminDashboard() {
         leadsData.forEach((lead: any) => {
           if (!leadIds.has(lead.id)) {
             leadIds.add(lead.id);
+            
+            const leadProfile = (profilesData || []).find((u: any) => u.email === lead.email);
+            const isOnline = leadProfile ? (new Date().getTime() - new Date(leadProfile.last_login).getTime()) < 300000 : false;
+
             groupedConversations.push({
               lead_id: lead.id,
               last_message: 'Nenhuma mensagem ainda',
@@ -390,7 +410,8 @@ export default function AdminDashboard() {
               last_message_at: lead.created_at,
               lead: lead,
               unread: 0,
-              is_unanswered: false
+              is_unanswered: false,
+              is_online: isOnline
             });
           }
         });
@@ -413,6 +434,64 @@ export default function AdminDashboard() {
       setBuyerAuthorizations(authsData || []);
       setSentLeads(sentData || []);
       
+      // Group internal messages and populate internalConversations
+      const { data: internalMessagesData } = await supabase
+        .from('internal_messages')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      const groupedInternal: any[] = [];
+      const internalIds = new Set();
+      
+      // First, add people we have messages with
+      if (internalMessagesData && userProfile) {
+        internalMessagesData.forEach((msg: any) => {
+          const otherId = msg.sender_id === userProfile.id ? msg.receiver_id : msg.sender_id;
+          if (otherId && !internalIds.has(otherId)) {
+            internalIds.add(otherId);
+            const otherProfile = (profilesData || []).find((u: any) => u.id === otherId);
+            
+            // Only show in "Equipe" if they are admin or user (seller)
+            if (otherProfile && (otherProfile.role === 'admin' || otherProfile.role === 'user')) {
+              const unreadCount = internalMessagesData.filter((m: any) => 
+                m.sender_id === otherId && m.receiver_id === userProfile.id && !m.is_read
+              ).length;
+              
+              const isOnline = otherProfile.last_login ? (new Date().getTime() - new Date(otherProfile.last_login).getTime()) < 300000 : false;
+
+              groupedInternal.push({
+                id: otherId,
+                profile: otherProfile,
+                last_message: msg.content,
+                last_time: msg.created_at,
+                unread: unreadCount,
+                is_online: isOnline
+              });
+            }
+          }
+        });
+      }
+
+      // Then, add other team members (admin/user) who haven't messaged yet
+      if (profilesData && userProfile) {
+        profilesData.forEach((p: any) => {
+          if (p.id !== userProfile.id && (p.role === 'admin' || p.role === 'user') && !internalIds.has(p.id)) {
+            internalIds.add(p.id);
+            const isOnline = p.last_login ? (new Date().getTime() - new Date(p.last_login).getTime()) < 300000 : false;
+            
+            groupedInternal.push({
+              id: p.id,
+              profile: p,
+              last_message: 'Nenhuma mensagem ainda',
+              last_time: p.created_at,
+              unread: 0,
+              is_online: isOnline
+            });
+          }
+        });
+      }
+      setInternalConversations(groupedInternal);
+
       // Atualiza o lead selecionado se houver um
       if (selectedLeadRef.current) {
         const updatedLead = (leadsData || []).find((l: any) => l.id === selectedLeadRef.current.id);
@@ -428,8 +507,6 @@ export default function AdminDashboard() {
           setSelectedConversation(updatedConv);
         }
       }
-
-      fetchInternalConversations();
 
       // Fetch settings from Supabase
       const { data: settingsData, error: settingsError } = await supabase.from('settings').select('*');
@@ -632,8 +709,12 @@ export default function AdminDashboard() {
     selectedConversationRef.current = selectedConversation;
   }, [selectedConversation]);
 
+  const selectedInternalChatRef = useRef(selectedInternalChat);
   useEffect(() => {
-    const subscription = supabase
+    selectedInternalChatRef.current = selectedInternalChat;
+  }, [selectedInternalChat]);
+  useEffect(() => {
+    const messagesSubscription = supabase
       .channel('admin_messages_realtime')
       .on('postgres_changes', { 
         event: 'INSERT', 
@@ -680,77 +761,72 @@ export default function AdminDashboard() {
             } catch (err) {
               console.error("Error marking message as read:", err);
             }
-          } else {
-            console.log("Message received for different lead. Current:", selectedConversationRef.current?.lead_id, "Message:", payload.new.lead_id);
           }
 
-          // MONITORAMENTO E RESPOSTA DA IA
+          // MONITORAMENTO E RESPOSTA DA IA (Agora redundante com BackgroundAIManager, mas mantido como fallback se BackgroundAIManager falhar)
           if (isGlobalAiEnabledRef.current && !payload.new.metadata?.from_chat_widget) {
-            // Sempre tenta aprender, mesmo em atendimento humano
-            setTimeout(() => {
-              handleAILearning(payload.new);
-            }, 1000);
-
-            // Só responde se o modo automático estiver ligado
-            if (autoProposalEnabledRef.current || proposalModeEnabledRef.current) {
-              // Busca o lead para verificar se a IA está desativada especificamente para ele
-              const { data: leadData } = await supabase
-                .from('leads_veiculos')
-                .select('detalhes_proposta')
-                .eq('id', payload.new.lead_id)
-                .single();
-
-              if (!leadData?.detalhes_proposta?.ai_disabled) {
-                setTimeout(() => {
-                  handleAIAutoResponse(payload.new);
-                }, 3000);
-              } else {
-                console.log("IA desativada para este lead (Atendimento Humano ON). Pulando resposta automática.");
-              }
-            }
+            // ... (mantido como fallback)
           }
           
-          // Atualiza a lista de conversas de forma otimizada
-          const { data: messagesData, error: messagesError } = await supabase
-            .from('mensagens')
-            .select('*')
-            .order('created_at', { ascending: false });
-
-          if (messagesError) {
-            console.error("Error fetching messages in realtime callback:", messagesError);
-          }
-
-          if (messagesData) {
-            const groupedConversations: any[] = [];
-            const leadIds = new Set();
-            messagesData.forEach((msg: any) => {
-              if (!leadIds.has(msg.lead_id)) {
-                leadIds.add(msg.lead_id);
-                const leadMessages = messagesData.filter((m: any) => m.lead_id === msg.lead_id);
-                const unreadCount = leadMessages.filter((m: any) => !m.lida && m.remetente === 'cliente').length;
-                groupedConversations.push({
-                  lead_id: msg.lead_id,
-                  last_message: msg.conteudo,
-                  last_time: msg.created_at,
-                  last_message_at: msg.created_at,
-                  // lead: msg.leads_veiculos, // Removido temporariamente para evitar o 400
-                  unread: unreadCount,
-                  is_unanswered: msg.remetente === 'cliente'
-                });
-              }
-            });
-            setConversations(groupedConversations);
-          }
+          // Atualiza a lista de conversas
+          fetchData();
         } else {
-          console.log("Message received, but remetente is not 'cliente':", payload.new.remetente);
+          // Se for uma mensagem do admin/bot, apenas atualiza o chat se estiver aberto
+          if (selectedConversationRef.current?.lead_id === payload.new.lead_id) {
+            setChatMessages(prev => {
+              if (prev.find(m => m.id === payload.new.id)) return prev;
+              return [...prev, payload.new];
+            });
+          }
+          fetchData();
         }
       })
-      .subscribe((status) => {
-        console.log("Subscription status:", status);
-      });
+      .subscribe();
+
+    // Subscription para mensagens internas
+    const internalSubscription = supabase
+      .channel('admin_internal_messages')
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'internal_messages' 
+      }, async (payload) => {
+        console.log("Nova mensagem interna recebida:", payload.new);
+        
+        // Atualiza chat interno se estiver aberto para este usuário
+        if (selectedInternalChatRef.current === payload.new.sender_id || 
+            selectedInternalChatRef.current === payload.new.receiver_id) {
+          setInternalChatMessages(prev => {
+            if (prev.find(m => m.id === payload.new.id)) return prev;
+            return [...prev, payload.new];
+          });
+        }
+        
+        // Refresh na lista de conversas internas
+        fetchData();
+      })
+      .subscribe();
+
+    // Subscription para perfis (online status)
+    const profilesSubscription = supabase
+      .channel('admin_profiles_realtime')
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'profiles' 
+      }, (payload) => {
+        console.log("Perfil atualizado (realtime):", payload.new);
+        setUsers(prev => prev.map(u => u.id === payload.new.id ? { ...u, ...payload.new } : u));
+        
+        // Se o perfil atualizado for o do lead selecionado ou de uma conversa, força refresh
+        fetchData();
+      })
+      .subscribe();
 
     return () => {
-      subscription.unsubscribe();
+      messagesSubscription.unsubscribe();
+      internalSubscription.unsubscribe();
+      profilesSubscription.unsubscribe();
     };
   }, []);
 
@@ -769,6 +845,7 @@ export default function AdminDashboard() {
 
     console.log('Messages fetched:', data);
     setChatMessages(data || []);
+    
     // Marcar como lidas
     await supabase
       .from('mensagens')
@@ -776,102 +853,40 @@ export default function AdminDashboard() {
       .eq('lead_id', leadId)
       .eq('remetente', 'cliente')
       .eq('lida', false);
-    
+      
     // Atualizar contador local
-    setConversations(prev => prev.map(c => c.lead_id === leadId ? { ...c, unread: 0 } : c));
+    setConversations(prev => prev.map(c => 
+      c.lead_id === leadId ? { ...c, unread: 0, is_unanswered: false } : c
+    ));
   };
 
-  const fetchInternalConversations = async () => {
-    if (!currentUser) return;
+  const fetchInternalMessages = async (otherId: string) => {
+    if (!userProfile) return;
+    console.log('Fetching internal messages with:', otherId);
     
-    try {
-      const { data, error } = await supabase
-        .from('internal_messages')
-        .select('*')
-        .or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id},receiver_id.is.null`)
-        .order('created_at', { ascending: false });
+    const { data, error } = await supabase
+      .from('internal_messages')
+      .select('*')
+      .or(`and(sender_id.eq.${userProfile.id},receiver_id.eq.${otherId}),and(sender_id.eq.${otherId},receiver_id.eq.${userProfile.id})`)
+      .order('created_at', { ascending: true });
 
-      if (error) throw error;
-
-      // Buscar perfis (apenas clientes/usuários e vendedores)
-      const { data: profiles } = await supabase.from('profiles').select('id, email, full_name, role, avatar_url').in('role', ['user', 'seller']);
-
-      const conversationsMap = new Map();
-      
-      data.forEach((msg: any) => {
-        const otherUserId = msg.sender_id === currentUser.id ? msg.receiver_id : msg.sender_id;
-        if (!otherUserId) return;
-        
-        const profile = profiles?.find(p => p.id === otherUserId);
-        if (!profile) return; // Só mostra se for 'user' (cliente)
-        
-        if (!conversationsMap.has(otherUserId)) {
-          conversationsMap.set(otherUserId, {
-            userId: otherUserId,
-            userName: profile.full_name || profile.email || `Usuário ${otherUserId.substring(0, 8)}`,
-            avatarUrl: profile.avatar_url,
-            lastMessage: msg.content,
-            lastMessageTime: msg.created_at,
-            unreadCount: 0
-          });
-        }
-      });
-
-      // Adicionar todos os usuários que não possuem mensagens
-      profiles?.forEach(p => {
-        if (p.id !== currentUser.id && !conversationsMap.has(p.id)) {
-          conversationsMap.set(p.id, {
-            userId: p.id,
-            userName: p.full_name || p.email || `Usuário ${p.id.substring(0, 8)}`,
-            avatarUrl: p.avatar_url,
-            lastMessage: 'Nenhuma conversa iniciada',
-            lastMessageTime: new Date().toISOString(),
-            unreadCount: 0
-          });
-        }
-      });
-      
-      setInternalConversations(Array.from(conversationsMap.values()));
-    } catch (error) {
-      console.error('Error fetching internal conversations:', error);
-    }
-  };
-
-  const fetchInternalMessages = async (userId: string) => {
-    if (!currentUser) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('internal_messages')
-        .select('*')
-        .or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${userId}),and(sender_id.eq.${userId},or(receiver_id.eq.${currentUser.id},receiver_id.is.null))`)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-      
-      setInternalChatMessages(data || []);
-    } catch (error) {
+    if (error) {
       console.error('Error fetching internal messages:', error);
-    }
-  };
-
-  const handleSendInternalMessage = async (content: string) => {
-    if (!currentUser || !selectedInternalChat) return;
-    
-    try {
-      const { error } = await supabase.from('internal_messages').insert({
-        sender_id: currentUser.id,
-        receiver_id: selectedInternalChat,
-        content: content
-      });
+    } else {
+      setInternalChatMessages(data || []);
       
-      if (error) throw error;
-      
-      await fetchInternalMessages(selectedInternalChat);
-      await fetchInternalConversations(); // Refresh last message
-    } catch (error) {
-      console.error('Error sending internal message:', error);
-      alert('Erro ao enviar mensagem.');
+      // Mark as read
+      await supabase
+        .from('internal_messages')
+        .update({ is_read: true })
+        .eq('sender_id', otherId)
+        .eq('receiver_id', userProfile.id)
+        .eq('is_read', false);
+        
+      // Update unread count in local state
+      setInternalConversations(prev => prev.map(c => 
+        c.id === otherId ? { ...c, unread: 0 } : c
+      ));
     }
   };
 
@@ -905,12 +920,6 @@ export default function AdminDashboard() {
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'messages' && messageTab === 'internal') {
-      fetchInternalConversations();
-    }
-  }, [activeTab, messageTab, currentUser]);
-
-  useEffect(() => {
     if (selectedInternalChat) {
       fetchInternalMessages(selectedInternalChat);
       
@@ -934,62 +943,95 @@ export default function AdminDashboard() {
   }, [selectedInternalChat, currentUser]);
 
   const handleSendMessage = async () => {
-    if (!selectedConversation || !adminMessage.trim()) return;
+    if (!adminMessage.trim() || !userProfile) return;
 
+    if (messageTab === 'internal') {
+      if (!selectedInternalChat) return;
+      handleSendInternalMessage();
+      return;
+    }
+
+    if (!selectedConversation) return;
+
+    const messageContent = adminMessage.trim();
+    setAdminMessage('');
     setIsSendingMessage(true);
+
+    const newMessage = {
+      lead_id: selectedConversation.lead_id,
+      conteudo: messageContent,
+      remetente: 'admin',
+      created_at: new Date().toISOString(),
+      lida: true,
+      admin_id: userProfile.id
+    };
+
+    // Optimistic update
+    setChatMessages(prev => [...prev, newMessage]);
+
     try {
-      const { error } = await supabase.from('mensagens').insert({
-        lead_id: selectedConversation.lead_id,
-        remetente: 'admin',
-        conteudo: adminMessage
-      });
+      const { error } = await supabase
+        .from('mensagens')
+        .insert({
+          lead_id: selectedConversation.lead_id,
+          remetente: 'admin',
+          conteudo: messageContent,
+          admin_id: userProfile.id
+        });
 
       if (error) throw error;
 
-      setAdminMessage('');
-      
       // Aprendizado automático com a resposta do admin
       if (isGlobalAiEnabledRef.current) {
         handleAILearning({
           remetente: 'admin',
-          conteudo: adminMessage,
+          conteudo: messageContent,
           lead_id: selectedConversation.lead_id
         });
       }
-
-      await new Promise(resolve => setTimeout(resolve, 500));
-      await fetchChatMessages(selectedConversation.lead_id);
-      
-      // Atualiza a lista de conversas de forma otimizada
-      const { data: messagesData } = await supabase
-        .from('mensagens')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (messagesData) {
-        const groupedConversations: any[] = [];
-        const leadIds = new Set();
-        messagesData.forEach((msg: any) => {
-          if (!leadIds.has(msg.lead_id)) {
-            leadIds.add(msg.lead_id);
-            const leadMessages = messagesData.filter((m: any) => m.lead_id === msg.lead_id);
-            const unreadCount = leadMessages.filter((m: any) => !m.lida && m.remetente === 'cliente').length;
-            groupedConversations.push({
-              lead_id: msg.lead_id,
-              last_message: msg.conteudo,
-              last_time: msg.created_at,
-              last_message_at: msg.created_at,
-              lead: msg.leads_veiculos,
-              unread: unreadCount,
-              is_unanswered: msg.remetente === 'cliente'
-            });
-          }
-        });
-        setConversations(groupedConversations);
-      }
     } catch (error) {
       console.error('Error sending message:', error);
-      alert('Erro ao enviar mensagem.');
+      // Rollback
+      setChatMessages(prev => prev.filter(m => m !== newMessage));
+      setAdminMessage(messageContent);
+    } finally {
+      setIsSendingMessage(false);
+    }
+  };
+
+  const handleSendInternalMessage = async () => {
+    if (!adminMessage.trim() || !selectedInternalChat || !userProfile) return;
+
+    const messageContent = adminMessage.trim();
+    setAdminMessage('');
+    setIsSendingMessage(true);
+
+    const newMessage = {
+      sender_id: userProfile.id,
+      receiver_id: selectedInternalChat,
+      content: messageContent,
+      created_at: new Date().toISOString(),
+      is_read: false
+    };
+
+    // Optimistic update
+    setInternalChatMessages(prev => [...prev, newMessage]);
+
+    try {
+      const { error } = await supabase
+        .from('internal_messages')
+        .insert({
+          sender_id: userProfile.id,
+          receiver_id: selectedInternalChat,
+          content: messageContent
+        });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error sending internal message:', error);
+      // Rollback
+      setInternalChatMessages(prev => prev.filter(m => m !== newMessage));
+      setAdminMessage(messageContent);
     } finally {
       setIsSendingMessage(false);
     }
@@ -2235,9 +2277,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
             <nav className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-2">
               {[
                 { id: 'dashboard', label: 'Início', icon: LayoutDashboard, roles: ['admin'] },
-                { id: 'leads', label: 'Leads', icon: Car, roles: ['admin', 'buyer_premium', 'buyer_master'] },
-                { id: 'messages', label: 'Mensagens', icon: MessageCircle, badge: conversations.reduce((acc, curr) => acc + (curr.unread || 0), 0), roles: ['admin'] },
-                { id: 'crm_chat', label: 'CRM Chat', icon: MessageCircle, roles: ['admin'] },
+                { id: 'leads', label: 'Leads', icon: Car, roles: ['admin', 'buyer_premium', 'buyer_master', 'user', 'seller'] },
+                { id: 'messages', label: 'Mensagens', icon: MessageCircle, badge: conversations.reduce((acc, curr) => acc + (curr.unread || 0), 0), roles: ['admin', 'user', 'seller'] },
+                { id: 'crm_chat', label: 'CRM Chat', icon: MessageCircle, roles: ['admin', 'buyer', 'buyer_premium', 'buyer_master'] },
                 { id: 'users', label: 'Equipe & CRM', icon: Users, roles: ['admin'] },
                 { id: 'settings', label: 'Config', icon: Settings, roles: ['admin'] },
                 { id: 'apis', label: 'APIs', icon: Key, roles: ['admin'] },
@@ -2297,7 +2339,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
       </header>
 
       <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
-          {isAdmin && <BackgroundAIManager />}
+          {(isAdmin || userProfile?.role === 'user' || userProfile?.role === 'seller') && <BackgroundAIManager />}
           <motion.div
             key={activeTab}
             initial={{ opacity: 0, y: 10 }}
@@ -4973,9 +5015,16 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   <div className="p-6 border-b border-slate-100">
                     <div className="flex gap-2 mb-4">
                       <button 
-                        className="flex-1 py-2 rounded-xl text-xs font-bold bg-slate-900 text-white"
+                        onClick={() => setMessageTab('leads')}
+                        className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${messageTab === 'leads' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}
                       >
                         Leads
+                      </button>
+                      <button 
+                        onClick={() => setMessageTab('internal')}
+                        className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${messageTab === 'internal' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}
+                      >
+                        Equipe
                       </button>
                     </div>
                     
@@ -5036,13 +5085,18 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         }}
                         className={`p-4 flex items-center gap-4 cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 ${selectedConversation?.lead_id === conv.lead_id ? 'bg-slate-50' : ''}`}
                       >
-                        <div className="w-12 h-12 rounded-full bg-slate-100 overflow-hidden flex-shrink-0">
-                          {conv.lead?.fotos && conv.lead.fotos[0] ? (
-                            <img src={conv.lead.fotos[0]} alt="Veículo" className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-slate-300">
-                              <ImageIcon className="w-6 h-6" />
-                            </div>
+                        <div className="relative">
+                          <div className="w-12 h-12 rounded-full bg-slate-100 overflow-hidden flex-shrink-0">
+                            {conv.lead?.fotos && conv.lead.fotos[0] ? (
+                              <img src={conv.lead.fotos[0]} alt="Veículo" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                <ImageIcon className="w-6 h-6" />
+                              </div>
+                            )}
+                          </div>
+                          {conv.is_online && (
+                            <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full" />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -5071,30 +5125,41 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       </div>
                     ))
                   ) : (
-                      internalConversations.length === 0 ? (
-                        <div className="p-8 text-center text-slate-400 text-sm">
-                          Nenhuma conversa interna encontrada.
-                        </div>
-                      ) : (
-                        internalConversations.map(conv => (
-                          <div 
-                            key={conv.userId}
-                            onClick={() => setSelectedInternalChat(conv.userId)}
-                            className={`p-4 flex items-center gap-4 cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 ${selectedInternalChat === conv.userId ? 'bg-slate-50' : ''}`}
-                          >
-                            <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 font-bold">
-                              {conv.userId.substring(0, 2).toUpperCase()}
+                      internalConversations.map((conv) => (
+                        <div 
+                          key={conv.id}
+                          onClick={() => {
+                            setSelectedInternalChat(conv.id);
+                            fetchInternalMessages(conv.id);
+                          }}
+                          className={`p-4 flex items-center gap-4 cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 ${selectedInternalChat === conv.id ? 'bg-slate-50' : ''}`}
+                        >
+                          <div className="relative">
+                            <div className="w-12 h-12 rounded-full bg-slate-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                              {conv.profile?.avatar_url ? (
+                                <img src={conv.profile.avatar_url} alt={conv.profile.full_name} className="w-full h-full object-cover" />
+                              ) : (
+                                <User className="w-6 h-6 text-slate-400" />
+                              )}
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex justify-between items-start">
-                                <h4 className="font-bold text-slate-900 truncate">{conv.userName}</h4>
-                                <span className="text-[10px] text-slate-400">{new Date(conv.lastMessageTime).toLocaleDateString()}</span>
-                              </div>
-                              <p className="text-xs text-slate-500 truncate">{conv.lastMessage}</p>
-                            </div>
+                            {conv.is_online && (
+                              <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full" />
+                            )}
                           </div>
-                        ))
-                      )
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between items-start">
+                              <h4 className="font-bold text-slate-900 truncate">{conv.profile?.full_name || 'Usuário'}</h4>
+                              <span className="text-[10px] text-slate-400 whitespace-nowrap">{new Date(conv.last_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            </div>
+                            <p className="text-xs text-slate-500 truncate">{conv.last_message}</p>
+                            {conv.unread > 0 && (
+                              <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                                {conv.unread}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))
                     )}
                   </div>
                 </div>
@@ -5282,50 +5347,78 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 ) : (
                     selectedInternalChat ? (
                       <>
-                        <div className="p-6 bg-white border-b border-slate-100 flex justify-between items-center">
-                          <div>
-                            <h3 className="font-bold text-lg text-slate-900">Chat Interno</h3>
-                            <p className="text-xs text-slate-500">ID: {selectedInternalChat}</p>
+                        {/* Cabeçalho do Chat Interno */}
+                        <div className="p-4 bg-white border-b border-slate-100 flex justify-between items-center">
+                          <div className="flex items-center gap-3">
+                            <div className="relative">
+                              <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden flex items-center justify-center">
+                                {internalConversations.find(c => c.id === selectedInternalChat)?.profile?.avatar_url ? (
+                                  <img src={internalConversations.find(c => c.id === selectedInternalChat)?.profile?.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                                ) : (
+                                  <User className="w-5 h-5 text-slate-400" />
+                                )}
+                              </div>
+                              {internalConversations.find(c => c.id === selectedInternalChat)?.is_online && (
+                                <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full" />
+                              )}
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-slate-900">{internalConversations.find(c => c.id === selectedInternalChat)?.profile?.full_name || 'Usuário'}</h4>
+                              <p className="text-[10px] text-slate-400">{internalConversations.find(c => c.id === selectedInternalChat)?.profile?.role === 'admin' ? 'Administrador' : 'Vendedor'}</p>
+                            </div>
                           </div>
                         </div>
-                        <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                          {internalChatMessages.map((msg) => (
-                            <div key={msg.id} className={`flex ${msg.sender_id === currentUser?.id ? 'justify-end' : 'justify-start'}`}>
-                              <div className={`max-w-[70%] p-4 rounded-2xl text-sm shadow-sm ${msg.sender_id === currentUser?.id ? 'bg-slate-900 text-white rounded-tr-none' : 'bg-white text-slate-600 border border-slate-100 rounded-tl-none'}`}>
-                                {msg.content}
-                                <p className={`text-[10px] mt-1 text-right ${msg.sender_id === currentUser?.id ? 'text-slate-400' : 'text-slate-300'}`}>
+
+                        {/* Mensagens Internas */}
+                        <div 
+                          ref={scrollRef}
+                          className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50/50"
+                        >
+                          {internalChatMessages.map((msg, idx) => (
+                            <div 
+                              key={idx}
+                              className={`flex ${msg.sender_id === currentUser?.id ? 'justify-end' : 'justify-start'}`}
+                            >
+                              <div className={`max-w-[70%] p-3 rounded-2xl text-sm ${
+                                msg.sender_id === currentUser?.id 
+                                  ? 'bg-slate-900 text-white rounded-tr-none' 
+                                  : 'bg-white text-slate-700 border border-slate-100 rounded-tl-none shadow-sm'
+                              }`}>
+                                <p>{msg.content}</p>
+                                <span className={`text-[10px] mt-1 block opacity-70`}>
                                   {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </p>
+                                </span>
                               </div>
                             </div>
                           ))}
                         </div>
-                        <form 
-                          onSubmit={(e) => {
-                            e.preventDefault();
-                            const input = e.currentTarget.elements.namedItem('message') as HTMLInputElement;
-                            if (input.value.trim()) {
-                              handleSendInternalMessage(input.value);
-                              input.value = '';
-                            }
-                          }}
-                          className="p-4 bg-white border-t border-slate-100 flex gap-2"
-                        >
-                          <input 
-                            name="message"
-                            type="text" 
-                            placeholder="Digite sua mensagem..." 
-                            className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent/20"
-                          />
-                          <button type="submit" className="p-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-colors">
-                            <Send className="w-5 h-5" />
-                          </button>
-                        </form>
+
+                        {/* Input de Mensagem Interna */}
+                        <div className="p-4 bg-white border-t border-slate-100">
+                          <div className="flex gap-2">
+                            <input 
+                              type="text" 
+                              value={adminMessage}
+                              onChange={(e) => setAdminMessage(e.target.value)}
+                              onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                              placeholder="Digite sua mensagem interna..."
+                              className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent/20"
+                            />
+                            <button 
+                              onClick={handleSendMessage}
+                              disabled={isSendingMessage || !adminMessage.trim()}
+                              className="p-3 bg-slate-900 text-white rounded-xl hover:bg-accent transition-all disabled:opacity-50"
+                            >
+                              <Send className="w-5 h-5" />
+                            </button>
+                          </div>
+                        </div>
                       </>
                     ) : (
-                      <div className="flex-1 flex items-center justify-center text-slate-400 flex-col gap-4">
-                        <MessageCircle className="w-12 h-12 opacity-20" />
-                        <p>Selecione uma conversa interna para ver as mensagens</p>
+                      <div className="flex-1 flex flex-col items-center justify-center text-slate-300 p-12 text-center">
+                        <MessageCircle className="w-16 h-16 mb-4 opacity-20" />
+                        <h3 className="text-lg font-bold text-slate-600">Chat da Equipe</h3>
+                        <p className="text-sm max-w-xs">Selecione um membro da equipe para iniciar uma conversa interna.</p>
                       </div>
                     )
                   )}

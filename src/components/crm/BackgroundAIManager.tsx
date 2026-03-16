@@ -81,7 +81,8 @@ export const BackgroundAIManager = () => {
         const channelName = `bg_ai_messages_${currentUserId}`;
         console.log(`[BackgroundAIManager] Iniciando monitoramento global: ${channelName}`);
 
-        const messageSubscription = supabase
+        // Listen for internal messages
+        const internalMessageSubscription = supabase
             .channel(channelName)
             .on('postgres_changes', { 
                 event: 'INSERT', 
@@ -99,7 +100,7 @@ export const BackgroundAIManager = () => {
                     const senderId = payload.new.sender_id;
                     const messageId = payload.new.id;
 
-                    console.log(`[BackgroundAIManager] IA Global detectou nova mensagem (${messageId}) de ${senderId}`);
+                    console.log(`[BackgroundAIManager] IA Global detectou nova mensagem interna (${messageId}) de ${senderId}`);
                     
                     // Verifica se o comprador específico tem a IA ligada
                     const { data: buyerProfile } = await supabase
@@ -129,12 +130,10 @@ export const BackgroundAIManager = () => {
                     console.log(`[BackgroundAIManager] IA habilitada (Global: ${isGlobalAiEnabled}, Conversa: ${conversationAiState}). Aguardando delay...`);
                     
                     // Pequeno delay aleatório para evitar que múltiplos admins respondam ao mesmo tempo
-                    // E também para dar um ar mais "humano" de que está lendo
                     const delay = Math.floor(Math.random() * 1000) + 500;
                     await new Promise(resolve => setTimeout(resolve, delay));
 
                     // Verifica se JÁ existe uma resposta de ADMIN para ESTA mensagem específica
-                    // Buscamos mensagens do admin para este comprador criadas APÓS esta mensagem
                     const { data: recentAdminMsg } = await supabase
                         .from('internal_messages')
                         .select('id')
@@ -144,11 +143,11 @@ export const BackgroundAIManager = () => {
                         .limit(1);
 
                     if (recentAdminMsg && recentAdminMsg.length > 0) {
-                        console.log(`[BackgroundAIManager] Já existe uma resposta posterior para a mensagem ${messageId}. Pulando.`);
+                        console.log(`[BackgroundAIManager] Já existe uma resposta posterior para a mensagem interna ${messageId}. Pulando.`);
                         return;
                     }
 
-                    console.log(`[BackgroundAIManager] Nenhuma resposta de admin detectada. Gerando resposta para: "${payload.new.content.substring(0, 30)}..."`);
+                    console.log(`[BackgroundAIManager] Nenhuma resposta de admin detectada. Gerando resposta para interna: "${payload.new.content.substring(0, 30)}..."`);
 
                     try {
                         // Busca histórico recente para contexto
@@ -273,18 +272,161 @@ REGRAS:
                                 sender_id: uid,
                                 lead_id: currentLeadId
                             });
-                            console.log('[BackgroundAIManager] Resposta automática enviada');
+                            console.log('[BackgroundAIManager] Resposta automática enviada para interna');
                         }
                     } catch (err) {
-                        console.error('[BackgroundAIManager] Erro ao processar resposta:', err);
+                        console.error('[BackgroundAIManager] Erro ao processar resposta interna:', err);
+                    }
+                }
+            })
+            .subscribe();
+
+        // Listen for public messages (leads)
+        const publicMessageSubscription = supabase
+            .channel(`bg_ai_public_${currentUserId}`)
+            .on('postgres_changes', { 
+                event: 'INSERT', 
+                schema: 'public', 
+                table: 'mensagens' 
+            }, async (payload) => {
+                const uid = currentUserIdRef.current;
+                if (!uid) return;
+
+                // Só responde se a mensagem for do cliente
+                if (payload.new.remetente === 'cliente') {
+                    const leadId = payload.new.lead_id;
+                    const messageId = payload.new.id;
+
+                    console.log(`[BackgroundAIManager] IA Global detectou nova mensagem de lead (${messageId}) para lead ${leadId}`);
+                    
+                    // Verifica se a IA está habilitada globalmente
+                    const isGlobalAiEnabled = isAiEnabledRef.current;
+                    if (!isGlobalAiEnabled) {
+                        console.log(`[BackgroundAIManager] IA Global desativada. Ignorando mensagem de lead.`);
+                        return;
+                    }
+
+                    // Verifica se o lead específico tem a IA desativada (atendimento humano)
+                    const { data: lead } = await supabase
+                        .from('leads_veiculos')
+                        .select('detalhes_proposta')
+                        .eq('id', leadId)
+                        .single();
+                    
+                    if (lead?.detalhes_proposta?.ai_disabled) {
+                        console.log(`[BackgroundAIManager] IA desativada para este lead (Atendimento Humano ON). Ignorando.`);
+                        return;
+                    }
+
+                    console.log(`[BackgroundAIManager] IA habilitada para lead. Aguardando delay...`);
+                    
+                    const delay = Math.floor(Math.random() * 2000) + 2000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+
+                    // Verifica se JÁ existe uma resposta de ADMIN ou BOT para ESTA mensagem
+                    const { data: recentMsg } = await supabase
+                        .from('mensagens')
+                        .select('id')
+                        .eq('lead_id', leadId)
+                        .in('remetente', ['admin', 'bot'])
+                        .gt('created_at', payload.new.created_at)
+                        .limit(1);
+
+                    if (recentMsg && recentMsg.length > 0) {
+                        console.log(`[BackgroundAIManager] Já existe uma resposta posterior para o lead ${leadId}. Pulando.`);
+                        return;
+                    }
+
+                    console.log(`[BackgroundAIManager] Gerando resposta para lead: "${payload.new.conteudo.substring(0, 30)}..."`);
+
+                    try {
+                        // Busca histórico recente
+                        const { data: historyData } = await supabase
+                            .from('mensagens')
+                            .select('*')
+                            .eq('lead_id', leadId)
+                            .order('created_at', { ascending: false })
+                            .limit(15);
+
+                        const history = (historyData || []).reverse().map(m => 
+                            `${m.remetente === 'cliente' ? 'Cliente' : 'Vendedor'}: ${m.conteudo}`
+                        ).join('\n');
+
+                        // Busca dados do veículo
+                        const { data: vehicle } = await supabase
+                            .from('leads_veiculos')
+                            .select('*')
+                            .eq('id', leadId)
+                            .single();
+
+                        let vehicleInfo = "";
+                        let vehiclePhoto = "";
+                        if (vehicle) {
+                            const allPhotos = vehicle.fotos || [];
+                            vehiclePhoto = allPhotos[0] || "";
+                            vehicleInfo = `
+VEÍCULO EM NEGOCIAÇÃO:
+- Marca/Modelo: ${vehicle.marca} ${vehicle.modelo}
+- Ano: ${vehicle.ano_fabricacao}/${vehicle.ano_modelo}
+- Preço: R$ ${vehicle.preco_cliente || 'A consultar'}
+- KM: ${vehicle.quilometragem || vehicle.km || '0'}
+- Cor: ${vehicle.cor || 'Não informada'}
+- Sinistro/Leilão: ${vehicle.tem_sinistro === 'sim' ? 'Sim' : 'Não'} / ${vehicle.passagem_leilao === 'sim' ? 'Sim' : 'Não'}
+`;
+                        }
+
+                        let imageBase64 = "";
+                        if (vehiclePhoto) {
+                            try {
+                                const imgResp = await fetch(vehiclePhoto);
+                                const blob = await imgResp.blob();
+                                imageBase64 = await new Promise((resolve) => {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => resolve(reader.result as string);
+                                    reader.readAsDataURL(blob);
+                                });
+                            } catch (e) {}
+                        }
+
+                        const fullPrompt = `
+${vehicleInfo}
+
+HISTÓRICO:
+${history}
+
+MENSAGEM ATUAL: ${payload.new.conteudo}
+
+REGRAS E MEMÓRIA:
+${aiPromptRef.current}
+${aiMemoryRef.current ? `\nMEMÓRIA APRENDIDA:\n${aiMemoryRef.current}` : ''}
+`;
+
+                        const response = await AIService.generateContent(
+                            fullPrompt,
+                            "Você é um vendedor de carros experiente. Responda com base nos dados do veículo. Seja persuasivo, amigável e direto.",
+                            imageBase64 || undefined
+                        );
+
+                        if (response && response.text) {
+                            await supabase.from('mensagens').insert({
+                                lead_id: leadId,
+                                conteudo: response.text,
+                                remetente: 'bot'
+                            });
+                            console.log('[BackgroundAIManager] Resposta automática enviada para lead');
+                        }
+                    } catch (err) {
+                        console.error('[BackgroundAIManager] Erro ao processar resposta para lead:', err);
                     }
                 }
             })
             .subscribe();
 
         return () => {
-            supabase.removeChannel(messageSubscription);
+            supabase.removeChannel(internalMessageSubscription);
+            supabase.removeChannel(publicMessageSubscription);
         };
+
     }, [currentUserId]);
 
     return null; // Componente invisível
