@@ -104,12 +104,6 @@ export default function AdminMessages() {
                 <span className="font-bold">{selectedConversation.sender_id || 'Lead'}</span>
               </div>
               <div className="flex gap-2 items-center">
-                <button 
-                    onClick={() => setIsHumanAttending(!isHumanAttending)}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold border ${isHumanAttending ? 'bg-red-50 text-red-600 border-red-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}
-                >
-                    {isHumanAttending ? 'Humano Respondendo' : 'Atendimento Humano'}
-                </button>
                 <button className="p-2 text-slate-500 hover:text-slate-900"><Mail className="w-4 h-4" /></button>
                 <button className="p-2 text-slate-500 hover:text-slate-900"><MessageCircle className="w-4 h-4" /></button>
                 <button 
