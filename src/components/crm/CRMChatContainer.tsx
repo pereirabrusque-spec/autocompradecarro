@@ -110,7 +110,10 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
             {conversations.map(conv => (
             <div 
                 key={conv.id} 
-                onClick={() => setSelectedConversationId(conv.id)}
+                onClick={() => {
+                    setSelectedConversationId(conv.id);
+                    setUnreadCounts(prev => ({ ...prev, [conv.id]: 0 })); // Zera visualmente
+                }}
                 className={`p-2 border-b border-slate-100 cursor-pointer hover:bg-slate-50 flex justify-between items-center ${selectedConversationId === conv.id ? 'bg-slate-100' : ''}`}
                 style={{ height: '48px' }}
             >
@@ -139,7 +142,11 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
       {/* Chat Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {selectedConversationId ? (
-          <AdminSalesChat conversationId={selectedConversationId} role={role} />
+          <AdminSalesChat 
+            conversationId={selectedConversationId} 
+            role={role} 
+            onMessageRead={fetchConversations} // Passa a função para atualizar contadores
+          />
         ) : (
           <div className="h-full flex items-center justify-center text-slate-400">
             Selecione uma conversa

@@ -2,21 +2,28 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Send, Bot, User, MessageCircle } from 'lucide-react';
 
-export const AdminSalesChat = ({ conversationId, role }: { conversationId: string, role: string }) => {
+export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conversationId: string, role: string, onMessageRead: () => void }) => {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
   const [isAiMode, setIsAiMode] = useState(false);
   
   useEffect(() => {
+    // Carrega do banco e do localStorage para persistência imediata
+    const savedMode = localStorage.getItem('ai_crm_mode') === 'true';
+    setIsAiMode(savedMode);
+
     supabase.from('settings').select('value').eq('key', 'AI_CRM_MODE').single().then(({ data }) => {
-      console.log('[AdminSalesChat] Loaded AI mode from DB:', data);
-      if (data) setIsAiMode(data.value === 'true');
+      if (data) {
+        const mode = data.value === 'true';
+        setIsAiMode(mode);
+        localStorage.setItem('ai_crm_mode', mode.toString());
+      }
     });
   }, []);
 
   const toggleAiMode = async (newMode: boolean) => {
     setIsAiMode(newMode);
-    // Salva no banco e garante persistência
+    localStorage.setItem('ai_crm_mode', newMode.toString());
     await supabase.from('settings').upsert({ key: 'AI_CRM_MODE', value: newMode.toString() });
   };
   const [userPhone, setUserPhone] = useState('');
@@ -102,7 +109,11 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
           .eq('sender_id', conversationId)
           .eq('is_read', false);
         
-        if (updateError) console.error('Erro ao marcar como lido:', updateError);
+        if (!updateError) {
+            onMessageRead(); // Notifica o container pai para zerar o contador
+        } else {
+            console.error('Erro ao marcar como lido:', updateError);
+        }
       }
     };
     
