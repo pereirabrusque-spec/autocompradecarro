@@ -2134,7 +2134,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[8px] flex items-center justify-center rounded-full border-2 border-slate-950 font-black">
                       {tab.badge}
                     </span>
-                  ) : null}
+                  )}
                   {activeTab === tab.id && (
                     <motion.div 
                       layoutId="activeTab"
@@ -5197,8 +5197,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       <p>Selecione uma conversa interna para ver as mensagens</p>
                     </div>
                   )
-                )
-
+                
+                
                 {/* Modal de Proposta (dentro do chat) */}
                 {showProposalModal && selectedLead && proposalCalculator && (
                   <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -5495,8 +5495,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   />
                 )}
               </div>
-
-            {activeTab === 'hero' && <div className="space-y-6">
+              {activeTab === 'hero' && 
+                <div className="space-y-6">
                 <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm mb-8">
                   <h3 className="text-xl font-bold mb-4">Configurações de Automação</h3>
                   <div className="flex items-center justify-between gap-4">
