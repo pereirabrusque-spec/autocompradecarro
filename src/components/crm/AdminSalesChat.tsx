@@ -122,7 +122,7 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
 
     // Real-time subscription
     const subscription = supabase
-      .channel(`crm_chat_${conversationId}`)
+      .channel('crm_chat_all')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'internal_messages' }, (payload) => {
         console.log('[AdminSalesChat] Real-time message received:', payload.new);
         if (payload.new.sender_id === conversationId || payload.new.receiver_id === conversationId) {
