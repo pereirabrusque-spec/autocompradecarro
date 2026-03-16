@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/authContext';
-import { MessageCircle, Users, Send, Search, Bot, FileText, Check, X } from 'lucide-react';
+import { MessageCircle, Users, Send, Search, Bot, FileText, Check, X, Mail } from 'lucide-react';
 
 export default function AdminMessages() {
   const { user } = useAuth();
@@ -98,10 +98,29 @@ export default function AdminMessages() {
         {selectedConversation ? (
           <>
             <div className="p-4 bg-white border-b border-slate-200 flex justify-between items-center">
-              <span className="font-bold">Conversa</span>
-              <button className="px-3 py-1 bg-slate-900 text-white rounded-lg text-xs font-bold">
-                  Humano Assume
-              </button>
+              <div className="flex items-center gap-4">
+                <span className="font-bold">{selectedConversation.sender_id || 'Lead'}</span>
+                {/* MODO IA Toggle */}
+                <div className="flex items-center gap-2 bg-slate-100 rounded-full px-3 py-1">
+                    <span className="text-xs font-bold">MODO IA</span>
+                    <button onClick={() => setGlobalAiEnabled(!globalAiEnabled)} className={`px-2 py-0.5 rounded-full text-[10px] ${globalAiEnabled ? 'bg-green-500 text-white' : 'bg-slate-300'}`}>
+                        {globalAiEnabled ? 'ON' : 'OFF'}
+                    </button>
+                </div>
+                {/* PROPOSTA Toggle */}
+                <div className="flex items-center gap-2 bg-slate-100 rounded-full px-3 py-1">
+                    <span className="text-xs font-bold">PROPOSTA</span>
+                    <button onClick={() => setAiAutoProposal(!aiAutoProposal)} className={`px-2 py-0.5 rounded-full text-[10px] ${aiAutoProposal ? 'bg-blue-500 text-white' : 'bg-slate-300'}`}>
+                        {aiAutoProposal ? 'AUTO' : 'MAN'}
+                    </button>
+                </div>
+              </div>
+              <div className="flex gap-2 items-center">
+                <button className="p-2 text-slate-500 hover:text-slate-900"><Mail className="w-4 h-4" /></button>
+                <button className="p-2 text-slate-500 hover:text-slate-900"><MessageCircle className="w-4 h-4" /></button>
+                <button className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold border border-blue-200">IA: Aprender</button>
+                <button onClick={() => setShowProposalModal(true)} className="px-3 py-1 bg-orange-50 text-orange-600 rounded-lg text-xs font-bold border border-orange-200">$ Ver Proposta</button>
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
                 {/* Messages... */}
