@@ -2070,6 +2070,15 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
   if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="w-8 h-8 animate-spin text-slate-900" /></div>;
 
+  const okKeys = apiKeys.filter(k => k.status === 'ok');
+  const activeKeyId = okKeys.length > 0 
+    ? [...okKeys].sort((a, b) => {
+        const timeA = a.last_used ? new Date(a.last_used).getTime() : 0;
+        const timeB = b.last_used ? new Date(b.last_used).getTime() : 0;
+        return timeB - timeA;
+      })[0].id
+    : null;
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Top Navbar */}
@@ -6136,19 +6145,27 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     </button>
                   </div>
                   <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
-                    {apiKeys.map(key => (
-                      <div key={key.id} className="p-5 bg-slate-50 rounded-[24px] border border-slate-200 flex flex-col gap-4">
-                        <div className="flex justify-between items-start">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-black uppercase tracking-widest text-slate-400">{key.provider}</span>
-                              <div className={`w-2 h-2 rounded-full ${
-                                key.status === 'ok' ? 'bg-emerald-500' : 
-                                key.status === 'no_credit' ? 'bg-amber-500' : 'bg-red-500'
-                              }`} />
+                    {apiKeys.length > 0 ? (
+                      apiKeys.map(key => (
+                        <div key={key.id} className={`p-5 rounded-[24px] border transition-all ${
+                          key.id === activeKeyId 
+                            ? 'bg-emerald-50 border-emerald-200 shadow-sm ring-1 ring-emerald-100' 
+                            : 'bg-slate-50 border-slate-200'
+                        } flex flex-col gap-4`}>
+                          <div className="flex justify-between items-start">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-black uppercase tracking-widest text-slate-400">{key.provider}</span>
+                                <div className={`w-2 h-2 rounded-full ${
+                                  key.status === 'ok' ? 'bg-emerald-500' : 
+                                  key.status === 'no_credit' ? 'bg-amber-500' : 'bg-red-500'
+                                }`} />
+                                {key.id === activeKeyId && (
+                                  <span className="bg-emerald-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md animate-pulse">CONECTADA</span>
+                                )}
+                              </div>
+                              <h4 className="font-bold text-slate-900">{key.service || 'Modelo não selecionado'}</h4>
                             </div>
-                            <h4 className="font-bold text-slate-900">{key.service || 'Modelo não selecionado'}</h4>
-                          </div>
                           <div className="flex gap-2">
                             <button 
                               onClick={async () => {
@@ -6339,7 +6356,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                     >
                                       {m}
                                     </button>
-                                  ));
+                                  ))
                                 })()}
                               </div>
                             </div>
@@ -6351,10 +6368,12 @@ Podemos prosseguir com o agendamento da vistoria?`;
                           </div>
                         </div>
                       </div>
-                    ))}
-                    {apiKeys.length === 0 && (
-                      <p className="text-center text-slate-400 py-8 text-sm">Nenhuma chave configurada.</p>
-                    )}
+                    ))
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-slate-400 text-sm">Nenhuma chave configurada.</p>
+                    </div>
+                  )}
                   </div>
                 </div>
               </div>
@@ -6601,8 +6620,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
             </div>
           </div>
         )}
-          </motion.div>
-      </main>
+       </motion.div>
+     </main>
 
         {/* Modal de WhatsApp */}
         {showWhatsAppModal && leadToWhatsApp && (

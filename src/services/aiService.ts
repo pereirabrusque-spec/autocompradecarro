@@ -20,7 +20,9 @@ export class AIService {
       return [];
     }
 
-    // Prioritize 'ok' status (green), then sort by last used to balance load among working keys
+    // Prioritize 'ok' status (green). 
+    // Among 'ok' keys, sort by last_used DESCENDING to "stick" to the one currently being used.
+    // For other statuses, sort by last_used ASCENDING to eventually retry older ones.
     return (data || []).sort((a, b) => {
       const statusOrder = { 'ok': 0, 'rate_limited': 1, 'no_credit': 2, 'disconnected': 3 };
       const orderA = statusOrder[a.status as keyof typeof statusOrder] ?? 4;
@@ -30,6 +32,13 @@ export class AIService {
       
       const lastUsedA = a.last_used ? new Date(a.last_used).getTime() : 0;
       const lastUsedB = b.last_used ? new Date(b.last_used).getTime() : 0;
+      
+      // If both are 'ok', newest first (stick to active)
+      if (a.status === 'ok') {
+        return lastUsedB - lastUsedA;
+      }
+      
+      // Otherwise oldest first (retry queue)
       return lastUsedA - lastUsedB;
     });
   }
