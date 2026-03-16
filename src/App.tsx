@@ -227,32 +227,25 @@ function AppContent() {
       
       {view !== 'admin' && view !== 'buyer' && <Footer />}
       
-      {/* Contact Widgets */}
-      {/* WhatsApp Button for Sellers (Bottom Left) */}
-      {(profile?.role as string) === 'seller' && (
-        <a
-          href="https://wa.me/SEU_NUMERO_AQUI"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="fixed bottom-6 left-6 bg-green-500 text-white p-4 rounded-full shadow-lg hover:bg-green-600 transition-all z-50"
-        >
-          <MessageCircle className="w-6 h-6" />
-        </a>
-      )}
+      <SellModal />
+      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+      <NotificationPermissionModal />
       
       {/* Real-time Chat Widget for logged users (Bottom Right) */}
-      {view !== 'admin' && user && (
+      {view !== 'admin' && user && !profile?.role?.includes('buyer') && (
         <ChatAssistant 
           isOpen={isChatOpen} 
           onOpen={() => setIsChatOpen(true)} 
           onClose={() => setIsChatOpen(false)} 
         />
       )}
-      
-      <SellModal />
-      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
-      <NotificationPermissionModal />
-      {user && <InternalChat />}
+
+      {user && (
+        <InternalChat 
+          hideFloatingButton={profile?.role?.includes('buyer')} 
+          leadTitle={profile?.role === 'seller' ? 'Suporte ao Vendedor' : undefined}
+        />
+      )}
     </div>
   );
 }

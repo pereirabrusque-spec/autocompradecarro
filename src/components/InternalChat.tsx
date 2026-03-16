@@ -3,8 +3,8 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/authContext';
 import { Send, MessageCircle, X } from 'lucide-react';
 
-export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { leadId?: string, leadTitle?: string, isOpen?: boolean, onToggle?: () => void }) {
-  const { user } = useAuth();
+export default function InternalChat({ leadId, leadTitle, isOpen, onToggle, hideFloatingButton = false }: { leadId?: string, leadTitle?: string, isOpen?: boolean, onToggle?: () => void, hideFloatingButton?: boolean }) {
+  const { user, profile, isAdmin } = useAuth();
   const [isInternalOpen, setIsInternalOpen] = useState(false);
   const isOpenState = isOpen !== undefined ? isOpen : isInternalOpen;
   const setIsOpen = onToggle || setIsInternalOpen;
@@ -47,7 +47,7 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
           if (payload.eventType === 'INSERT') {
             // Relevante se: eu sou o remetente OU eu sou o destinatário OU (destinatário é nulo e eu sou o destinatário implícito)
             const isMyMessage = payload.new.sender_id === user.id;
-            const isForMe = payload.new.receiver_id === user.id || (!payload.new.receiver_id && user.role !== 'admin');
+            const isForMe = payload.new.receiver_id === user.id || (!payload.new.receiver_id && isAdmin);
             
             if (isMyMessage || isForMe) {
               console.log('[InternalChat] Mensagem relevante, atualizando UI');
@@ -204,20 +204,24 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
     }
   };
 
-  return (
+    const showFloatingButton = !hideFloatingButton;
+
+    return (
     <>
-      <button
-        onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 bg-slate-900 text-white p-4 rounded-full shadow-lg hover:bg-slate-800 transition-all z-50 flex items-center gap-2 relative"
-      >
-        <MessageCircle className="w-6 h-6" />
-        <span className="font-bold text-sm hidden md:inline">Falar com Admin</span>
-        {unreadCount > 0 && (
-          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center animate-bounce">
-            {unreadCount}
-          </span>
-        )}
-      </button>
+      {showFloatingButton && (
+        <button
+          onClick={() => setIsOpen(true)}
+          className="fixed bottom-6 right-6 bg-slate-900 text-white p-4 rounded-full shadow-lg hover:bg-slate-800 transition-all z-50 flex items-center gap-2 relative"
+        >
+          <MessageCircle className="w-6 h-6" />
+          <span className="font-bold text-sm hidden md:inline">Falar com Admin</span>
+          {unreadCount > 0 && (
+            <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center animate-bounce">
+              {unreadCount}
+            </span>
+          )}
+        </button>
+      )}
 
       {isOpen && (
         <div className="fixed bottom-24 right-6 w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden z-50 h-[500px] animate-in slide-in-from-bottom-10 duration-300">
