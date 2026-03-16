@@ -20,10 +20,13 @@ export class AIService {
       return [];
     }
 
+    // Filter out known invalid providers like 'grod'
+    const filteredData = (data || []).filter(k => k.provider !== 'grod');
+
     // Prioritize 'ok' status (green). 
     // Among 'ok' keys, sort by last_used DESCENDING to "stick" to the one currently being used.
     // For other statuses, sort by last_used ASCENDING to eventually retry older ones.
-    return (data || []).sort((a, b) => {
+    return filteredData.sort((a, b) => {
       const statusOrder = { 'ok': 0, 'rate_limited': 1, 'no_credit': 2, 'disconnected': 3 };
       const orderA = statusOrder[a.status as keyof typeof statusOrder] ?? 4;
       const orderB = statusOrder[b.status as keyof typeof statusOrder] ?? 4;
@@ -114,11 +117,7 @@ export class AIService {
 
       await this.updateKeyStatus(apiKey.id, newStatus, (apiKey.error_count || 0) + 1);
       
-      // Força re-teste de todas as APIs porque uma falhou
-      console.log('[AIService] API falhou. Forçando re-teste de todas as APIs para encontrar substituta...');
-      await this.testConnections();
-      
-      // Tenta novamente (vai pegar a próxima 'ok')
+      // Tenta novamente (vai pegar a próxima 'ok' disponível)
       return await this.generateContent(prompt, systemInstruction, image);
     }
   }
@@ -141,7 +140,7 @@ export class AIService {
       }
     }
 
-    const testPromises = allKeys.map(async (apiKey) => {
+    const testPromises = allKeys.filter(k => k.provider !== 'grod').map(async (apiKey) => {
       try {
         const timeoutPromise = new Promise<never>((_, reject) => {
           setTimeout(() => reject(new Error('TIMEOUT')), 15000); // 15s timeout for testing
