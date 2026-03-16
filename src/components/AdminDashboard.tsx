@@ -2134,7 +2134,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[8px] flex items-center justify-center rounded-full border-2 border-slate-950 font-black">
                       {tab.badge}
                     </span>
-                  )}
+                  ) : null}
                   {activeTab === tab.id && (
                     <motion.div 
                       layoutId="activeTab"
@@ -5496,36 +5496,37 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 )}
               </div>
 
-            {activeTab === 'hero' && (
-              <div className="space-y-6">
-        <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm mb-8">
-              <h3 className="text-xl font-bold mb-4">Configurações de Automação</h3>
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <label className="text-sm font-bold text-slate-700">IA Automática (Sem revisão humana)</label>
-                  <p className="text-xs text-slate-500">Quando ativado, a IA envia propostas diretamente ao cliente.</p>
+            {activeTab === 'hero' && <div className="space-y-6">
+                <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm mb-8">
+                  <h3 className="text-xl font-bold mb-4">Configurações de Automação</h3>
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <label className="text-sm font-bold text-slate-700">IA Automática (Sem revisão humana)</label>
+                      <p className="text-xs text-slate-500">Quando ativado, a IA envia propostas diretamente ao cliente.</p>
+                    </div>
+                    <button 
+                      onClick={async () => {
+                        const newValue = !autoProposalEnabled;
+                        setAutoProposalEnabled(newValue);
+                        try {
+                          const { error } = await supabase
+                            .from('settings')
+                            .upsert({ key: 'AUTO_PROPOSAL_ENABLED', value: newValue ? 'true' : 'false' }, { onConflict: 'key' });
+                          if (error) throw error;
+                          alert(`IA Automática ${newValue ? 'ativada' : 'desativada'}!`);
+                        } catch (err) {
+                          console.error(err);
+                          alert('Erro ao salvar configuração.');
+                        }
+                      }}
+                      className={`w-16 h-8 rounded-full transition-colors flex items-center px-1 ${autoProposalEnabled ? 'bg-green-500' : 'bg-slate-200'}`}
+                    >
+                      <div className={`w-6 h-6 bg-white rounded-full transition-transform ${autoProposalEnabled ? 'translate-x-8' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
                 </div>
-                <button 
-                  onClick={async () => {
-                    const newValue = !autoProposalEnabled;
-                    setAutoProposalEnabled(newValue);
-                    try {
-                      const { error } = await supabase
-                        .from('settings')
-                        .upsert({ key: 'AUTO_PROPOSAL_ENABLED', value: newValue ? 'true' : 'false' }, { onConflict: 'key' });
-                      if (error) throw error;
-                      alert(`IA Automática ${newValue ? 'ativada' : 'desativada'}!`);
-                    } catch (err) {
-                      console.error(err);
-                      alert('Erro ao salvar configuração.');
-                    }
-                  }}
-                  className={`w-16 h-8 rounded-full transition-colors flex items-center px-1 ${autoProposalEnabled ? 'bg-green-500' : 'bg-slate-200'}`}
-                >
-                  <div className={`w-6 h-6 bg-white rounded-full transition-transform ${autoProposalEnabled ? 'translate-x-8' : 'translate-x-0'}`} />
-                </button>
               </div>
-            </div>)}
+            )}
 
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold">Banners do Carrossel</h2>
