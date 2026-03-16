@@ -11,8 +11,7 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
   const [aiPrompt, setAiPrompt] = useState('');
   const [isSavingPrompt, setIsSavingPrompt] = useState(false);
 
-  useEffect(() => {
-    const fetchConversations = async () => {
+  const fetchConversations = async () => {
       const { data } = await supabase
         .from('profiles')
         .select('id, full_name, email, avatar_url, role')
@@ -26,12 +25,15 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
           const { count } = await supabase
             .from('internal_messages')
             .select('*', { count: 'exact', head: true })
-            .eq('sender_id', conv.id);
+            .eq('sender_id', conv.id)
+            .eq('is_read', false); // Apenas não lidas
           counts[conv.id] = count || 0;
         }
         setUnreadCounts(counts);
       }
     };
+
+  useEffect(() => {
     fetchConversations();
 
     // Load existing prompt
@@ -50,6 +52,9 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
           ...prev,
           [payload.new.sender_id]: (prev[payload.new.sender_id] || 0) + 1
         }));
+        
+        // Refresh conversations to update the list
+        fetchConversations();
       })
       .subscribe();
 
