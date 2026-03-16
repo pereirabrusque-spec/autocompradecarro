@@ -225,8 +225,7 @@ class AIClientManager {
           model: modelName,
           contents: [{ role: 'user', parts }],
           config: { 
-            systemInstruction,
-            thinkingConfig: { thinkingLevel: ThinkingLevel.LOW }
+            systemInstruction
           }
         });
         
