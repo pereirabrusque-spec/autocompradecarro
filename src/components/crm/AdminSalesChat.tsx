@@ -96,17 +96,19 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
     
     if (!error) {
       setMessages(data || []);
+      
+      // Marca mensagens como lidas NO BANCO DE DADOS
+      const { error: updateError } = await supabase
+        .from('internal_messages')
+        .update({ is_read: true })
+        .eq('receiver_id', currentUserId)
+        .eq('sender_id', conversationId)
+        .eq('is_read', false);
+      
+      if (!updateError) {
+          onMessageRead(); // Notifica o container pai para atualizar a lista lateral
+      }
     }
-    
-    // Marca mensagens como lidas NO BANCO DE DADOS
-    await supabase
-      .from('internal_messages')
-      .update({ is_read: true })
-      .eq('receiver_id', currentUserId)
-      .eq('sender_id', conversationId)
-      .eq('is_read', false);
-    
-    onMessageRead(); // Notifica o container pai para atualizar a lista
   };
   
   const fetchUserData = async () => {
@@ -187,20 +189,26 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
                 <p className="text-xs text-slate-500">{userEmail}</p>
             </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          <button 
+            onClick={() => toggleAiMode(!isAiMode)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+              isAiMode 
+              ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' 
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            <Bot className={`w-4 h-4 ${isAiMode ? 'animate-pulse' : ''}`} />
+            {isAiMode ? 'IA ATIVA' : 'IA DESLIGADA'}
+          </button>
+
           <button 
             onClick={clearChat}
             disabled={isDeleting}
-            className="p-2 rounded-full hover:bg-red-50 text-red-500"
+            className="p-2 rounded-full hover:bg-red-50 text-red-500 transition-colors"
             title="Apagar todas as mensagens"
           >
             <Trash2 className="w-4 h-4" />
-          </button>
-          <button 
-            onClick={() => setShowAiRules(!showAiRules)}
-            className={`p-2 rounded-full hover:bg-slate-100 ${showAiRules ? 'text-blue-600' : 'text-slate-600'}`}
-          >
-            <Bot className="w-4 h-4" />
           </button>
           {userPhone && (
             <a 

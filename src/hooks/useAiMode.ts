@@ -8,21 +8,40 @@ export const useAiMode = () => {
   });
 
   useEffect(() => {
+    let isMounted = true;
     const loadMode = async () => {
-      const { data } = await supabase.from('settings').select('value').eq('key', 'AI_CRM_MODE').single();
-      if (data) {
-        const mode = data.value === 'true';
-        setIsAiMode(mode);
-        localStorage.setItem('ai_crm_mode', mode.toString());
+      try {
+        const { data, error } = await supabase
+          .from('settings')
+          .select('value')
+          .eq('key', 'AI_CRM_MODE')
+          .maybeSingle();
+        
+        if (isMounted && data) {
+          const mode = data.value === 'true';
+          setIsAiMode(mode);
+          localStorage.setItem('ai_crm_mode', mode.toString());
+        }
+      } catch (err) {
+        console.error('Erro ao carregar modo IA:', err);
       }
     };
     loadMode();
+    return () => { isMounted = false; };
   }, []);
 
   const toggleAiMode = async (newMode: boolean) => {
     setIsAiMode(newMode);
     localStorage.setItem('ai_crm_mode', newMode.toString());
-    await supabase.from('settings').upsert({ key: 'AI_CRM_MODE', value: newMode.toString() });
+    try {
+      await supabase.from('settings').upsert({ 
+        key: 'AI_CRM_MODE', 
+        value: newMode.toString(),
+        updated_at: new Date().toISOString() 
+      }, { onConflict: 'key' });
+    } catch (err) {
+      console.error('Erro ao salvar modo IA:', err);
+    }
   };
 
   return { isAiMode, toggleAiMode };
