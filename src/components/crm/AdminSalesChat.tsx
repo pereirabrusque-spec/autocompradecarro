@@ -83,56 +83,54 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
     console.log('WhatsApp usage logged');
   };
 
-  useEffect(() => {
-    // Fetch messages for this CRM chat
-    const fetchMessages = async () => {
-      console.log('[AdminSalesChat] Fetching messages for conversationId:', conversationId);
-      const { data, error } = await supabase
-        .from('internal_messages')
-        .select('*')
-        .or(`sender_id.eq.${conversationId},receiver_id.eq.${conversationId}`)
-        .order('created_at', { ascending: true });
-      
-      if (error) {
-        console.error('[AdminSalesChat] Error fetching messages:', error);
-      } else {
-        console.log('[AdminSalesChat] Messages fetched:', data);
-        setMessages(data || []);
-      }
-      
-      // Marca mensagens como lidas
-      if (currentUserId) {
-        const { error: updateError } = await supabase
-          .from('internal_messages')
-          .update({ is_read: true })
-          .eq('receiver_id', currentUserId)
-          .eq('sender_id', conversationId)
-          .eq('is_read', false);
-        
-        if (!updateError) {
-            onMessageRead(); // Notifica o container pai para zerar o contador
-        } else {
-            console.error('Erro ao marcar como lido:', updateError);
-        }
-      }
-    };
+  const fetchMessages = async () => {
+    if (!currentUserId) return;
+    console.log('[AdminSalesChat] Fetching messages for conversationId:', conversationId);
+    const { data, error } = await supabase
+      .from('internal_messages')
+      .select('*')
+      .or(`sender_id.eq.${conversationId},receiver_id.eq.${conversationId}`)
+      .order('created_at', { ascending: true });
     
-    const fetchUserData = async () => {
-        console.log('[AdminSalesChat] Fetching user data for conversationId:', conversationId);
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('phone, email, avatar_url')
-          .eq('id', conversationId)
-          .single();
-        if (data) {
-            console.log('[AdminSalesChat] User data fetched:', data);
-            setUserPhone(data.phone);
-            setUserEmail(data.email);
-            setUserAvatar(data.avatar_url);
-        }
-        else console.error('[AdminSalesChat] Error fetching user data: No data found for ID', conversationId, error);
-    };
+    if (error) {
+      console.error('[AdminSalesChat] Error fetching messages:', error);
+    } else {
+      console.log('[AdminSalesChat] Messages fetched:', data);
+      setMessages(data || []);
+    }
+    
+    // Marca mensagens como lidas
+    const { error: updateError } = await supabase
+      .from('internal_messages')
+      .update({ is_read: true })
+      .eq('receiver_id', currentUserId)
+      .eq('sender_id', conversationId)
+      .eq('is_read', false);
+    
+    if (!updateError) {
+        onMessageRead(); // Notifica o container pai para zerar o contador
+    } else {
+        console.error('Erro ao marcar como lido:', updateError);
+    }
+  };
+  
+  const fetchUserData = async () => {
+      console.log('[AdminSalesChat] Fetching user data for conversationId:', conversationId);
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('phone, email, avatar_url')
+        .eq('id', conversationId)
+        .single();
+      if (data) {
+          console.log('[AdminSalesChat] User data fetched:', data);
+          setUserPhone(data.phone);
+          setUserEmail(data.email);
+          setUserAvatar(data.avatar_url);
+      }
+      else console.error('[AdminSalesChat] Error fetching user data: No data found for ID', conversationId, error);
+  };
 
+  useEffect(() => {
     fetchMessages();
     fetchUserData();
 
@@ -152,7 +150,10 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
                 .from('internal_messages')
                 .update({ is_read: true })
                 .eq('id', payload.new.id)
-                .then(() => console.log('[AdminSalesChat] Message marked as read in real-time'));
+                .then(() => {
+                    console.log('[AdminSalesChat] Message marked as read in real-time');
+                    onMessageRead();
+                });
             }
           }
         } else if (payload.eventType === 'UPDATE') {
@@ -165,7 +166,7 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
     return () => {
       subscription.unsubscribe();
     };
-  }, [conversationId]);
+  }, [conversationId, currentUserId]);
 
   const sendMessage = async () => {
     console.log('[AdminSalesChat] sendMessage called, input:', input);
