@@ -78,7 +78,7 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
       setMessages(data || []);
     }
     
-    // Marca mensagens como lidas
+    // Marca mensagens como lidas NO BANCO DE DADOS
     const { error: updateError } = await supabase
       .from('internal_messages')
       .update({ is_read: true })
@@ -87,7 +87,10 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
       .eq('is_read', false);
     
     if (!updateError) {
-        onMessageRead(); // Notifica o container pai para zerar o contador
+        console.log('[AdminSalesChat] Mensagens marcadas como lidas no banco');
+        onMessageRead(); // Notifica o container pai para atualizar a lista
+    } else {
+        console.error('[AdminSalesChat] Erro ao marcar como lido:', updateError);
     }
   };
   

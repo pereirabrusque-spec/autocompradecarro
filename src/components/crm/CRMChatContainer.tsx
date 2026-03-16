@@ -116,7 +116,8 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
                 key={conv.id} 
                 onClick={() => {
                     setSelectedConversationId(conv.id);
-                    setUnreadCounts(prev => ({ ...prev, [conv.id]: 0 })); // Zera visualmente
+                    // Zera visualmente IMEDIATAMENTE
+                    setUnreadCounts(prev => ({ ...prev, [conv.id]: 0 })); 
                 }}
                 className={`p-2 border-b border-slate-100 cursor-pointer hover:bg-slate-50 flex justify-between items-center ${selectedConversationId === conv.id ? 'bg-slate-100' : ''}`}
                 style={{ height: '48px' }}
