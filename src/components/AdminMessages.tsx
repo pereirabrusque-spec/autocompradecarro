@@ -14,6 +14,8 @@ export default function AdminMessages() {
   const [globalAiEnabled, setGlobalAiEnabled] = useState(true);
   const [aiAutoResponse, setAiAutoResponse] = useState(true);
   const [aiAutoProposal, setAiAutoProposal] = useState(false);
+  const [isHumanAttending, setIsHumanAttending] = useState(false);
+  const [isLearning, setIsLearning] = useState(false);
   const [showProposalModal, setShowProposalModal] = useState(false);
 
   useEffect(() => {
@@ -100,25 +102,22 @@ export default function AdminMessages() {
             <div className="p-4 bg-white border-b border-slate-200 flex justify-between items-center">
               <div className="flex items-center gap-4">
                 <span className="font-bold">{selectedConversation.sender_id || 'Lead'}</span>
-                {/* MODO IA Toggle */}
-                <div className="flex items-center gap-2 bg-slate-100 rounded-full px-3 py-1">
-                    <span className="text-xs font-bold">MODO IA</span>
-                    <button onClick={() => setGlobalAiEnabled(!globalAiEnabled)} className={`px-2 py-0.5 rounded-full text-[10px] ${globalAiEnabled ? 'bg-green-500 text-white' : 'bg-slate-300'}`}>
-                        {globalAiEnabled ? 'ON' : 'OFF'}
-                    </button>
-                </div>
-                {/* PROPOSTA Toggle */}
-                <div className="flex items-center gap-2 bg-slate-100 rounded-full px-3 py-1">
-                    <span className="text-xs font-bold">PROPOSTA</span>
-                    <button onClick={() => setAiAutoProposal(!aiAutoProposal)} className={`px-2 py-0.5 rounded-full text-[10px] ${aiAutoProposal ? 'bg-blue-500 text-white' : 'bg-slate-300'}`}>
-                        {aiAutoProposal ? 'AUTO' : 'MAN'}
-                    </button>
-                </div>
               </div>
               <div className="flex gap-2 items-center">
+                <button 
+                    onClick={() => setIsHumanAttending(!isHumanAttending)}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold border ${isHumanAttending ? 'bg-red-50 text-red-600 border-red-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}
+                >
+                    {isHumanAttending ? 'Humano Respondendo' : 'Atendimento Humano'}
+                </button>
                 <button className="p-2 text-slate-500 hover:text-slate-900"><Mail className="w-4 h-4" /></button>
                 <button className="p-2 text-slate-500 hover:text-slate-900"><MessageCircle className="w-4 h-4" /></button>
-                <button className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold border border-blue-200">IA: Aprender</button>
+                <button 
+                    onClick={() => setIsLearning(!isLearning)}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold border ${isLearning ? 'bg-purple-50 text-purple-600 border-purple-200' : 'bg-blue-50 text-blue-600 border-blue-200'}`}
+                >
+                    {isLearning ? 'IA: Aprendendo...' : 'IA: Aprender'}
+                </button>
                 <button onClick={() => setShowProposalModal(true)} className="px-3 py-1 bg-orange-50 text-orange-600 rounded-lg text-xs font-bold border border-orange-200">$ Ver Proposta</button>
               </div>
             </div>
