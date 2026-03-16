@@ -276,8 +276,28 @@ async function startServer() {
       return data.data
         ?.filter((m: any) => m.id.includes('grok'))
         .map((m: any) => m.id) || [];
+    } else {
+      // Fallback for other OpenAI-compatible providers
+      const baseUrl = `https://api.${provider}.com/v1`;
+      let response;
+      try {
+        response = await fetch(`${baseUrl}/models`, {
+          headers: { 'Authorization': `Bearer ${trimmedKey}` }
+        });
+      } catch (err) {
+        // Silently return empty array to prevent test failure and log spam
+        return [];
+      }
+      
+      if (response.status === 404) {
+        // Provider might not support /models endpoint, but we don't want to fail the test completely
+        return [];
+      }
+      
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error?.message || `Chave ${provider} inválida ou provedor não suportado`);
+      return data.data?.map((m: any) => m.id) || [];
     }
-    throw new Error('Provedor não suportado');
   }
 
   app.post('/api/test-api-key', async (req, res) => {

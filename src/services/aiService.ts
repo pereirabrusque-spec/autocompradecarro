@@ -61,8 +61,10 @@ export class AIService {
 
   static async generateContent(prompt: string, systemInstruction: string, image?: string): Promise<AIResponse> {
     const keys = await this.getActiveKeys();
+    console.log('[AIService] Keys fetched:', keys.length);
     
     const availableKeys = keys.filter(k => k.status === 'ok');
+    console.log('[AIService] Available keys:', availableKeys.length);
     
     if (availableKeys.length === 0) {
       console.warn('[AIService] Nenhuma API "OK" encontrada. Forçando teste de todas as conexões...');
@@ -136,49 +138,24 @@ export class AIService {
       }
     }
 
-    for (const apiKey of allKeys) {
+    const testPromises = allKeys.map(async (apiKey) => {
       try {
-        let modelName = apiKey.service || (apiKey.provider === 'gemini' ? 'gemini-3-flash-preview' : 'gpt-4o-mini');
-        if (modelName === 'gemini-1.5-flash' || modelName === 'gemini-pro' || modelName === 'gemini-1.5-pro') {
-          modelName = 'gemini-3-flash-preview';
-        }
         const timeoutPromise = new Promise<never>((_, reject) => {
           setTimeout(() => reject(new Error('TIMEOUT')), 15000); // 15s timeout for testing
         });
 
         const apiCallPromise = async () => {
-          if (apiKey.provider === 'gemini') {
-            const ai = new GoogleGenAI({ apiKey: apiKey.key });
-            const response = await ai.models.generateContent({
-              model: modelName,
-              contents: [{ role: 'user', parts: [{ text: 'Ping' }] }]
-            });
-            if (!response.text) throw new Error('Empty response');
-            return true;
-          } else {
-            const baseUrl = apiKey.provider === 'openai' ? 'https://api.openai.com/v1' :
-                            apiKey.provider === 'grok' ? 'https://api.x.ai/v1' :
-                            `https://api.${apiKey.provider}.com/v1`;
-            console.log(`[AIService] Testando API: ${apiKey.provider} (${apiKey.id}), URL: ${baseUrl}/chat/completions, Modelo: ${modelName}`);
-            const response = await fetch(`${baseUrl}/chat/completions`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey.key}`
-              },
-              body: JSON.stringify({
-                model: modelName,
-                messages: [{ role: 'user', content: 'Ping' }],
-                max_tokens: 5
-              })
-            });
-            if (!response.ok) {
-              const errorData = await response.json().catch(() => ({}));
-              console.error(`[AIService] Erro na API ${apiKey.provider} (${apiKey.id}):`, response.status, errorData);
-              throw new Error(`API Error: ${response.status}`);
-            }
-            return true;
+          console.log(`[AIService] Testando API via backend: ${apiKey.provider} (${apiKey.id})`);
+          const response = await fetch('/api/test-api-key', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ provider: apiKey.provider, key: apiKey.key })
+          });
+          const data = await response.json();
+          if (!response.ok || !data.success) {
+            throw new Error(data.error || `API Error: ${response.status}`);
           }
+          return true;
         };
 
         await Promise.race([apiCallPromise(), timeoutPromise]);
@@ -190,14 +167,17 @@ export class AIService {
         
         if (errMsg.includes('429') || errMsg.includes('too many requests')) {
           newStatus = 'rate_limited';
-        } else if (errMsg.includes('credit') || errMsg.includes('quota') || errMsg.includes('limit')) {
+        } else if (errMsg.includes('credit') || errMsg.includes('quota') || errMsg.includes('limit') || errMsg.includes('balance')) {
           newStatus = 'no_credit';
         }
         
         await this.updateKeyStatus(apiKey.id, newStatus, (apiKey.error_count || 0) + 1);
-        console.warn(`[AIService] API ${apiKey.provider} (${apiKey.id}) falhou. Status: ${newStatus}`);
+        console.warn(`[AIService] API ${apiKey.provider} (${apiKey.id}) falhou. Status: ${newStatus} - Erro: ${errMsg}`);
       }
-    }
+    });
+
+    await Promise.allSettled(testPromises);
+    console.log('[AIService] Teste de conexões concluído.');
   }
 }
 

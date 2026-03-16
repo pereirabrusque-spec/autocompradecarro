@@ -6308,7 +6308,10 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                   ];
                                   
                                   // Filter to only show models that are in our top5 list OR are currently selected
+                                  const isCustomProvider = !['gemini', 'openai', 'grok'].includes(key.provider);
                                   const filteredModels = testedModels[key.id].filter(m => {
+                                    if (isCustomProvider) return true; // Show all for custom providers
+                                    
                                     const model = m.toLowerCase();
                                     // Strict top 5 filter
                                     return (
