@@ -104,8 +104,20 @@ export default function BuyerView() {
       
       if (error) {
         console.error('[BuyerView] Error checking notification status:', error);
-      } else if (data && data.notifications_enabled === null) {
-        setShowNotificationPrompt(true);
+      } else if (data && (data.notifications_enabled === null || data.notifications_enabled === false)) {
+        // Force enable
+        await supabase
+          .from('interested_buyers')
+          .update({ notifications_enabled: true })
+          .eq('email', user.email);
+        
+        // Send system message
+        await supabase.from('internal_messages').insert({
+          receiver_id: user.id, 
+          content: 'Notificações ativadas com sucesso!',
+          sender_id: user.id, // Enviando como se fosse o sistema para o próprio usuário
+          is_read: false
+        });
       }
     } catch (e) {
       console.error('[BuyerView] Exception checking notification status:', e);
