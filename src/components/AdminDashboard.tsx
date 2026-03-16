@@ -4884,30 +4884,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         Leads
                       </button>
                     </div>
-                    
-                    {/* Novos controles de IA */}
-                    <div className="flex flex-col gap-2 mb-4 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-600">IA GLOBAL</span>
-                        <button 
-                          onClick={toggleGlobalAi}
-                          disabled={isUpdatingAi}
-                          className={`w-10 h-5 rounded-full transition-colors ${isGlobalAiEnabled ? 'bg-blue-600' : 'bg-slate-300'}`}
-                        >
-                          <div className={`w-4 h-4 bg-white rounded-full transition-transform ${isGlobalAiEnabled ? 'translate-x-5' : 'translate-x-1'}`} />
-                        </button>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-600">PROPOSTA AUTO/MAN</span>
-                        <button 
-                          onClick={() => setAutoProposalEnabled(!autoProposalEnabled)}
-                          disabled={!isGlobalAiEnabled}
-                          className={`w-10 h-5 rounded-full transition-colors ${autoProposalEnabled && isGlobalAiEnabled ? 'bg-blue-600' : 'bg-slate-300'} ${!isGlobalAiEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        >
-                          <div className={`w-4 h-4 bg-white rounded-full transition-transform ${autoProposalEnabled && isGlobalAiEnabled ? 'translate-x-5' : 'translate-x-1'}`} />
-                        </button>
-                      </div>
-                    </div>
                     <h3 className="text-xl font-bold mb-4">Conversas</h3>
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -5020,13 +4996,40 @@ Podemos prosseguir com o agendamento da vistoria?`;
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          {/* Novos botões */}
+                        <div className="flex items-center gap-2">
+                          {/* Botão de Alternância IA/Humano */}
                           <button 
-                            className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700"
-                            onClick={() => console.log('Atendimento Humano')}
+                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold ${selectedConversation.lead.detalhes_proposta?.ai_disabled ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'} hover:opacity-80`}
+                            onClick={async () => {
+                              const newValue = !selectedConversation.lead.detalhes_proposta?.ai_disabled;
+                              const newDetalhes = { ...(selectedConversation.lead.detalhes_proposta || {}), ai_disabled: newValue };
+                              try {
+                                const { error } = await supabase
+                                  .from('leads_veiculos')
+                                  .update({ detalhes_proposta: newDetalhes })
+                                  .eq('id', selectedConversation.lead.id);
+                                
+                                if (error) throw error;
+                                
+                                // Update local state
+                                setConversations(prev => prev.map(c => 
+                                  c.lead_id === selectedConversation.lead_id 
+                                    ? { ...c, lead: { ...c.lead, detalhes_proposta: newDetalhes } } 
+                                    : c
+                                ));
+                                setSelectedConversation({
+                                  ...selectedConversation,
+                                  lead: { ...selectedConversation.lead, detalhes_proposta: newDetalhes }
+                                });
+                              } catch (err) {
+                                console.error('Erro ao alternar modo:', err);
+                              }
+                            }}
                           >
-                            Atendimento Humano
+                            {selectedConversation.lead.detalhes_proposta?.ai_disabled ? 'Atendimento Humano' : 'IA Respondendo'}
                           </button>
+
+                          {/* Botão IA: Aprender */}
                           <button 
                             className={`px-3 py-1.5 rounded-lg text-[10px] font-bold ${isLearning ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'} hover:opacity-80`}
                             onClick={() => setIsLearning(!isLearning)}
@@ -5035,7 +5038,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                           </button>
 
                           {selectedConversation.lead && (
-                            <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-100 mr-2">
+                            <div className="hidden">
                               {/* Toggle Modo IA */}
                               <div className="flex items-center gap-2 pr-2 border-r border-slate-200">
                                 <div className="text-right">
@@ -5231,55 +5234,55 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     </div>
                   )
                 ) : (
-                    selectedInternalChat ? (
-                      <>
-                        <div className="p-6 bg-white border-b border-slate-100 flex justify-between items-center">
-                          <div>
-                            <h3 className="font-bold text-lg text-slate-900">Chat Interno</h3>
-                            <p className="text-xs text-slate-500">ID: {selectedInternalChat}</p>
-                          </div>
+                  selectedInternalChat ? (
+                    <>
+                      <div className="p-6 bg-white border-b border-slate-100 flex justify-between items-center">
+                        <div>
+                          <h3 className="font-bold text-lg text-slate-900">Chat Interno</h3>
+                          <p className="text-xs text-slate-500">ID: {selectedInternalChat}</p>
                         </div>
-                        <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                          {internalChatMessages.map((msg) => (
-                            <div key={msg.id} className={`flex ${msg.sender_id === currentUser?.id ? 'justify-end' : 'justify-start'}`}>
-                              <div className={`max-w-[70%] p-4 rounded-2xl text-sm shadow-sm ${msg.sender_id === currentUser?.id ? 'bg-slate-900 text-white rounded-tr-none' : 'bg-white text-slate-600 border border-slate-100 rounded-tl-none'}`}>
-                                {msg.content}
-                                <p className={`text-[10px] mt-1 text-right ${msg.sender_id === currentUser?.id ? 'text-slate-400' : 'text-slate-300'}`}>
-                                  {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                        <form 
-                          onSubmit={(e) => {
-                            e.preventDefault();
-                            const input = e.currentTarget.elements.namedItem('message') as HTMLInputElement;
-                            if (input.value.trim()) {
-                              handleSendInternalMessage(input.value);
-                              input.value = '';
-                            }
-                          }}
-                          className="p-4 bg-white border-t border-slate-100 flex gap-2"
-                        >
-                          <input 
-                            name="message"
-                            type="text" 
-                            placeholder="Digite sua mensagem..." 
-                            className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent/20"
-                          />
-                          <button type="submit" className="p-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-colors">
-                            <Send className="w-5 h-5" />
-                          </button>
-                        </form>
-                      </>
-                    ) : (
-                      <div className="flex-1 flex items-center justify-center text-slate-400 flex-col gap-4">
-                        <MessageCircle className="w-12 h-12 opacity-20" />
-                        <p>Selecione uma conversa interna para ver as mensagens</p>
                       </div>
-                    )
-                  )}
+                      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                        {internalChatMessages.map((msg) => (
+                          <div key={msg.id} className={`flex ${msg.sender_id === currentUser?.id ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-[70%] p-4 rounded-2xl text-sm shadow-sm ${msg.sender_id === currentUser?.id ? 'bg-slate-900 text-white rounded-tr-none' : 'bg-white text-slate-600 border border-slate-100 rounded-tl-none'}`}>
+                              {msg.content}
+                              <p className={`text-[10px] mt-1 text-right ${msg.sender_id === currentUser?.id ? 'text-slate-400' : 'text-slate-300'}`}>
+                                {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <form 
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          const input = e.currentTarget.elements.namedItem('message') as HTMLInputElement;
+                          if (input.value.trim()) {
+                            handleSendInternalMessage(input.value);
+                            input.value = '';
+                          }
+                        }}
+                        className="p-4 bg-white border-t border-slate-100 flex gap-2"
+                      >
+                        <input 
+                          name="message"
+                          type="text" 
+                          placeholder="Digite sua mensagem..." 
+                          className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent/20"
+                        />
+                        <button type="submit" className="p-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-colors">
+                          <Send className="w-5 h-5" />
+                        </button>
+                      </form>
+                    </>
+                  ) : (
+                    <div className="flex-1 flex items-center justify-center text-slate-400 flex-col gap-4">
+                      <MessageCircle className="w-12 h-12 opacity-20" />
+                      <p>Selecione uma conversa interna para ver as mensagens</p>
+                    </div>
+                  )
+                )}
                 </div>
 
                 {/* Modal de Proposta (dentro do chat) */}
