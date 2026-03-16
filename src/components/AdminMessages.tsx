@@ -5,7 +5,6 @@ import { MessageCircle, Users, Send, Search, Bot, FileText, Check, X } from 'luc
 
 export default function AdminMessages() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'leads' | 'suporte'>('leads');
   const [conversations, setConversations] = useState<any[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
@@ -19,36 +18,27 @@ export default function AdminMessages() {
 
   useEffect(() => {
     fetchConversations();
-  }, [activeTab]);
+  }, []);
 
   const fetchConversations = async () => {
-    if (activeTab === 'leads') {
-        // Fetch leads that are 'vendedor'
-        const { data, error } = await supabase
-            .from('leads_veiculos')
-            .select('*, profiles!inner(*)')
-            .eq('profiles.role', 'user') // Assuming 'user' role is 'vendedor'
-            .order('created_at', { ascending: false });
-        
-        if (data) {
-            // Fetch unread counts for these leads
-            const conversationsWithUnread = await Promise.all(data.map(async (lead) => {
-                const { count } = await supabase
-                    .from('mensagens')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('lead_id', lead.id)
-                    .eq('is_read', false);
-                return { ...lead, unreadCount: count || 0 };
-            }));
-            setConversations(conversationsWithUnread);
-        }
-    } else {
-        // Fetch internal messages
-        const { data, error } = await supabase
-            .from('internal_messages')
-            .select('*')
-            .order('created_at', { ascending: false });
-        if (data) setConversations(data);
+    // Fetch leads that are 'vendedor' (role 'user')
+    const { data, error } = await supabase
+        .from('leads_veiculos')
+        .select('*, profiles!inner(*)')
+        .eq('profiles.role', 'user') // Assuming 'user' role is 'vendedor'
+        .order('created_at', { ascending: false });
+    
+    if (data) {
+        // Fetch unread counts for these leads
+        const conversationsWithUnread = await Promise.all(data.map(async (lead) => {
+            const { count } = await supabase
+                .from('mensagens')
+                .select('*', { count: 'exact', head: true })
+                .eq('lead_id', lead.id)
+                .eq('is_read', false);
+            return { ...lead, unreadCount: count || 0 };
+        }));
+        setConversations(conversationsWithUnread);
     }
   };
 
@@ -69,20 +59,7 @@ export default function AdminMessages() {
       {/* Sidebar */}
       <div className="w-1/3 border-r border-slate-100 flex flex-col">
         <div className="p-4 border-b border-slate-100">
-          <div className="flex gap-2 mb-4">
-            <button 
-              onClick={() => setActiveTab('leads')}
-              className={`flex-1 py-2 rounded-lg font-bold text-xs ${activeTab === 'leads' ? 'bg-slate-900 text-white' : 'bg-slate-100'}`}
-            >
-              <Users className="w-4 h-4 inline mr-1" /> Leads
-            </button>
-            <button 
-              onClick={() => setActiveTab('suporte')}
-              className={`flex-1 py-2 rounded-lg font-bold text-xs ${activeTab === 'suporte' ? 'bg-slate-900 text-white' : 'bg-slate-100'}`}
-            >
-              <MessageCircle className="w-4 h-4 inline mr-1" /> Suporte Interno
-            </button>
-          </div>
+          <h2 className="text-lg font-bold text-slate-900 mb-4">Leads</h2>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input type="text" placeholder="Buscar..." className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
@@ -95,7 +72,9 @@ export default function AdminMessages() {
                 <h4 className="font-bold text-sm">{conv.sender_id || 'Lead'}</h4>
                 <p className="text-xs text-slate-500 truncate">{conv.content || conv.conteudo}</p>
               </div>
-              <div className="bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-full">1</div>
+              {conv.unreadCount > 0 && (
+                <div className="bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-full">{conv.unreadCount}</div>
+              )}
             </div>
           ))}
         </div>
