@@ -15,7 +15,7 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
       const { data } = await supabase
         .from('profiles')
         .select('id, full_name, email, avatar_url, role')
-        .in('role', ['buyer', 'buyer_premium', 'buyer_master', 'seller'])
+        .in('role', ['buyer', 'buyer_premium', 'buyer_master'])
         .order('created_at', { ascending: false });
       setConversations(data || []);
       
@@ -42,7 +42,7 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
     });
 
     // Real-time subscription for new messages
-    const subscription = supabase
+    const messageSubscription = supabase
       .channel('crm_chat_all')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'internal_messages' }, (payload) => {
         console.log('[CRMChatContainer] Event received:', payload.eventType);
@@ -52,8 +52,18 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
       })
       .subscribe();
 
+    // Real-time subscription for profile changes (role updates)
+    const profileSubscription = supabase
+      .channel('crm_profiles_all')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, (payload) => {
+        console.log('[CRMChatContainer] Profile updated:', payload.new);
+        fetchConversations();
+      })
+      .subscribe();
+
     return () => {
-      subscription.unsubscribe();
+      messageSubscription.unsubscribe();
+      profileSubscription.unsubscribe();
     };
   }, []);
 
