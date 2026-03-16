@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Send, Bot, MessageCircle, Trash2 } from 'lucide-react';
-import { useAiMode } from '../../hooks/useAiMode';
 
 export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conversationId: string, role: string, onMessageRead: () => void }) => {
   const [messages, setMessages] = useState<any[]>([]);
@@ -109,14 +108,21 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
 
   const toggleAiMode = async (val: boolean) => {
     setIsUpdatingAi(true);
+    console.log(`[AdminSalesChat] Toggling AI for conversation ${conversationId} to:`, val);
     try {
       const { error } = await supabase
         .from('profiles')
         .update({ is_ai_enabled: val })
         .eq('id', conversationId);
       
-      if (error) throw error;
+      if (error) {
+        console.error('[AdminSalesChat] Error updating AI status in DB:', error);
+        alert('Erro ao salvar status da IA para este chat. Verifique se a coluna is_ai_enabled existe na tabela profiles.');
+        throw error;
+      }
+      
       setIsAiMode(val);
+      console.log('[AdminSalesChat] AI status updated successfully');
     } catch (e) {
       console.error('Error toggling AI mode:', e);
     } finally {

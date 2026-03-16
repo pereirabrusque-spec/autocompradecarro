@@ -2154,6 +2154,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
       </header>
 
       <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
+          {isAdmin && <BackgroundAIManager />}
           <motion.div
             key={activeTab}
             initial={{ opacity: 0, y: 10 }}
@@ -2163,7 +2164,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
           >
             {activeTab === 'crm_chat' && (
               <div className="h-[700px] flex flex-col gap-4">
-                {isAdmin && <BackgroundAIManager />}
                 <CRMChatContainer role={userProfile?.role || 'admin'} />
               </div>
             )}

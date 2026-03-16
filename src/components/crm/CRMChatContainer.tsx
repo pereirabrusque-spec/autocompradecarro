@@ -99,7 +99,7 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
-        table: 'settings' 
+        table: 'settings'
       }, (payload) => {
         if (payload.new && (payload.new as any).key) {
           const { key, value } = payload.new as any;
@@ -183,16 +183,19 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
   const toggleGlobalAi = async () => {
     setIsUpdatingAi(true);
     const newValue = !isAiEnabled;
+    console.log('[CRMChatContainer] Toggling Global AI to:', newValue);
+    
     try {
-      const { data: existing } = await supabase.from('settings').select('key').eq('key', 'AI_CRM_ENABLED').maybeSingle();
-      if (existing) {
-        await supabase.from('settings').update({ value: newValue.toString() }).eq('key', 'AI_CRM_ENABLED');
-      } else {
-        await supabase.from('settings').insert({ key: 'AI_CRM_ENABLED', value: newValue.toString() });
-      }
+      const { error } = await supabase.from('settings').upsert({ 
+        key: 'AI_CRM_ENABLED', 
+        value: newValue.toString() 
+      }, { onConflict: 'key' });
+      
+      if (error) throw error;
       setIsAiEnabled(newValue);
     } catch (e) {
       console.error('Error toggling AI:', e);
+      alert('Erro ao alterar status da IA Global. Verifique sua conexão.');
     } finally {
       setIsUpdatingAi(false);
     }
@@ -200,23 +203,23 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
 
   const saveAiPrompt = async () => {
     setIsSavingPrompt(true);
+    console.log('[CRMChatContainer] Salvando configurações da IA...');
     
     try {
-        // Save prompt
-        const { data: existingPrompt } = await supabase.from('settings').select('key').eq('key', 'AI_CRM_PROMPT').maybeSingle();
-        if (existingPrompt) {
-            await supabase.from('settings').update({ value: aiPrompt }).eq('key', 'AI_CRM_PROMPT');
-        } else {
-            await supabase.from('settings').insert({ key: 'AI_CRM_PROMPT', value: aiPrompt });
-        }
+        // Save prompt and enabled status using upsert
+        const { error: promptError } = await supabase.from('settings').upsert({ 
+            key: 'AI_CRM_PROMPT', 
+            value: aiPrompt 
+        }, { onConflict: 'key' });
 
-        // Save enabled status
-        const { data: existingEnabled } = await supabase.from('settings').select('key').eq('key', 'AI_CRM_ENABLED').maybeSingle();
-        if (existingEnabled) {
-            await supabase.from('settings').update({ value: isAiEnabled.toString() }).eq('key', 'AI_CRM_ENABLED');
-        } else {
-            await supabase.from('settings').insert({ key: 'AI_CRM_ENABLED', value: isAiEnabled.toString() });
-        }
+        if (promptError) throw promptError;
+
+        const { error: enabledError } = await supabase.from('settings').upsert({ 
+            key: 'AI_CRM_ENABLED', 
+            value: isAiEnabled.toString() 
+        }, { onConflict: 'key' });
+
+        if (enabledError) throw enabledError;
 
         alert('Configurações da IA salvas com sucesso!');
         setShowAiRules(false);
@@ -315,8 +318,9 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
                 <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full">
                     <span className="text-xs font-bold text-slate-600">IA AUTOMÁTICA</span>
                     <button 
-                        onClick={() => setIsAiEnabled(!isAiEnabled)}
-                        className={`w-10 h-5 rounded-full transition-colors relative ${isAiEnabled ? 'bg-blue-600' : 'bg-slate-300'}`}
+                        onClick={toggleGlobalAi}
+                        disabled={isUpdatingAi}
+                        className={`w-10 h-5 rounded-full transition-colors relative ${isAiEnabled ? 'bg-blue-600' : 'bg-slate-300'} ${isUpdatingAi ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                         <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${isAiEnabled ? 'left-6' : 'left-1'}`} />
                     </button>
