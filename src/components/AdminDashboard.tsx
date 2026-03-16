@@ -4878,16 +4878,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   <div className="p-6 border-b border-slate-100">
                     <div className="flex gap-2 mb-4">
                       <button 
-                        onClick={() => setMessageTab('leads')} 
-                        className={`flex-1 py-2 rounded-xl text-xs font-bold transition-colors ${messageTab === 'leads' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500'}`}
+                        className="flex-1 py-2 rounded-xl text-xs font-bold bg-slate-900 text-white"
                       >
                         Leads
-                      </button>
-                      <button 
-                        onClick={() => setMessageTab('internal')} 
-                        className={`flex-1 py-2 rounded-xl text-xs font-bold transition-colors ${messageTab === 'internal' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500'}`}
-                      >
-                        Suporte Interno
                       </button>
                     </div>
                     <h3 className="text-xl font-bold mb-4">Conversas</h3>
