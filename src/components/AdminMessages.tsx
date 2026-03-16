@@ -59,7 +59,20 @@ export default function AdminMessages() {
       {/* Sidebar */}
       <div className="w-1/3 border-r border-slate-100 flex flex-col">
         <div className="p-4 border-b border-slate-100">
-          <h2 className="text-lg font-bold text-slate-900 mb-4">Leads</h2>
+          <h2 className="text-lg font-bold text-slate-900 mb-4">Leads (Vendedores)</h2>
+          
+          {/* AI Controls in Sidebar */}
+          <div className="flex flex-col gap-2 mb-4 p-3 bg-slate-50 rounded-xl">
+             <label className="flex items-center justify-between text-xs font-bold">
+                IA Global
+                <input type="checkbox" checked={globalAiEnabled} onChange={() => setGlobalAiEnabled(!globalAiEnabled)} />
+             </label>
+             <label className="flex items-center justify-between text-xs font-bold">
+                Modo Auto Proposta
+                <input type="checkbox" checked={aiAutoProposal} onChange={() => setAiAutoProposal(!aiAutoProposal)} />
+             </label>
+          </div>
+
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input type="text" placeholder="Buscar..." className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
@@ -86,20 +99,9 @@ export default function AdminMessages() {
           <>
             <div className="p-4 bg-white border-b border-slate-200 flex justify-between items-center">
               <span className="font-bold">Conversa</span>
-              <div className="flex gap-2 items-center">
-                <button onClick={() => setGlobalAiEnabled(!globalAiEnabled)} className={`p-2 rounded-lg ${globalAiEnabled ? 'bg-purple-100 text-purple-700' : 'bg-slate-100'}`} title="Global IA">
-                    <Bot className="w-4 h-4" />
-                </button>
-                <button onClick={() => setAiAutoResponse(!aiAutoResponse)} className={`p-2 rounded-lg ${aiAutoResponse ? 'bg-green-100 text-green-700' : 'bg-slate-100'}`} title="IA Resposta Auto">
-                    <MessageCircle className="w-4 h-4" />
-                </button>
-                <button onClick={() => setAiAutoProposal(!aiAutoProposal)} className={`p-2 rounded-lg ${aiAutoProposal ? 'bg-blue-100 text-blue-700' : 'bg-slate-100'}`} title="IA Proposta Auto">
-                    <FileText className="w-4 h-4" />
-                </button>
-                <button onClick={() => setShowProposalModal(true)} className="p-2 bg-accent/10 text-accent rounded-lg" title="Ver Proposta">
-                    <FileText className="w-4 h-4" />
-                </button>
-              </div>
+              <button className="px-3 py-1 bg-slate-900 text-white rounded-lg text-xs font-bold">
+                  Humano Assume
+              </button>
             </div>
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
                 {/* Messages... */}

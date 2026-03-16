@@ -247,6 +247,9 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
             </div>
         </div>
         <div className="flex gap-2 items-center">
+          <button className="px-3 py-1 bg-slate-900 text-white rounded-lg text-xs font-bold">
+              Humano Assume
+          </button>
           <button 
             onClick={() => toggleAiMode(!isAiMode)}
             disabled={isUpdatingAi}
