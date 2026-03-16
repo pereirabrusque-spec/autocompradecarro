@@ -156,12 +156,6 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
             if (isAiEnabledRef.current && payload.new.sender_id !== uid) {
                 console.log('[CRMChatContainer] IA Global Ativa, processando resposta...');
                 try {
-                    // Busca informações dos veículos (leads) deste comprador
-                    const { data: leads } = await supabase
-                      .from('leads_veiculos')
-                      .select('*')
-                      .eq('user_id', senderId);
-                    
                     // Busca histórico recente para contexto
                     const { data: historyData } = await supabase
                         .from('internal_messages')
@@ -174,61 +168,80 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
                         `${m.sender_id === uid ? 'Admin' : 'Cliente'}: ${m.content} ${m.lead_id ? `(Ref: ${m.lead_id})` : ''}`
                     ).join('\n');
 
-                    let vehicleContext = "";
                     let currentLeadId = payload.new.lead_id;
+                    let specificLead = null;
+                    let vehicleContext = "";
                     let specificVehicleInfo = "";
                     let vehiclePhoto = "";
-                    
-                    // Se não tem lead_id na mensagem, tenta identificar pelo histórico recente ou conteúdo
-                    if (!currentLeadId) {
-                        // 1. Tenta pelo histórico recente (última mensagem com lead_id)
-                        const lastMsgWithLead = historyData?.find(m => m.lead_id);
-                        if (lastMsgWithLead) {
-                            currentLeadId = lastMsgWithLead.lead_id;
-                            console.log('[CRMChatContainer] Lead ID recuperado do histórico:', currentLeadId);
-                        }
 
-                        // 2. Se ainda não tem, tenta pelo conteúdo
-                        if (!currentLeadId && leads) {
-                            const content = payload.new.content.toLowerCase();
-                            const foundLead = leads.find(l => 
-                                (l.marca && content.includes(l.marca.toLowerCase())) || 
-                                (l.modelo && content.includes(l.modelo.toLowerCase()))
-                            );
-                            if (foundLead) {
-                                currentLeadId = foundLead.id;
-                                console.log('[CRMChatContainer] Veículo identificado pelo conteúdo:', foundLead.modelo);
+                    // 1. Tenta buscar o lead específico se tiver ID na mensagem ou no histórico
+                    if (!currentLeadId) {
+                        const lastMsgWithLead = historyData?.find(m => m.lead_id);
+                        if (lastMsgWithLead) currentLeadId = lastMsgWithLead.lead_id;
+                    }
+
+                    if (currentLeadId) {
+                        const { data } = await supabase
+                            .from('leads_veiculos')
+                            .select('*')
+                            .eq('id', currentLeadId)
+                            .maybeSingle();
+                        specificLead = data;
+                    }
+
+                    // 2. Se não achou por ID, ou se o cliente mencionou outro carro, faz uma busca global
+                    const content = payload.new.content.toLowerCase();
+                    const words = content.split(' ').filter(w => w.length > 2);
+                    
+                    if (!specificLead || words.some(w => content.includes(w))) {
+                        // Busca veículos que combinem com as palavras-chave
+                        const { data: searchLeads } = await supabase
+                            .from('leads_veiculos')
+                            .select('*')
+                            .or(`marca.ilike.%${content}%,modelo.ilike.%${content}%`)
+                            .limit(5);
+
+                        if (searchLeads && searchLeads.length > 0) {
+                            // Se achou apenas um e não tínhamos um foco, foca nele
+                            if (searchLeads.length === 1 && !specificLead) {
+                                specificLead = searchLeads[0];
+                            } else if (searchLeads.length > 1) {
+                                // Se achou vários, lista para a IA
+                                vehicleContext = "\n\nVEÍCULOS ENCONTRADOS (OPÇÕES PARA O CLIENTE):\n" + searchLeads.map(l => 
+                                    `- ID: ${l.id} | ${l.marca} ${l.modelo} (${l.ano_modelo}) - R$ ${l.preco_cliente || 'A consultar'}`
+                                ).join('\n');
                             }
                         }
                     }
 
-                    if (leads && leads.length > 0) {
-                      vehicleContext = "\n\nLISTA GERAL DE INTERESSE DO CLIENTE:\n" + leads.map(l => 
-                        `- ${l.marca} ${l.modelo} (${l.ano_modelo}) - R$ ${l.preco_cliente || 'A consultar'}`
-                      ).join('\n');
-
-                      // Se temos um lead_id específico, buscamos os detalhes completos dele
-                      if (currentLeadId) {
-                        const specificLead = leads.find(l => l.id === currentLeadId);
-                        if (specificLead) {
-                          vehiclePhoto = (specificLead.fotos && specificLead.fotos[0]) || "";
-                          specificVehicleInfo = `
-VEÍCULO EM FOCO AGORA (USE ESTES DADOS):
+                    if (specificLead) {
+                        vehiclePhoto = (specificLead.fotos && specificLead.fotos[0]) || "";
+                        specificVehicleInfo = `
+DETALHES COMPLETOS DO VEÍCULO EM FOCO (USE ESTES DADOS):
+- ID/Código: ${specificLead.id}
 - Marca/Modelo: ${specificLead.marca} ${specificLead.modelo}
 - Ano: ${specificLead.ano_fabricacao}/${specificLead.ano_modelo}
 - Preço para o Cliente: R$ ${specificLead.preco_cliente || 'A consultar'}
 - Valor FIPE: R$ ${specificLead.valor_fipe || 'A consultar'}
 - Cor: ${specificLead.cor || 'Não informada'}
-- KM: ${specificLead.quilometragem || specificLead.km || 'Não informada'}
+- KM: ${specificLead.quilometragem || specificLead.km || '0'}
 - Combustível: ${specificLead.combustivel || 'Não informado'}
 - Placa: ${specificLead.placa || 'Não informada'}
 - Opcionais: ${specificLead.opcionais || 'Padrão'}
 - Observações Técnicas: ${specificLead.observacoes || 'Nenhuma'}
-- Estado Geral: ${specificLead.classificacao || 'Bom'}
+- Estado Geral: ${specificLead.classificacao || 'Excelente'}
+- Pneus: ${specificLead.estado_pneus || 'Bons'}
+- Pintura: ${specificLead.estado_pintura || 'Original'}
+- Motor/Câmbio: ${specificLead.motor_reparo || 'OK'} / ${specificLead.cambio_reparo || 'OK'}
+- Situação Financeira: ${specificLead.situacao_financeira || 'Quitado'}
+- Entrada Sugerida: R$ ${specificLead.entrada || '0'}
+- Valor Parcela: R$ ${specificLead.valor_parcela || '0'}
+- Total Parcelas: ${specificLead.total_parcelas || '0'}
+- Banco: ${specificLead.banco_financiamento || 'Nenhum'}
+- Sinistro/Leilão: ${specificLead.tem_sinistro === 'sim' ? 'Sim' : 'Não'} / ${specificLead.passagem_leilao === 'sim' ? 'Sim' : 'Não'}
+- Histórico: ${specificLead.historico_furto_roubo || 'Nada consta'}
 - Foto Principal: ${vehiclePhoto}
 `;
-                        }
-                      }
                     }
 
                     const { AIService } = await import('../../services/aiService');
@@ -256,17 +269,17 @@ HISTÓRICO RECENTE DA CONVERSA:
 ${history}
 
 NOVA MENSAGEM DO CLIENTE: ${payload.new.content}
-LEAD_ID DA MENSAGEM ATUAL: ${currentLeadId || 'Não especificado'}
+LEAD_ID DA MENSAGEM ATUAL: ${currentLeadId || (specificLead ? specificLead.id : 'Não especificado')}
 
 ${vehicleContext}
 
 REGRAS DE ATENDIMENTO (Siga rigorosamente):
-1. RESPOSTA ESPECÍFICA: Você é um vendedor que conhece o carro. Se o cliente perguntar o valor, placa, km ou detalhes, responda EXATAMENTE o que está no "VEÍCULO EM FOCO AGORA". NÃO diga que não sabe ou que é genérico.
-2. ANÁLISE DE ESTADO: Use as "Observações Técnicas" e a "Classificação" para falar do estado do carro. Se houver imagem anexada, analise-a para confirmar o estado visual.
-3. PLACA: Se a placa estiver disponível nos dados acima, você PODE informar o final da placa ou a placa completa se o cliente pedir para consulta, pois ele é um comprador autorizado.
-4. CONTEXTO DINÂMICO: Se o cliente mudar de carro, mude o foco.
-5. PERSUASÃO: O objetivo é fechar negócio. Use o preço atrativo (geralmente abaixo da FIPE) como argumento.
-6. RESPOSTA DIRETA: Seja amigável mas focado em vendas.
+1. CONSULTA GLOBAL: Se o cliente perguntar de um carro que não é o "EM FOCO", procure na lista de "VEÍCULOS ENCONTRADOS". Se houver mais de um parecido, mande os detalhes de UM (ID, Marca, Modelo, Ano, Valor) e pergunte se é esse. Se ele disser que não, mande o próximo da lista.
+2. PRECISÃO TOTAL: Use os dados técnicos (Financiamento, KM, Pneus, Sinistro) para responder. Se o carro tem parcelas ou entrada, informe os valores exatos. Se for quitado, reforce isso.
+3. PERSUASÃO: Você é um vendedor profissional. Use o estado de conservação e o preço (compare com a FIPE se for menor) para convencer o cliente.
+4. FOTOS E ESTADO: Comente sobre a foto se ela estiver disponível. Fale da cor e do brilho da pintura.
+5. IDENTIFICAÇÃO: Sempre confirme de qual veículo você está falando se houver ambiguidade.
+6. RESPOSTA DIRETA: Seja amigável, rápido e focado em agendar uma visita ou fechar a proposta.
 `;
 
                     const response = await AIService.generateContent(
