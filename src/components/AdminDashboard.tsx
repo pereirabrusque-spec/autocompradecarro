@@ -5032,94 +5032,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
                             {selectedConversation.lead.detalhes_proposta?.ai_disabled ? 'Atendimento Humano' : 'IA Respondendo'}
                           </button>
 
-                          {/* Botão IA: Aprender */}
-                          <button 
-                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold ${isLearning ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'} hover:opacity-80`}
-                            onClick={() => setIsLearning(!isLearning)}
-                          >
-                            {isLearning ? 'IA: Aprendendo...' : 'IA: Aprender'}
-                          </button>
-
-                          {selectedConversation.lead && (
-                            <div className="hidden">
-                              {/* Toggle Modo IA */}
-                              <div className="flex items-center gap-2 pr-2 border-r border-slate-200">
-                                <div className="text-right">
-                                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Modo IA</p>
-                                  <p className="text-[10px] font-bold text-slate-700 leading-none">{selectedConversation.lead.detalhes_proposta?.ai_disabled ? 'OFF' : 'ON'}</p>
-                                </div>
-                                <button 
-                                  onClick={async () => {
-                                    const newValue = !selectedConversation.lead.detalhes_proposta?.ai_disabled;
-                                    const newDetalhes = { ...(selectedConversation.lead.detalhes_proposta || {}), ai_disabled: newValue };
-                                    try {
-                                      const { error } = await supabase
-                                        .from('leads_veiculos')
-                                        .update({ detalhes_proposta: newDetalhes })
-                                        .eq('id', selectedConversation.lead.id);
-                                      
-                                      if (error) throw error;
-                                      
-                                      // Update local state
-                                      setConversations(prev => prev.map(c => 
-                                        c.lead_id === selectedConversation.lead_id 
-                                          ? { ...c, lead: { ...c.lead, detalhes_proposta: newDetalhes } } 
-                                          : c
-                                      ));
-                                      setSelectedConversation({
-                                        ...selectedConversation,
-                                        lead: { ...selectedConversation.lead, detalhes_proposta: newDetalhes }
-                                      });
-                                    } catch (err) {
-                                      console.error(err);
-                                      alert('Erro ao alterar modo de resposta.');
-                                    }
-                                  }}
-                                  title={selectedConversation.lead.detalhes_proposta?.ai_disabled ? "Ativar IA para esta conversa" : "Desativar IA (Modo Humano)"}
-                                  className={`w-10 h-5 rounded-full transition-colors flex items-center px-0.5 ${selectedConversation.lead.detalhes_proposta?.ai_disabled ? 'bg-orange-500' : 'bg-indigo-500'}`}
-                                >
-                                  <div className={`w-4 h-4 bg-white rounded-full transition-transform ${selectedConversation.lead.detalhes_proposta?.ai_disabled ? 'translate-x-5' : 'translate-x-0'}`} />
-                                </button>
-                              </div>
-
-                              {/* Toggle Modo Proposta */}
-                              <div className="flex items-center gap-2">
-                                <div className="text-right">
-                                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Proposta</p>
-                                  <p className="text-[10px] font-bold text-slate-700 leading-none">{selectedConversation.lead.detalhes_proposta?.proposal_mode ? 'AUTO' : 'MAN'}</p>
-                                </div>
-                                <button 
-                                  onClick={async () => {
-                                    const currentMode = selectedConversation.lead.detalhes_proposta?.proposal_mode || false;
-                                    const newDetails = { 
-                                      ...(selectedConversation.lead.detalhes_proposta || {}), 
-                                      proposal_mode: !currentMode 
-                                    };
-                                    
-                                    const { error } = await supabase
-                                      .from('leads_veiculos')
-                                      .update({ detalhes_proposta: newDetails })
-                                      .eq('id', selectedConversation.lead.id);
-
-                                    if (!error) {
-                                      setConversations(prev => prev.map(c => 
-                                        c.lead_id === selectedConversation.lead_id 
-                                          ? { ...c, lead: { ...c.lead, detalhes_proposta: newDetails } } 
-                                          : c
-                                      ));
-                                      setSelectedConversation({
-                                        ...selectedConversation,
-                                        lead: { ...selectedConversation.lead, detalhes_proposta: newDetails }
-                                      });
-                                    }
-                                  }}
-                                  className={`w-10 h-5 rounded-full transition-colors flex items-center px-0.5 ${selectedConversation.lead.detalhes_proposta?.proposal_mode ? 'bg-indigo-500' : 'bg-slate-300'}`}
-                                >
-                                  <div className={`w-4 h-4 bg-white rounded-full transition-transform ${selectedConversation.lead.detalhes_proposta?.proposal_mode ? 'translate-x-5' : 'translate-x-0'}`} />
-                                </button>
-                              </div>
-                            </div>
-                          )}
                           <button 
                             onClick={() => {
                               if (selectedConversation.lead?.email) {
@@ -5584,8 +5496,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 )}
               </div>
 
-            {activeTab === 'hero' && (
-              <div className="space-y-6">
+            <div>
+              {activeTab === 'hero' && (
+                <div className="space-y-6">
         <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm mb-8">
               <h3 className="text-xl font-bold mb-4">Configurações de Automação</h3>
               <div className="flex items-center justify-between gap-4">
@@ -5613,7 +5526,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   <div className={`w-6 h-6 bg-white rounded-full transition-transform ${autoProposalEnabled ? 'translate-x-8' : 'translate-x-0'}`} />
                 </button>
               </div>
-            </div>
+            )}
+          </div>
 
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold">Banners do Carrossel</h2>
