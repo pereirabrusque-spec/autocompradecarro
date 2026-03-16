@@ -5,10 +5,12 @@ import { AIService } from '../../services/aiService';
 export const BackgroundAIManager = () => {
     const [isAiEnabled, setIsAiEnabled] = useState(false);
     const [aiPrompt, setAiPrompt] = useState('');
+    const [aiMemory, setAiMemory] = useState('');
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     
     const isAiEnabledRef = useRef(false);
     const aiPromptRef = useRef('');
+    const aiMemoryRef = useRef('');
     const currentUserIdRef = useRef<string | null>(null);
     const lastProcessedImage = useRef<{ url: string, base64: string } | null>(null);
 
@@ -21,17 +23,23 @@ export const BackgroundAIManager = () => {
     }, [aiPrompt]);
 
     useEffect(() => {
+        aiMemoryRef.current = aiMemory;
+    }, [aiMemory]);
+
+    useEffect(() => {
         currentUserIdRef.current = currentUserId;
     }, [currentUserId]);
 
     useEffect(() => {
         // Load initial settings
-        supabase.from('settings').select('key, value').in('key', ['AI_CRM_PROMPT', 'AI_CRM_ENABLED']).then(({ data }) => {
+        supabase.from('settings').select('key, value').in('key', ['AI_CRM_PROMPT', 'AI_CRM_ENABLED', 'AI_MEMORY']).then(({ data }) => {
             if (data) {
                 const prompt = data.find(s => s.key === 'AI_CRM_PROMPT');
                 const enabled = data.find(s => s.key === 'AI_CRM_ENABLED');
+                const memory = data.find(s => s.key === 'AI_MEMORY');
                 if (prompt) setAiPrompt(prompt.value);
                 if (enabled) setIsAiEnabled(enabled.value === 'true');
+                if (memory) setAiMemory(memory.value);
             }
         });
 
@@ -48,6 +56,7 @@ export const BackgroundAIManager = () => {
                     const { key, value } = payload.new as any;
                     if (key === 'AI_CRM_PROMPT') setAiPrompt(value);
                     if (key === 'AI_CRM_ENABLED') setIsAiEnabled(value === 'true');
+                    if (key === 'AI_MEMORY') setAiMemory(value);
                 }
             })
             .subscribe();
@@ -76,13 +85,8 @@ export const BackgroundAIManager = () => {
                 // Só processa se a mensagem for para o admin logado (receiver_id === uid ou null)
                 const isForMe = payload.new.receiver_id === uid || (!payload.new.receiver_id && uid);
                 
-                // Só responde se a IA estiver ligada E a mensagem não for minha
+                // Só responde se a mensagem não for minha
                 if (isForMe && payload.new.sender_id !== uid) {
-                    if (!isAiEnabledRef.current) {
-                        console.log('[BackgroundAIManager] IA Global está desligada. Ignorando.');
-                        return;
-                    }
-
                     const senderId = payload.new.sender_id;
                     const messageId = payload.new.id;
 
@@ -95,12 +99,25 @@ export const BackgroundAIManager = () => {
                         .eq('id', senderId)
                         .single();
                     
-                    if (buyerProfile && buyerProfile.is_ai_enabled === false) {
-                        console.log(`[BackgroundAIManager] IA desligada para o comprador ${senderId}. Ignorando.`);
+                    const isGlobalAiEnabled = isAiEnabledRef.current;
+                    const conversationAiState = buyerProfile?.is_ai_enabled;
+
+                    let shouldRespond = false;
+
+                    if (isGlobalAiEnabled) {
+                        // Global is ON. Respond unless explicitly disabled for this conversation.
+                        shouldRespond = conversationAiState !== false;
+                    } else {
+                        // Global is OFF. Respond ONLY if explicitly enabled for this conversation.
+                        shouldRespond = conversationAiState === true;
+                    }
+
+                    if (!shouldRespond) {
+                        console.log(`[BackgroundAIManager] IA não deve responder (Global: ${isGlobalAiEnabled}, Conversa: ${conversationAiState}). Ignorando.`);
                         return;
                     }
 
-                    console.log(`[BackgroundAIManager] IA habilitada (Global e Per-User). Aguardando delay...`);
+                    console.log(`[BackgroundAIManager] IA habilitada (Global: ${isGlobalAiEnabled}, Conversa: ${conversationAiState}). Aguardando delay...`);
                     
                     // Pequeno delay aleatório para evitar que múltiplos admins respondam ao mesmo tempo
                     // E também para dar um ar mais "humano" de que está lendo
@@ -223,6 +240,10 @@ ${history}
 
 MENSAGEM ATUAL: ${payload.new.content}
 
+REGRAS E MEMÓRIA:
+${aiPromptRef.current}
+${aiMemoryRef.current ? `\nMEMÓRIA APRENDIDA:\n${aiMemoryRef.current}` : ''}
+
 REGRAS:
 1. Use os dados técnicos acima.
 2. Se houver parcelas, não diga que está quitado.
@@ -232,7 +253,7 @@ REGRAS:
 
                         const response = await AIService.generateContent(
                             fullPrompt,
-                            aiPromptRef.current || "Você é um assistente de vendas prestativo.",
+                            "Você é um assistente de vendas prestativo. Siga as regras e memória fornecidas.",
                             imageBase64 || undefined
                         );
 
