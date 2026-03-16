@@ -222,7 +222,9 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
             </div>
         </div>
         <div className="flex gap-2 items-center">
-          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+          <button 
+            onClick={() => toggleAiMode(!isAiMode)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer hover:scale-105 active:scale-95 ${
               isAiMode 
               ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' 
               : 'bg-slate-100 text-slate-600'
@@ -230,7 +232,7 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
           >
             <Bot className={`w-4 h-4 ${isAiMode ? 'animate-pulse' : ''}`} />
             {isAiMode ? 'IA ATIVA' : 'IA DESLIGADA'}
-          </div>
+          </button>
 
           <button 
             onClick={clearChat}

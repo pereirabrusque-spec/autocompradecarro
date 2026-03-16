@@ -90,6 +90,33 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
           if (enabled) setIsAiEnabled(enabled.value === 'true');
       }
     });
+
+    // Real-time listener for settings changes
+    const settingsSubscription = supabase
+      .channel('crm_settings_changes')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'settings' 
+      }, (payload) => {
+        if (payload.new && (payload.new as any).key) {
+          const { key, value } = payload.new as any;
+          if (key === 'AI_CRM_PROMPT') {
+            console.log('[CRMChatContainer] Prompt IA atualizado via Realtime');
+            setAiPrompt(value);
+          }
+          if (key === 'AI_CRM_ENABLED') {
+            const enabled = value === 'true';
+            console.log('[CRMChatContainer] Modo IA atualizado via Realtime:', enabled);
+            setIsAiEnabled(enabled);
+          }
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(settingsSubscription);
+    };
   }, []);
 
   useEffect(() => {
