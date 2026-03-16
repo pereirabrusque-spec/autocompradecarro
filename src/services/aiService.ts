@@ -102,7 +102,11 @@ export class AIService {
       console.error(`[AIService] Falha na API ${apiKey.provider} (${apiKey.id}). Erro completo:`, error);
       
       let newStatus: 'ok' | 'no_credit' | 'disconnected' | 'rate_limited' = 'disconnected';
-      if (errMsg.includes('429') || errMsg.includes('too many requests')) {
+      
+      // Se for erro de rede/DNS (Failed to fetch), marca como disconnected imediatamente
+      if (errMsg.includes('failed to fetch') || errMsg.includes('err_name_not_resolved')) {
+        newStatus = 'disconnected';
+      } else if (errMsg.includes('429') || errMsg.includes('too many requests')) {
         newStatus = 'rate_limited';
       } else if (errMsg.includes('credit') || errMsg.includes('quota') || errMsg.includes('limit')) {
         newStatus = 'no_credit';

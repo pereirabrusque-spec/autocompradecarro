@@ -5968,13 +5968,16 @@ Podemos prosseguir com o agendamento da vistoria?`;
                             
                             setIsSavingKey(true);
                             try {
+                              const providerToSave = newApiProvider || 'unknown';
+                              const modelToSave = newApiModel || 'unknown';
+
                               if (editingApiKey) {
                                 const { error } = await supabase
                                   .from('api_keys')
                                   .update({ 
-                                    provider: newApiProvider, 
+                                    provider: providerToSave, 
                                     key: newApiKey.trim(),
-                                    service: newApiModel,
+                                    service: modelToSave,
                                     status: 'ok'
                                   })
                                   .eq('id', editingApiKey);
@@ -5985,9 +5988,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 const { error } = await supabase
                                   .from('api_keys')
                                   .insert([{ 
-                                    provider: newApiProvider, 
+                                    provider: providerToSave, 
                                     key: newApiKey.trim(),
-                                    service: newApiModel,
+                                    service: modelToSave,
                                     status: 'ok'
                                   }]);
                                 
@@ -5995,9 +5998,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                   const { error: retryError } = await supabase
                                     .from('api_keys')
                                     .insert([{ 
-                                      provider: newApiProvider, 
+                                      provider: providerToSave, 
                                       key: newApiKey.trim(),
-                                      service: newApiModel
+                                      service: modelToSave
                                     }]);
                                   if (retryError) throw retryError;
                                 }
