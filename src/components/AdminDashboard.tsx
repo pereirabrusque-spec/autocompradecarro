@@ -13,6 +13,7 @@ import { LeadCard } from './LeadCard';
 import LeadDetailsCard from './LeadDetailsCard';
 import AdminMessages from './AdminMessages';
 import { CRMChatContainer } from './crm/CRMChatContainer';
+import { BackgroundAIManager } from './crm/BackgroundAIManager';
 import CooperativesModal from './CooperativesModal';
 import { logToStorage, getStorageLogs, clearStorageLogs } from '../lib/logger';
 
@@ -99,6 +100,8 @@ export default function AdminDashboard() {
   const [socialYoutube, setSocialYoutube] = useState('');
   const [socialTiktok, setSocialTiktok] = useState('');
   const [socialLinkedin, setSocialLinkedin] = useState('');
+  const [isGlobalAiEnabled, setIsGlobalAiEnabled] = useState(false);
+  const [isUpdatingAi, setIsUpdatingAi] = useState(false);
   const [chatEnabled, setChatEnabled] = useState(true);
   const [chatHeight, setChatHeight] = useState('560');
   const [chatWidth, setChatWidth] = useState('360');
@@ -153,6 +156,7 @@ export default function AdminDashboard() {
   const [avarias, setAvarias] = useState<{id: string, description: string, value: number}[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const isAdmin = userProfile?.role === 'admin' || currentUser?.email === 'pereira.brusque@gmail.com';
 
   // Calculate User Stats for Dashboard
   const userStats = {
@@ -193,6 +197,24 @@ export default function AdminDashboard() {
     }, 2000);
     return () => clearInterval(interval);
   }, []);
+
+  const toggleGlobalAi = async () => {
+    setIsUpdatingAi(true);
+    const newValue = !isGlobalAiEnabled;
+    try {
+      const { data: existing } = await supabase.from('settings').select('key').eq('key', 'AI_CRM_ENABLED').maybeSingle();
+      if (existing) {
+        await supabase.from('settings').update({ value: newValue.toString() }).eq('key', 'AI_CRM_ENABLED');
+      } else {
+        await supabase.from('settings').insert({ key: 'AI_CRM_ENABLED', value: newValue.toString() });
+      }
+      setIsGlobalAiEnabled(newValue);
+    } catch (e) {
+      console.error('Error toggling AI:', e);
+    } finally {
+      setIsUpdatingAi(false);
+    }
+  };
 
   const [filterUser, setFilterUser] = useState('');
   const [isRefreshingUsers, setIsRefreshingUsers] = useState(false);
@@ -434,6 +456,11 @@ export default function AdminDashboard() {
         const waEnabledSetting = settingsData.find((s: any) => s.key === 'WHATSAPP_ENABLED');
         if (waEnabledSetting) {
           setWhatsappEnabled(waEnabledSetting.value === 'true');
+        }
+
+        const aiCrmEnabledSetting = settingsData.find((s: any) => s.key === 'AI_CRM_ENABLED');
+        if (aiCrmEnabledSetting) {
+          setIsGlobalAiEnabled(aiCrmEnabledSetting.value === 'true');
         }
 
         const tawkEnabledSetting = settingsData.find((s: any) => s.key === 'TAWKTO_ENABLED');
@@ -2108,6 +2135,27 @@ Podemos prosseguir com o agendamento da vistoria?`;
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+             {isAdmin && (
+               <button 
+                  onClick={toggleGlobalAi}
+                  disabled={isUpdatingAi}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-xl font-bold text-[10px] transition-all ${
+                      isGlobalAiEnabled 
+                          ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' 
+                          : 'bg-slate-800 text-slate-500 border border-slate-700'
+                  }`}
+                  title={isGlobalAiEnabled ? 'IA Automática Ativa' : 'IA Automática Desligada'}
+               >
+                  <Bot className={`w-4 h-4 ${isGlobalAiEnabled ? 'animate-pulse' : ''}`} />
+                  <span className="uppercase tracking-widest hidden sm:inline">
+                      {isGlobalAiEnabled ? 'IA ON' : 'IA OFF'}
+                  </span>
+                  <div className={`w-8 h-4 rounded-full relative transition-colors ${isGlobalAiEnabled ? 'bg-blue-500' : 'bg-slate-600'}`}>
+                      <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${isGlobalAiEnabled ? 'left-4.5' : 'left-0.5'}`} />
+                  </div>
+               </button>
+             )}
+
              <button 
               onClick={() => window.location.href = '/'}
               className="p-2.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"
@@ -2125,6 +2173,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
           </div>
         </div>
       </header>
+
+      {isAdmin && <BackgroundAIManager />}
 
       <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
           <motion.div
