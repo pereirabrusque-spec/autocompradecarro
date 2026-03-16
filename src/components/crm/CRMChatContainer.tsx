@@ -215,9 +215,10 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
                     }
 
                     if (specificLead) {
-                        vehiclePhoto = (specificLead.fotos && specificLead.fotos[0]) || "";
+                        const allPhotos = specificLead.fotos || [];
+                        vehiclePhoto = allPhotos[0] || "";
                         specificVehicleInfo = `
-DETALHES COMPLETOS DO VEÍCULO EM FOCO (USE ESTES DADOS):
+DETALHES COMPLETOS DO VEÍCULO EM FOCO (DADOS REAIS DO BANCO):
 - ID/Código: ${specificLead.id}
 - Marca/Modelo: ${specificLead.marca} ${specificLead.modelo}
 - Ano: ${specificLead.ano_fabricacao}/${specificLead.ano_modelo}
@@ -233,14 +234,14 @@ DETALHES COMPLETOS DO VEÍCULO EM FOCO (USE ESTES DADOS):
 - Pneus: ${specificLead.estado_pneus || 'Bons'}
 - Pintura: ${specificLead.estado_pintura || 'Original'}
 - Motor/Câmbio: ${specificLead.motor_reparo || 'OK'} / ${specificLead.cambio_reparo || 'OK'}
-- Situação Financeira: ${specificLead.situacao_financeira || 'Quitado'}
-- Entrada Sugerida: R$ ${specificLead.entrada || '0'}
-- Valor Parcela: R$ ${specificLead.valor_parcela || '0'}
-- Total Parcelas: ${specificLead.total_parcelas || '0'}
-- Banco: ${specificLead.banco_financiamento || 'Nenhum'}
+- SITUAÇÃO FINANCEIRA: ${specificLead.situacao_financeira || 'Não informada'}
+- ENTRADA: R$ ${specificLead.entrada || '0'}
+- VALOR PARCELA: R$ ${specificLead.valor_parcela || '0'}
+- TOTAL PARCELAS: ${specificLead.total_parcelas || '0'}
+- BANCO: ${specificLead.banco_financiamento || 'Nenhum'}
 - Sinistro/Leilão: ${specificLead.tem_sinistro === 'sim' ? 'Sim' : 'Não'} / ${specificLead.passagem_leilao === 'sim' ? 'Sim' : 'Não'}
 - Histórico: ${specificLead.historico_furto_roubo || 'Nada consta'}
-- Foto Principal: ${vehiclePhoto}
+- TODAS AS FOTOS DISPONÍVEIS: ${allPhotos.join(', ')}
 `;
                     }
 
@@ -273,13 +274,20 @@ LEAD_ID DA MENSAGEM ATUAL: ${currentLeadId || (specificLead ? specificLead.id : 
 
 ${vehicleContext}
 
-REGRAS DE ATENDIMENTO (Siga rigorosamente):
-1. CONSULTA GLOBAL: Se o cliente perguntar de um carro que não é o "EM FOCO", procure na lista de "VEÍCULOS ENCONTRADOS". Se houver mais de um parecido, mande os detalhes de UM (ID, Marca, Modelo, Ano, Valor) e pergunte se é esse. Se ele disser que não, mande o próximo da lista.
-2. PRECISÃO TOTAL: Use os dados técnicos (Financiamento, KM, Pneus, Sinistro) para responder. Se o carro tem parcelas ou entrada, informe os valores exatos. Se for quitado, reforce isso.
-3. PERSUASÃO: Você é um vendedor profissional. Use o estado de conservação e o preço (compare com a FIPE se for menor) para convencer o cliente.
-4. FOTOS E ESTADO: Comente sobre a foto se ela estiver disponível. Fale da cor e do brilho da pintura.
-5. IDENTIFICAÇÃO: Sempre confirme de qual veículo você está falando se houver ambiguidade.
-6. RESPOSTA DIRETA: Seja amigável, rápido e focado em agendar uma visita ou fechar a proposta.
+REGRAS POR CAMPO (Siga rigorosamente):
+- SITUAÇÃO FINANCEIRA: Se o campo disser "Financiado" ou houver valor de parcelas/entrada, NUNCA diga que está quitado. Se disser "Quitado", reforce que não há débitos.
+- VALOR PARCELA/ENTRADA: Use estes valores para simular ou informar o plano de pagamento. Não invente valores.
+- SINISTRO/LEILÃO: Seja honesto. Se constar "Sim", informe que o veículo possui essa observação no histórico.
+- KM: Informe o valor exato. Se for 0, diga que é novo/repasse.
+- FOTOS: Você tem acesso a todas as fotos. Se o cliente pedir para ver o interior ou motor, confirme que temos fotos desses detalhes (se houver mais de uma foto).
+
+REGRAS DE ATENDIMENTO:
+1. CONSULTA GLOBAL: Se o cliente perguntar de um carro que não é o "EM FOCO", procure na lista de "VEÍCULOS ENCONTRADOS".
+2. PRECISÃO TOTAL: Use os dados técnicos acima. NÃO diga que está quitado se houver parcelas a pagar nos dados.
+3. PERSUASÃO: Use o estado de conservação e o preço para convencer o cliente.
+4. FOTOS E ESTADO: Comente sobre a foto principal.
+5. IDENTIFICAÇÃO: Sempre confirme de qual veículo você está falando.
+6. RESPOSTA DIRETA: Seja amigável e focado em vendas.
 `;
 
                     const response = await AIService.generateContent(

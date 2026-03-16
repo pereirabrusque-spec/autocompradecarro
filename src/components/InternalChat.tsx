@@ -32,55 +32,52 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
 
   useEffect(() => {
     if (user) {
-      const channelName = `internal_messages_user_${user.id}`;
+      const channelName = 'public_internal_messages';
       console.log(`[InternalChat] Inscrevendo no canal: ${channelName}`);
       
       const subscription = supabase
         .channel(channelName)
         .on('postgres_changes', { 
-          event: 'INSERT', 
+          event: '*', 
           schema: 'public', 
           table: 'internal_messages' 
         }, (payload) => {
-          console.log('[InternalChat] Nova mensagem recebida via Realtime:', payload.new);
+          console.log('[InternalChat] Mudança recebida via Realtime:', payload.eventType, payload.new);
           
-          // Relevante se: eu sou o remetente OU eu sou o destinatário OU (destinatário é nulo e eu sou o destinatário implícito)
-          const isMyMessage = payload.new.sender_id === user.id;
-          const isForMe = payload.new.receiver_id === user.id || (!payload.new.receiver_id && user.role !== 'admin');
-          
-          if (isMyMessage || isForMe) {
-            console.log('[InternalChat] Mensagem relevante, atualizando UI');
-            setMessages(prev => {
-              if (prev.some(m => m.id === payload.new.id)) return prev;
-              return [payload.new, ...prev]; // Adiciona no início pois usamos flex-col-reverse
-            });
+          if (payload.eventType === 'INSERT') {
+            // Relevante se: eu sou o remetente OU eu sou o destinatário OU (destinatário é nulo e eu sou o destinatário implícito)
+            const isMyMessage = payload.new.sender_id === user.id;
+            const isForMe = payload.new.receiver_id === user.id || (!payload.new.receiver_id && user.role !== 'admin');
+            
+            if (isMyMessage || isForMe) {
+              console.log('[InternalChat] Mensagem relevante, atualizando UI');
+              setMessages(prev => {
+                if (prev.some(m => m.id === payload.new.id)) return prev;
+                return [payload.new, ...prev];
+              });
 
-            if (!isOpenStateRef.current && !isMyMessage) {
-              setUnreadCount(prev => prev + 1);
-              audioRef.current?.play().catch(() => {});
-              
-              if (Notification.permission === 'granted') {
-                new Notification('Nova mensagem', { body: payload.new.content });
+              if (!isOpenStateRef.current && !isMyMessage) {
+                setUnreadCount(prev => prev + 1);
+                audioRef.current?.play().catch(() => {});
+                
+                if (Notification.permission === 'granted') {
+                  new Notification('Nova mensagem', { body: payload.new.content });
+                }
+              } else if (isOpenStateRef.current && isForMe) {
+                // Se o chat está aberto e a mensagem é para mim, marca como lida no banco
+                supabase
+                  .from('internal_messages')
+                  .update({ is_read: true })
+                  .eq('id', payload.new.id)
+                  .then(({ error }) => {
+                    if (error) console.error('[InternalChat] Erro ao marcar como lida:', error);
+                  });
               }
-            } else if (isOpenStateRef.current && isForMe) {
-              // Se o chat está aberto e a mensagem é para mim, marca como lida no banco
-              supabase
-                .from('internal_messages')
-                .update({ is_read: true })
-                .eq('id', payload.new.id)
-                .then(({ error }) => {
-                  if (error) console.error('[InternalChat] Erro ao marcar como lida:', error);
-                });
             }
-          }
-        })
-        .on('postgres_changes', { 
-          event: 'UPDATE', 
-          schema: 'public', 
-          table: 'internal_messages' 
-        }, (payload) => {
-          if (payload.new.sender_id === user.id || payload.new.receiver_id === user.id) {
-            setMessages(prev => prev.map(m => m.id === payload.new.id ? payload.new : m));
+          } else if (payload.eventType === 'UPDATE') {
+            if (payload.new.sender_id === user.id || payload.new.receiver_id === user.id) {
+              setMessages(prev => prev.map(m => m.id === payload.new.id ? payload.new : m));
+            }
           }
         })
         .subscribe((status) => {
