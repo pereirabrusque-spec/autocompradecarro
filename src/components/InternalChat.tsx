@@ -12,6 +12,7 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isInitialLoad = useRef(true);
 
   const [unreadCount, setUnreadCount] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -135,11 +136,26 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
     }
   }, [isOpenState, user, leadId]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  useEffect(() => {
+    if (!isOpenState) {
+      isInitialLoad.current = true;
+    }
+  }, [isOpenState]);
+
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    if (messagesEndRef.current) {
+      // Se for a carga inicial, vai direto sem animação para não "rolar" na frente do usuário
+      const finalBehavior = isInitialLoad.current ? 'auto' : behavior;
+      messagesEndRef.current.scrollIntoView({ behavior: finalBehavior });
+      
+      if (isInitialLoad.current && messages.length > 0) {
+        isInitialLoad.current = false;
+      }
+    }
   };
 
   useEffect(() => {
+    // Na primeira carga ou quando as mensagens mudam, rola para o fim
     scrollToBottom();
   }, [messages]);
 
