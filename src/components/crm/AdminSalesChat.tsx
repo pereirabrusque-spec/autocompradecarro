@@ -127,6 +127,15 @@ export const AdminSalesChat = ({ conversationId, role }: { conversationId: strin
         console.log('[AdminSalesChat] Real-time message received:', payload.new);
         if (payload.new.sender_id === conversationId || payload.new.receiver_id === conversationId) {
           setMessages(prev => [...prev, payload.new]);
+          
+          // Mark as read immediately if it's from the buyer
+          if (payload.new.sender_id === conversationId) {
+            supabase
+              .from('internal_messages')
+              .update({ is_read: true })
+              .eq('id', payload.new.id)
+              .then(() => console.log('[AdminSalesChat] Message marked as read in real-time'));
+          }
         } else {
           console.log('[AdminSalesChat] Message ignored (ID mismatch):', payload.new.sender_id, payload.new.receiver_id, conversationId);
         }
