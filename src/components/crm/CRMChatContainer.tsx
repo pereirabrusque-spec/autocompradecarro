@@ -17,9 +17,9 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
         .select('id, full_name, email, avatar_url, role')
         .in('role', ['buyer', 'buyer_premium', 'buyer_master'])
         .order('created_at', { ascending: false });
-      setConversations(data || []);
       
       if (data) {
+        setConversations(data);
         const counts: Record<string, number> = {};
         for (const conv of data) {
           const { count } = await supabase
@@ -44,11 +44,15 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
     // Real-time subscription for new messages
     const messageSubscription = supabase
       .channel('crm_chat_all')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'internal_messages' }, (payload) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'internal_messages' }, (payload) => {
         console.log('[CRMChatContainer] Event received:', payload.eventType);
         
-        // Refresh conversations to update the list and counts
-        fetchConversations();
+        // Update unread count locally for the specific conversation
+        const senderId = payload.new.sender_id;
+        setUnreadCounts(prev => ({
+            ...prev,
+            [senderId]: (prev[senderId] || 0) + 1
+        }));
       })
       .subscribe();
 

@@ -1,31 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Send, Bot, User, MessageCircle } from 'lucide-react';
+import { Send, Bot, MessageCircle } from 'lucide-react';
+import { useAiMode } from '../../hooks/useAiMode';
 
 export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conversationId: string, role: string, onMessageRead: () => void }) => {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
-  const [isAiMode, setIsAiMode] = useState(false);
+  const { isAiMode, toggleAiMode } = useAiMode();
   
-  useEffect(() => {
-    // Carrega do banco e do localStorage para persistência imediata
-    const savedMode = localStorage.getItem('ai_crm_mode') === 'true';
-    setIsAiMode(savedMode);
-
-    supabase.from('settings').select('value').eq('key', 'AI_CRM_MODE').single().then(({ data }) => {
-      if (data) {
-        const mode = data.value === 'true';
-        setIsAiMode(mode);
-        localStorage.setItem('ai_crm_mode', mode.toString());
-      }
-    });
-  }, []);
-
-  const toggleAiMode = async (newMode: boolean) => {
-    setIsAiMode(newMode);
-    localStorage.setItem('ai_crm_mode', newMode.toString());
-    await supabase.from('settings').upsert({ key: 'AI_CRM_MODE', value: newMode.toString() });
-  };
   const [userPhone, setUserPhone] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [userAvatar, setUserAvatar] = useState('');
@@ -54,7 +36,6 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
 
   const saveAiPrompt = async () => {
     setIsSavingPrompt(true);
-    console.log('Saving AI prompt:', aiPrompt);
     
     // Check if exists
     const { data: existing } = await supabase.from('settings').select('key').eq('key', 'AI_CRM_PROMPT').maybeSingle();
@@ -72,7 +53,6 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
         console.error('Erro ao salvar prompt:', error);
         alert(`Erro ao salvar prompt: ${error.message}`);
     } else {
-        console.log('Prompt salvo com sucesso');
         alert('Prompt salvo com sucesso!');
     }
     setIsSavingPrompt(false);
@@ -95,7 +75,6 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
     if (error) {
       console.error('[AdminSalesChat] Error fetching messages:', error);
     } else {
-      console.log('[AdminSalesChat] Messages fetched:', data);
       setMessages(data || []);
     }
     
@@ -109,25 +88,20 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
     
     if (!updateError) {
         onMessageRead(); // Notifica o container pai para zerar o contador
-    } else {
-        console.error('Erro ao marcar como lido:', updateError);
     }
   };
   
   const fetchUserData = async () => {
-      console.log('[AdminSalesChat] Fetching user data for conversationId:', conversationId);
       const { data, error } = await supabase
         .from('profiles')
         .select('phone, email, avatar_url')
         .eq('id', conversationId)
         .single();
       if (data) {
-          console.log('[AdminSalesChat] User data fetched:', data);
           setUserPhone(data.phone);
           setUserEmail(data.email);
           setUserAvatar(data.avatar_url);
       }
-      else console.error('[AdminSalesChat] Error fetching user data: No data found for ID', conversationId, error);
   };
 
   useEffect(() => {
@@ -138,8 +112,6 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
     const subscription = supabase
       .channel('crm_chat_all')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'internal_messages' }, (payload) => {
-        console.log('[AdminSalesChat] Real-time event received:', payload.eventType);
-        
         if (payload.eventType === 'INSERT') {
           if (payload.new.sender_id === conversationId || payload.new.receiver_id === conversationId) {
             setMessages(prev => [...prev, payload.new]);
@@ -151,13 +123,11 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
                 .update({ is_read: true })
                 .eq('id', payload.new.id)
                 .then(() => {
-                    console.log('[AdminSalesChat] Message marked as read in real-time');
                     onMessageRead();
                 });
             }
           }
         } else if (payload.eventType === 'UPDATE') {
-          // Refresh messages if an update happened (e.g., message read status changed)
           fetchMessages();
         }
       })
@@ -169,11 +139,9 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
   }, [conversationId, currentUserId]);
 
   const sendMessage = async () => {
-    console.log('[AdminSalesChat] sendMessage called, input:', input);
     if (!input.trim()) return;
     
     const { data: { user } } = await supabase.auth.getUser();
-    console.log('[AdminSalesChat] user:', user);
     if (!user) return;
 
     // Save to DB
@@ -186,7 +154,6 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
     
     if (error) console.error('Error sending message:', error);
     else {
-        console.log('[AdminSalesChat] Message sent successfully', data);
         setMessages(prev => [...prev, data]);
         setInput('');
     }
@@ -232,7 +199,7 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
       {showAiRules && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 w-[50vw] max-w-none shadow-xl">
-            <h4 className="font-bold mb-4 text-lg">Configurar IA de Atendimento</h4>
+            <h4 className="font-bold mb-4 text-lg">Configurar Memória IA</h4>
             <textarea 
               className="w-full h-40 p-3 border border-slate-200 rounded-lg text-sm mb-4"
               value={aiPrompt}
