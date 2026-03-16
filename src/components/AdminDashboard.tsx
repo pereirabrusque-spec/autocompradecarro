@@ -5496,9 +5496,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 )}
               </div>
 
-            <div>
-              {activeTab === 'hero' && (
-                <div className="space-y-6">
+            {activeTab === 'hero' && (
+              <div className="space-y-6">
         <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm mb-8">
               <h3 className="text-xl font-bold mb-4">Configurações de Automação</h3>
               <div className="flex items-center justify-between gap-4">
@@ -5526,8 +5525,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   <div className={`w-6 h-6 bg-white rounded-full transition-transform ${autoProposalEnabled ? 'translate-x-8' : 'translate-x-0'}`} />
                 </button>
               </div>
-            )}
-          </div>
+            </div>)}
 
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold">Banners do Carrossel</h2>
