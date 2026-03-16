@@ -164,6 +164,7 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
                     
                     let vehicleContext = "";
                     let currentLeadId = payload.new.lead_id;
+                    let specificVehicleInfo = "";
                     
                     // Se não tem lead_id na mensagem, tenta identificar pelo conteúdo
                     if (!currentLeadId && leads) {
@@ -179,9 +180,28 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
                     }
 
                     if (leads && leads.length > 0) {
-                      vehicleContext = "\n\nVEÍCULOS DE INTERESSE DO CLIENTE (LEADS):\n" + leads.map(l => 
-                        `- [ID: ${l.id}] ${l.marca} ${l.modelo} (${l.ano_modelo}) - Preço: R$ ${l.preco_cliente || 'A consultar'} - Status: ${l.status}`
+                      vehicleContext = "\n\nLISTA GERAL DE INTERESSE DO CLIENTE:\n" + leads.map(l => 
+                        `- ${l.marca} ${l.modelo} (${l.ano_modelo}) - R$ ${l.preco_cliente || 'A consultar'}`
                       ).join('\n');
+
+                      // Se temos um lead_id específico, buscamos os detalhes completos dele
+                      if (currentLeadId) {
+                        const specificLead = leads.find(l => l.id === currentLeadId);
+                        if (specificLead) {
+                          specificVehicleInfo = `
+VEÍCULO EM FOCO AGORA:
+- Marca/Modelo: ${specificLead.marca} ${specificLead.modelo}
+- Ano: ${specificLead.ano_fabricacao}/${specificLead.ano_modelo}
+- Preço: R$ ${specificLead.preco_cliente || 'A consultar'}
+- Cor: ${specificLead.cor || 'Não informada'}
+- KM: ${specificLead.quilometragem || 'Não informada'}
+- Combustível: ${specificLead.combustivel || 'Não informado'}
+- Placa: ${specificLead.placa || 'Não informada'}
+- Opcionais: ${specificLead.opcionais || 'Padrão'}
+- Observações: ${specificLead.observacoes || 'Nenhuma'}
+`;
+                        }
+                      }
                     }
 
                     // Busca histórico recente para contexto
@@ -199,6 +219,8 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
                     const { AIService } = await import('../../services/aiService');
                     
                     const fullPrompt = `
+${specificVehicleInfo}
+
 HISTÓRICO RECENTE DA CONVERSA:
 ${history}
 
@@ -208,9 +230,9 @@ LEAD_ID DA MENSAGEM ATUAL: ${currentLeadId || 'Não especificado'}
 ${vehicleContext}
 
 REGRAS DE ATENDIMENTO (Siga rigorosamente):
-1. CONTEXTO DINÂMICO: Se o cliente mencionou um novo veículo ou o LEAD_ID mudou, mude o foco da conversa IMEDIATAMENTE para este novo veículo.
-2. IDENTIFICAÇÃO DE VEÍCULO: Se o cliente demonstrou interesse em mais de um veículo no histórico ou na mensagem atual, você DEVE perguntar educadamente qual deles ele deseja focar agora antes de dar detalhes profundos.
-3. FOCO NO ÚLTIMO MENCIONADO: Se a conversa está fluindo sobre um carro, continue nele. Se ele mudar de assunto para outro carro da lista acima, mude junto.
+1. FOCO TOTAL NO VEÍCULO EM FOCO: Se houver um "VEÍCULO EM FOCO AGORA" definido acima, use TODOS os detalhes dele (preço, km, opcionais) para responder. Não seja genérico.
+2. CONTEXTO DINÂMICO: Se o cliente mencionou um novo veículo ou o LEAD_ID mudou, mude o foco da conversa IMEDIATAMENTE para este novo veículo.
+3. IDENTIFICAÇÃO DE VEÍCULO: Se o cliente demonstrou interesse em mais de um veículo no histórico ou na mensagem atual, você DEVE perguntar educadamente qual deles ele deseja focar agora antes de dar detalhes profundos.
 4. DADOS TÉCNICOS: Use os dados da lista "VEÍCULOS DE INTERESSE" para ser preciso. Se o carro não estiver na lista, peça educadamente para ele confirmar qual modelo seria.
 5. PERSUASÃO E FECHAMENTO: Seja um vendedor profissional. Tente agendar visitas ou propostas.
 6. RESPOSTA DIRETA: Responda de forma direta e amigável.

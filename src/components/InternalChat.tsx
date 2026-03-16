@@ -51,9 +51,8 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
             console.log('[InternalChat] Mensagem relevante, atualizando UI');
             setMessages(prev => {
               if (prev.some(m => m.id === payload.new.id)) return prev;
-              return [...prev, payload.new];
+              return [payload.new, ...prev]; // Adiciona no início pois usamos flex-col-reverse
             });
-            scrollToBottom();
 
             if (!isOpenStateRef.current && !isMyMessage) {
               setUnreadCount(prev => prev + 1);
@@ -62,7 +61,25 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
               if (Notification.permission === 'granted') {
                 new Notification('Nova mensagem', { body: payload.new.content });
               }
+            } else if (isOpenStateRef.current && isForMe) {
+              // Se o chat está aberto e a mensagem é para mim, marca como lida no banco
+              supabase
+                .from('internal_messages')
+                .update({ is_read: true })
+                .eq('id', payload.new.id)
+                .then(({ error }) => {
+                  if (error) console.error('[InternalChat] Erro ao marcar como lida:', error);
+                });
             }
+          }
+        })
+        .on('postgres_changes', { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'internal_messages' 
+        }, (payload) => {
+          if (payload.new.sender_id === user.id || payload.new.receiver_id === user.id) {
+            setMessages(prev => prev.map(m => m.id === payload.new.id ? payload.new : m));
           }
         })
         .subscribe((status) => {
@@ -81,6 +98,16 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
     if (isOpenState && user) {
       setUnreadCount(0);
       fetchMessages();
+      
+      // Marca todas as mensagens pendentes como lidas ao abrir
+      supabase
+        .from('internal_messages')
+        .update({ is_read: true })
+        .eq('receiver_id', user.id)
+        .eq('is_read', false)
+        .then(({ error }) => {
+          if (error) console.error('[InternalChat] Erro ao limpar não lidas:', error);
+        });
 
       // Se abriu com um leadId específico, envia uma mensagem de contexto inicial se necessário
       if (leadId && leadTitle) {
@@ -122,7 +149,7 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
       .from('internal_messages')
       .select('*')
       .or(`sender_id.eq.${user?.id},receiver_id.eq.${user?.id}`)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: false }); // Mudado para false para flex-col-reverse
 
     if (error) {
       console.error('[InternalChat] Error fetching messages:', error);
@@ -191,13 +218,8 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
-            {messages.length === 0 && (
-              <div className="text-center text-slate-400 text-sm mt-10">
-                <p>Nenhuma mensagem ainda.</p>
-                <p>Envie uma mensagem para iniciar o atendimento.</p>
-              </div>
-            )}
+          <div className="flex-1 overflow-y-auto p-4 flex flex-col-reverse gap-4 bg-slate-50">
+            <div ref={messagesEndRef} />
             {messages.map((msg) => (
               <div key={msg.id} className={`flex ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[80%] p-3 rounded-2xl text-sm shadow-sm flex items-end gap-2 ${msg.sender_id === user?.id ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-slate-800 text-white rounded-tl-none'}`}>
@@ -213,7 +235,12 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
                 </div>
               </div>
             ))}
-            <div ref={messagesEndRef} />
+            {messages.length === 0 && (
+              <div className="text-center text-slate-400 text-sm mt-10">
+                <p>Nenhuma mensagem ainda.</p>
+                <p>Envie uma mensagem para iniciar o atendimento.</p>
+              </div>
+            )}
           </div>
 
           <form onSubmit={handleSendMessage} className="p-4 bg-white border-t border-slate-100 flex gap-2">
