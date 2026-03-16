@@ -6,7 +6,7 @@ import { userService } from '../services/userService';
 interface Profile {
   id: string;
   email: string;
-  role: 'admin' | 'user' | 'buyer' | 'buyer_premium' | 'buyer_master';
+  role: 'admin' | 'user' | 'buyer' | 'buyer_premium' | 'buyer_master' | 'seller';
   full_name: string;
   avatar_url?: string;
   phone?: string;

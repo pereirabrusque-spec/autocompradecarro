@@ -31,19 +31,24 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
 
   useEffect(() => {
     if (user) {
-      const channelName = `internal_messages_${user.id}`;
+      const channelName = `internal_messages_user_${user.id}`;
       console.log(`[InternalChat] Inscrevendo no canal: ${channelName}`);
       
       const subscription = supabase
         .channel(channelName)
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'internal_messages' }, (payload) => {
+        .on('postgres_changes', { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'internal_messages' 
+        }, (payload) => {
           console.log('[InternalChat] Nova mensagem recebida via Realtime:', payload.new);
           
-          // Lógica mais permissiva para garantir que o usuário receba mensagens destinadas a ele
+          // Relevante se: eu sou o remetente OU eu sou o destinatário OU (destinatário é nulo e eu sou o destinatário implícito)
           const isMyMessage = payload.new.sender_id === user.id;
-          const isForMe = !payload.new.receiver_id || payload.new.receiver_id === user.id || (user.role === 'admin' && payload.new.receiver_id === null);
+          const isForMe = payload.new.receiver_id === user.id || (!payload.new.receiver_id && user.role !== 'admin');
           
           if (isMyMessage || isForMe) {
+            console.log('[InternalChat] Mensagem relevante, atualizando UI');
             setMessages(prev => {
               if (prev.some(m => m.id === payload.new.id)) return prev;
               return [...prev, payload.new];
@@ -60,10 +65,13 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
             }
           }
         })
-        .subscribe();
+        .subscribe((status) => {
+          console.log(`[InternalChat] Status da inscrição (${channelName}):`, status);
+        });
 
       return () => {
-        subscription.unsubscribe();
+        console.log(`[InternalChat] Desinscrevendo do canal: ${channelName}`);
+        supabase.removeChannel(subscription);
       };
     }
   }, [user]);

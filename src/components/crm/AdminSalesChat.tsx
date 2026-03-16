@@ -11,70 +11,15 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
   const [userPhone, setUserPhone] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [userAvatar, setUserAvatar] = useState('');
-  const [showAiRules, setShowAiRules] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [aiPrompt, setAiPrompt] = useState('');
-  const [isSavingPrompt, setIsSavingPrompt] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
-
-  // Scroll logic removed in favor of flex-col-reverse which starts at bottom
   
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) setCurrentUserId(user.id);
     });
-    
-    // Load existing prompt
-    supabase.from('settings').select('value').eq('key', 'AI_CRM_PROMPT').single().then(({ data }) => {
-      if (data) setAiPrompt(data.value);
-    });
-
-    // Listener para mudanças no prompt da IA
-    const settingsSubscription = supabase
-      .channel('crm_settings_global')
-      .on('postgres_changes', { 
-        event: 'UPDATE', 
-        schema: 'public', 
-        table: 'settings',
-        filter: 'key=eq.AI_CRM_PROMPT'
-      }, (payload) => {
-        if (payload.new && payload.new.key === 'AI_CRM_PROMPT') {
-          console.log('[AdminSalesChat] Prompt da IA atualizado via Realtime');
-          setAiPrompt(payload.new.value);
-        }
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(settingsSubscription);
-    };
   }, []);
-
-  const saveAiPrompt = async () => {
-    setIsSavingPrompt(true);
-    
-    // Check if exists
-    const { data: existing } = await supabase.from('settings').select('key').eq('key', 'AI_CRM_PROMPT').maybeSingle();
-    
-    let error;
-    if (existing) {
-        const res = await supabase.from('settings').update({ value: aiPrompt }).eq('key', 'AI_CRM_PROMPT');
-        error = res.error;
-    } else {
-        const res = await supabase.from('settings').insert({ key: 'AI_CRM_PROMPT', value: aiPrompt });
-        error = res.error;
-    }
-
-    if (error) {
-        console.error('Erro ao salvar prompt:', error);
-        alert(`Erro ao salvar prompt: ${error.message}`);
-    } else {
-        alert('Prompt salvo com sucesso!');
-    }
-    setIsSavingPrompt(false);
-    setShowAiRules(false);
-  };
 
   const logWhatsAppUsage = () => {
     console.log('WhatsApp usage logged');
@@ -117,24 +62,33 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
       .or(`sender_id.eq.${conversationId},receiver_id.eq.${conversationId}`)
       .order('created_at', { ascending: false });
     
-    if (!error) {
-      setMessages(data || []);
-      
-      // Marca mensagens como lidas NO BANCO DE DADOS
-      console.log('[AdminSalesChat] Marcando mensagens como lidas para:', conversationId);
-      const { error: updateError } = await supabase
-        .from('internal_messages')
-        .update({ is_read: true })
-        .eq('receiver_id', currentUserId)
-        .eq('sender_id', conversationId)
-        .eq('is_read', false);
-      
-      if (updateError) {
-          console.error('[AdminSalesChat] Erro ao marcar como lidas:', updateError);
-      } else {
-          console.log('[AdminSalesChat] Mensagens marcadas como lidas com sucesso');
-          onMessageRead(); // Notifica o container pai para atualizar a lista lateral
-      }
+    if (error) {
+      console.error('[AdminSalesChat] Erro ao buscar mensagens:', error);
+      return;
+    }
+
+    if (data && data.length > 0) {
+      console.log('[AdminSalesChat] Colunas detectadas:', Object.keys(data[0]));
+    }
+    
+    setMessages(data || []);
+    
+    // Marca mensagens como lidas NO BANCO DE DADOS
+    // Tenta detectar se a coluna é 'read' ou 'is_read'
+    const readColumn = data && data.length > 0 && 'is_read' in data[0] ? 'is_read' : 'read';
+    console.log('[AdminSalesChat] Usando coluna de leitura:', readColumn);
+
+    const { error: updateError } = await supabase
+      .from('internal_messages')
+      .update({ [readColumn]: true })
+      .eq('receiver_id', currentUserId)
+      .eq('sender_id', conversationId)
+      .eq(readColumn, false);
+    
+    if (updateError) {
+        console.error('[AdminSalesChat] Erro ao marcar como lidas:', updateError);
+    } else {
+        onMessageRead(); // Notifica o container pai para atualizar a lista lateral
     }
   };
   
@@ -151,16 +105,16 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
       }
   };
 
-  const isAiModeRef = useRef(isAiMode);
-  const aiPromptRef = useRef(aiPrompt);
+  const isAiModeRef = useRef(false);
+  const messagesRef = useRef(messages);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   useEffect(() => {
     isAiModeRef.current = isAiMode;
   }, [isAiMode]);
-
-  useEffect(() => {
-    aiPromptRef.current = aiPrompt;
-  }, [aiPrompt]);
 
   useEffect(() => {
     if (!conversationId || !currentUserId) return;
@@ -197,45 +151,18 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
             console.log('[AdminSalesChat] Mensagem do comprador, processando...');
             
             // Marca como lida
+            const readColumn = payload.new.is_read !== undefined ? 'is_read' : 'read';
             supabase
               .from('internal_messages')
-              .update({ is_read: true })
+              .update({ [readColumn]: true })
               .eq('id', payload.new.id)
               .then(({ error }) => {
                   if (error) console.error('[AdminSalesChat] Erro ao marcar como lida:', error);
                   else onMessageRead();
               });
 
-            // LÓGICA DE RESPOSTA AUTOMÁTICA DA IA
-            if (isAiModeRef.current) {
-              console.log('[AdminSalesChat] IA Ativa, gerando resposta automática...');
-              try {
-                const { AIService } = await import('../../services/aiService');
-                const response = await AIService.generateContent(
-                  payload.new.content,
-                  aiPromptRef.current || "Você é um assistente de vendas prestativo. Responda de forma curta e direta."
-                );
-
-                if (response && response.text) {
-                  console.log('[AdminSalesChat] IA gerou resposta:', response.text);
-                  
-                  // Envia a resposta da IA como se fosse o admin
-                  const { data: aiMsg, error: aiError } = await supabase.from('internal_messages').insert({
-                    receiver_id: conversationId,
-                    content: response.text,
-                    sender_id: currentUserId,
-                    is_read: true
-                  }).select().single();
-
-                  if (aiError) console.error('[AdminSalesChat] Erro ao enviar resposta da IA:', aiError);
-                  else {
-                    setMessages(prev => [aiMsg, ...prev]);
-                  }
-                }
-              } catch (err) {
-                console.error('[AdminSalesChat] Erro na geração da IA:', err);
-              }
-            }
+            // NOTA: A resposta automática da IA agora é processada globalmente no CRMChatContainer.tsx
+            // para garantir que funcione mesmo quando este chat específico não está aberto.
           }
         }
       })
@@ -260,13 +187,18 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
+    // Detecta coluna de leitura
+    const readColumn = messages.length > 0 && 'is_read' in messages[0] ? 'is_read' : 'read';
+
     // Save to DB
-    const { data, error } = await supabase.from('internal_messages').insert({
+    const insertData: any = {
       receiver_id: conversationId,
       content: input,
-      sender_id: user.id,
-      is_read: true // Admin messages are read
-    }).select().single();
+      sender_id: user.id
+    };
+    insertData[readColumn] = true;
+
+    const { data, error } = await supabase.from('internal_messages').insert(insertData).select().single();
     
     if (error) console.error('Error sending message:', error);
     else {
@@ -286,17 +218,15 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
             </div>
         </div>
         <div className="flex gap-2 items-center">
-          <button 
-            onClick={() => toggleAiMode(!isAiMode)}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
               isAiMode 
               ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' 
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              : 'bg-slate-100 text-slate-600'
             }`}
           >
             <Bot className={`w-4 h-4 ${isAiMode ? 'animate-pulse' : ''}`} />
             {isAiMode ? 'IA ATIVA' : 'IA DESLIGADA'}
-          </button>
+          </div>
 
           <button 
             onClick={clearChat}
@@ -320,25 +250,7 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
         </div>
       </div>
       
-      {showAiRules && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-[50vw] max-w-none shadow-xl">
-            <h4 className="font-bold mb-4 text-lg">Configurar Memória IA</h4>
-            <textarea 
-              className="w-full h-40 p-3 border border-slate-200 rounded-lg text-sm mb-4"
-              value={aiPrompt}
-              onChange={e => setAiPrompt(e.target.value)}
-              placeholder="Cole aqui as regras e memória para a IA..."
-            />
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setShowAiRules(false)} className="px-4 py-2 text-slate-600">Cancelar</button>
-              <button onClick={saveAiPrompt} disabled={isSavingPrompt} className="px-4 py-2 bg-slate-900 text-white rounded-lg">
-                {isSavingPrompt ? 'Salvando...' : 'Salvar'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Modal de regras removido pois agora é global no container */}
 
 
       <div className="flex-1 overflow-y-auto p-4 flex flex-col-reverse min-h-0" ref={chatContainerRef}>

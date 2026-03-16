@@ -229,7 +229,7 @@ function AppContent() {
       
       {/* Contact Widgets */}
       {/* WhatsApp Button for Sellers (Bottom Left) */}
-      {profile?.role === 'seller' && (
+      {(profile?.role as string) === 'seller' && (
         <a
           href="https://wa.me/SEU_NUMERO_AQUI"
           target="_blank"

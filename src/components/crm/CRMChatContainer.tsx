@@ -9,11 +9,14 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [showAiRules, setShowAiRules] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
+  const [isAiEnabled, setIsAiEnabled] = useState(false);
   const [isSavingPrompt, setIsSavingPrompt] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   
   const selectedConversationIdRef = useRef<string | null>(null);
   const currentUserIdRef = useRef<string | null>(null);
+  const isAiEnabledRef = useRef(false);
+  const aiPromptRef = useRef('');
 
   useEffect(() => {
     selectedConversationIdRef.current = selectedConversationId;
@@ -22,6 +25,14 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
   useEffect(() => {
     currentUserIdRef.current = currentUserId;
   }, [currentUserId]);
+
+  useEffect(() => {
+    isAiEnabledRef.current = isAiEnabled;
+  }, [isAiEnabled]);
+
+  useEffect(() => {
+    aiPromptRef.current = aiPrompt;
+  }, [aiPrompt]);
 
   const fetchConversations = async (userId?: string) => {
       const uid = userId || currentUserId;
@@ -70,9 +81,14 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
       }
     });
 
-    // Load existing prompt
-    supabase.from('settings').select('value').eq('key', 'AI_CRM_PROMPT').single().then(({ data }) => {
-      if (data) setAiPrompt(data.value);
+    // Load existing prompt and AI status
+    supabase.from('settings').select('key, value').in('key', ['AI_CRM_PROMPT', 'AI_CRM_ENABLED']).then(({ data }) => {
+      if (data) {
+          const prompt = data.find(s => s.key === 'AI_CRM_PROMPT');
+          const enabled = data.find(s => s.key === 'AI_CRM_ENABLED');
+          if (prompt) setAiPrompt(prompt.value);
+          if (enabled) setIsAiEnabled(enabled.value === 'true');
+      }
     });
   }, []);
 
@@ -80,31 +96,106 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
     if (!currentUserId) return;
 
     // Canal único para o container para evitar conflitos
-    const channelName = `crm_container_${currentUserId}`;
+    const channelName = `crm_global_messages_${currentUserId}`;
     console.log(`[CRMChatContainer] Inscrevendo no canal: ${channelName}`);
 
     const messageSubscription = supabase
       .channel(channelName)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'internal_messages' }, (payload) => {
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'internal_messages' 
+      }, async (payload) => {
         console.log('[CRMChatContainer] Nova mensagem recebida:', payload.new);
         
         const uid = currentUserIdRef.current;
         const selId = selectedConversationIdRef.current;
 
-        // Só incrementa se a mensagem for para o admin logado
-        if (uid && payload.new.receiver_id === uid) {
+        // Só processa se a mensagem for para o admin logado (receiver_id === uid ou null)
+        const isForMe = payload.new.receiver_id === uid || (!payload.new.receiver_id && uid);
+        
+        if (isForMe) {
             const senderId = payload.new.sender_id;
             
-            // Se o admin já estiver com o chat aberto, não incrementa (ou zera logo)
-            if (selId === senderId) {
-                console.log('[CRMChatContainer] Chat aberto, ignorando incremento');
-                return;
+            // Incrementa contador se não for o chat aberto
+            if (selId !== senderId) {
+                setUnreadCounts(prev => ({
+                    ...prev,
+                    [senderId]: (prev[senderId] || 0) + 1
+                }));
             }
 
-            setUnreadCounts(prev => ({
-                ...prev,
-                [senderId]: (prev[senderId] || 0) + 1
-            }));
+            // LÓGICA DE RESPOSTA AUTOMÁTICA DA IA (GLOBAL)
+            if (isAiEnabledRef.current && payload.new.sender_id !== uid) {
+                console.log('[CRMChatContainer] IA Global Ativa, processando resposta...');
+                try {
+                    // Busca informações dos veículos (leads) deste comprador
+                    const { data: leads } = await supabase
+                      .from('leads_veiculos')
+                      .select('*')
+                      .eq('user_id', senderId);
+                    
+                    let vehicleContext = "";
+                    if (leads && leads.length > 0) {
+                      vehicleContext = "\n\nVEÍCULOS DE INTERESSE DO CLIENTE:\n" + leads.map(l => 
+                        `- ${l.marca} ${l.modelo} (${l.ano_modelo}) - Preço: R$ ${l.preco_cliente || 'A consultar'} - Status: ${l.status}`
+                      ).join('\n');
+                    }
+
+                    // Busca histórico recente para contexto
+                    const { data: historyData } = await supabase
+                        .from('internal_messages')
+                        .select('*')
+                        .or(`sender_id.eq.${senderId},receiver_id.eq.${senderId}`)
+                        .order('created_at', { ascending: false })
+                        .limit(10);
+
+                    const history = (historyData || []).reverse().map(m => 
+                        `${m.sender_id === uid ? 'Admin' : 'Cliente'}: ${m.content}`
+                    ).join('\n');
+
+                    const { AIService } = await import('../../services/aiService');
+                    
+                    const fullPrompt = `
+HISTÓRICO RECENTE DA CONVERSA:
+${history}
+NOVA MENSAGEM DO CLIENTE: ${payload.new.content}
+
+${vehicleContext}
+
+REGRAS DE ATENDIMENTO (Siga rigorosamente):
+1. IDENTIFICAÇÃO DE VEÍCULO: Se o cliente demonstrou interesse em mais de um veículo no histórico ou na mensagem atual, você DEVE perguntar educadamente qual deles ele deseja focar agora antes de dar detalhes profundos. Ex: "Vi que você se interessou pelo Corolla e pelo Civic. Qual deles você gostaria de conhecer melhor primeiro?"
+2. FOCO NO FECHAMENTO: Se o interesse for em um veículo específico, dê detalhes técnicos (se disponíveis no contexto acima) e tente agendar uma visita ou solicitar uma proposta.
+3. PERSUASÃO: Seja persuasivo para fechar a venda, destaque benefícios, mas mantenha o tom profissional e amigável.
+4. RESPOSTA DIRETA: Responda de forma direta, sem enrolação.
+5. REGRAS DO CRM: Respeite as regras de negócio e conduza o cliente para a compra.
+`;
+
+                    const response = await AIService.generateContent(
+                        fullPrompt,
+                        aiPromptRef.current || "Você é um assistente de vendas prestativo. Use o contexto dos veículos para ajudar o cliente a comprar."
+                    );
+
+                    if (response && response.text) {
+                        console.log('[CRMChatContainer] IA Global gerou resposta:', response.text);
+                        
+                        // Detecta coluna de leitura
+                        const readColumn = payload.new.is_read !== undefined ? 'is_read' : 'read';
+
+                        const insertData: any = {
+                            receiver_id: senderId,
+                            content: response.text,
+                            sender_id: uid
+                        };
+                        insertData[readColumn] = true;
+
+                        await supabase.from('internal_messages').insert(insertData);
+                        console.log('[CRMChatContainer] Resposta da IA enviada com sucesso');
+                    }
+                } catch (err) {
+                    console.error('[CRMChatContainer] Erro na geração da IA Global:', err);
+                }
+            }
         }
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'internal_messages' }, () => {
@@ -113,7 +204,9 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'internal_messages' }, () => {
         fetchConversations();
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log(`[CRMChatContainer] Status da inscrição (${channelName}):`, status);
+      });
 
     // Real-time subscription for profile changes (role updates)
     const profileSubscription = supabase
@@ -134,26 +227,31 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
   const saveAiPrompt = async () => {
     setIsSavingPrompt(true);
     
-    // Check if exists
-    const { data: existing } = await supabase.from('settings').select('key').eq('key', 'AI_CRM_PROMPT').maybeSingle();
-    
-    let error;
-    if (existing) {
-        const res = await supabase.from('settings').update({ value: aiPrompt }).eq('key', 'AI_CRM_PROMPT');
-        error = res.error;
-    } else {
-        const res = await supabase.from('settings').insert({ key: 'AI_CRM_PROMPT', value: aiPrompt });
-        error = res.error;
-    }
+    try {
+        // Save prompt
+        const { data: existingPrompt } = await supabase.from('settings').select('key').eq('key', 'AI_CRM_PROMPT').maybeSingle();
+        if (existingPrompt) {
+            await supabase.from('settings').update({ value: aiPrompt }).eq('key', 'AI_CRM_PROMPT');
+        } else {
+            await supabase.from('settings').insert({ key: 'AI_CRM_PROMPT', value: aiPrompt });
+        }
 
-    if (error) {
-        console.error('Erro ao salvar prompt:', error);
-        alert(`Erro ao salvar prompt: ${error.message}`);
-    } else {
-        alert('Prompt salvo com sucesso!');
+        // Save enabled status
+        const { data: existingEnabled } = await supabase.from('settings').select('key').eq('key', 'AI_CRM_ENABLED').maybeSingle();
+        if (existingEnabled) {
+            await supabase.from('settings').update({ value: isAiEnabled.toString() }).eq('key', 'AI_CRM_ENABLED');
+        } else {
+            await supabase.from('settings').insert({ key: 'AI_CRM_ENABLED', value: isAiEnabled.toString() });
+        }
+
+        alert('Configurações da IA salvas com sucesso!');
+        setShowAiRules(false);
+    } catch (error: any) {
+        console.error('Erro ao salvar configurações:', error);
+        alert(`Erro ao salvar: ${error.message}`);
+    } finally {
+        setIsSavingPrompt(false);
     }
-    setIsSavingPrompt(false);
-    setShowAiRules(false);
   };
 
   return (
@@ -223,9 +321,25 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
       {showAiRules && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 w-[50vw] max-w-none shadow-xl">
-            <h4 className="font-bold mb-4 text-lg">Configurar Memória IA</h4>
+            <div className="flex justify-between items-center mb-4">
+                <h4 className="font-bold text-lg">Configurar IA de Vendas</h4>
+                <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full">
+                    <span className="text-xs font-bold text-slate-600">IA AUTOMÁTICA</span>
+                    <button 
+                        onClick={() => setIsAiEnabled(!isAiEnabled)}
+                        className={`w-10 h-5 rounded-full transition-colors relative ${isAiEnabled ? 'bg-blue-600' : 'bg-slate-300'}`}
+                    >
+                        <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${isAiEnabled ? 'left-6' : 'left-1'}`} />
+                    </button>
+                </div>
+            </div>
+            
+            <p className="text-xs text-slate-500 mb-2">
+                Quando a IA Automática está ligada, ela responderá todos os compradores seguindo as regras abaixo, mesmo que você não esteja com o chat aberto.
+            </p>
+
             <textarea 
-              className="w-full h-40 p-3 border border-slate-200 rounded-lg text-sm mb-4"
+              className="w-full h-60 p-3 border border-slate-200 rounded-lg text-sm mb-4 font-mono"
               value={aiPrompt}
               onChange={e => setAiPrompt(e.target.value)}
               placeholder="Cole aqui as regras e memória para a IA..."

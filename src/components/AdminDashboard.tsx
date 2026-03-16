@@ -6884,15 +6884,15 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
               <div className="flex flex-col sm:flex-row gap-3 mt-8">
                 <button 
-                  onClick={handleSave}
-                  disabled={loading}
+                  onClick={handleCreateUser}
+                  disabled={isCreatingUser}
                   className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-accent transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
-                  Salvar Alterações
+                  {isCreatingUser ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
+                  Criar Usuário
                 </button>
                 <button 
-                  onClick={onClose}
+                  onClick={() => setShowAddUserModal(false)}
                   className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all"
                 >
                   Cancelar

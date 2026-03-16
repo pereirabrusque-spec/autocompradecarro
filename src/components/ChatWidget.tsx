@@ -30,6 +30,7 @@ export default function ChatWidget() {
   const [sending, setSending] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showProposalView, setShowProposalView] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [selectedProposal, setSelectedProposal] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
