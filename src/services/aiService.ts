@@ -234,9 +234,19 @@ class AIClientManager {
         throw new Error('Empty response from Gemini');
       } else {
         // OpenAI-compatible providers (OpenAI, Grok, etc.)
-        const baseUrl = apiKey.provider === 'openai' ? 'https://api.openai.com/v1' :
-                        apiKey.provider === 'grok' ? 'https://api.x.ai/v1' :
-                        `https://api.${apiKey.provider}.com/v1`;
+        let baseUrl = '';
+        if (apiKey.provider === 'openai') {
+          baseUrl = 'https://api.openai.com/v1';
+        } else if (apiKey.provider === 'grok') {
+          baseUrl = 'https://api.x.ai/v1';
+        } else if (apiKey.provider === 'grod') {
+          // Fix: Assuming grod is a typo for grok or a custom provider that needs a valid URL
+          // If it's a custom provider, the user should have provided a base URL.
+          // For now, let's assume it's a typo for grok or just block it if it's invalid.
+          throw new Error('Provedor "grod" inválido. Verifique o cadastro da API.');
+        } else {
+          baseUrl = `https://api.${apiKey.provider}.com/v1`;
+        }
 
         const content: any[] = [
           { type: 'text', text: prompt || 'Analise esta imagem.' }
