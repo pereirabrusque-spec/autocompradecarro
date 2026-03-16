@@ -36,8 +36,7 @@ export const useAiMode = () => {
     try {
       await supabase.from('settings').upsert({ 
         key: 'AI_CRM_MODE', 
-        value: newMode.toString(),
-        updated_at: new Date().toISOString() 
+        value: newMode.toString()
       }, { onConflict: 'key' });
     } catch (err) {
       console.error('Erro ao salvar modo IA:', err);

@@ -18,12 +18,8 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
   const [isDeleting, setIsDeleting] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-    }
-  }, [messages]);
-
+  // Scroll logic removed in favor of flex-col-reverse which starts at bottom
+  
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) setCurrentUserId(user.id);
@@ -69,17 +65,24 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
     
     setIsDeleting(true);
     try {
+        // Delete messages where sender is me and receiver is buyer OR sender is buyer and receiver is me
         const { error } = await supabase
             .from('internal_messages')
             .delete()
             .or(`sender_id.eq.${conversationId},receiver_id.eq.${conversationId}`);
         
         if (error) throw error;
+        
+        // Clear local state immediately
         setMessages([]);
-        onMessageRead(); // Atualiza a lista lateral
+        
+        // Update unread counts in parent
+        onMessageRead(); 
+        
+        alert('Histórico apagado com sucesso.');
     } catch (error) {
         console.error('Erro ao apagar mensagens:', error);
-        alert('Erro ao apagar mensagens.');
+        alert('Erro ao apagar mensagens. Verifique sua conexão.');
     } finally {
         setIsDeleting(false);
     }
@@ -92,7 +95,7 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
       .from('internal_messages')
       .select('*')
       .or(`sender_id.eq.${conversationId},receiver_id.eq.${conversationId}`)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: false });
     
     if (!error) {
       setMessages(data || []);
@@ -134,7 +137,7 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
       .on('postgres_changes', { event: '*', schema: 'public', table: 'internal_messages' }, (payload) => {
         if (payload.eventType === 'INSERT') {
           if (payload.new.sender_id === conversationId || payload.new.receiver_id === conversationId) {
-            setMessages(prev => [...prev, payload.new]);
+            setMessages(prev => [payload.new, ...prev]);
             
             // Mark as read immediately if it's from the buyer
             if (payload.new.sender_id === conversationId) {
@@ -174,7 +177,7 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
     
     if (error) console.error('Error sending message:', error);
     else {
-        setMessages(prev => [...prev, data]);
+        setMessages(prev => [data, ...prev]);
         setInput('');
     }
   };
@@ -221,12 +224,6 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
               <MessageCircle className="w-4 h-4" />
             </a>
           )}
-          <button 
-            onClick={() => toggleAiMode(!isAiMode)}
-            className={`px-3 py-1 rounded-full text-xs font-bold ${isAiMode ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'}`}
-          >
-            {isAiMode ? 'IA Ativa' : 'Humano Ativo'}
-          </button>
         </div>
       </div>
       
@@ -251,14 +248,16 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
       )}
 
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0" ref={chatContainerRef}>
-        {messages.map(m => (
-          <div key={m.id} className={`flex ${m.sender_id === currentUserId ? 'justify-end' : 'justify-start'}`}>
-            <div className={`p-3 rounded-xl text-sm max-w-[80%] ${m.sender_id === currentUserId ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-900'}`}>
-              {m.content}
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col-reverse min-h-0" ref={chatContainerRef}>
+        <div className="flex flex-col gap-4">
+          {messages.map(m => (
+            <div key={m.id} className={`flex ${m.sender_id === currentUserId ? 'justify-end' : 'justify-start'}`}>
+              <div className={`p-3 rounded-xl text-sm max-w-[80%] ${m.sender_id === currentUserId ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-900'}`}>
+                {m.content}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
       <div className="p-4 border-t border-slate-100 flex gap-2 shrink-0">
         <input 
