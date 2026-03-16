@@ -4883,6 +4883,30 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         Leads
                       </button>
                     </div>
+                    
+                    {/* Novos controles de IA */}
+                    <div className="flex flex-col gap-2 mb-4 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-600">IA GLOBAL</span>
+                        <button 
+                          onClick={toggleGlobalAi}
+                          disabled={isUpdatingAi}
+                          className={`w-10 h-5 rounded-full transition-colors ${isGlobalAiEnabled ? 'bg-blue-600' : 'bg-slate-300'}`}
+                        >
+                          <div className={`w-4 h-4 bg-white rounded-full transition-transform ${isGlobalAiEnabled ? 'translate-x-5' : 'translate-x-1'}`} />
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-600">PROPOSTA AUTO/MAN</span>
+                        <button 
+                          onClick={() => setAutoProposalEnabled(!autoProposalEnabled)}
+                          disabled={!isGlobalAiEnabled}
+                          className={`w-10 h-5 rounded-full transition-colors ${autoProposalEnabled && isGlobalAiEnabled ? 'bg-blue-600' : 'bg-slate-300'} ${!isGlobalAiEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                          <div className={`w-4 h-4 bg-white rounded-full transition-transform ${autoProposalEnabled && isGlobalAiEnabled ? 'translate-x-5' : 'translate-x-1'}`} />
+                        </button>
+                      </div>
+                    </div>
                     <h3 className="text-xl font-bold mb-4">Conversas</h3>
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -4995,6 +5019,20 @@ Podemos prosseguir com o agendamento da vistoria?`;
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
+                          {/* Novos botões */}
+                          <button 
+                            className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700"
+                            onClick={() => console.log('Atendimento Humano')}
+                          >
+                            Atendimento Humano
+                          </button>
+                          <button 
+                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold ${isLearning ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'} hover:opacity-80`}
+                            onClick={() => setIsLearning(!isLearning)}
+                          >
+                            {isLearning ? 'IA: Aprendendo...' : 'IA: Aprender'}
+                          </button>
+
                           {selectedConversation.lead && (
                             <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-100 mr-2">
                               {/* Toggle Modo IA */}
@@ -5123,7 +5161,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         ref={scrollRef}
                         className="flex-1 overflow-y-auto p-6 space-y-4"
                       >
-                        {chatMessages.map((msg) => (
+                        {(chatMessages || []).map((msg) => (
                           <div 
                             key={msg.id}
                             className={`flex ${msg.remetente === 'admin' || msg.remetente === 'bot' ? 'justify-end' : 'justify-start'}`}
@@ -5418,7 +5456,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                           <div className="space-y-2">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Deduções (Avarias/Histórico)</label>
                             <div className="max-h-48 overflow-y-auto space-y-2 pr-2">
-                              {proposalCalculator.deductions.map((deduction, idx) => (
+                              { (proposalCalculator.deductions || []).map((deduction, idx) => (
                                 <div key={idx} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg text-xs">
                                   <span className="text-slate-600">{deduction.name}</span>
                                   <div className="flex items-center gap-2">

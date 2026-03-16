@@ -289,7 +289,7 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
 
 
       <div className="flex-1 overflow-y-auto p-4 flex flex-col-reverse gap-4 min-h-0" ref={chatContainerRef}>
-        {messages.map(m => (
+        {(messages || []).map(m => (
           <div key={m.id} className={`flex ${m.sender_id === currentUserId ? 'justify-end' : 'justify-start'}`}>
             <div className={`p-3 rounded-xl text-sm max-w-[80%] ${m.sender_id === currentUserId ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-900'}`}>
               {m.content}

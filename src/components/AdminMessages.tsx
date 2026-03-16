@@ -81,7 +81,7 @@ export default function AdminMessages() {
           </div>
         </div>
         <div className="flex-1 overflow-y-auto">
-          {conversations.map((conv) => (
+          {(conversations || []).map((conv) => (
             <div key={conv.id} onClick={() => setSelectedConversation(conv)} className="p-4 border-b border-slate-50 cursor-pointer hover:bg-slate-50 flex justify-between items-center">
               <div>
                 <h4 className="font-bold text-sm">{conv.sender_id || 'Lead'}</h4>
