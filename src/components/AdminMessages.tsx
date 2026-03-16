@@ -66,11 +66,11 @@ export default function AdminMessages() {
           {/* AI Controls in Sidebar */}
           <div className="flex flex-col gap-2 mb-4 p-3 bg-slate-50 rounded-xl">
              <label className="flex items-center justify-between text-xs font-bold">
-                IA Global
+                IA GLOBAL (24h)
                 <input type="checkbox" checked={globalAiEnabled} onChange={() => setGlobalAiEnabled(!globalAiEnabled)} />
              </label>
              <label className="flex items-center justify-between text-xs font-bold">
-                Modo Auto Proposta
+                RESPOSTA AUTOMÁTICA
                 <input type="checkbox" checked={aiAutoProposal} onChange={() => setAiAutoProposal(!aiAutoProposal)} />
              </label>
           </div>
@@ -104,15 +104,23 @@ export default function AdminMessages() {
                 <span className="font-bold">{selectedConversation.sender_id || 'Lead'}</span>
               </div>
               <div className="flex gap-2 items-center">
-                <button className="p-2 text-slate-500 hover:text-slate-900"><Mail className="w-4 h-4" /></button>
-                <button className="p-2 text-slate-500 hover:text-slate-900"><MessageCircle className="w-4 h-4" /></button>
+                <button className="p-2 text-slate-500 hover:text-slate-900" title="Enviar Email"><Mail className="w-4 h-4" /></button>
+                <button className="p-2 text-slate-500 hover:text-slate-900" title="WhatsApp"><MessageCircle className="w-4 h-4" /></button>
+                
+                <button 
+                  onClick={() => setIsHumanAttending(!isHumanAttending)}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${isHumanAttending ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-slate-100 text-slate-700 border border-slate-200'}`}
+                >
+                  {isHumanAttending ? 'Atendimento Humano: ON' : 'Atendimento Humano'}
+                </button>
+
                 <button 
                     onClick={() => setIsLearning(!isLearning)}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold border ${isLearning ? 'bg-purple-50 text-purple-600 border-purple-200' : 'bg-blue-50 text-blue-600 border-blue-200'}`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${isLearning ? 'bg-purple-100 text-purple-600 border border-purple-200' : 'bg-slate-100 text-slate-700 border border-slate-200'}`}
                 >
                     {isLearning ? 'IA: Aprendendo...' : 'IA: Aprender'}
                 </button>
-                <button onClick={() => setShowProposalModal(true)} className="px-3 py-1 bg-orange-50 text-orange-600 rounded-lg text-xs font-bold border border-orange-200">$ Ver Proposta</button>
+                <button onClick={() => setShowProposalModal(true)} className="px-3 py-1.5 bg-orange-50 text-orange-600 rounded-lg text-[10px] font-bold border border-orange-200">$ Ver Proposta</button>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto p-6 space-y-4">

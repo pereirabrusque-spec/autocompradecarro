@@ -649,7 +649,7 @@ export default function AdminDashboard() {
           }
 
           // RESPOSTA AUTOMÁTICA DA IA
-          if ((autoProposalEnabled || proposalModeEnabled) && !payload.new.metadata?.from_chat_widget) {
+          if (isGlobalAiEnabled && (autoProposalEnabled || proposalModeEnabled) && !payload.new.metadata?.from_chat_widget) {
             setTimeout(() => {
               handleAIAutoResponse(payload.new);
             }, 2000);
@@ -1447,6 +1447,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
         { key: 'SOCIAL_TIKTOK', value: socialTiktok },
         { key: 'SOCIAL_LINKEDIN', value: socialLinkedin },
         { key: 'AI_MEMORY', value: aiMemory },
+        { key: 'AI_SYSTEM_PROMPT', value: aiSystemPrompt },
+        { key: 'AI_CRM_ENABLED', value: isGlobalAiEnabled ? 'true' : 'false' },
         { key: 'CHAT_HEIGHT', value: chatHeight },
         { key: 'CHAT_WIDTH', value: chatWidth },
         { key: 'CHAT_COLOR', value: chatColor },
@@ -2591,7 +2593,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
               <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 space-y-6">
                 <h2 className="text-2xl font-bold">Configurações de IA</h2>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase">System Prompt</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase">Regras da IA (System Prompt)</label>
                   <textarea 
                     className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none h-48"
                     value={aiSystemPrompt}
@@ -2599,7 +2601,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase">Memória da IA</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase">Memória da IA (Contexto)</label>
                   <textarea 
                     className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none h-48"
                     value={aiMemory}
@@ -4888,7 +4890,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     {/* Novos controles de IA */}
                     <div className="flex flex-col gap-2 mb-4 p-3 bg-slate-50 rounded-xl border border-slate-200">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-600">IA GLOBAL</span>
+                        <span className="text-xs font-bold text-slate-600">IA GLOBAL (24h)</span>
                         <button 
                           onClick={toggleGlobalAi}
                           disabled={isUpdatingAi}
@@ -4898,9 +4900,17 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         </button>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-600">PROPOSTA AUTO/MAN</span>
+                        <span className="text-xs font-bold text-slate-600">RESPOSTA AUTOMÁTICA</span>
                         <button 
-                          onClick={() => setAutoProposalEnabled(!autoProposalEnabled)}
+                          onClick={async () => {
+                            const newValue = !autoProposalEnabled;
+                            setAutoProposalEnabled(newValue);
+                            try {
+                              await supabase.from('settings').upsert({ key: 'AUTO_PROPOSAL_ENABLED', value: newValue.toString() }, { onConflict: 'key' });
+                            } catch (e) {
+                              console.error('Error toggling auto proposal:', e);
+                            }
+                          }}
                           disabled={!isGlobalAiEnabled}
                           className={`w-10 h-5 rounded-full transition-colors ${autoProposalEnabled && isGlobalAiEnabled ? 'bg-blue-600' : 'bg-slate-300'} ${!isGlobalAiEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
@@ -5045,6 +5055,43 @@ Podemos prosseguir com o agendamento da vistoria?`;
                               <MessageCircle className="w-4 h-4" />
                             </a>
                           )}
+                          
+                          {selectedConversation.lead && (
+                            <button 
+                              onClick={async () => {
+                                const newValue = !selectedConversation.lead.detalhes_proposta?.ai_disabled;
+                                const newDetalhes = { ...(selectedConversation.lead.detalhes_proposta || {}), ai_disabled: newValue };
+                                try {
+                                  const { error } = await supabase
+                                    .from('leads_veiculos')
+                                    .update({ detalhes_proposta: newDetalhes })
+                                    .eq('id', selectedConversation.lead.id);
+                                  
+                                  if (error) throw error;
+                                  
+                                  // Update local state
+                                  setConversations(prev => prev.map(c => 
+                                    c.lead_id === selectedConversation.lead_id 
+                                      ? { ...c, lead: { ...c.lead, detalhes_proposta: newDetalhes } } 
+                                      : c
+                                  ));
+                                  setSelectedConversation({
+                                    ...selectedConversation,
+                                    lead: { ...selectedConversation.lead, detalhes_proposta: newDetalhes }
+                                  });
+                                } catch (err) {
+                                  console.error(err);
+                                  alert('Erro ao alterar modo de atendimento.');
+                                }
+                              }}
+                              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-bold transition-all ${selectedConversation.lead.detalhes_proposta?.ai_disabled ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200'}`}
+                              title={selectedConversation.lead.detalhes_proposta?.ai_disabled ? 'Desativar Atendimento Humano (Ativar IA)' : 'Ativar Atendimento Humano (Pausar IA)'}
+                            >
+                              <UserCheck className={`w-4 h-4 ${selectedConversation.lead.detalhes_proposta?.ai_disabled ? 'text-orange-600' : 'text-slate-500'}`} />
+                              {selectedConversation.lead.detalhes_proposta?.ai_disabled ? 'Atendimento Humano: ON' : 'Atendimento Humano'}
+                            </button>
+                          )}
+
                           <div className="h-6 w-px bg-slate-200 mx-2" />
                           <button 
                             onClick={handleLearnFromChat}
