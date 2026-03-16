@@ -148,9 +148,9 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
           
           // Se a mensagem for do comprador (vinda do conversationId)
           if (payload.new.sender_id === conversationId) {
-            console.log('[AdminSalesChat] Mensagem do comprador, processando...');
+            console.log('[AdminSalesChat] Mensagem do comprador, marcando como lida...');
             
-            // Marca como lida
+            // Marca como lida no banco
             const readColumn = payload.new.is_read !== undefined ? 'is_read' : 'read';
             supabase
               .from('internal_messages')
@@ -160,15 +160,18 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
                   if (error) console.error('[AdminSalesChat] Erro ao marcar como lida:', error);
                   else onMessageRead();
               });
-
-            // NOTA: A resposta automática da IA agora é processada globalmente no CRMChatContainer.tsx
-            // para garantir que funcione mesmo quando este chat específico não está aberto.
           }
         }
       })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'internal_messages' }, (payload) => {
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'internal_messages' 
+      }, (payload) => {
+        // Atualiza apenas se for uma mudança relevante (ex: conteúdo alterado)
+        // Evitamos re-fetch total para não causar flicker ou sumiço de msgs novas
         if (payload.new.sender_id === conversationId || payload.new.receiver_id === conversationId) {
-            fetchMessages();
+            setMessages(prev => prev.map(m => m.id === payload.new.id ? payload.new : m));
         }
       })
       .subscribe((status) => {
@@ -196,7 +199,8 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
       content: input,
       sender_id: user.id
     };
-    insertData[readColumn] = true;
+    // Removido: insertData[readColumn] = true; 
+    // A mensagem deve ser inserida como não lida para o destinatário (comprador)
 
     const { data, error } = await supabase.from('internal_messages').insert(insertData).select().single();
     
@@ -253,16 +257,14 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
       {/* Modal de regras removido pois agora é global no container */}
 
 
-      <div className="flex-1 overflow-y-auto p-4 flex flex-col-reverse min-h-0" ref={chatContainerRef}>
-        <div className="flex flex-col gap-4">
-          {messages.map(m => (
-            <div key={m.id} className={`flex ${m.sender_id === currentUserId ? 'justify-end' : 'justify-start'}`}>
-              <div className={`p-3 rounded-xl text-sm max-w-[80%] ${m.sender_id === currentUserId ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-900'}`}>
-                {m.content}
-              </div>
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col-reverse gap-4 min-h-0" ref={chatContainerRef}>
+        {messages.map(m => (
+          <div key={m.id} className={`flex ${m.sender_id === currentUserId ? 'justify-end' : 'justify-start'}`}>
+            <div className={`p-3 rounded-xl text-sm max-w-[80%] ${m.sender_id === currentUserId ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-900'}`}>
+              {m.content}
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </div>
       <div className="p-4 border-t border-slate-100 flex gap-2 shrink-0">
         <input 

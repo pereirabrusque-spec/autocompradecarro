@@ -77,12 +77,36 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle }: { 
   }, [user]);
 
   useEffect(() => {
-    console.log('[InternalChat] isOpenState:', isOpenState, 'user:', user);
+    console.log('[InternalChat] isOpenState:', isOpenState, 'user:', user, 'leadId:', leadId);
     if (isOpenState && user) {
       setUnreadCount(0);
       fetchMessages();
+
+      // Se abriu com um leadId específico, envia uma mensagem de contexto inicial se necessário
+      if (leadId && leadTitle) {
+        const sendInitialContext = async () => {
+          // Verifica se já existe uma mensagem recente sobre este lead para evitar duplicidade
+          const { data: recentMsgs } = await supabase
+            .from('internal_messages')
+            .select('content, lead_id')
+            .eq('sender_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          if (!recentMsgs || recentMsgs.length === 0 || recentMsgs[0].lead_id !== leadId) {
+            console.log('[InternalChat] Enviando mensagem de contexto inicial para o lead:', leadId);
+            await supabase.from('internal_messages').insert({
+              sender_id: user.id,
+              content: `Olá, tenho interesse no veículo: ${leadTitle}. Gostaria de mais informações.`,
+              lead_id: leadId,
+              is_read: false // Deve ser não lida para o admin ser notificado
+            });
+          }
+        };
+        sendInitialContext();
+      }
     }
-  }, [isOpenState, user]);
+  }, [isOpenState, user, leadId]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

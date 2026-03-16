@@ -136,9 +136,24 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
                       .eq('user_id', senderId);
                     
                     let vehicleContext = "";
+                    let currentLeadId = payload.new.lead_id;
+                    
+                    // Se não tem lead_id na mensagem, tenta identificar pelo conteúdo
+                    if (!currentLeadId && leads) {
+                        const content = payload.new.content.toLowerCase();
+                        const foundLead = leads.find(l => 
+                            content.includes(l.marca.toLowerCase()) || 
+                            content.includes(l.modelo.toLowerCase())
+                        );
+                        if (foundLead) {
+                            currentLeadId = foundLead.id;
+                            console.log('[CRMChatContainer] Veículo identificado pelo conteúdo:', foundLead.modelo);
+                        }
+                    }
+
                     if (leads && leads.length > 0) {
-                      vehicleContext = "\n\nVEÍCULOS DE INTERESSE DO CLIENTE:\n" + leads.map(l => 
-                        `- ${l.marca} ${l.modelo} (${l.ano_modelo}) - Preço: R$ ${l.preco_cliente || 'A consultar'} - Status: ${l.status}`
+                      vehicleContext = "\n\nVEÍCULOS DE INTERESSE DO CLIENTE (LEADS):\n" + leads.map(l => 
+                        `- [ID: ${l.id}] ${l.marca} ${l.modelo} (${l.ano_modelo}) - Preço: R$ ${l.preco_cliente || 'A consultar'} - Status: ${l.status}`
                       ).join('\n');
                     }
 
@@ -148,10 +163,10 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
                         .select('*')
                         .or(`sender_id.eq.${senderId},receiver_id.eq.${senderId}`)
                         .order('created_at', { ascending: false })
-                        .limit(10);
+                        .limit(15);
 
                     const history = (historyData || []).reverse().map(m => 
-                        `${m.sender_id === uid ? 'Admin' : 'Cliente'}: ${m.content}`
+                        `${m.sender_id === uid ? 'Admin' : 'Cliente'}: ${m.content} ${m.lead_id ? `(Ref: ${m.lead_id})` : ''}`
                     ).join('\n');
 
                     const { AIService } = await import('../../services/aiService');
@@ -159,16 +174,19 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
                     const fullPrompt = `
 HISTÓRICO RECENTE DA CONVERSA:
 ${history}
+
 NOVA MENSAGEM DO CLIENTE: ${payload.new.content}
+LEAD_ID DA MENSAGEM ATUAL: ${currentLeadId || 'Não especificado'}
 
 ${vehicleContext}
 
 REGRAS DE ATENDIMENTO (Siga rigorosamente):
-1. IDENTIFICAÇÃO DE VEÍCULO: Se o cliente demonstrou interesse em mais de um veículo no histórico ou na mensagem atual, você DEVE perguntar educadamente qual deles ele deseja focar agora antes de dar detalhes profundos. Ex: "Vi que você se interessou pelo Corolla e pelo Civic. Qual deles você gostaria de conhecer melhor primeiro?"
-2. FOCO NO FECHAMENTO: Se o interesse for em um veículo específico, dê detalhes técnicos (se disponíveis no contexto acima) e tente agendar uma visita ou solicitar uma proposta.
-3. PERSUASÃO: Seja persuasivo para fechar a venda, destaque benefícios, mas mantenha o tom profissional e amigável.
-4. RESPOSTA DIRETA: Responda de forma direta, sem enrolação.
-5. REGRAS DO CRM: Respeite as regras de negócio e conduza o cliente para a compra.
+1. CONTEXTO DINÂMICO: Se o cliente mencionou um novo veículo ou o LEAD_ID mudou, mude o foco da conversa IMEDIATAMENTE para este novo veículo.
+2. IDENTIFICAÇÃO DE VEÍCULO: Se o cliente demonstrou interesse em mais de um veículo no histórico ou na mensagem atual, você DEVE perguntar educadamente qual deles ele deseja focar agora antes de dar detalhes profundos.
+3. FOCO NO ÚLTIMO MENCIONADO: Se a conversa está fluindo sobre um carro, continue nele. Se ele mudar de assunto para outro carro da lista acima, mude junto.
+4. DADOS TÉCNICOS: Use os dados da lista "VEÍCULOS DE INTERESSE" para ser preciso. Se o carro não estiver na lista, peça educadamente para ele confirmar qual modelo seria.
+5. PERSUASÃO E FECHAMENTO: Seja um vendedor profissional. Tente agendar visitas ou propostas.
+6. RESPOSTA DIRETA: Responda de forma direta e amigável.
 `;
 
                     const response = await AIService.generateContent(
@@ -185,9 +203,11 @@ REGRAS DE ATENDIMENTO (Siga rigorosamente):
                         const insertData: any = {
                             receiver_id: senderId,
                             content: response.text,
-                            sender_id: uid
+                            sender_id: uid,
+                            lead_id: currentLeadId // Mantém o contexto do lead na resposta da IA
                         };
-                        insertData[readColumn] = true;
+                        // Removido: insertData[readColumn] = true;
+                        // A resposta da IA deve ser não lida para o comprador
 
                         await supabase.from('internal_messages').insert(insertData);
                         console.log('[CRMChatContainer] Resposta da IA enviada com sucesso');
