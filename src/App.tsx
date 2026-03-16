@@ -30,6 +30,7 @@ import TawkTo from './components/TawkTo';
 import WhatsAppButton from './components/WhatsAppButton';
 import ChatWidget from './components/ChatWidget';
 import InternalChat from './components/InternalChat';
+import FloatingPurchasingChat from './components/FloatingPurchasingChat';
 import AuthModal from './components/AuthModal';
 import { GoogleTags } from './components/GoogleTags';
 import NotificationPermissionModal from './components/NotificationPermissionModal';
@@ -53,6 +54,7 @@ function AppContent() {
   const tawkToEnabled = settings['TAWKTO_ENABLED'] === 'true';
 
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [purchasingContext, setPurchasingContext] = useState<string>('Chat de Compras');
 
   useEffect(() => {
     // Test API connections on startup and every 6 hours
@@ -206,7 +208,7 @@ function AppContent() {
           <>
             <Hero />
             <CreditAnalysis />
-            <CarGrid />
+            <CarGrid setPurchasingContext={setPurchasingContext} />
             <NegotiationSection />
             <TriggersSection />
             <Testimonials />
@@ -230,6 +232,9 @@ function AppContent() {
       <SellModal />
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
       <NotificationPermissionModal />
+      
+      {/* Floating Purchasing Chat for Seller Site */}
+      {view === 'home' && <FloatingPurchasingChat context={purchasingContext} />}
       
       {/* Real-time Chat Widget for logged users (Bottom Right) */}
       {view !== 'admin' && user && !profile?.role?.includes('buyer') && (

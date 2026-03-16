@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { useAssets } from '../lib/assetsContext';
 
-export default function CarGrid() {
+export default function CarGrid({ setPurchasingContext }: { setPurchasingContext: (context: string) => void }) {
   const { banners } = useAssets();
 
   // Filter and sort card assets
@@ -41,7 +41,10 @@ export default function CarGrid() {
               </div>
               <div className="p-6 flex flex-col flex-1">
                 <div 
-                  onClick={() => window.location.href = v.button_link || '/vender'}
+                  onClick={() => {
+                    setPurchasingContext(`Interesse no veículo: ${v.legenda}`);
+                    window.location.href = v.button_link || '/vender';
+                  }}
                   className={`mt-auto ${colors[i % colors.length]} text-white p-6 rounded-2xl text-center font-black text-sm leading-tight min-h-[80px] flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity`}
                 >
                   {(v.button_text || v.legenda).toUpperCase()}
