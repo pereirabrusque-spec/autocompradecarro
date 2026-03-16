@@ -5,11 +5,13 @@ import { AIService } from '../../services/aiService';
 export const BackgroundAIManager = () => {
     const [isAiEnabled, setIsAiEnabled] = useState(false);
     const [aiPrompt, setAiPrompt] = useState('');
+    const [aiCrmPrompt, setAiCrmPrompt] = useState('');
     const [aiMemory, setAiMemory] = useState('');
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     
     const isAiEnabledRef = useRef(false);
     const aiPromptRef = useRef('');
+    const aiCrmPromptRef = useRef('');
     const aiMemoryRef = useRef('');
     const currentUserIdRef = useRef<string | null>(null);
     const lastProcessedImage = useRef<{ url: string, base64: string } | null>(null);
@@ -23,6 +25,10 @@ export const BackgroundAIManager = () => {
     }, [aiPrompt]);
 
     useEffect(() => {
+        aiCrmPromptRef.current = aiCrmPrompt;
+    }, [aiCrmPrompt]);
+
+    useEffect(() => {
         aiMemoryRef.current = aiMemory;
     }, [aiMemory]);
 
@@ -32,12 +38,14 @@ export const BackgroundAIManager = () => {
 
     useEffect(() => {
         // Load initial settings
-        supabase.from('settings').select('key, value').in('key', ['AI_CRM_PROMPT', 'AI_CRM_ENABLED', 'AI_MEMORY']).then(({ data }) => {
+        supabase.from('settings').select('key, value').in('key', ['AI_SYSTEM_PROMPT', 'AI_CRM_PROMPT', 'AI_CRM_ENABLED', 'AI_MEMORY']).then(({ data }) => {
             if (data) {
-                const prompt = data.find(s => s.key === 'AI_CRM_PROMPT');
+                const prompt = data.find(s => s.key === 'AI_SYSTEM_PROMPT');
+                const crmPrompt = data.find(s => s.key === 'AI_CRM_PROMPT');
                 const enabled = data.find(s => s.key === 'AI_CRM_ENABLED');
                 const memory = data.find(s => s.key === 'AI_MEMORY');
                 if (prompt) setAiPrompt(prompt.value);
+                if (crmPrompt) setAiCrmPrompt(crmPrompt.value);
                 if (enabled) setIsAiEnabled(enabled.value === 'true');
                 if (memory) setAiMemory(memory.value);
             }
@@ -54,7 +62,8 @@ export const BackgroundAIManager = () => {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, (payload) => {
                 if (payload.new && (payload.new as any).key) {
                     const { key, value } = payload.new as any;
-                    if (key === 'AI_CRM_PROMPT') setAiPrompt(value);
+                    if (key === 'AI_SYSTEM_PROMPT') setAiPrompt(value);
+                    if (key === 'AI_CRM_PROMPT') setAiCrmPrompt(value);
                     if (key === 'AI_CRM_ENABLED') setIsAiEnabled(value === 'true');
                     if (key === 'AI_MEMORY') setAiMemory(value);
                 }
@@ -241,7 +250,7 @@ ${history}
 MENSAGEM ATUAL: ${payload.new.content}
 
 REGRAS E MEMÓRIA:
-${aiPromptRef.current}
+${payload.new.lead_id ? aiPromptRef.current : aiCrmPromptRef.current}
 ${aiMemoryRef.current ? `\nMEMÓRIA APRENDIDA:\n${aiMemoryRef.current}` : ''}
 
 REGRAS:
