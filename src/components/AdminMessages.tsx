@@ -25,16 +25,20 @@ export default function AdminMessages() {
   }, [activeTab]);
 
   const fetchConversations = async (tab: 'leads' | 'equipe') => {
-    const role = tab === 'leads' ? 'user' : 'admin';
+    const roles = tab === 'leads' ? ['user', 'seller'] : ['admin'];
     const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('role', role)
+        .in('role', roles)
         .order('full_name', { ascending: true });
+    
+    if (error) {
+        console.error("Error fetching conversations:", error);
+        return;
+    }
     
     if (data) {
         const conversationsWithUnread = await Promise.all(data.map(async (profile) => {
-            // For now, assume unreadCount is 0 or fetch if needed
             return { 
                 ...profile, 
                 id: profile.id, 
