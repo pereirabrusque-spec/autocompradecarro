@@ -31,7 +31,6 @@ export default function AdminMessages() {
     const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .in('role', roles)
         .order('full_name', { ascending: true });
     
     if (error) {
@@ -39,25 +38,24 @@ export default function AdminMessages() {
         return;
     }
     
-    console.log(`[DEBUG] Fetched ${data?.length || 0} profiles.`);
+    const filteredProfiles = data.filter(p => roles.includes(p.role));
+    console.log(`[DEBUG] Fetched ${data?.length || 0} total profiles, filtered to ${filteredProfiles.length} for tab ${tab}.`);
     
-    if (data) {
-        const conversationsWithStatus = await Promise.all(data.map(async (profile) => {
-            // Determine status: online if last_login is within last 10 minutes
-            const lastLogin = new Date(profile.last_login || 0).getTime();
-            const isOnline = (Date.now() - lastLogin) < 10 * 60 * 1000;
-            
-            return { 
-                ...profile, 
-                id: profile.id, 
-                sender_id: profile.full_name, 
-                type: tab, 
-                unreadCount: 0,
-                isOnline
-            };
-        }));
-        setConversations(conversationsWithStatus);
-    }
+    const conversationsWithStatus = await Promise.all(filteredProfiles.map(async (profile) => {
+        // Determine status: online if last_login is within last 10 minutes
+        const lastLogin = new Date(profile.last_login || 0).getTime();
+        const isOnline = (Date.now() - lastLogin) < 10 * 60 * 1000;
+        
+        return { 
+            ...profile, 
+            id: profile.id, 
+            sender_id: profile.full_name, 
+            type: tab, 
+            unreadCount: 0,
+            isOnline
+        };
+    }));
+    setConversations(conversationsWithStatus);
   };
 
   const fetchMessagesForConversation = async (conversationId: string) => {
