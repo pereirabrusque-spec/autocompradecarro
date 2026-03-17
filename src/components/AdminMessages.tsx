@@ -50,12 +50,10 @@ export default function AdminMessages() {
             return ['user', 'seller', 'frio', 'morno', 'quente', 'usuário (vendedor)'].includes(role) || !role;
         });
     } else {
-        // Include admins and anyone that might be team, or just anyone not a lead
-        itemsToProcess = profilesData.filter(p => {
-            const role = (p.role || '').toLowerCase();
-            const isMatch = ['admin', 'equipe', 'administrador', 'suporte', 'vendedor'].includes(role) || role.includes('admin');
-            console.log(`[DEBUG] Filtering profile: ${p.full_name}, Role: ${role}, Match: ${isMatch}`);
-            return isMatch;
+        // Debug: Include everyone in equipe tab
+        itemsToProcess = profilesData.map(p => {
+            console.log(`[DEBUG] Forcing include in equipe: ${p.full_name}, Role: ${p.role}`);
+            return p;
         });
     }
 
