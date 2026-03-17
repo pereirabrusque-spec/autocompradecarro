@@ -461,6 +461,10 @@ export default function AdminDashboard() {
         .select('*')
         .order('created_at', { ascending: false });
 
+      console.log("[DEBUG] internalMessagesData:", internalMessagesData);
+      console.log("[DEBUG] userProfile:", userProfile);
+      console.log("[DEBUG] profilesData:", profilesData);
+
       const groupedInternal: any[] = [];
       const internalIds = new Set();
       
@@ -511,6 +515,7 @@ export default function AdminDashboard() {
           }
         });
       }
+      console.log("[DEBUG] groupedInternal:", groupedInternal);
       setInternalConversations(groupedInternal);
 
       // Atualiza o lead selecionado se houver um
@@ -708,8 +713,10 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (userProfile) {
+      fetchData();
+    }
+  }, [userProfile]);
 
   // Initialize proposal calculator when a lead is selected
   useEffect(() => {
