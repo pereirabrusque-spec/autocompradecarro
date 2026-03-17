@@ -41,27 +41,37 @@ export default function AdminMessages() {
   const isEquipe = (p: any) => (p.role || '').toLowerCase().trim() === 'admin' || (p.role || '').toLowerCase().trim() === 'user';
 
   const filteredConversations = useMemo(() => {
-    const allUsers = [...profiles, ...leads.map(l => ({ ...l, full_name: l.nome, id: l.id, email: l.email, isLead: true }))];
-    const itemsToProcess = activeTab === 'leads' 
-        ? allUsers.filter(p => !isEquipe(p))
-        : allUsers.filter(p => isEquipe(p));
-
-    return itemsToProcess.map((item) => {
-        const lastLogin = new Date(item.last_login || item.created_at || 0).getTime();
-        const isOnline = (Date.now() - lastLogin) < 5 * 60 * 1000;
-        let statusDisplay = item.lead_status || item.status || 'frio';
-        if (isEquipe(item)) statusDisplay = 'Equipe';
-
-        return { 
-            ...item, 
-            id: item.id, 
-            sender_id: item.full_name || item.nome || item.email || 'Usuário', 
-            type: activeTab, 
-            unreadCount: 0,
-            isOnline,
-            statusDisplay
-        };
-    });
+    if (activeTab === 'equipe') {
+        // Apenas perfis da equipe
+        return profiles.filter(p => isEquipe(p)).map(item => {
+            const lastLogin = new Date(item.last_login || item.created_at || 0).getTime();
+            const isOnline = (Date.now() - lastLogin) < 5 * 60 * 1000;
+            return { 
+                ...item, 
+                id: item.id, 
+                sender_id: item.full_name || item.nome || item.email || 'Usuário', 
+                type: 'equipe', 
+                unreadCount: 0,
+                isOnline,
+                statusDisplay: 'Equipe'
+            };
+        });
+    } else {
+        // Apenas leads
+        return leads.map(item => {
+            const lastLogin = new Date(item.last_login || item.created_at || 0).getTime();
+            const isOnline = (Date.now() - lastLogin) < 5 * 60 * 1000;
+            return { 
+                ...item, 
+                id: item.id, 
+                sender_id: item.nome || item.full_name || item.email || 'Usuário', 
+                type: 'leads', 
+                unreadCount: 0,
+                isOnline,
+                statusDisplay: item.status || 'frio'
+            };
+        });
+    }
   }, [activeTab, profiles, leads]);
 
 
