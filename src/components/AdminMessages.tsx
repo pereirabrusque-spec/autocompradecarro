@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/authContext';
 import { MessageCircle, Users, Send, Search, Bot, FileText, Check, X, Mail } from 'lucide-react';
@@ -6,7 +6,6 @@ import { MessageCircle, Users, Send, Search, Bot, FileText, Check, X, Mail } fro
 export default function AdminMessages() {
   const { user } = useAuth();
   const [profiles, setProfiles] = useState<any[]>([]);
-  const [conversations, setConversations] = useState<any[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -38,32 +37,29 @@ export default function AdminMessages() {
     setProfiles(data || []);
   };
 
-  useEffect(() => {
-    const processConversations = async () => {
-        const isEquipe = (p: any) => (p.role || '').toLowerCase().trim() === 'admin' || (p.lead_status || '').toLowerCase().trim() === 'admin';
-        const itemsToProcess = activeTab === 'leads' 
-            ? profiles.filter(p => !isEquipe(p))
-            : profiles.filter(p => isEquipe(p));
+  const isEquipe = (p: any) => (p.role || '').toLowerCase().trim() === 'admin' || (p.lead_status || '').toLowerCase().trim() === 'admin';
 
-        const conversationsWithStatus = await Promise.all(itemsToProcess.map(async (item) => {
-            const lastLogin = new Date(item.last_login || item.created_at || 0).getTime();
-            const isOnline = (Date.now() - lastLogin) < 10 * 60 * 1000;
-            let statusDisplay = item.lead_status || 'frio';
-            if (isEquipe(item)) statusDisplay = 'Equipe';
+  const filteredConversations = useMemo(() => {
+    const itemsToProcess = activeTab === 'leads' 
+        ? profiles.filter(p => !isEquipe(p))
+        : profiles.filter(p => isEquipe(p));
 
-            return { 
-                ...item, 
-                id: item.id, 
-                sender_id: item.full_name || item.nome || item.email || 'Usuário', 
-                type: activeTab, 
-                unreadCount: 0,
-                isOnline,
-                statusDisplay
-            };
-        }));
-        setConversations(conversationsWithStatus);
-    };
-    processConversations();
+    return itemsToProcess.map((item) => {
+        const lastLogin = new Date(item.last_login || item.created_at || 0).getTime();
+        const isOnline = (Date.now() - lastLogin) < 10 * 60 * 1000;
+        let statusDisplay = item.lead_status || 'frio';
+        if (isEquipe(item)) statusDisplay = 'Equipe';
+
+        return { 
+            ...item, 
+            id: item.id, 
+            sender_id: item.full_name || item.nome || item.email || 'Usuário', 
+            type: activeTab, 
+            unreadCount: 0,
+            isOnline,
+            statusDisplay
+        };
+    });
   }, [activeTab, profiles]);
 
 
@@ -119,7 +115,7 @@ export default function AdminMessages() {
           </div>
         </div>
         <div className="flex-1 overflow-y-auto">
-          {(conversations || []).map((conv) => (
+          {(filteredConversations || []).map((conv) => (
             <div key={conv.id} onClick={() => setSelectedConversation(conv)} className="p-4 border-b border-slate-50 cursor-pointer hover:bg-slate-50 flex justify-between items-center">
               <div className="flex items-center gap-3">
                 <div className="relative">
