@@ -6,6 +6,7 @@ import { MessageCircle, Users, Send, Search, Bot, FileText, Check, X, Mail } fro
 export default function AdminMessages() {
   const { user } = useAuth();
   const [profiles, setProfiles] = useState<any[]>([]);
+  const [leads, setLeads] = useState<any[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -21,33 +22,34 @@ export default function AdminMessages() {
   const [activeTab, setActiveTab] = useState<'leads' | 'equipe'>('leads');
 
   useEffect(() => {
-    fetchProfiles();
+    fetchData();
   }, []);
 
-  const fetchProfiles = async () => {
-    const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('full_name', { ascending: true });
+  const fetchData = async () => {
+    const [profilesRes, leadsRes] = await Promise.all([
+        supabase.from('profiles').select('*').order('full_name', { ascending: true }),
+        supabase.from('leads_veiculos').select('*').order('created_at', { ascending: false })
+    ]);
     
-    if (error) {
-        console.error("[DEBUG] Error fetching profiles:", error);
-        return;
-    }
-    setProfiles(data || []);
+    if (profilesRes.error) console.error("[DEBUG] Error fetching profiles:", profilesRes.error);
+    if (leadsRes.error) console.error("[DEBUG] Error fetching leads:", leadsRes.error);
+    
+    setProfiles(profilesRes.data || []);
+    setLeads(leadsRes.data || []);
   };
 
-  const isEquipe = (p: any) => (p.role || '').toLowerCase().trim() === 'admin' || (p.lead_status || '').toLowerCase().trim() === 'admin';
+  const isEquipe = (p: any) => (p.role || '').toLowerCase().trim() === 'admin' || (p.role || '').toLowerCase().trim() === 'user';
 
   const filteredConversations = useMemo(() => {
+    const allUsers = [...profiles, ...leads.map(l => ({ ...l, full_name: l.nome, id: l.id, email: l.email, isLead: true }))];
     const itemsToProcess = activeTab === 'leads' 
-        ? profiles.filter(p => !isEquipe(p))
-        : profiles.filter(p => isEquipe(p));
+        ? allUsers.filter(p => !isEquipe(p))
+        : allUsers.filter(p => isEquipe(p));
 
     return itemsToProcess.map((item) => {
         const lastLogin = new Date(item.last_login || item.created_at || 0).getTime();
-        const isOnline = (Date.now() - lastLogin) < 10 * 60 * 1000;
-        let statusDisplay = item.lead_status || 'frio';
+        const isOnline = (Date.now() - lastLogin) < 5 * 60 * 1000;
+        let statusDisplay = item.lead_status || item.status || 'frio';
         if (isEquipe(item)) statusDisplay = 'Equipe';
 
         return { 
@@ -60,7 +62,7 @@ export default function AdminMessages() {
             statusDisplay
         };
     });
-  }, [activeTab, profiles]);
+  }, [activeTab, profiles, leads]);
 
 
   const fetchMessagesForConversation = async (conversationId: string) => {
