@@ -80,6 +80,7 @@ export default function AdminMessages() {
             statusDisplay
         };
     }));
+    console.log(`[DEBUG] Setting conversations:`, conversationsWithStatus);
     setConversations(conversationsWithStatus);
   };
 
