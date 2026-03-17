@@ -41,35 +41,39 @@ export default function AdminMessages() {
     console.log(`[DEBUG] Total profiles found: ${profilesData?.length || 0}`);
     profilesData?.forEach(p => console.log(`[DEBUG] Profile: ${p.full_name}, Role: ${p.role}, Email: ${p.email}`));
 
-    // Determine items to process based on tab, but be more permissive
+    // Determine items to process based on tab
     let itemsToProcess: any[] = [];
+    
+    // Define o que é equipe
+    const isEquipe = (p: any) => ['admin', 'equipe', 'suporte'].includes((p.role || '').toLowerCase());
+
     if (tab === 'leads') {
-        // Include users, sellers, and anyone else that might be a lead
-        itemsToProcess = profilesData.filter(p => {
-            const role = (p.role || '').toLowerCase();
-            return ['user', 'seller', 'frio', 'morno', 'quente', 'usuário (vendedor)'].includes(role) || !role;
-        });
+        // Leads são todos que NÃO são equipe
+        itemsToProcess = profilesData.filter(p => !isEquipe(p));
     } else {
-        // Debug: Include everyone in equipe tab
-        itemsToProcess = profilesData.map(p => {
-            console.log(`[DEBUG] Forcing include in equipe: ${p.full_name}, Role: ${p.role}`);
-            return p;
-        });
+        // Equipe são os que possuem cargo de equipe
+        itemsToProcess = profilesData.filter(p => isEquipe(p));
     }
 
     console.log(`[DEBUG] Processing ${itemsToProcess.length} items for tab ${tab}.`);
     
     const conversationsWithStatus = await Promise.all(itemsToProcess.map(async (item) => {
+        // Determina status de online
         const lastLogin = new Date(item.last_login || item.created_at || 0).getTime();
         const isOnline = (Date.now() - lastLogin) < 10 * 60 * 1000;
         
+        // Determina o status de lead se for lead
+        let statusDisplay = item.lead_status || 'frio'; // Padrão para lead
+        if (isEquipe(item)) statusDisplay = 'Equipe';
+
         return { 
             ...item, 
             id: item.id, 
             sender_id: item.full_name || item.nome || item.email || 'Usuário', 
             type: tab, 
             unreadCount: 0,
-            isOnline
+            isOnline,
+            statusDisplay
         };
     }));
     setConversations(conversationsWithStatus);
@@ -141,7 +145,10 @@ export default function AdminMessages() {
                   <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${conv.isOnline ? 'bg-emerald-500' : 'bg-slate-400'}`} />
                 </div>
                 <div>
-                  <h4 className="font-bold text-sm">{conv.full_name || 'Usuário'}</h4>
+                  <h4 className="font-bold text-sm flex items-center gap-2">
+                    {conv.full_name || 'Usuário'}
+                    <span className="text-[9px] px-1.5 py-0.5 bg-slate-100 rounded text-slate-600 uppercase font-bold">{conv.statusDisplay}</span>
+                  </h4>
                   <p className="text-xs text-slate-500 truncate">{conv.email || 'Sem email'}</p>
                 </div>
               </div>
