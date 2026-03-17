@@ -340,6 +340,28 @@ export default function AdminDashboard() {
       addLog(`Leads buscados: ${leadsData?.length || 0}`, 'debug');
       console.log('Leads fetched successfully:', leadsData);
 
+      // Fetch all profiles to find "frias" leads
+      const { data: profilesData, error: profilesError } = await supabase.from('profiles').select('*');
+      if (profilesError) console.error('Erro ao buscar profiles:', profilesError);
+      
+      // Combine leads and profiles
+      const allLeads = [...(leadsData || [])];
+      profilesData?.forEach(profile => {
+        if (!allLeads.find(l => l.email === profile.email)) {
+          allLeads.push({
+            ...profile,
+            id: profile.id,
+            nome: profile.full_name,
+            email: profile.email,
+            status: 'frio', // Default status for users who haven't filled a form
+            is_frio: true
+          });
+        }
+      });
+      
+      setLeads(allLeads);
+      addLog(`Total de leads processados: ${allLeads.length}`, 'debug');
+      
       const { data: assetsData, error: assetsError } = await supabase
         .from('banners')
         .select('*')
@@ -352,9 +374,8 @@ export default function AdminDashboard() {
       const { data: fipeData } = await supabase.from('fipe_rules').select('*').order('condition_name');
       const { data: apiKeysData } = await supabase.from('api_keys').select('*').order('created_at', { ascending: false });
       const { data: providersData } = await supabase.from('providers').select('*').order('name');
-      const { data: profilesData, error: profilesError } = await supabase.from('profiles').select('*').order('last_login', { ascending: false });
-      if (profilesError) console.error('Erro ao buscar profiles:', profilesError);
-      else console.log('Profiles buscados:', profilesData);
+      
+      console.log('Profiles buscados:', profilesData);
 
       const { data: buyersData, error: buyersError } = await supabase.from('interested_buyers').select('*').order('created_at', { ascending: false });
       if (buyersError) console.error('Erro ao buscar buyers:', buyersError);

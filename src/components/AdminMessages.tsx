@@ -27,10 +27,7 @@ export default function AdminMessages() {
   const fetchConversations = async (tab: 'leads' | 'equipe') => {
     console.log(`[DEBUG] Fetching conversations for tab: ${tab}`);
     
-    let profiles: any[] = [];
-    let leads: any[] = [];
-
-    // Fetch profiles
+    // Fetch all profiles
     const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
@@ -38,45 +35,32 @@ export default function AdminMessages() {
     
     if (profilesError) {
         console.error("[DEBUG] Error fetching profiles:", profilesError);
-    } else {
-        profiles = profilesData || [];
+        return;
     }
 
-    // Fetch leads if tab is 'leads'
-    if (tab === 'leads') {
-        const { data: leadsData, error: leadsError } = await supabase
-            .from('leads_veiculos')
-            .select('*')
-            .order('created_at', { ascending: false });
-        
-        if (leadsError) {
-            console.error("[DEBUG] Error fetching leads:", leadsError);
-        } else {
-            leads = leadsData || [];
-        }
-    }
+    console.log(`[DEBUG] Total profiles found: ${profilesData?.length || 0}`);
+    profilesData?.forEach(p => console.log(`[DEBUG] Profile: ${p.full_name}, Role: ${p.role}, Email: ${p.email}`));
 
+    // Determine items to process based on tab, but be more permissive
     let itemsToProcess: any[] = [];
     if (tab === 'leads') {
-        // Combine profiles (users/sellers) and leads
-        const profileLeads = profiles.filter(p => ['user', 'seller'].includes(p.role));
-        itemsToProcess = [...profileLeads, ...leads.map(l => ({ ...l, is_lead: true }))];
+        // Include users, sellers, and anyone else that might be a lead
+        itemsToProcess = profilesData.filter(p => ['user', 'seller', 'frio', 'morno', 'quente'].includes(p.role) || !p.role);
     } else {
-        // Only profiles with admin role
-        itemsToProcess = profiles.filter(p => p.role === 'admin');
+        // Include admins and anyone that might be team
+        itemsToProcess = profilesData.filter(p => ['admin', 'equipe'].includes(p.role) || p.role === 'admin');
     }
 
-    console.log(`[DEBUG] Fetched ${profiles.length} profiles, ${leads.length} leads. Processing ${itemsToProcess.length} items for tab ${tab}.`);
+    console.log(`[DEBUG] Processing ${itemsToProcess.length} items for tab ${tab}.`);
     
     const conversationsWithStatus = await Promise.all(itemsToProcess.map(async (item) => {
-        // Determine status: online if last_login is within last 10 minutes
         const lastLogin = new Date(item.last_login || item.created_at || 0).getTime();
         const isOnline = (Date.now() - lastLogin) < 10 * 60 * 1000;
         
         return { 
             ...item, 
             id: item.id, 
-            sender_id: item.full_name || item.nome, 
+            sender_id: item.full_name || item.nome || item.email || 'Usuário', 
             type: tab, 
             unreadCount: 0,
             isOnline
