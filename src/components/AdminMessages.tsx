@@ -25,36 +25,25 @@ export default function AdminMessages() {
   }, [activeTab]);
 
   const fetchConversations = async (tab: 'leads' | 'equipe') => {
-    if (tab === 'leads') {
-        // Fetch leads that are 'vendedor' (role 'user')
-        const { data, error } = await supabase
-            .from('leads_veiculos')
-            .select('*, profiles!inner(*)')
-            .eq('profiles.role', 'user') 
-            .order('created_at', { ascending: false });
-        
-        if (data) {
-            const conversationsWithUnread = await Promise.all(data.map(async (lead) => {
-                const { count } = await supabase
-                    .from('mensagens')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('lead_id', lead.id)
-                    .eq('is_read', false);
-                return { ...lead, unreadCount: count || 0, type: 'lead' };
-            }));
-            setConversations(conversationsWithUnread);
-        }
-    } else {
-        // Fetch admins
-        const { data, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('role', 'admin')
-            .order('full_name', { ascending: true });
-        
-        if (data) {
-            setConversations(data.map(admin => ({ ...admin, id: admin.id, sender_id: admin.full_name, type: 'admin' })));
-        }
+    const role = tab === 'leads' ? 'user' : 'admin';
+    const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('role', role)
+        .order('full_name', { ascending: true });
+    
+    if (data) {
+        const conversationsWithUnread = await Promise.all(data.map(async (profile) => {
+            // For now, assume unreadCount is 0 or fetch if needed
+            return { 
+                ...profile, 
+                id: profile.id, 
+                sender_id: profile.full_name, 
+                type: tab, 
+                unreadCount: 0 
+            };
+        }));
+        setConversations(conversationsWithUnread);
     }
   };
 
@@ -112,9 +101,18 @@ export default function AdminMessages() {
         <div className="flex-1 overflow-y-auto">
           {(conversations || []).map((conv) => (
             <div key={conv.id} onClick={() => setSelectedConversation(conv)} className="p-4 border-b border-slate-50 cursor-pointer hover:bg-slate-50 flex justify-between items-center">
-              <div>
-                <h4 className="font-bold text-sm">{conv.sender_id || 'Lead'}</h4>
-                <p className="text-xs text-slate-500 truncate">{conv.content || conv.conteudo}</p>
+              <div className="flex items-center gap-3">
+                {conv.avatar_url ? (
+                  <img src={conv.avatar_url} alt={conv.full_name} className="w-10 h-10 rounded-full" />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center font-bold text-slate-500">
+                    {conv.full_name?.charAt(0) || 'U'}
+                  </div>
+                )}
+                <div>
+                  <h4 className="font-bold text-sm">{conv.full_name || 'Usuário'}</h4>
+                  <p className="text-xs text-slate-500 truncate">{conv.email || 'Sem email'}</p>
+                </div>
               </div>
               {conv.unreadCount > 0 && (
                 <div className="bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-full">{conv.unreadCount}</div>
