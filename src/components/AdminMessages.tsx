@@ -47,6 +47,10 @@ export default function AdminMessages() {
     // Define o que é equipe
     const isEquipe = (p: any) => ['admin', 'equipe', 'suporte'].includes((p.role || '').toLowerCase());
 
+    profilesData?.forEach(p => {
+        console.log(`[DEBUG] Profile: ${p.full_name}, Role: ${p.role}, isEquipe: ${isEquipe(p)}`);
+    });
+
     if (tab === 'leads') {
         // Leads são todos que NÃO são equipe
         itemsToProcess = profilesData.filter(p => !isEquipe(p));
