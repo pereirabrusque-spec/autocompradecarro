@@ -26,6 +26,8 @@ export default function AdminMessages() {
 
   const fetchConversations = async (tab: 'leads' | 'equipe') => {
     const roles = tab === 'leads' ? ['user', 'seller'] : ['admin'];
+    console.log(`[DEBUG] Fetching conversations for tab: ${tab}, roles:`, roles);
+    
     const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -33,21 +35,28 @@ export default function AdminMessages() {
         .order('full_name', { ascending: true });
     
     if (error) {
-        console.error("Error fetching conversations:", error);
+        console.error("[DEBUG] Error fetching conversations:", error);
         return;
     }
     
+    console.log(`[DEBUG] Fetched ${data?.length || 0} profiles.`);
+    
     if (data) {
-        const conversationsWithUnread = await Promise.all(data.map(async (profile) => {
+        const conversationsWithStatus = await Promise.all(data.map(async (profile) => {
+            // Determine status: online if last_login is within last 10 minutes
+            const lastLogin = new Date(profile.last_login || 0).getTime();
+            const isOnline = (Date.now() - lastLogin) < 10 * 60 * 1000;
+            
             return { 
                 ...profile, 
                 id: profile.id, 
                 sender_id: profile.full_name, 
                 type: tab, 
-                unreadCount: 0 
+                unreadCount: 0,
+                isOnline
             };
         }));
-        setConversations(conversationsWithUnread);
+        setConversations(conversationsWithStatus);
     }
   };
 
@@ -106,13 +115,16 @@ export default function AdminMessages() {
           {(conversations || []).map((conv) => (
             <div key={conv.id} onClick={() => setSelectedConversation(conv)} className="p-4 border-b border-slate-50 cursor-pointer hover:bg-slate-50 flex justify-between items-center">
               <div className="flex items-center gap-3">
-                {conv.avatar_url ? (
-                  <img src={conv.avatar_url} alt={conv.full_name} className="w-10 h-10 rounded-full" />
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center font-bold text-slate-500">
-                    {conv.full_name?.charAt(0) || 'U'}
-                  </div>
-                )}
+                <div className="relative">
+                  {conv.avatar_url ? (
+                    <img src={conv.avatar_url} alt={conv.full_name} className="w-10 h-10 rounded-full" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center font-bold text-slate-500">
+                      {conv.full_name?.charAt(0) || 'U'}
+                    </div>
+                  )}
+                  <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${conv.isOnline ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                </div>
                 <div>
                   <h4 className="font-bold text-sm">{conv.full_name || 'Usuário'}</h4>
                   <p className="text-xs text-slate-500 truncate">{conv.email || 'Sem email'}</p>
