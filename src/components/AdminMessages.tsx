@@ -18,29 +18,43 @@ export default function AdminMessages() {
   const [isLearning, setIsLearning] = useState(false);
   const [showProposalModal, setShowProposalModal] = useState(false);
 
-  useEffect(() => {
-    fetchConversations();
-  }, []);
+  const [activeTab, setActiveTab] = useState<'leads' | 'equipe'>('leads');
 
-  const fetchConversations = async () => {
-    // Fetch leads that are 'vendedor' (role 'user')
-    const { data, error } = await supabase
-        .from('leads_veiculos')
-        .select('*, profiles!inner(*)')
-        .eq('profiles.role', 'user') // Assuming 'user' role is 'vendedor'
-        .order('created_at', { ascending: false });
-    
-    if (data) {
-        // Fetch unread counts for these leads
-        const conversationsWithUnread = await Promise.all(data.map(async (lead) => {
-            const { count } = await supabase
-                .from('mensagens')
-                .select('*', { count: 'exact', head: true })
-                .eq('lead_id', lead.id)
-                .eq('is_read', false);
-            return { ...lead, unreadCount: count || 0 };
-        }));
-        setConversations(conversationsWithUnread);
+  useEffect(() => {
+    fetchConversations(activeTab);
+  }, [activeTab]);
+
+  const fetchConversations = async (tab: 'leads' | 'equipe') => {
+    if (tab === 'leads') {
+        // Fetch leads that are 'vendedor' (role 'user')
+        const { data, error } = await supabase
+            .from('leads_veiculos')
+            .select('*, profiles!inner(*)')
+            .eq('profiles.role', 'user') 
+            .order('created_at', { ascending: false });
+        
+        if (data) {
+            const conversationsWithUnread = await Promise.all(data.map(async (lead) => {
+                const { count } = await supabase
+                    .from('mensagens')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('lead_id', lead.id)
+                    .eq('is_read', false);
+                return { ...lead, unreadCount: count || 0, type: 'lead' };
+            }));
+            setConversations(conversationsWithUnread);
+        }
+    } else {
+        // Fetch admins
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('role', 'admin')
+            .order('full_name', { ascending: true });
+        
+        if (data) {
+            setConversations(data.map(admin => ({ ...admin, id: admin.id, sender_id: admin.full_name, type: 'admin' })));
+        }
     }
   };
 
@@ -61,19 +75,34 @@ export default function AdminMessages() {
       {/* Sidebar */}
       <div className="w-1/3 border-r border-slate-100 flex flex-col">
         <div className="p-4 border-b border-slate-100">
-          <h2 className="text-lg font-bold text-slate-900 mb-4">Leads (Vendedores)</h2>
+          <div className="flex gap-2 mb-4">
+            <button 
+              onClick={() => setActiveTab('leads')}
+              className={`flex-1 py-2 text-xs font-bold rounded-lg ${activeTab === 'leads' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}
+            >
+              Leads
+            </button>
+            <button 
+              onClick={() => setActiveTab('equipe')}
+              className={`flex-1 py-2 text-xs font-bold rounded-lg ${activeTab === 'equipe' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}
+            >
+              Equipe
+            </button>
+          </div>
           
           {/* AI Controls in Sidebar */}
-          <div className="flex flex-col gap-2 mb-4 p-3 bg-slate-50 rounded-xl">
-             <label className="flex items-center justify-between text-xs font-bold">
-                IA GLOBAL (24h)
-                <input type="checkbox" checked={globalAiEnabled} onChange={() => setGlobalAiEnabled(!globalAiEnabled)} />
-             </label>
-             <label className="flex items-center justify-between text-xs font-bold">
-                RESPOSTA AUTOMÁTICA
-                <input type="checkbox" checked={aiAutoProposal} onChange={() => setAiAutoProposal(!aiAutoProposal)} />
-             </label>
-          </div>
+          {activeTab === 'leads' && (
+            <div className="flex flex-col gap-2 mb-4 p-3 bg-slate-50 rounded-xl">
+              <label className="flex items-center justify-between text-xs font-bold">
+                  IA GLOBAL (24h)
+                  <input type="checkbox" checked={globalAiEnabled} onChange={() => setGlobalAiEnabled(!globalAiEnabled)} />
+              </label>
+              <label className="flex items-center justify-between text-xs font-bold">
+                  RESPOSTA AUTOMÁTICA
+                  <input type="checkbox" checked={aiAutoProposal} onChange={() => setAiAutoProposal(!aiAutoProposal)} />
+              </label>
+            </div>
+          )}
 
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />

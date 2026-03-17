@@ -262,6 +262,9 @@ export default function LeadDetailsCard({
     // Proposta Final é o menor valor entre as duas opções
     const finalProposal = Math.max(0, Math.min(optionA, optionB));
     
+    const novasPropostas = currentLead.detalhes_proposta?.novas_propostas || [];
+    const latestNovaProposta = novasPropostas.length > 0 ? novasPropostas[novasPropostas.length - 1] : null;
+    
     // Lucro Estimado: (Tabela FIPE - 20%) - Todos os Descontos
     const profit = (fipe * 0.8) - (discountValue + fixedCosts + payoff);
     
@@ -287,11 +290,13 @@ export default function LeadDetailsCard({
         optionA,
         optionB,
         finalProposal,
+        latestNovaProposta,
         profit
     };
   };
 
   const calc = calculateFinance();
+  const proposalValue = calc.latestNovaProposta?.valor || calc.finalProposal;
 
   const getProposalClass = (value: number) => {
     if (value <= 0) return "";
@@ -327,6 +332,8 @@ export default function LeadDetailsCard({
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [isUploadingCRLV, setIsUploadingCRLV] = useState(false);
   const [showProposalReview, setShowProposalReview] = useState(false);
+  const [showNovaPropostaModal, setShowNovaPropostaModal] = useState(false);
+  const [novaPropostaValor, setNovaPropostaValor] = useState(0);
   const [proposalMessage, setProposalMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<any[]>([]);
 
@@ -360,7 +367,7 @@ export default function LeadDetailsCard({
     msg += `Analisamos os dados enviados e preparamos uma oferta especial baseada no mercado atual.\n\n`;
     msg += `Oferecemos esta proposta devido à *Tabela FIPE* do seu veículo ser de *${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.fipe)}*.\n\n`;
 
-    msg += `💰 *Conseguimos pagar o valor final de:* *${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalProposal)}*\n\n`;
+    msg += `💰 *Conseguimos pagar o valor final de:* *${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalValue)}*\n\n`;
     msg += `Nossa proposta é válida por tempo limitado. Não perca a chance de fechar um excelente negócio e colocar dinheiro no bolso hoje mesmo! 🤝\n\n`;
     msg += `Para fecharmos ou se tiver alguma dúvida, entre em contato conosco:\n`;
     msg += `🌐 *Pelo site:* Chat disponível 24 horas por dia.\n`;
@@ -386,7 +393,7 @@ export default function LeadDetailsCard({
           tipo: 'proposta',
           metadata: {
             proposal_data: {
-              final_value: calc.finalProposal,
+              final_value: proposalValue,
               base_value: calc.fipe,
               deductions: [
                 ...calc.fixedCostsDetail,
@@ -511,6 +518,25 @@ export default function LeadDetailsCard({
     }
   };
 
+  const handleSaveNovaProposta = async (valor: number) => {
+    const novasPropostas = currentLead.detalhes_proposta?.novas_propostas || [];
+    const novaProposta = {
+      id: Date.now().toString(),
+      valor: valor,
+      data: new Date().toISOString()
+    };
+    
+    const updatedDetalhes = {
+      ...(currentLead.detalhes_proposta || {}),
+      novas_propostas: [...novasPropostas, novaProposta]
+    };
+    
+    const updatedLead = { ...currentLead, detalhes_proposta: updatedDetalhes };
+    setCurrentLead(updatedLead);
+    onSave(updatedLead);
+    setShowNovaPropostaModal(false);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-white rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
@@ -605,6 +631,12 @@ export default function LeadDetailsCard({
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5 shadow-md"
                 >
                   <MessageSquare className="w-4 h-4" /> Chat Proposta
+                </button>
+                <button 
+                  onClick={() => setShowNovaPropostaModal(true)} 
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5 shadow-md"
+                >
+                  <DollarSign className="w-4 h-4" /> Nova Proposta
                 </button>
               </>
             )}
@@ -767,7 +799,7 @@ export default function LeadDetailsCard({
                       <h3 className="text-xl font-bold mb-4">Enviar Proposta ao Usuário</h3>
                       <p className="text-sm text-slate-600 mb-4">
                         Olá {currentLead.cliente_nome}, temos uma excelente proposta para o seu veículo {currentLead.marca} {currentLead.modelo}. 
-                        O valor é de {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalProposal)}. 
+                        O valor é de {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalValue)}. 
                         Não perca essa oportunidade, vamos fechar negócio?
                       </p>
                       <button 
@@ -775,7 +807,7 @@ export default function LeadDetailsCard({
                           await supabase.from('internal_messages').insert({
                             sender_id: (await supabase.auth.getUser()).data.user?.id,
                             receiver_id: currentLead.user_id, // Assuming currentLead has user_id
-                            content: `Olá ${currentLead.cliente_nome}, temos uma excelente proposta para o seu veículo ${currentLead.marca} ${currentLead.modelo}. O valor é de ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.finalProposal)}. Não perca essa oportunidade, vamos fechar negócio?`
+                            content: `Olá ${currentLead.cliente_nome}, temos uma excelente proposta para o seu veículo ${currentLead.marca} ${currentLead.modelo}. O valor é de ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalValue)}. Não perca essa oportunidade, vamos fechar negócio?`
                           });
                           setShowUserModal(false); 
                           setShowSuccessPopup(true); 
@@ -1251,8 +1283,8 @@ export default function LeadDetailsCard({
                       </div>
                       <div className="pt-4 border-t border-slate-200 flex justify-between items-center group cursor-pointer relative">
                         <span className="font-bold text-lg text-slate-900">Proposta Final</span>
-                        <span className={`font-bold text-lg ${getProposalClass(calc.finalProposal) || 'text-slate-900'}`}>
-                          {formatProposalValue(calc.finalProposal)}
+                        <span className={`font-bold text-lg ${getProposalClass(proposalValue) || 'text-slate-900'}`}>
+                          {formatProposalValue(proposalValue)}
                         </span>
                         <div className="absolute right-0 bottom-full mb-2 bg-white border border-slate-200 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-72">
                           <div className="text-xs font-bold mb-2 border-b pb-1 text-slate-900">Comparativo de Propostas</div>
@@ -1334,8 +1366,8 @@ export default function LeadDetailsCard({
                       </div>
                       <div className="pt-6 border-t border-white/10 flex justify-between items-center group cursor-pointer relative">
                         <span className="text-accent font-bold">PROPOSTA FINAL</span>
-                        <span className={`text-2xl font-bold font-display ${getProposalClass(calc.finalProposal) || 'text-white'}`}>
-                          {formatProposalValue(calc.finalProposal)}
+                        <span className={`text-2xl font-bold font-display ${getProposalClass(proposalValue) || 'text-white'}`}>
+                          {formatProposalValue(proposalValue)}
                         </span>
                         <div className="absolute right-0 bottom-full mb-2 bg-slate-800 border border-white/10 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-72">
                           <div className="text-xs font-bold mb-2 border-b border-white/10 pb-1 text-white">Comparativo de Propostas</div>
@@ -1427,8 +1459,8 @@ export default function LeadDetailsCard({
                         <div className="text-right font-bold text-red-600">-{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.discountValue + calc.fixedCosts + calc.payoff)}</div>
                         <div className="text-blue-900 font-black pt-1 border-t border-blue-200">VALOR FINAL:</div>
                         <div className="text-right font-black text-blue-900 pt-1 border-t border-blue-200 text-xs">
-                          <span className={getProposalClass(calc.finalProposal)}>
-                            {formatProposalValue(calc.finalProposal)}
+                          <span className={getProposalClass(proposalValue)}>
+                            {formatProposalValue(proposalValue)}
                           </span>
                         </div>
                       </div>
@@ -1461,6 +1493,25 @@ export default function LeadDetailsCard({
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+        {showNovaPropostaModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowNovaPropostaModal(false)}>
+            <div className="bg-white p-8 rounded-[32px] w-full max-w-lg shadow-2xl" onClick={e => e.stopPropagation()}>
+              <h3 className="text-xl font-bold mb-4">Nova Proposta</h3>
+              <input 
+                type="number" 
+                placeholder="Valor da nova proposta" 
+                className="w-full p-3 border border-slate-300 rounded-xl mb-4"
+                onChange={(e) => setNovaPropostaValor(parseFloat(e.target.value))}
+              />
+              <button 
+                onClick={() => handleSaveNovaProposta(novaPropostaValor)}
+                className="w-full py-3 bg-purple-600 text-white rounded-xl font-bold"
+              >
+                Salvar
+              </button>
             </div>
           </div>
         )}
