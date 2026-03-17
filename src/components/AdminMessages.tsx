@@ -3,10 +3,8 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/authContext';
 import { MessageCircle, Users, Send, Search, Bot, FileText, Check, X, Mail } from 'lucide-react';
 
-export default function AdminMessages() {
+export default function AdminMessages({ profiles, leads }: { profiles: any[], leads: any[] }) {
   const { user } = useAuth();
-  const [profiles, setProfiles] = useState<any[]>([]);
-  const [leads, setLeads] = useState<any[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -21,29 +19,16 @@ export default function AdminMessages() {
 
   const [activeTab, setActiveTab] = useState<'leads' | 'equipe'>('leads');
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    const [profilesRes, leadsRes] = await Promise.all([
-        supabase.from('profiles').select('*').order('full_name', { ascending: true }),
-        supabase.from('leads_veiculos').select('*').order('created_at', { ascending: false })
-    ]);
-    
-    if (profilesRes.error) console.error("[DEBUG] Error fetching profiles:", profilesRes.error);
-    if (leadsRes.error) console.error("[DEBUG] Error fetching leads:", leadsRes.error);
-    
-    setProfiles(profilesRes.data || []);
-    setLeads(leadsRes.data || []);
-  };
-
   const isEquipe = (p: any) => (p.role || '').toLowerCase().trim() === 'admin' || (p.role || '').toLowerCase().trim() === 'user';
 
   const filteredConversations = useMemo(() => {
+    console.log("[DEBUG] filteredConversations - activeTab:", activeTab);
+    console.log("[DEBUG] filteredConversations - profiles length:", profiles.length);
+    
     if (activeTab === 'equipe') {
-        // Apenas perfis da equipe
-        return profiles.filter(p => isEquipe(p)).map(item => {
+        const equipe = profiles.filter(p => isEquipe(p));
+        console.log("[DEBUG] filteredConversations - equipe count:", equipe.length);
+        return equipe.map(item => {
             const lastLogin = new Date(item.last_login || item.created_at || 0).getTime();
             const isOnline = (Date.now() - lastLogin) < 5 * 60 * 1000;
             return { 
@@ -57,7 +42,7 @@ export default function AdminMessages() {
             };
         });
     } else {
-        // Apenas leads
+        console.log("[DEBUG] filteredConversations - leads count:", leads.length);
         return leads.map(item => {
             const lastLogin = new Date(item.last_login || item.created_at || 0).getTime();
             const isOnline = (Date.now() - lastLogin) < 5 * 60 * 1000;
