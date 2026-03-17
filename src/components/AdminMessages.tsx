@@ -53,8 +53,9 @@ export default function AdminMessages() {
         // Include admins and anyone that might be team, or just anyone not a lead
         itemsToProcess = profilesData.filter(p => {
             const role = (p.role || '').toLowerCase();
-            // Include everything that looks like team, or if role is admin/administrador
-            return ['admin', 'equipe', 'administrador', 'suporte', 'vendedor'].includes(role) || role.includes('admin');
+            const isMatch = ['admin', 'equipe', 'administrador', 'suporte', 'vendedor'].includes(role) || role.includes('admin');
+            console.log(`[DEBUG] Filtering profile: ${p.full_name}, Role: ${role}, Match: ${isMatch}`);
+            return isMatch;
         });
     }
 
