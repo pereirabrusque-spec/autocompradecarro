@@ -47,8 +47,10 @@ export default function AdminMessages() {
     // Define o que é equipe
     const isEquipe = (p: any) => {
         const role = (p.role || '').toLowerCase().trim();
-        console.log(`[DEBUG] Checking profile: ${p.full_name}, Role: '${role}', isEquipe: ${role === 'admin'}`);
-        return role === 'admin';
+        // Verifica se o papel é admin ou se o lead_status é admin
+        const isTeam = role === 'admin' || (p.lead_status || '').toLowerCase().trim() === 'admin';
+        console.log(`[DEBUG] Checking profile: ${p.full_name}, Role: '${role}', LeadStatus: '${p.lead_status}', isEquipe: ${isTeam}`);
+        return isTeam;
     };
 
     if (tab === 'leads') {
@@ -63,7 +65,6 @@ export default function AdminMessages() {
     itemsToProcess.forEach(p => console.log(`[DEBUG] Included in ${tab}: ${p.full_name}, Role: ${p.role}`));
 
     console.log(`[DEBUG] Processing ${itemsToProcess.length} items for tab ${tab}.`);
-    console.log(`[DEBUG] Items to process:`, itemsToProcess);
     
     const conversationsWithStatus = await Promise.all(itemsToProcess.map(async (item) => {
         // Determina status de online
@@ -73,6 +74,8 @@ export default function AdminMessages() {
         // Determina o status de lead se for lead
         let statusDisplay = item.lead_status || 'frio'; // Padrão para lead
         if (isEquipe(item)) statusDisplay = 'Equipe';
+
+        console.log(`[DEBUG] Processed item: ${item.full_name}, Status: ${statusDisplay}`);
 
         return { 
             ...item, 
@@ -84,7 +87,7 @@ export default function AdminMessages() {
             statusDisplay
         };
     }));
-    console.log(`[DEBUG] Setting conversations:`, conversationsWithStatus);
+    console.log(`[DEBUG] conversationsWithStatus:`, conversationsWithStatus);
     setConversations(conversationsWithStatus);
   };
 
