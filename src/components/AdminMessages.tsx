@@ -50,10 +50,11 @@ export default function AdminMessages() {
             return ['user', 'seller', 'frio', 'morno', 'quente', 'usuário (vendedor)'].includes(role) || !role;
         });
     } else {
-        // Include admins and anyone that might be team
+        // Include admins and anyone that might be team, or just anyone not a lead
         itemsToProcess = profilesData.filter(p => {
             const role = (p.role || '').toLowerCase();
-            return ['admin', 'equipe', 'administrador'].includes(role);
+            // Include everything that looks like team, or if role is admin/administrador
+            return ['admin', 'equipe', 'administrador', 'suporte', 'vendedor'].includes(role) || role.includes('admin');
         });
     }
 
