@@ -45,10 +45,16 @@ export default function AdminMessages() {
     let itemsToProcess: any[] = [];
     if (tab === 'leads') {
         // Include users, sellers, and anyone else that might be a lead
-        itemsToProcess = profilesData.filter(p => ['user', 'seller', 'frio', 'morno', 'quente'].includes(p.role) || !p.role);
+        itemsToProcess = profilesData.filter(p => {
+            const role = (p.role || '').toLowerCase();
+            return ['user', 'seller', 'frio', 'morno', 'quente', 'usuário (vendedor)'].includes(role) || !role;
+        });
     } else {
         // Include admins and anyone that might be team
-        itemsToProcess = profilesData.filter(p => ['admin', 'equipe'].includes(p.role) || p.role === 'admin');
+        itemsToProcess = profilesData.filter(p => {
+            const role = (p.role || '').toLowerCase();
+            return ['admin', 'equipe', 'administrador'].includes(role);
+        });
     }
 
     console.log(`[DEBUG] Processing ${itemsToProcess.length} items for tab ${tab}.`);

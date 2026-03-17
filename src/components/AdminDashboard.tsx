@@ -4234,7 +4234,11 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   {leadsViewMode === 'grid' ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
                       {leads
-                        .filter(l => activeLeadTab === 'todos' || l.status === activeLeadTab)
+                        .filter(l => {
+                          if (activeLeadTab === 'todos') return true;
+                          if (activeLeadTab === 'perdido') return l.status === 'perdido' || l.status === 'frio';
+                          return l.status === activeLeadTab;
+                        })
                         .filter(l => !searchCode || (l.vehicle_code && l.vehicle_code.includes(searchCode)))
                         .filter(l => !filterBrand || l.marca === filterBrand)
                         .filter(l => !filterYear || l.ano_modelo === parseInt(filterYear))
@@ -4293,7 +4297,11 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         </thead>
                           <tbody>
                             {leads
-                              .filter(l => activeLeadTab === 'todos' || l.status === activeLeadTab)
+                              .filter(l => {
+                                if (activeLeadTab === 'todos') return true;
+                                if (activeLeadTab === 'perdido') return l.status === 'perdido' || l.status === 'frio';
+                                return l.status === activeLeadTab;
+                              })
                               .filter(l => !searchCode || (l.vehicle_code && l.vehicle_code.includes(searchCode)))
                               .filter(l => !filterBrand || l.marca === filterBrand)
                               .filter(l => !filterYear || l.ano_modelo === parseInt(filterYear))
