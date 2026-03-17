@@ -25,31 +25,58 @@ export default function AdminMessages() {
   }, [activeTab]);
 
   const fetchConversations = async (tab: 'leads' | 'equipe') => {
-    const roles = tab === 'leads' ? ['user', 'seller'] : ['admin'];
-    console.log(`[DEBUG] Fetching conversations for tab: ${tab}, roles:`, roles);
+    console.log(`[DEBUG] Fetching conversations for tab: ${tab}`);
     
-    const { data, error } = await supabase
+    let profiles: any[] = [];
+    let leads: any[] = [];
+
+    // Fetch profiles
+    const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
         .order('full_name', { ascending: true });
     
-    if (error) {
-        console.error("[DEBUG] Error fetching conversations:", error);
-        return;
+    if (profilesError) {
+        console.error("[DEBUG] Error fetching profiles:", profilesError);
+    } else {
+        profiles = profilesData || [];
     }
+
+    // Fetch leads if tab is 'leads'
+    if (tab === 'leads') {
+        const { data: leadsData, error: leadsError } = await supabase
+            .from('leads_veiculos')
+            .select('*')
+            .order('created_at', { ascending: false });
+        
+        if (leadsError) {
+            console.error("[DEBUG] Error fetching leads:", leadsError);
+        } else {
+            leads = leadsData || [];
+        }
+    }
+
+    let itemsToProcess: any[] = [];
+    if (tab === 'leads') {
+        // Combine profiles (users/sellers) and leads
+        const profileLeads = profiles.filter(p => ['user', 'seller'].includes(p.role));
+        itemsToProcess = [...profileLeads, ...leads.map(l => ({ ...l, is_lead: true }))];
+    } else {
+        // Only profiles with admin role
+        itemsToProcess = profiles.filter(p => p.role === 'admin');
+    }
+
+    console.log(`[DEBUG] Fetched ${profiles.length} profiles, ${leads.length} leads. Processing ${itemsToProcess.length} items for tab ${tab}.`);
     
-    const filteredProfiles = data.filter(p => roles.includes(p.role));
-    console.log(`[DEBUG] Fetched ${data?.length || 0} total profiles, filtered to ${filteredProfiles.length} for tab ${tab}.`);
-    
-    const conversationsWithStatus = await Promise.all(filteredProfiles.map(async (profile) => {
+    const conversationsWithStatus = await Promise.all(itemsToProcess.map(async (item) => {
         // Determine status: online if last_login is within last 10 minutes
-        const lastLogin = new Date(profile.last_login || 0).getTime();
+        const lastLogin = new Date(item.last_login || item.created_at || 0).getTime();
         const isOnline = (Date.now() - lastLogin) < 10 * 60 * 1000;
         
         return { 
-            ...profile, 
-            id: profile.id, 
-            sender_id: profile.full_name, 
+            ...item, 
+            id: item.id, 
+            sender_id: item.full_name || item.nome, 
             type: tab, 
             unreadCount: 0,
             isOnline
