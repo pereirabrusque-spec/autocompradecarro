@@ -5,6 +5,7 @@ import { MessageCircle, Users, Send, Search, Bot, FileText, Check, X, Mail } fro
 
 export default function AdminMessages() {
   const { user } = useAuth();
+  const [profiles, setProfiles] = useState<any[]>([]);
   const [conversations, setConversations] = useState<any[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
@@ -21,75 +22,50 @@ export default function AdminMessages() {
   const [activeTab, setActiveTab] = useState<'leads' | 'equipe'>('leads');
 
   useEffect(() => {
-    fetchConversations(activeTab);
-  }, [activeTab]);
+    fetchProfiles();
+  }, []);
 
-  const fetchConversations = async (tab: 'leads' | 'equipe') => {
-    console.log(`[DEBUG] Fetching conversations for tab: ${tab}`);
-    
-    // Fetch all profiles
-    const { data: profilesData, error: profilesError } = await supabase
+  const fetchProfiles = async () => {
+    const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .order('full_name', { ascending: true });
     
-    if (profilesError) {
-        console.error("[DEBUG] Error fetching profiles:", profilesError);
+    if (error) {
+        console.error("[DEBUG] Error fetching profiles:", error);
         return;
     }
-
-    console.log(`[DEBUG] Total profiles found: ${profilesData?.length || 0}`);
-    profilesData?.forEach(p => console.log(`[DEBUG] Profile: ${p.full_name}, Role: ${p.role}, Email: ${p.email}, LeadStatus: ${p.lead_status}`));
-
-    // Determine items to process based on tab
-    let itemsToProcess: any[] = [];
-    
-    // Define o que é equipe
-    const isEquipe = (p: any) => {
-        const role = (p.role || '').toLowerCase().trim();
-        // Verifica se o papel é admin ou se o lead_status é admin
-        const isTeam = role === 'admin' || (p.lead_status || '').toLowerCase().trim() === 'admin';
-        console.log(`[DEBUG] Checking profile: ${p.full_name}, Role: '${role}', LeadStatus: '${p.lead_status}', isEquipe: ${isTeam}`);
-        return isTeam;
-    };
-
-    if (tab === 'leads') {
-        // Leads são todos que NÃO são equipe
-        itemsToProcess = profilesData.filter(p => !isEquipe(p));
-    } else {
-        // Equipe são os que possuem cargo de equipe
-        itemsToProcess = profilesData.filter(p => isEquipe(p));
-    }
-
-    console.log(`[DEBUG] Tab: ${tab}, Total Profiles: ${profilesData?.length}, Items to process: ${itemsToProcess.length}`);
-    itemsToProcess.forEach(p => console.log(`[DEBUG] Included in ${tab}: ${p.full_name}, Role: ${p.role}`));
-
-    console.log(`[DEBUG] Processing ${itemsToProcess.length} items for tab ${tab}.`);
-    
-    const conversationsWithStatus = await Promise.all(itemsToProcess.map(async (item) => {
-        // Determina status de online
-        const lastLogin = new Date(item.last_login || item.created_at || 0).getTime();
-        const isOnline = (Date.now() - lastLogin) < 10 * 60 * 1000;
-        
-        // Determina o status de lead se for lead
-        let statusDisplay = item.lead_status || 'frio'; // Padrão para lead
-        if (isEquipe(item)) statusDisplay = 'Equipe';
-
-        console.log(`[DEBUG] Processed item: ${item.full_name}, Status: ${statusDisplay}`);
-
-        return { 
-            ...item, 
-            id: item.id, 
-            sender_id: item.full_name || item.nome || item.email || 'Usuário', 
-            type: tab, 
-            unreadCount: 0,
-            isOnline,
-            statusDisplay
-        };
-    }));
-    console.log(`[DEBUG] conversationsWithStatus:`, conversationsWithStatus);
-    setConversations(conversationsWithStatus);
+    setProfiles(data || []);
   };
+
+  useEffect(() => {
+    const processConversations = async () => {
+        const isEquipe = (p: any) => (p.role || '').toLowerCase().trim() === 'admin' || (p.lead_status || '').toLowerCase().trim() === 'admin';
+        const itemsToProcess = activeTab === 'leads' 
+            ? profiles.filter(p => !isEquipe(p))
+            : profiles.filter(p => isEquipe(p));
+
+        const conversationsWithStatus = await Promise.all(itemsToProcess.map(async (item) => {
+            const lastLogin = new Date(item.last_login || item.created_at || 0).getTime();
+            const isOnline = (Date.now() - lastLogin) < 10 * 60 * 1000;
+            let statusDisplay = item.lead_status || 'frio';
+            if (isEquipe(item)) statusDisplay = 'Equipe';
+
+            return { 
+                ...item, 
+                id: item.id, 
+                sender_id: item.full_name || item.nome || item.email || 'Usuário', 
+                type: activeTab, 
+                unreadCount: 0,
+                isOnline,
+                statusDisplay
+            };
+        }));
+        setConversations(conversationsWithStatus);
+    };
+    processConversations();
+  }, [activeTab, profiles]);
+
 
   const fetchMessagesForConversation = async (conversationId: string) => {
     // Logic to fetch messages based on conversationId
