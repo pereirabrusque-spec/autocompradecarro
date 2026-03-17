@@ -45,7 +45,7 @@ export default function AdminMessages() {
     let itemsToProcess: any[] = [];
     
     // Define o que é equipe
-    const isEquipe = (p: any) => ['admin'].includes((p.role || '').toLowerCase());
+    const isEquipe = (p: any) => (p.role || '').toLowerCase() === 'admin';
 
     if (tab === 'leads') {
         // Leads são todos que NÃO são equipe
@@ -54,6 +54,9 @@ export default function AdminMessages() {
         // Equipe são os que possuem cargo de equipe
         itemsToProcess = profilesData.filter(p => isEquipe(p));
     }
+
+    console.log(`[DEBUG] Tab: ${tab}, Total Profiles: ${profilesData?.length}, Items to process: ${itemsToProcess.length}`);
+    itemsToProcess.forEach(p => console.log(`[DEBUG] Included in ${tab}: ${p.full_name}, Role: ${p.role}`));
 
     console.log(`[DEBUG] Processing ${itemsToProcess.length} items for tab ${tab}.`);
     console.log(`[DEBUG] Items to process:`, itemsToProcess);
