@@ -39,7 +39,7 @@ export default function AdminMessages() {
     }
 
     console.log(`[DEBUG] Total profiles found: ${profilesData?.length || 0}`);
-    profilesData?.forEach(p => console.log(`[DEBUG] Profile: ${p.full_name}, Role: ${p.role}, Email: ${p.email}`));
+    profilesData?.forEach(p => console.log(`[DEBUG] Profile: ${p.full_name}, Role: ${p.role}, Email: ${p.email}, LeadStatus: ${p.lead_status}`));
 
     // Determine items to process based on tab
     let itemsToProcess: any[] = [];
@@ -56,6 +56,7 @@ export default function AdminMessages() {
     }
 
     console.log(`[DEBUG] Processing ${itemsToProcess.length} items for tab ${tab}.`);
+    console.log(`[DEBUG] Items to process:`, itemsToProcess);
     
     const conversationsWithStatus = await Promise.all(itemsToProcess.map(async (item) => {
         // Determina status de online
