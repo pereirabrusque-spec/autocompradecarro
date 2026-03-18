@@ -429,6 +429,7 @@ export default function AdminDashboard() {
               last_time: msg.created_at,
               last_message_at: msg.created_at,
               lead: lead,
+              status: lead.status || (lead.is_frio ? 'frio' : 'novo'),
               unread: unreadCount,
               is_unanswered: msg.remetente === 'cliente',
               is_online: isOnline
