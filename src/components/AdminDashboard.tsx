@@ -388,11 +388,14 @@ export default function AdminDashboard() {
         .from('mensagens')
         .select('*, leads_veiculos(*)')
         .order('created_at', { ascending: false });
-
+      
       // Group messages by email or name+phone to create conversation list
       const groupedConversations: any[] = [];
       const conversationKeys = new Set();
       
+      console.log('Messages fetched:', messagesData);
+      console.log('Grouped conversations:', groupedConversations);
+
       if (messagesData) {
         messagesData.forEach((msg: any) => {
           const lead = msg.leads_veiculos;
@@ -453,7 +456,10 @@ export default function AdminDashboard() {
         });
       }
 
+      console.log('Grouped conversations:', groupedConversations);
+
       // Adicionar vendedores (role 'user') na aba 'leads'
+      const leadIds = new Set();
       if (profilesData) {
         profilesData.forEach((p: any) => {
           if (p.role === 'user' && !leadIds.has(p.id)) {
@@ -4499,7 +4505,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                   </div>
                                 </td>
                               </tr>
-                            })
+                            );
+                          })}
                           </tbody>
                         </table>
                       </div>
