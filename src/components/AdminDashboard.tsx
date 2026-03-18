@@ -774,6 +774,7 @@ export default function AdminDashboard() {
         schema: 'public', 
         table: 'mensagens' 
       }, async (payload) => {
+        console.log("Realtime message received:", payload.new);
         // Se for uma mensagem do cliente, atualiza a lista de conversas e o chat aberto
         if (payload.new.remetente === 'cliente') {
           console.log("Received new message from client:", payload.new);
@@ -1014,8 +1015,11 @@ export default function AdminDashboard() {
     setIsSendingMessage(true);
 
     // Validate lead existence
+    console.log("Sending message for lead_id:", selectedConversation.lead_ids[0]);
+    console.log("Selected conversation:", selectedConversation);
     const leadExists = leads.some(l => l.id === selectedConversation.lead_ids[0]);
     if (!leadExists) {
+        console.error("Lead não encontrado no sistema:", selectedConversation.lead_ids[0]);
         alert("Erro: Lead não encontrado no sistema.");
         setIsSendingMessage(false);
         return;
