@@ -977,6 +977,17 @@ export default function AdminDashboard() {
     });
   }, []);
 
+  // Set initial tab based on role on login
+  useEffect(() => {
+    if (!userProfile?.role) return;
+
+    if (userProfile.role === 'buyer' || userProfile.role === 'buyer_premium' || userProfile.role === 'buyer_master') {
+      setActiveTab('crm_chat');
+    } else if (userProfile.role === 'admin' || userProfile.role === 'user' || userProfile.role === 'seller') {
+      setActiveTab('leads');
+    }
+  }, [userProfile?.role]);
+
   useEffect(() => {
     if (selectedInternalChat) {
       fetchInternalMessages(selectedInternalChat);
