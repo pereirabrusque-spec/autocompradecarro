@@ -15,6 +15,7 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
   const [leadData, setLeadData] = useState<any>(null);
   const [isAiMode, setIsAiMode] = useState(true);
   const [isUpdatingAi, setIsUpdatingAi] = useState(false);
+  const [showProposalModal, setShowProposalModal] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
@@ -275,12 +276,28 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
           </button>
           <button 
             type="button"
+            onClick={() => setShowProposalModal(true)}
+            className="px-3 py-1 rounded-lg text-xs font-bold bg-green-600 text-white transition-all"
+          >
+            Ver Proposta
+          </button>
+          <button 
+            type="button"
             onClick={() => toggleAiMode(!isAiMode)}
             disabled={isUpdatingAi}
             className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${!isAiMode ? 'bg-red-600 text-white' : 'bg-slate-200 text-slate-700'}`}
           >
             {!isAiMode ? 'Atendimento Humano: ON' : 'Atendimento Humano: OFF'}
           </button>
+
+          {showProposalModal && (
+            <ChatActionModal
+              type="proposta"
+              conversationId={conversationId}
+              lead={leadData}
+              onClose={() => setShowProposalModal(false)}
+            />
+          )}
 
           {userPhone && (
             <a 
