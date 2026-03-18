@@ -443,7 +443,8 @@ export default function AdminDashboard() {
       // Adicionar vendedores (role 'user') na aba 'leads'
       if (profilesData) {
         profilesData.forEach((p: any) => {
-          if (p.role === 'user') {
+          if (p.role === 'user' && !leadIds.has(p.id)) {
+            leadIds.add(p.id);
             groupedConversations.push({
               lead_id: p.id,
               last_message: 'Vendedor',
@@ -5140,10 +5141,10 @@ Podemos prosseguir com o agendamento da vistoria?`;
                             setProposalCalculator(calculateProposal(lead));
                           }
                         }}
-                        className={`p-4 flex items-center gap-4 cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 ${selectedConversation?.lead_id === conv.lead_id ? 'bg-slate-50' : ''}`}
+                        className={`py-1 px-2 flex items-center gap-2 cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 ${selectedConversation?.lead_id === conv.lead_id ? 'bg-slate-50' : ''}`}
                       >
                         <div className="relative">
-                          <div className="w-12 h-12 rounded-full bg-slate-100 overflow-hidden flex-shrink-0">
+                          <div className="w-8 h-8 rounded-full bg-slate-100 overflow-hidden flex-shrink-0">
                             {(() => {
                               const profile = users.find(u => u.email === conv.lead?.email);
                               const avatarUrl = profile?.avatar_url || (conv.lead?.fotos && conv.lead.fotos[0]);
@@ -5193,10 +5194,10 @@ Podemos prosseguir com o agendamento da vistoria?`;
                             setSelectedInternalChat(conv.id);
                             fetchInternalMessages(conv.id);
                           }}
-                          className={`p-4 flex items-center gap-4 cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 ${selectedInternalChat === conv.id ? 'bg-slate-50' : ''}`}
+                          className={`py-1 px-2 flex items-center gap-2 cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 ${selectedInternalChat === conv.id ? 'bg-slate-50' : ''}`}
                         >
                           <div className="relative">
-                            <div className="w-12 h-12 rounded-full bg-slate-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                            <div className="w-8 h-8 rounded-full bg-slate-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
                               {conv.profile?.avatar_url ? (
                                 <img src={conv.profile.avatar_url} alt={conv.profile.full_name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                               ) : (
