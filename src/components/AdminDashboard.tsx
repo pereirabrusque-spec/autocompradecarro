@@ -349,6 +349,9 @@ export default function AdminDashboard() {
       // Combine leads and profiles
       const allLeads = [...(leadsData || [])];
       profilesData?.forEach(profile => {
+        // Do not add admins or buyers as "frio" leads
+        if (profile.role === 'admin' || profile.role?.includes('buyer')) return;
+
         if (!allLeads.find(l => l.email === profile.email)) {
           allLeads.push({
             ...profile,
@@ -996,7 +999,10 @@ export default function AdminDashboard() {
       return;
     }
 
-    if (!selectedConversation) return;
+    if (!selectedConversation || !selectedConversation.lead_ids || selectedConversation.lead_ids.length === 0) {
+      alert("Erro: Nenhum lead_id encontrado para esta conversa.");
+      return;
+    }
 
     const messageContent = adminMessage.trim();
     setAdminMessage('');
@@ -1032,8 +1038,9 @@ export default function AdminDashboard() {
           lead_id: selectedConversation.lead_ids[0]
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending message:', error);
+      alert(`Erro ao enviar mensagem: ${error.message || JSON.stringify(error)}`);
       // Rollback
       setChatMessages(prev => prev.filter(m => m !== newMessage));
       setAdminMessage(messageContent);
@@ -1102,9 +1109,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
         const { error: msgError } = await supabase.from('mensagens').insert([{
           lead_id: selectedLead.id,
           remetente: 'admin',
-          conteudo: message,
-          tipo: 'proposta',
-          metadata: { proposal_data: proposalCalculator }
+          conteudo: message
         }]);
         if (msgError) throw msgError;
 
@@ -1122,7 +1127,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
         
         alert('Proposta enviada com sucesso!');
         setShowProposalModal(false);
-        await fetchChatMessages(selectedLead.id);
+        await fetchChatMessages([selectedLead.id]);
         await fetchData();
       } catch (err: any) {
         console.error(err);
@@ -1160,9 +1165,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
         const { error: msgError } = await supabase.from('mensagens').insert([{
           lead_id: selectedLead.id,
           remetente: 'admin',
-          conteudo: message,
-          tipo: 'proposta',
-          metadata: { proposal_data: proposalCalculator }
+          conteudo: message
         }]);
         if (msgError) throw msgError;
 
@@ -1179,7 +1182,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
         if (leadError) throw leadError;
         
         alert('Proposta enviada com sucesso via chat!');
-        await fetchChatMessages(selectedLead.id);
+        await fetchChatMessages([selectedLead.id]);
         await fetchData();
       } catch (err: any) {
         console.error(err);
