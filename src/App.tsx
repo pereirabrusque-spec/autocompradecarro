@@ -270,12 +270,10 @@ function AppContent() {
             onClick={() => setIsChatOpen(true)}
             className="bg-accent text-white p-4 rounded-full shadow-2xl hover:bg-accent/90 transition-all flex items-center justify-center"
             title="Falar com Especialista"
+            id="main-chat-button"
           >
             <MessageCircle className="w-8 h-8" />
           </button>
-
-          {/* Purchasing Chat Button */}
-          <FloatingPurchasingChat />
         </div>
       )}
 

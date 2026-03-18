@@ -493,13 +493,10 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         3. Você deve consultar a MEMÓRIA DE LONGO PRAZO antes de formular qualquer resposta.
         
         [REGRAS DE NEGÓCIO E COMPORTAMENTO]
-        ${defaultRules}
+        ${systemPrompt || defaultRules}
         
         ${proposalContext}
         
-        ### REGRAS PERSONALIZADAS DO ADMINISTRADOR (PRIORIDADE ALTA):
-        ${systemPrompt || 'Nenhuma regra adicional.'}
-
         ### MEMÓRIA DE LONGO PRAZO (CONSULTE ANTES DE RESPONDER):
         ${aiMemory || 'Nenhuma memória registrada.'}
         
