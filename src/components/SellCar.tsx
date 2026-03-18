@@ -2,13 +2,12 @@ import { useState, useEffect } from 'react';
 import { 
   Search, Car, Calculator, ArrowRight, Loader2, CheckCircle2, 
   Camera, FileText, AlertCircle, ShieldCheck, Info, Bike, Truck,
-  Check, X, Video, Wrench, MessageCircle
+  Check, X, Video, Wrench
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/authContext';
 import { triggerAdsConversion } from './GoogleTags';
 import AuthModal from './AuthModal';
-import InternalChat from './InternalChat';
 
 export default function SellCar() {
   const { user } = useAuth();
@@ -30,8 +29,6 @@ export default function SellCar() {
   const [showGearboxModal, setShowGearboxModal] = useState(false);
   
   const [myVehicles, setMyVehicles] = useState<any[]>([]);
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [selectedVehicleForChat, setSelectedVehicleForChat] = useState<any>(null);
   
   const [formData, setFormData] = useState({
     vehicleType: 'Carros',
@@ -126,7 +123,18 @@ export default function SellCar() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setMyVehicles(data || []);
+      
+      // Filtro profissional: Somente veículos com formulário completo (fotos, situação, dados bancários, etc)
+      const filteredLeads = (data || []).filter(lead => {
+        const hasPhotos = lead.fotos && Array.isArray(lead.fotos) && lead.fotos.length > 0;
+        const hasClassification = (!!lead.classificacao && lead.classificacao !== 'Não informado') || lead.status === 'novo' || lead.status === 'proposta_enviada';
+        const hasBankInfo = (!!lead.banco_financiamento && lead.banco_financiamento !== 'Não informado') || lead.status === 'proposta_enviada';
+        const hasBasicData = lead.valor_fipe > 0 && lead.quilometragem > 0;
+        
+        return hasPhotos && hasClassification && hasBankInfo && hasBasicData;
+      });
+      
+      setMyVehicles(filteredLeads);
     } catch (error) {
       console.error('Error fetching my vehicles:', error);
     }
@@ -976,20 +984,16 @@ export default function SellCar() {
                   </div>
 
                   <div className="flex items-center gap-3 w-full md:w-auto">
-                    <button
-                      onClick={() => {
-                        setSelectedVehicleForChat(vehicle);
-                        setIsChatOpen(true);
-                      }}
-                      className="flex-1 md:flex-none px-6 py-3 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                      Chat de Negociação
-                    </button>
+                    {/* Botão de chat removido para unificar a experiência */}
                   </div>
                 </div>
               ))}
             </div>
+            {myVehicles.length > 0 && (
+              <div className="mt-6 text-center">
+                {/* Chat unificado agora no botão flutuante global */}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1744,14 +1748,6 @@ export default function SellCar() {
       </div>
 
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
-
-      <InternalChat 
-        leadId={selectedVehicleForChat?.id}
-        leadTitle={selectedVehicleForChat ? `[#${selectedVehicleForChat.vehicle_code}] ${selectedVehicleForChat.marca} ${selectedVehicleForChat.modelo} (${selectedVehicleForChat.ano_modelo}) - ${selectedVehicleForChat.cor}` : undefined}
-        isOpen={isChatOpen}
-        onToggle={() => setIsChatOpen(!isChatOpen)}
-        hideFloatingButton={true}
-      />
 
       {/* Error Modal */}
       {errorModalOpen && (
