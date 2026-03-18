@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import LeadDetailsCard from '../LeadDetailsCard';
 
@@ -14,6 +14,7 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [config, setConfig] = useState<any>({ fipeRules: [], jurosAtraso: 0, banks: [], cooperativeDiscount: 0 });
+  const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -65,15 +66,37 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
 
         {loading ? <p>Carregando...</p> : (
             <>
-                {type === 'proposta' && (
+                {type === 'proposta' && !selectedVehicle && (
                   <div className="space-y-4">
                     {vehicles.map(v => (
                       <div key={v.id} className="flex justify-between items-center p-4 border border-slate-200 rounded-lg">
-                        <span>{v.marca} {v.modelo} - {v.ano_modelo}</span>
-                        <button onClick={() => handleDeleteVehicle(v.id)} className="text-red-500 hover:text-red-700">Excluir</button>
+                        <div className="cursor-pointer hover:text-blue-600" onClick={() => setSelectedVehicle(v)}>
+                          <span>{v.marca} {v.modelo} - {v.ano_modelo}</span>
+                        </div>
+                        <button onClick={() => handleDeleteVehicle(v.id)} className="text-red-500 hover:text-red-700 p-2">
+                          <Trash2 className="w-5 h-5" />
+                        </button>
                       </div>
                     ))}
                   </div>
+                )}
+
+                {type === 'proposta' && selectedVehicle && (
+                    <div className="space-y-4">
+                        <button onClick={() => setSelectedVehicle(null)} className="text-sm text-blue-600 hover:underline mb-4">← Voltar para lista</button>
+                        <LeadDetailsCard 
+                            lead={selectedVehicle} 
+                            onClose={onClose} 
+                            onSave={() => {}} 
+                            onDelete={() => {}} 
+                            onRefresh={() => {}} 
+                            fipeRules={config.fipeRules} 
+                            jurosAtraso={config.jurosAtraso} 
+                            banks={config.banks} 
+                            cooperativeDiscount={config.cooperativeDiscount} 
+                            userRole="admin"
+                        />
+                    </div>
                 )}
 
                 {type === 'formulario' && lead && (
