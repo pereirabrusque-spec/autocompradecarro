@@ -277,32 +277,10 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
           </button>
           <button 
             type="button"
-            onClick={async () => {
-              if (!confirm('Deseja reservar este veículo? Ele ficará invisível no estoque por 2 horas.')) return;
-              const { error } = await supabase
-                .from('leads_veiculos')
-                .update({ status: 'reservado', reserva_timestamp: new Date().toISOString() })
-                .eq('id', conversationId);
-              if (error) alert('Erro ao reservar: ' + error.message);
-              else alert('Veículo reservado com sucesso!');
-            }}
-            className="px-3 py-1 bg-amber-500 text-white rounded-lg text-xs font-bold hover:bg-amber-600 transition-colors"
-          >
-            Reservar
-          </button>
-          <button 
-            type="button"
             onClick={() => setModalType('proposta')}
             className="px-3 py-1 bg-blue-500 text-white rounded-lg text-xs font-bold hover:bg-blue-600 transition-colors"
           >
             Ver Proposta
-          </button>
-          <button 
-            type="button"
-            onClick={() => setModalType('formulario')}
-            className="px-3 py-1 bg-green-500 text-white rounded-lg text-xs font-bold hover:bg-green-600 transition-colors"
-          >
-            Formulário
           </button>
           <button type="button" className="px-3 py-1 bg-slate-900 text-white rounded-lg text-xs font-bold">
               Humano Assume
