@@ -37,24 +37,44 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
 
       if (type === 'proposta') {
         // 1. Get email for conversationId
+        console.log('Buscando perfil para conversationId:', conversationId);
         const { data: profile } = await supabase
           .from('profiles')
           .select('email')
           .eq('id', conversationId)
           .single();
+        console.log('Perfil encontrado:', profile);
         
         // 2. Try to fetch by user_id first
+        console.log('Buscando veículos por user_id:', conversationId);
         let { data, error } = await supabase
           .from('leads_veiculos')
           .select('*')
           .eq('user_id', conversationId);
+        console.log('Veículos encontrados por user_id:', data, 'Erro:', error);
+            
+        // 2.5 Try to fetch by lead_id (id) if no data found
+        if ((!data || data.length === 0)) {
+            console.log('Buscando veículos por id (lead_id):', conversationId);
+            const { data: dataById, error: errorById } = await supabase
+                .from('leads_veiculos')
+                .select('*')
+                .eq('id', conversationId);
+            console.log('Veículos encontrados por id:', dataById, 'Erro:', errorById);
+            if (dataById && dataById.length > 0) {
+                data = dataById;
+                error = errorById;
+            }
+        }
             
         // 3. Fallback to email if no data found
         if ((!data || data.length === 0) && profile?.email) {
+            console.log('Buscando veículos por email:', profile.email);
             const { data: dataByEmail, error: errorByEmail } = await supabase
                 .from('leads_veiculos')
                 .select('*')
                 .eq('email', profile.email);
+            console.log('Veículos encontrados por email:', dataByEmail, 'Erro:', errorByEmail);
             data = dataByEmail;
             error = errorByEmail;
         }
@@ -63,6 +83,7 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
           console.error('Erro ao buscar veículos:', error);
           alert('Erro ao buscar veículos: ' + error.message);
         } else if (data) {
+          console.log('Veículos carregados:', data);
           setVehicles(data);
           // Se houver apenas um veículo, seleciona automaticamente
           if (data.length === 1) {
@@ -148,7 +169,10 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
                             {v.foto_principal && (
                               <img src={v.foto_principal} alt={`${v.marca} ${v.modelo}`} className="w-16 h-16 object-cover rounded-md" />
                             )}
-                            <span className="font-semibold">{v.marca} {v.modelo} - {v.ano_modelo}</span>
+                            <span className="font-semibold">
+                              {v.marca || v.modelo ? `${v.marca || ''} ${v.modelo || ''}` : 'Veículo sem identificação'} 
+                              {v.ano_modelo ? ` - ${v.ano_modelo}` : ''}
+                            </span>
                           </div>
                           <button onClick={() => handleDeleteVehicle(v.id)} className="text-red-500 hover:text-red-700 p-2">
                             <Trash2 className="w-5 h-5" />
