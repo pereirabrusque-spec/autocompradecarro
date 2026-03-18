@@ -118,6 +118,13 @@ export const BackgroundAIManager = () => {
                         .eq('id', senderId)
                         .single();
                     
+                    // Verifica se já existe um lead (veículo) para este comprador
+                    const { data: existingLead, error: leadError } = await supabase
+                        .from('leads_veiculos')
+                        .select('id, marca, modelo')
+                        .eq('user_id', senderId)
+                        .maybeSingle();
+
                     const isGlobalAiEnabled = isAiEnabledRef.current;
                     const conversationAiState = buyerProfile?.is_ai_enabled;
 
@@ -136,7 +143,18 @@ export const BackgroundAIManager = () => {
                         return;
                     }
 
-                    console.log(`[BackgroundAIManager] IA habilitada (Global: ${isGlobalAiEnabled}, Conversa: ${conversationAiState}). Aguardando delay...`);
+                    // Lógica de verificação de lead
+                    if (!existingLead) {
+                        console.log(`[BackgroundAIManager] Nenhum lead encontrado para ${senderId}. Induzindo preenchimento.`);
+                        await supabase.from('internal_messages').insert({
+                            receiver_id: senderId,
+                            content: "Olá! Para que eu possa te ajudar a encontrar o melhor negócio, você poderia preencher nosso formulário com os dados do veículo que você procura ou deseja vender? Assim consigo agilizar tudo para você!",
+                            sender_id: uid
+                        });
+                        return;
+                    }
+
+                    console.log(`[BackgroundAIManager] Lead encontrado (${existingLead.id}). IA habilitada. Aguardando delay...`);
                     
                     // Pequeno delay aleatório para evitar que múltiplos admins respondam ao mesmo tempo
                     const delay = Math.floor(Math.random() * 1000) + 500;
