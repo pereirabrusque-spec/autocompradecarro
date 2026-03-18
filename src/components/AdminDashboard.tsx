@@ -22,7 +22,7 @@ export default function AdminDashboard() {
   const [dbAssets, setDbAssets] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'leads' | 'hero' | 'assets' | 'footer' | 'settings' | 'ai' | 'apis' | 'crm' | 'messages' | 'buyers' | 'tags' | 'users' | 'cooperatives' | 'logs' | 'crm_chat'>('dashboard');
-  const [messageTab, setMessageTab] = useState<'leads' | 'internal' | 'compradores'>('leads');
+  const [messageTab, setMessageTab] = useState<'leads' | 'internal'>('leads');
   const [internalConversations, setInternalConversations] = useState<any[]>([]);
   const [compradoresConversations, setCompradoresConversations] = useState<any[]>([]);
   const [selectedInternalChat, setSelectedInternalChat] = useState<string | null>(null);
@@ -439,6 +439,24 @@ export default function AdminDashboard() {
         });
       }
 
+      // Adicionar vendedores (role 'user') na aba 'leads'
+      if (profilesData) {
+        profilesData.forEach((p: any) => {
+          if (p.role === 'user') {
+            groupedConversations.push({
+              lead_id: p.id,
+              last_message: 'Vendedor',
+              last_time: p.created_at,
+              last_message_at: p.created_at,
+              lead: { cliente_nome: p.full_name, email: p.email },
+              unread: 0,
+              is_unanswered: false,
+              is_online: (new Date().getTime() - new Date(p.last_login || 0).getTime()) < 300000
+            });
+          }
+        });
+      }
+
       if (assetsData) {
         // No longer load permissions from assetsData
       }
@@ -462,10 +480,6 @@ export default function AdminDashboard() {
         .select('*')
         .order('created_at', { ascending: false });
 
-      console.log("[DEBUG] internalMessagesData:", internalMessagesData);
-      console.log("[DEBUG] userProfile:", userProfile);
-      console.log("[DEBUG] profilesData:", profilesData);
-
       const groupedInternal: any[] = [];
       const internalIds = new Set();
       
@@ -477,8 +491,8 @@ export default function AdminDashboard() {
             internalIds.add(otherId);
             const otherProfile = (profilesData || []).find((u: any) => u.id === otherId);
             
-            // Only show in "Equipe" if they are admin or user (seller)
-            if (otherProfile && (otherProfile.role === 'admin' || otherProfile.role === 'user')) {
+            // Only show in "Equipe" if they are admin
+            if (otherProfile && otherProfile.role === 'admin') {
               const unreadCount = internalMessagesData.filter((m: any) => 
                 m.sender_id === otherId && m.receiver_id === userProfile.id && !m.is_read
               ).length;
@@ -498,10 +512,10 @@ export default function AdminDashboard() {
         });
       }
 
-      // Then, add other team members (admin/user) who haven't messaged yet
+      // Then, add other team members (admin) who haven't messaged yet
       if (profilesData && userProfile) {
         profilesData.forEach((p: any) => {
-          if (p.id !== userProfile.id && (p.role === 'admin' || p.role === 'user') && !internalIds.has(p.id)) {
+          if (p.id !== userProfile.id && p.role === 'admin' && !internalIds.has(p.id)) {
             internalIds.add(p.id);
             const isOnline = p.last_login ? (new Date().getTime() - new Date(p.last_login).getTime()) < 300000 : false;
             
@@ -516,27 +530,7 @@ export default function AdminDashboard() {
           }
         });
       }
-      console.log("[DEBUG] groupedInternal:", groupedInternal);
       setInternalConversations(groupedInternal);
-
-      // Group buyers and populate compradoresConversations
-      const groupedCompradores: any[] = [];
-      if (buyersData && profilesData) {
-        buyersData.forEach((buyer: any) => {
-          const profile = (profilesData || []).find((u: any) => u.id === buyer.user_id);
-          if (profile && ['comprador', 'comprador_premium', 'comprador_master'].includes(profile.role)) {
-            groupedCompradores.push({
-              id: profile.id,
-              profile: profile,
-              last_message: 'Nenhuma mensagem',
-              last_time: profile.created_at,
-              unread: 0,
-              is_online: false
-            });
-          }
-        });
-      }
-      setCompradoresConversations(groupedCompradores);
       
       // Atualiza o lead selecionado se houver um
       if (selectedLeadRef.current) {
@@ -5082,12 +5076,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       >
                         Equipe
                       </button>
-                      <button 
-                        onClick={() => setMessageTab('compradores')}
-                        className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${messageTab === 'compradores' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}
-                      >
-                        Compradores
-                      </button>
                     </div>
                     
                     {/* Novos controles de IA */}
@@ -5186,7 +5174,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         </div>
                       </div>
                     ))
-                  ) : messageTab === 'internal' ? (
+                  ) : (
                       internalConversations.map((conv) => (
                         <div 
                           key={conv.id}
@@ -5219,34 +5207,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 {conv.unread}
                               </span>
                             )}
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      compradoresConversations.map((conv) => (
-                        <div 
-                          key={conv.id}
-                          onClick={() => {
-                            setSelectedInternalChat(conv.id);
-                            fetchInternalMessages(conv.id);
-                          }}
-                          className={`p-4 flex items-center gap-4 cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 ${selectedInternalChat === conv.id ? 'bg-slate-50' : ''}`}
-                        >
-                          <div className="relative">
-                            <div className="w-12 h-12 rounded-full bg-slate-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
-                              {conv.profile?.avatar_url ? (
-                                <img src={conv.profile.avatar_url} alt={conv.profile.full_name} className="w-full h-full object-cover" />
-                              ) : (
-                                <User className="w-6 h-6 text-slate-400" />
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex justify-between items-start">
-                              <h4 className="font-bold text-slate-900 truncate">{conv.profile?.full_name || 'Usuário'}</h4>
-                              <span className="text-[10px] text-slate-400 whitespace-nowrap">{new Date(conv.last_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                            </div>
-                            <p className="text-xs text-slate-500 truncate">{conv.last_message}</p>
                           </div>
                         </div>
                       ))
