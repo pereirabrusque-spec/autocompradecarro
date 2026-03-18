@@ -3116,10 +3116,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     </div>
                     <div className="space-y-4">
                       {[
-                        { label: 'Lead Frio', status: 'frio' as const, count: leads.filter(l => l.status === 'frio').length, color: 'bg-red-500' },
-                        { label: 'Leads Morna', status: 'proposta_enviada' as const, count: leads.filter(l => l.status === 'proposta_enviada').length, color: 'bg-purple-500' },
+                        { label: 'Leads Fria', status: 'frio' as const, count: leads.filter(l => l.status === 'frio').length, color: 'bg-red-500' },
+                        { label: 'Leads Morna', status: 'proposta_enviada' as const, count: leads.filter(l => l.status === 'proposta_enviada' || l.status === 'em_contato').length, color: 'bg-purple-500' },
                         { label: 'Lead Quente', status: 'fechado' as const, count: leads.filter(l => l.status === 'fechado').length, color: 'bg-emerald-500' },
-                        { label: 'Leads Fria', status: 'frio' as const, count: leads.filter(l => l.status !== 'proposta_enviada' && l.status !== 'fechado').length, color: 'bg-blue-500' },
                       ].map((item, i) => (
                         <div 
                           key={i} 
@@ -4817,8 +4816,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                       // Map status to classification
                                       let newClass = lead.classificacao;
                                       if (newStatus === 'fechado') newClass = 'quente';
-                                      else if (newStatus === 'proposta_enviada' || newStatus === 'novo' || newStatus === 'em_contato') newClass = 'morna';
-                                      else if (newStatus === 'frio') newClass = 'frio';
+                                      else if (newStatus === 'proposta_enviada' || newStatus === 'em_contato') newClass = 'morna';
+                                      else newClass = 'fria';
 
                                       setLeads(leads.map(l => l.id === lead.id ? { ...l, status: newStatus, classificacao: newClass } : l));
                                       await supabase.from('leads_veiculos').update({ 
