@@ -389,19 +389,25 @@ export default function AdminDashboard() {
         .select('*, leads_veiculos(*)')
         .order('created_at', { ascending: false });
 
-      // Group messages by email or lead_id to create conversation list
+      // Group messages by email or name+phone to create conversation list
       const groupedConversations: any[] = [];
       const conversationKeys = new Set();
       
       if (messagesData) {
         messagesData.forEach((msg: any) => {
-          const key = msg.leads_veiculos?.email || msg.lead_id;
+          const lead = msg.leads_veiculos;
+          const key = lead?.email || (lead?.cliente_nome + lead?.telefone) || msg.lead_id;
+          
           if (key && !conversationKeys.has(key)) {
             conversationKeys.add(key);
-            const customerMessages = messagesData.filter((m: any) => (m.leads_veiculos?.email || m.lead_id) === key);
+            const customerMessages = messagesData.filter((m: any) => {
+              const mLead = m.leads_veiculos;
+              const mKey = mLead?.email || (mLead?.cliente_nome + mLead?.telefone) || m.lead_id;
+              return mKey === key;
+            });
             const unreadCount = customerMessages.filter((m: any) => !m.lida && m.remetente === 'cliente').length;
             
-            const email = msg.leads_veiculos?.email;
+            const email = lead?.email;
             const leadProfile = email ? (profilesData || []).find((u: any) => u.email === email) : null;
             const isOnline = leadProfile ? (new Date().getTime() - new Date(leadProfile.last_login).getTime()) < 300000 : false;
 
@@ -412,7 +418,7 @@ export default function AdminDashboard() {
               last_message: msg.conteudo,
               last_time: msg.created_at,
               last_message_at: msg.created_at,
-              lead: msg.leads_veiculos,
+              lead: lead,
               unread: unreadCount,
               is_unanswered: msg.remetente === 'cliente',
               is_online: isOnline
@@ -424,7 +430,7 @@ export default function AdminDashboard() {
       // Adicionar leads que não possuem mensagens
       if (leadsData) {
         leadsData.forEach((lead: any) => {
-          const key = lead.email || lead.id;
+          const key = lead.email || (lead.cliente_nome + lead.telefone) || lead.id;
           if (key && !conversationKeys.has(key)) {
             conversationKeys.add(key);
             
@@ -4322,6 +4328,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                             <th className="px-2 pr-1 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Data</th>
                             <th className="px-2 pl-1 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Status</th>
                             <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Veículo</th>
+                            <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Nome</th>
+                            <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Email</th>
                             <th className="px-2 pr-1 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Código</th>
                             <th className="px-2 px-1 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Ano/Modelo</th>
                             <th className="px-2 pl-1 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">FIPE</th>
@@ -4363,7 +4371,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 }
                                 return true;
                               })
-                              .map((lead) => (
+                              .map((lead) => {
+                                 const profile = lead.email ? users.find(u => u.email === lead.email) : null;
+                                 return (
                               <tr key={lead.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer group" onClick={() => {
                                 setSelectedLead(lead);
                                 setProposalCalculator(calculateProposal(lead));
@@ -4489,7 +4499,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                   </div>
                                 </td>
                               </tr>
-                            ))}
+                            )})
                           </tbody>
                         </table>
                       </div>
@@ -5172,7 +5182,12 @@ Podemos prosseguir com o agendamento da vistoria?`;
                           <div className="flex justify-between items-start">
                             <div className="flex flex-col min-w-0">
                               <div className="flex items-center gap-2">
-                                <h4 className="font-bold text-slate-900 truncate">{conv.lead?.cliente_nome || 'Cliente'}</h4>
+                                <h4 className="font-bold text-slate-900 truncate">
+                                  {(() => {
+                                    const profile = conv.customer_email ? users.find(u => u.email === conv.customer_email) : null;
+                                    return profile?.full_name || conv.lead?.cliente_nome || 'Cliente';
+                                  })()}
+                                </h4>
                                 {conv.is_unanswered && (
                                   <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" title="Aguardando resposta" />
                                 )}
