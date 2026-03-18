@@ -468,10 +468,10 @@ export default function AdminDashboard() {
       // Sort conversations by last message time descending
       groupedConversations.sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime());
 
-      let finalConversations = groupedConversations.filter(conv => !conv.lead?.is_frio);
+      let finalConversations = groupedConversations;
       
       if (userProfile && (userProfile.role === 'user' || userProfile.role === 'seller')) {
-        finalConversations = finalConversations.filter(conv => conv.lead?.user_id === userProfile.id);
+        finalConversations = groupedConversations.filter(conv => conv.lead?.user_id === userProfile.id);
       }
 
       setConversations(finalConversations);
@@ -1023,9 +1023,31 @@ export default function AdminDashboard() {
     
     // Check if lead is 'frio'
     if (selectedConversation.lead?.is_frio) {
-        alert("Erro: Não é possível enviar mensagens para leads 'frio'.");
-        setIsSendingMessage(false);
-        return;
+        console.log("Lead é frio, verificando existência em leads_veiculos...");
+        const { data: existingLead } = await supabase
+            .from('leads_veiculos')
+            .select('id')
+            .eq('id', selectedConversation.lead_ids[0])
+            .single();
+            
+        if (!existingLead) {
+            console.log("Lead frio não encontrado em leads_veiculos, criando registro...");
+            const { error: insertError } = await supabase
+                .from('leads_veiculos')
+                .insert({
+                    id: selectedConversation.lead_ids[0],
+                    email: selectedConversation.lead?.email,
+                    nome: selectedConversation.lead?.nome,
+                    status: 'novo',
+                    is_frio: true
+                });
+            if (insertError) {
+                console.error("Erro ao criar lead frio:", insertError);
+                alert("Erro ao preparar lead para mensagem.");
+                setIsSendingMessage(false);
+                return;
+            }
+        }
     }
 
     const leadExists = leads.some(l => l.id === selectedConversation.lead_ids[0]);
