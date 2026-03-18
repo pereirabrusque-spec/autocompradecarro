@@ -967,8 +967,8 @@ export default function AdminDashboard() {
           addLog('Perfil carregado: ' + profile.role, 'info');
           
           // Set initial tab based on role
-          if (profile.role === 'buyer_premium' || profile.role === 'buyer_master') {
-            setActiveTab('leads');
+          if (profile.role === 'buyer' || profile.role === 'buyer_premium' || profile.role === 'buyer_master') {
+            setActiveTab('crm_chat');
           }
         }
       }
@@ -1007,6 +1007,11 @@ export default function AdminDashboard() {
       return;
     }
 
+    if (messageTab !== 'leads') {
+      console.log("Ignorando envio de mensagem: aba não é 'leads'.");
+      return;
+    }
+
     if (!selectedConversation || !selectedConversation.lead_ids || selectedConversation.lead_ids.length === 0) {
       alert("Erro: Nenhum lead_id encontrado para esta conversa.");
       return;
@@ -1038,8 +1043,7 @@ export default function AdminDashboard() {
                     id: selectedConversation.lead_ids[0],
                     email: selectedConversation.lead?.email,
                     nome: selectedConversation.lead?.nome,
-                    status: 'novo',
-                    is_frio: true
+                    status: 'novo'
                 });
             if (insertError) {
                 console.error("Erro ao criar lead frio:", insertError);
