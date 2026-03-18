@@ -5,10 +5,11 @@ interface LeadCardProps {
   lead: any;
   suggestedValue?: number;
   onClick: () => void;
+  onReserve: (e: React.MouseEvent) => void;
   hideClientInfo?: boolean;
 }
 
-export const LeadCard: React.FC<LeadCardProps> = ({ lead, suggestedValue, onClick, hideClientInfo = false }) => {
+export const LeadCard: React.FC<LeadCardProps> = ({ lead, suggestedValue, onClick, onReserve, hideClientInfo = false }) => {
   const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 
   return (
@@ -17,7 +18,13 @@ export const LeadCard: React.FC<LeadCardProps> = ({ lead, suggestedValue, onClic
       className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer space-y-4 group relative overflow-hidden"
     >
       {/* Classification Tag */}
-      <div className="absolute top-0 right-0 z-10">
+      <div className="absolute top-0 right-0 z-10 flex items-center">
+        <button 
+          onClick={onReserve}
+          className="bg-amber-500 text-white px-3 py-1 rounded-bl-2xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition-colors"
+        >
+          Reserva
+        </button>
         <div className={`px-4 py-1 rounded-bl-2xl text-[10px] font-black uppercase tracking-widest ${
           (lead.classificacao || (lead.is_frio ? 'frio' : 'morna')) === 'quente' ? 'bg-red-500 text-white' :
           (lead.classificacao || (lead.is_frio ? 'frio' : 'morna')) === 'frio' ? 'bg-blue-500 text-white' :

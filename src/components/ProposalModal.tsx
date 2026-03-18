@@ -30,7 +30,7 @@ export const ProposalModal: React.FC<ProposalModalProps> = ({
   };
 
   const handleReserve = async () => {
-    if (!confirm('Deseja reservar este veículo? Ele ficará invisível no estoque por 2 horas.')) return;
+    if (!confirm('Deseja reservar este veículo? Ele ficará invisível no estoque por 24 horas.')) return;
     setIsReserving(true);
     const { error } = await supabase
       .from('leads_veiculos')
@@ -85,7 +85,9 @@ export const ProposalModal: React.FC<ProposalModalProps> = ({
             <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
               <h4 className="text-sm font-bold mb-4">Cópia Fiel do Formulário</h4>
               <div className="space-y-2 text-xs">
-                {Object.entries(editedLead).map(([key, value]) => (
+                {Object.entries(editedLead)
+                  .filter(([_, value]) => value !== null && value !== undefined && value !== '')
+                  .map(([key, value]) => (
                   <div key={key} className="flex justify-between border-b border-slate-200 pb-1">
                     <span className="font-bold text-slate-500">{key}:</span>
                     <span className="text-slate-900">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>

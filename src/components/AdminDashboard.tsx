@@ -415,6 +415,19 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleReserve = async (lead: any) => {
+    if (!confirm('Deseja reservar este veículo? Ele ficará invisível no estoque por 24 horas.')) return;
+    const { error } = await supabase
+      .from('leads_veiculos')
+      .update({ status: 'reservado', reserva_timestamp: new Date().toISOString() })
+      .eq('id', lead.id);
+    if (error) alert('Erro ao reservar: ' + error.message);
+    else {
+      alert('Veículo reservado com sucesso!');
+      fetchData();
+    }
+  };
+
   const fetchData = async () => {
     console.log("fetchData chamado");
     setIsLoading(true);
@@ -433,8 +446,22 @@ export default function AdminDashboard() {
         throw leadsError;
       }
 
-      addLog(`Leads buscados: ${leadsData?.length || 0}`, 'debug');
-      console.log('Leads fetched successfully:', leadsData);
+      // Check for expired reservations
+      const now = new Date();
+      const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      
+      const processedLeadsData = leadsData?.map(lead => {
+        if (lead.status === 'reservado' && lead.reserva_timestamp && new Date(lead.reserva_timestamp) < twentyFourHoursAgo) {
+          // Revert
+          supabase.from('leads_veiculos').update({ status: 'proposta_enviada', reserva_timestamp: null }).eq('id', lead.id)
+            .then(() => console.log(`[AdminDashboard] Reserva expirada revertida para lead: ${lead.id}`));
+          return { ...lead, status: 'proposta_enviada', reserva_timestamp: null };
+        }
+        return lead;
+      });
+
+      addLog(`Leads buscados: ${processedLeadsData?.length || 0}`, 'debug');
+      console.log('Leads fetched successfully:', processedLeadsData);
 
       // Fetch all profiles to find "frias" leads
       const { data: profilesData, error: profilesError } = await supabase.from('profiles').select('*');
@@ -446,7 +473,7 @@ export default function AdminDashboard() {
       const duplicatesToDelete: string[] = [];
       
       // Sort leads by date descending to keep the newest one
-      const sortedLeads = [...(leadsData || [])].sort((a, b) => 
+      const sortedLeads = [...(processedLeadsData || [])].sort((a, b) => 
         new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
       );
 
@@ -4763,6 +4790,10 @@ Podemos prosseguir com o agendamento da vistoria?`;
                               setSelectedBuyers([]);
                               setCurrentPhotoIndex(0);
                             }} 
+                            onReserve={(e) => {
+                              e.stopPropagation();
+                              handleReserve(lead);
+                            }}
                           />
                         ))}
                     </div>
