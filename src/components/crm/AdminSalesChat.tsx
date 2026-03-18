@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Send, Bot, MessageCircle, Trash2, Loader2 } from 'lucide-react';
+import { ChatActionModal } from './ChatActionModal';
 
 export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conversationId: string, role: string, onMessageRead: () => void }) => {
   const [messages, setMessages] = useState<any[]>([]);
@@ -13,6 +14,8 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
   const [userAvatar, setUserAvatar] = useState('');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [modalType, setModalType] = useState<'proposta' | 'formulario' | null>(null);
+  const [leadData, setLeadData] = useState<any>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
@@ -20,6 +23,15 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
       if (user) setCurrentUserId(user.id);
     });
   }, []);
+
+  const fetchLeadData = async () => {
+      const { data, error } = await supabase
+        .from('leads_veiculos')
+        .select('*')
+        .eq('user_id', conversationId)
+        .single();
+      if (data) setLeadData(data);
+  };
 
   const logWhatsAppUsage = () => {
     console.log('WhatsApp usage logged');
@@ -146,6 +158,7 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
     
     fetchMessages();
     fetchUserData();
+    fetchLeadData();
 
     // Canal único por conversa para evitar conflitos
     const channelName = `chat_${conversationId}_${currentUserId}`;
@@ -277,6 +290,20 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
           >
             Reservar
           </button>
+          <button 
+            type="button"
+            onClick={() => setModalType('proposta')}
+            className="px-3 py-1 bg-blue-500 text-white rounded-lg text-xs font-bold hover:bg-blue-600 transition-colors"
+          >
+            Ver Proposta
+          </button>
+          <button 
+            type="button"
+            onClick={() => setModalType('formulario')}
+            className="px-3 py-1 bg-green-500 text-white rounded-lg text-xs font-bold hover:bg-green-600 transition-colors"
+          >
+            Formulário
+          </button>
           <button type="button" className="px-3 py-1 bg-slate-900 text-white rounded-lg text-xs font-bold">
               Humano Assume
           </button>
@@ -308,9 +335,6 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
         </div>
       </div>
       
-      {/* Modal de regras removido pois agora é global no container */}
-
-
       <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 min-h-0" ref={chatContainerRef}>
         {(messages || []).map(m => (
           <div key={m.id} className={`flex ${m.sender_id === currentUserId ? 'justify-end' : 'justify-start'}`}>
@@ -333,6 +357,14 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
         />
         <button type="button" onClick={sendMessage} className="bg-slate-900 text-white p-2 rounded-lg"><Send className="w-4 h-4" /></button>
       </div>
+      {modalType && (
+        <ChatActionModal 
+          type={modalType} 
+          conversationId={conversationId} 
+          lead={leadData} 
+          onClose={() => setModalType(null)} 
+        />
+      )}
     </div>
   );
 };
