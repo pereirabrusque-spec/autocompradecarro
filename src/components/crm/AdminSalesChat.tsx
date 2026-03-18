@@ -312,11 +312,11 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
       
       <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 min-h-0" ref={chatContainerRef}>
         {(messages || []).map(m => (
-          <div key={m.id} className={`flex ${m.sender_id === currentUserId ? 'justify-end' : 'justify-start'}`}>
+          <div key={m.id || Math.random()} className={`flex ${m.sender_id === currentUserId ? 'justify-end' : 'justify-start'}`}>
             <div className={`p-3 rounded-xl text-sm max-w-[80%] ${m.sender_id === currentUserId ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-900'}`}>
               {m.content}
               <span className="text-[9px] mt-1 block opacity-50">
-                {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {m.created_at ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
               </span>
             </div>
           </div>
