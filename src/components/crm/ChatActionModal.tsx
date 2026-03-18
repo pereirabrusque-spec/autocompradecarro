@@ -183,7 +183,7 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
                               )}
                               <span className="font-semibold">
                                 {v.marca || v.modelo ? `${v.marca || ''} ${v.modelo || ''}` : (v.veiculo ? v.veiculo : 'Veículo sem identificação')} 
-                                {v.ano_modelo ? ` - ${v.ano_modelo}` : (v.ano ? ` - ${v.ano}` : '')}
+                                {v.ano_modelo ? ` - ${v.ano_modelo}` : (v.ano_fabricacao ? ` - ${v.ano_fabricacao}` : '')}
                               </span>
                             </div>
                             <button onClick={(e) => {
