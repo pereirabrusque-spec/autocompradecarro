@@ -4414,7 +4414,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                   </select>
                                 </td>
                                 <td className="px-2 py-1.5">
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-2.5">
                                     <div className="w-8 h-8 rounded-lg bg-slate-100 overflow-hidden flex-shrink-0 border border-slate-200">
                                       {lead.fotos && lead.fotos[0] ? (
                                         <img src={lead.fotos[0]} alt="Veículo" className="w-full h-full object-cover" />
@@ -4424,17 +4424,22 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                         </div>
                                       )}
                                     </div>
-                                    <div className="overflow-hidden">
-                                      <p className="text-[11px] font-black text-slate-900 truncate leading-tight">{lead.marca} {lead.modelo}</p>
-                                      <div className="flex items-center gap-1 mt-0.5">
+                                    
+                                    <div className="flex items-center gap-2 overflow-hidden">
+                                      <div className="flex-shrink-0">
                                         {profile?.avatar_url ? (
-                                          <img src={profile.avatar_url} alt={profile.full_name} className="w-3 h-3 rounded-full object-cover" referrerPolicy="no-referrer" />
+                                          <img src={profile.avatar_url} alt={profile.full_name} className="w-6 h-6 rounded-full object-cover shadow-sm border border-slate-200" referrerPolicy="no-referrer" />
                                         ) : (
-                                          <div className="w-3 h-3 rounded-full bg-slate-200 flex items-center justify-center">
-                                            <User className="w-2 h-2 text-slate-400" />
+                                          <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center shadow-sm border border-slate-200">
+                                            <User className="w-3 h-3 text-slate-400" />
                                           </div>
                                         )}
-                                        <p className="text-[9px] text-slate-500 truncate">{profile?.full_name || lead.cliente_nome}</p>
+                                      </div>
+                                      <div className="overflow-hidden">
+                                        {(lead.marca || lead.modelo) && (
+                                          <p className="text-[11px] font-black text-slate-900 truncate leading-tight">{lead.marca} {lead.modelo}</p>
+                                        )}
+                                        <p className="text-[10px] text-slate-500 truncate">{profile?.full_name || lead.cliente_nome}</p>
                                       </div>
                                     </div>
                                   </div>
