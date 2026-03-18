@@ -8,6 +8,7 @@ import {
   ChevronLeft, 
   ChevronRight, 
   Image as ImageIcon, 
+  Camera,
   Info, 
   ShieldCheck, 
   LogOut,
@@ -202,14 +203,27 @@ export default function BuyerView() {
       }
 
       // 2. Buscar leads
-      // Assumindo que compradores autorizados podem ver todos os leads, mas com campos restritos pelas permissões
+      // Filtro profissional: Somente veículos com formulário completo (fotos, situação, dados bancários, etc)
       const { data, error } = await supabase
         .from('leads_veiculos')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setAuthorizedLeads(data || []);
+
+      const filteredLeads = (data || []).filter(lead => {
+        // Critérios de formulário preenchido:
+        const hasPhotos = lead.fotos && Array.isArray(lead.fotos) && lead.fotos.length > 0;
+        const hasVideos = lead.videos && Array.isArray(lead.videos) && lead.videos.length > 0;
+        const hasClassification = !!lead.classificacao && lead.classificacao !== 'Não informado';
+        const hasBankInfo = !!lead.banco_financiamento && lead.banco_financiamento !== 'Não informado';
+        const hasBasicData = lead.valor_fipe > 0 && lead.quilometragem > 0;
+        
+        // O veículo só aparece se tiver o "mínimo profissional" preenchido (Fotos + Vídeos + Situação + Dados Bancários)
+        return hasPhotos && hasVideos && hasClassification && hasBankInfo && hasBasicData;
+      });
+
+      setAuthorizedLeads(filteredLeads);
     } catch (error) {
       console.error('Error fetching authorized leads:', error);
     } finally {
@@ -357,25 +371,51 @@ export default function BuyerView() {
             className="bg-white rounded-[40px] w-full max-w-6xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col md:flex-row"
             onClick={e => e.stopPropagation()}
           >
-            {/* Fotos (Esquerda) */}
+            {/* Fotos e Vídeos (Esquerda) */}
             <div className="w-full md:w-1/2 bg-slate-900 relative flex items-center justify-center">
-              {permissions.show_photos && selectedLead.fotos && selectedLead.fotos.length > 0 ? (
+              {permissions.show_photos && ((selectedLead.fotos && selectedLead.fotos.length > 0) || (selectedLead.videos && selectedLead.videos.length > 0)) ? (
                 <>
-                  <img 
-                    src={selectedLead.fotos[currentPhotoIndex]} 
-                    alt="Veículo" 
-                    className="w-full h-full object-contain"
-                  />
-                  {selectedLead.fotos.length > 1 && (
+                  {(() => {
+                    const mediaItems = [...(selectedLead.fotos || []), ...(selectedLead.videos || [])];
+                    const item = mediaItems[currentPhotoIndex];
+                    const isVideo = typeof item === 'string' && (item.match(/\.(mp4|webm|ogg)$/i) || item.includes('video'));
+                    
+                    if (isVideo) {
+                      return (
+                        <video 
+                          src={item} 
+                          className="w-full h-full object-contain" 
+                          controls 
+                          muted={false}
+                        />
+                      );
+                    }
+                    return (
+                      <img 
+                        src={item} 
+                        alt="Veículo" 
+                        className="w-full h-full object-contain"
+                        referrerPolicy="no-referrer"
+                      />
+                    );
+                  })()}
+                  
+                  {((selectedLead.fotos?.length || 0) + (selectedLead.videos?.length || 0)) > 1 && (
                     <>
                       <button 
-                        onClick={() => setCurrentPhotoIndex(prev => (prev > 0 ? prev - 1 : selectedLead.fotos.length - 1))}
+                        onClick={() => {
+                          const total = (selectedLead.fotos?.length || 0) + (selectedLead.videos?.length || 0);
+                          setCurrentPhotoIndex(prev => (prev > 0 ? prev - 1 : total - 1));
+                        }}
                         className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white rounded-full flex items-center justify-center transition-all"
                       >
                         <ChevronLeft className="w-6 h-6" />
                       </button>
                       <button 
-                        onClick={() => setCurrentPhotoIndex(prev => (prev < selectedLead.fotos.length - 1 ? prev + 1 : 0))}
+                        onClick={() => {
+                          const total = (selectedLead.fotos?.length || 0) + (selectedLead.videos?.length || 0);
+                          setCurrentPhotoIndex(prev => (prev < total - 1 ? prev + 1 : 0));
+                        }}
                         className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white rounded-full flex items-center justify-center transition-all"
                       >
                         <ChevronRight className="w-6 h-6" />
@@ -383,7 +423,7 @@ export default function BuyerView() {
                     </>
                   )}
                   <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2">
-                    {selectedLead.fotos.map((_: any, i: number) => (
+                    {[...(selectedLead.fotos || []), ...(selectedLead.videos || [])].map((_: any, i: number) => (
                       <div 
                         key={i} 
                         className={`w-2 h-2 rounded-full transition-all ${i === currentPhotoIndex ? 'bg-accent w-6' : 'bg-white/30'}`}
@@ -393,8 +433,8 @@ export default function BuyerView() {
                 </>
               ) : (
                 <div className="text-slate-700 flex flex-col items-center">
-                  <ImageIcon className="w-20 h-20 mb-4 opacity-20" />
-                  <p>{permissions.show_photos ? 'Sem fotos disponíveis' : 'Visualização de fotos restrita'}</p>
+                  <Camera className="w-20 h-20 mb-4 opacity-20" />
+                  <p>{permissions.show_photos ? 'Sem mídia disponível' : 'Visualização restrita'}</p>
                 </div>
               )}
             </div>
