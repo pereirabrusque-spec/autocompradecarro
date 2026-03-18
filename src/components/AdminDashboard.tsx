@@ -1013,6 +1013,14 @@ export default function AdminDashboard() {
     setAdminMessage('');
     setIsSendingMessage(true);
 
+    // Validate lead existence
+    const leadExists = leads.some(l => l.id === selectedConversation.lead_ids[0]);
+    if (!leadExists) {
+        alert("Erro: Lead não encontrado no sistema.");
+        setIsSendingMessage(false);
+        return;
+    }
+
     const newMessage = {
       id: `temp-${Date.now()}`,
       lead_id: selectedConversation.lead_ids[0],
@@ -5117,8 +5125,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
             {activeTab === 'messages' && (
               <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm flex h-[700px]">
                 {/* Lista de Conversas (Esquerda) */}
-                <div className="w-1/3 border-r border-slate-100 flex flex-col">
-                  <div className="p-6 border-b border-slate-100">
+                <div className="w-1/3 border-r border-slate-100 flex flex-col h-full overflow-hidden">
+                  <div className="p-6 border-b border-slate-100 shrink-0">
                     <div className="flex gap-2 mb-4">
                       <button 
                         onClick={() => setMessageTab('leads')}
