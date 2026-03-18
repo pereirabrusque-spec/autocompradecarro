@@ -969,6 +969,8 @@ export default function AdminDashboard() {
           // Set initial tab based on role
           if (profile.role === 'buyer' || profile.role === 'buyer_premium' || profile.role === 'buyer_master') {
             setActiveTab('crm_chat');
+          } else if (profile.role === 'admin' || profile.role === 'user' || profile.role === 'seller') {
+            setActiveTab('leads');
           }
         }
       }
