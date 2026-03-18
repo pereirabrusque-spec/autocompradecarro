@@ -143,7 +143,8 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
               .from('leads_veiculos')
               .update({ 
                 updated_at: new Date().toISOString(),
-                cliente_nome: user.user_metadata?.full_name || profile?.full_name || 'Cliente'
+                cliente_nome: user.user_metadata?.full_name || profile?.full_name || 'Cliente',
+                user_id: user.id
               })
               .eq('id', currentLeadId);
           } else {
@@ -154,6 +155,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
               .insert([{ 
                 cliente_nome: user.user_metadata?.full_name || profile?.full_name || 'Cliente', 
                 email: user.email,
+                user_id: user.id,
                 telefone: profile?.phone || user.user_metadata?.phone || '00000000000',
                 status: 'frio',
                 updated_at: new Date().toISOString()

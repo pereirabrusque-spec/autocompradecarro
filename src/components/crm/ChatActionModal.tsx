@@ -36,10 +36,28 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
       });
 
       if (type === 'proposta') {
-        const { data, error } = await supabase
+        // 1. Get email for conversationId
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('id', conversationId)
+          .single();
+        
+        // 2. Try to fetch by user_id first
+        let { data, error } = await supabase
           .from('leads_veiculos')
           .select('*')
           .eq('user_id', conversationId);
+            
+        // 3. Fallback to email if no data found
+        if ((!data || data.length === 0) && profile?.email) {
+            const { data: dataByEmail, error: errorByEmail } = await supabase
+                .from('leads_veiculos')
+                .select('*')
+                .eq('email', profile.email);
+            data = dataByEmail;
+            error = errorByEmail;
+        }
         
         if (error) {
           console.error('Erro ao buscar veículos:', error);
