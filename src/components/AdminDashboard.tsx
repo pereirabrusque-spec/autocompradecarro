@@ -7000,6 +7000,10 @@ Podemos prosseguir com o agendamento da vistoria?`;
           onClose={() => setShowProposalModal(false)}
           setAvarias={setAvarias}
           setShowAvariasModal={setShowAvariasModal}
+          fipeRules={fipeRules}
+          jurosAtraso={jurosAtraso}
+          banks={banks}
+          cooperativeDiscount={cooperativeDiscount}
         />
       )}
 
