@@ -19,27 +19,28 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+      
+      // Fetch config data for all types
+      const [fipeRules, jurosAtraso, banks, configData] = await Promise.all([
+        supabase.from('fipe_rules').select('*'),
+        supabase.from('settings').select('value').eq('key', 'juros_atraso').single(),
+        supabase.from('banks').select('*'),
+        supabase.from('settings').select('value').eq('key', 'cooperative_discount').single()
+      ]);
+      
+      setConfig({
+        fipeRules: fipeRules.data || [],
+        jurosAtraso: Number(jurosAtraso.data?.value) || 0,
+        banks: banks.data || [],
+        cooperativeDiscount: Number(configData.data?.value) || 0
+      });
+
       if (type === 'proposta') {
         const { data, error } = await supabase
           .from('leads_veiculos')
           .select('*')
           .eq('user_id', conversationId);
         if (data) setVehicles(data);
-      } else if (type === 'formulario') {
-        // Fetch config data
-        const [fipeRules, jurosAtraso, banks, configData] = await Promise.all([
-          supabase.from('fipe_rules').select('*'),
-          supabase.from('settings').select('value').eq('key', 'juros_atraso').single(),
-          supabase.from('banks').select('*'),
-          supabase.from('settings').select('value').eq('key', 'cooperative_discount').single()
-        ]);
-        
-        setConfig({
-          fipeRules: fipeRules.data || [],
-          jurosAtraso: Number(jurosAtraso.data?.value) || 0,
-          banks: banks.data || [],
-          cooperativeDiscount: Number(configData.data?.value) || 0
-        });
       }
       setLoading(false);
     };
@@ -54,6 +55,48 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
       setVehicles(vehicles.filter(v => v.id !== vehicleId));
       alert('Veículo excluído com sucesso!');
     }
+  };
+
+  const handleSave = async (updatedLead: any) => {
+    const { error } = await supabase
+      .from('leads_veiculos')
+      .update(updatedLead)
+      .eq('id', updatedLead.id);
+    if (error) alert('Erro ao salvar: ' + error.message);
+    else {
+      alert('Alterações salvas com sucesso!');
+      if (type === 'proposta') {
+        setVehicles(vehicles.map(v => v.id === updatedLead.id ? updatedLead : v));
+        setSelectedVehicle(updatedLead);
+      }
+    }
+  };
+
+  const handleDelete = async (leadId: string) => {
+    if (!confirm('Tem certeza que deseja excluir?')) return;
+    const { error } = await supabase.from('leads_veiculos').delete().eq('id', leadId);
+    if (error) alert('Erro ao excluir: ' + error.message);
+    else {
+      alert('Excluído com sucesso!');
+      onClose();
+    }
+  };
+
+  const handleRefresh = async () => {
+    // Re-fetch data
+    const [fipeRules, jurosAtraso, banks, configData] = await Promise.all([
+      supabase.from('fipe_rules').select('*'),
+      supabase.from('settings').select('value').eq('key', 'juros_atraso').single(),
+      supabase.from('banks').select('*'),
+      supabase.from('settings').select('value').eq('key', 'cooperative_discount').single()
+    ]);
+    
+    setConfig({
+      fipeRules: fipeRules.data || [],
+      jurosAtraso: Number(jurosAtraso.data?.value) || 0,
+      banks: banks.data || [],
+      cooperativeDiscount: Number(configData.data?.value) || 0
+    });
   };
 
   return (
@@ -87,9 +130,9 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
                         <LeadDetailsCard 
                             lead={selectedVehicle} 
                             onClose={onClose} 
-                            onSave={() => {}} 
-                            onDelete={() => {}} 
-                            onRefresh={() => {}} 
+                            onSave={handleSave} 
+                            onDelete={handleDelete} 
+                            onRefresh={handleRefresh} 
                             fipeRules={config.fipeRules} 
                             jurosAtraso={config.jurosAtraso} 
                             banks={config.banks} 
@@ -103,9 +146,9 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
                   <LeadDetailsCard 
                     lead={lead} 
                     onClose={onClose} 
-                    onSave={() => {}} 
-                    onDelete={() => {}} 
-                    onRefresh={() => {}} 
+                    onSave={handleSave} 
+                    onDelete={handleDelete} 
+                    onRefresh={handleRefresh} 
                     fipeRules={config.fipeRules} 
                     jurosAtraso={config.jurosAtraso} 
                     banks={config.banks} 
