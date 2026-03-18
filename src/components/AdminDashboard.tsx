@@ -5144,13 +5144,17 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       >
                         <div className="relative">
                           <div className="w-12 h-12 rounded-full bg-slate-100 overflow-hidden flex-shrink-0">
-                            {conv.lead?.fotos && conv.lead.fotos[0] ? (
-                              <img src={conv.lead.fotos[0]} alt="Veículo" className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-slate-300">
-                                <ImageIcon className="w-6 h-6" />
-                              </div>
-                            )}
+                            {(() => {
+                              const profile = users.find(u => u.email === conv.lead?.email);
+                              const avatarUrl = profile?.avatar_url || (conv.lead?.fotos && conv.lead.fotos[0]);
+                              return avatarUrl ? (
+                                <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                  <ImageIcon className="w-6 h-6" />
+                                </div>
+                              );
+                            })()}
                           </div>
                           {conv.is_online && (
                             <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full" />
