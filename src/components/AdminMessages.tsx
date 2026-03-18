@@ -432,7 +432,10 @@ export default function AdminMessages({
                 <button 
                   type="button"
                   onClick={() => {
-                    const conversationLeads = leads.filter(l => selectedConversation.lead_ids.includes(l.id));
+                    const conversationLeads = leads.filter(l => 
+                      selectedConversation.lead_ids.includes(l.id) && 
+                      l.status !== 'fechado'
+                    );
                     if (conversationLeads.length > 1) {
                       setShowVehicleSelectionModal(true);
                     } else if (conversationLeads.length === 1) {

@@ -6957,6 +6957,28 @@ Podemos prosseguir com o agendamento da vistoria?`;
         />
       )}
 
+      {showProposalModal && selectedLead && (
+        <ProposalModal
+          selectedLead={selectedLead}
+          proposalCalculator={proposalCalculator}
+          onClose={() => setShowProposalModal(false)}
+          setAvarias={setAvarias}
+          setShowAvariasModal={setShowAvariasModal}
+        />
+      )}
+
+      {showVehicleSelectionModal && (
+        <VehicleSelectionModal
+          onClose={() => setShowVehicleSelectionModal(false)}
+          leads={leads.filter(l => l.status !== 'fechado')}
+          onSelect={(lead) => {
+            setSelectedLead(lead);
+            setShowVehicleSelectionModal(false);
+            setShowProposalModal(true);
+          }}
+        />
+      )}
+
       <AnimatePresence>
         {showAddUserModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
