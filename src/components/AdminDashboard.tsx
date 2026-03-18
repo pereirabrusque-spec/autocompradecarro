@@ -4499,7 +4499,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                   </div>
                                 </td>
                               </tr>
-                            )})
+                            })
                           </tbody>
                         </table>
                       </div>
