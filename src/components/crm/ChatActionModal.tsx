@@ -171,7 +171,7 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
                             )}
                             <span className="font-semibold">
                               {v.marca || v.modelo ? `${v.marca || ''} ${v.modelo || ''}` : 'Veículo sem identificação'} 
-                              {v.ano_modelo ? ` - ${v.ano_modelo}` : ''}
+                              {v.ano_modelo ? ` - ${v.ano_modelo}` : (v.ano ? ` - ${v.ano}` : '')}
                             </span>
                           </div>
                           <button onClick={() => handleDeleteVehicle(v.id)} className="text-red-500 hover:text-red-700 p-2">
