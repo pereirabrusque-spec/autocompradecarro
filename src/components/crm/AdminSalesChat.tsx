@@ -15,7 +15,6 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
   const [userAvatar, setUserAvatar] = useState('');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [modalType, setModalType] = useState<'proposta' | 'formulario' | null>(null);
   const [leadData, setLeadData] = useState<any>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   
@@ -296,13 +295,6 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
           >
             {isHumanAttending ? 'Atendimento Humano: ON' : 'Atendimento Humano: OFF'}
           </button>
-          <button 
-            type="button"
-            onClick={() => setModalType('proposta')}
-            className="px-3 py-1 bg-blue-500 text-white rounded-lg text-xs font-bold hover:bg-blue-600 transition-colors"
-          >
-            Ver Proposta
-          </button>
 
           {userPhone && (
             <a 
@@ -340,14 +332,6 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
         />
         <button type="button" onClick={sendMessage} className="bg-slate-900 text-white p-2 rounded-lg"><Send className="w-4 h-4" /></button>
       </div>
-      {modalType && (
-        <ChatActionModal 
-          type={modalType} 
-          conversationId={conversationId} 
-          lead={leadData} 
-          onClose={() => setModalType(null)} 
-        />
-      )}
     </div>
   );
 };
