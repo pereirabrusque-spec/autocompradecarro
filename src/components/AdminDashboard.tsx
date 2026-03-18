@@ -147,6 +147,21 @@ export default function AdminDashboard() {
   const [showBuyerPermissionsModal, setShowBuyerPermissionsModal] = useState(false);
   const [selectedBuyer, setSelectedBuyer] = useState<any>(null);
   const [filterBrand, setFilterBrand] = useState('');
+  useEffect(() => {
+    if (!currentUser) return;
+    
+    const updateLastSeen = async () => {
+      await supabase
+        .from('profiles')
+        .update({ last_login: new Date().toISOString() })
+        .eq('id', currentUser.id);
+    };
+
+    updateLastSeen();
+    const interval = setInterval(updateLastSeen, 60000); // Update every minute
+    return () => clearInterval(interval);
+  }, [currentUser]);
+
   const [filterYear, setFilterYear] = useState('');
   const [filterMinPrice, setFilterMinPrice] = useState('');
   const [filterMaxPrice, setFilterMaxPrice] = useState('');
@@ -806,7 +821,10 @@ export default function AdminDashboard() {
 
           console.log("Current selectedConversationRef:", selectedConversationRef.current);
           // Atualiza mensagens do chat se estiver aberto para este lead
-          if (selectedConversationRef.current?.lead_id === payload.new.lead_id) {
+          const isCurrentConversation = selectedConversationRef.current?.lead_ids?.includes(payload.new.lead_id) || 
+                                       selectedConversationRef.current?.lead_id === payload.new.lead_id;
+                                       
+          if (isCurrentConversation) {
             console.log("Updating chat messages state");
             setChatMessages(prev => [...prev, payload.new]);
             // Marcar como lida automaticamente se o chat estiver aberto
@@ -830,7 +848,10 @@ export default function AdminDashboard() {
           fetchData();
         } else {
           // Se for uma mensagem do admin/bot, apenas atualiza o chat se estiver aberto
-          if (selectedConversationRef.current?.lead_id === payload.new.lead_id) {
+          const isCurrentConversation = selectedConversationRef.current?.lead_ids?.includes(payload.new.lead_id) || 
+                                       selectedConversationRef.current?.lead_id === payload.new.lead_id;
+                                       
+          if (isCurrentConversation) {
             setChatMessages(prev => {
               if (prev.find(m => m.id === payload.new.id)) return prev;
               return [...prev, payload.new];
@@ -5175,460 +5196,38 @@ Podemos prosseguir com o agendamento da vistoria?`;
             )}
 
             {activeTab === 'messages' && (
-              <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm flex h-[700px]">
-                {/* Lista de Conversas (Esquerda) */}
-                <div className="w-1/3 border-r border-slate-100 flex flex-col h-full overflow-hidden">
-                  <div className="p-6 border-b border-slate-100 shrink-0">
-                    <div className="flex gap-2 mb-4">
-                      <button 
-                        onClick={() => setMessageTab('leads')}
-                        className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${messageTab === 'leads' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}
-                      >
-                        Leads
-                      </button>
-                      <button 
-                        onClick={() => setMessageTab('internal')}
-                        className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${messageTab === 'internal' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}
-                      >
-                        Equipe
-                      </button>
-                    </div>
-                    
-                    {/* Novos controles de IA */}
-                    <div className="flex flex-col gap-2 mb-4 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-600">IA GLOBAL (24h)</span>
-                        <button 
-                          onClick={toggleGlobalAi}
-                          disabled={isUpdatingAi}
-                          className={`w-10 h-5 rounded-full transition-colors ${isGlobalAiEnabled ? 'bg-blue-600' : 'bg-slate-300'}`}
-                        >
-                          <div className={`w-4 h-4 bg-white rounded-full transition-transform ${isGlobalAiEnabled ? 'translate-x-5' : 'translate-x-1'}`} />
-                        </button>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-600">PROPOSTA AUTO/MAN</span>
-                        <button 
-                          onClick={async () => {
-                            const newValue = !autoProposalEnabled;
-                            setAutoProposalEnabled(newValue);
-                            try {
-                              await supabase.from('settings').upsert({ key: 'AUTO_PROPOSAL_ENABLED', value: newValue.toString() }, { onConflict: 'key' });
-                            } catch (e) {
-                              console.error('Error toggling auto proposal:', e);
-                            }
-                          }}
-                          disabled={!isGlobalAiEnabled}
-                          className={`w-10 h-5 rounded-full transition-colors ${autoProposalEnabled && isGlobalAiEnabled ? 'bg-blue-600' : 'bg-slate-300'} ${!isGlobalAiEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        >
-                          <div className={`w-4 h-4 bg-white rounded-full transition-transform ${autoProposalEnabled && isGlobalAiEnabled ? 'translate-x-5' : 'translate-x-1'}`} title={autoProposalEnabled ? 'Modo Automático' : 'Modo Manual'} />
-                        </button>
-                      </div>
-                    </div>
-                    <h3 className="text-xl font-bold mb-4">Conversas</h3>
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input 
-                        type="text" 
-                        placeholder="Buscar..."
-                        className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent/20"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex-1 overflow-y-auto">
-                    {messageTab === 'leads' ? (
-                      conversations.map((conv) => (
-                      <div 
-                        key={conv.conversation_key}
-                        onClick={() => {
-                          setSelectedConversation(conv);
-                          fetchChatMessages(conv.lead_ids);
-                          const lead = leads.find(l => l.id === conv.lead_ids[0]);
-                          if (lead) {
-                            setSelectedLead(lead);
-                            setProposalCalculator(calculateProposal(lead));
-                          }
-                        }}
-                        className={`py-1 px-2 flex items-center gap-2 cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 ${selectedConversation?.conversation_key === conv.conversation_key ? 'bg-slate-50' : ''}`}
-                      >
-                        <div className="relative">
-                          <div className="w-8 h-8 rounded-full bg-slate-100 overflow-hidden flex-shrink-0">
-                            {(() => {
-                              const profile = conv.customer_email ? users.find(u => u.email === conv.customer_email) : null;
-                              const avatarUrl = profile?.avatar_url || (conv.lead?.fotos && conv.lead.fotos[0]);
-                              return avatarUrl ? (
-                                <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-slate-300">
-                                  <ImageIcon className="w-6 h-6" />
-                                </div>
-                              );
-                            })()}
-                          </div>
-                          {conv.is_online && (
-                            <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex justify-between items-start">
-                            <div className="flex flex-col min-w-0">
-                              <div className="flex items-center gap-2">
-                                <h4 className="font-bold text-slate-900 truncate">
-                                  {(() => {
-                                    const profile = conv.customer_email ? users.find(u => u.email === conv.customer_email) : null;
-                                    return profile?.full_name || conv.lead?.cliente_nome || 'Cliente';
-                                  })()}
-                                </h4>
-                                {conv.is_unanswered && (
-                                  <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" title="Aguardando resposta" />
-                                )}
-                              </div>
-                              <p className="text-[10px] text-slate-500 truncate">{conv.customer_email || 'Sem email'}</p>
-                              <span className="text-[10px] font-mono font-bold text-slate-400">
-                                {conv.lead_ids.length > 1 ? `${conv.lead_ids.length} veículos` : `#${conv.lead?.vehicle_code || '----'}`}
-                              </span>
-                            </div>
-                            <div className="flex flex-col items-end gap-1">
-                              <span className="text-[10px] text-slate-400 whitespace-nowrap">{new Date(conv.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                              {conv.unread > 0 && (
-                                <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                                  {conv.unread}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <p className="text-xs text-slate-500 truncate">{conv.last_message}</p>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                      internalConversations.map((conv) => (
-                        <div 
-                          key={conv.id}
-                          onClick={() => {
-                            setSelectedInternalChat(conv.id);
-                            fetchInternalMessages(conv.id);
-                          }}
-                          className={`py-1 px-2 flex items-center gap-2 cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 ${selectedInternalChat === conv.id ? 'bg-slate-50' : ''}`}
-                        >
-                          <div className="relative">
-                            <div className="w-8 h-8 rounded-full bg-slate-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
-                              {conv.profile?.avatar_url ? (
-                                <img src={conv.profile.avatar_url} alt={conv.profile.full_name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                              ) : (
-                                <User className="w-6 h-6 text-slate-400" />
-                              )}
-                            </div>
-                            {conv.is_online && (
-                              <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex justify-between items-start">
-                              <h4 className="font-bold text-slate-900 truncate">{conv.profile?.full_name || 'Usuário'}</h4>
-                              <span className="text-[10px] text-slate-400 whitespace-nowrap">{new Date(conv.last_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                            </div>
-                            <p className="text-xs text-slate-500 truncate">{conv.last_message}</p>
-                            {conv.unread > 0 && (
-                              <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                                {conv.unread}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                {/* Janela de Chat (Direita) */}
-                <div className="flex-1 flex flex-col bg-slate-50/50">
-                  {messageTab === 'leads' ? (
-                    selectedConversation ? (
-                    <>
-                      {/* Cabeçalho do Chat */}
-                      <div className="p-4 bg-white border-b border-slate-100 flex justify-between items-center">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden">
-                            {(() => {
-                              const profile = selectedConversation.customer_email ? users.find(u => u.email === selectedConversation.customer_email) : null;
-                              const avatarUrl = profile?.avatar_url || (selectedConversation.lead?.fotos && selectedConversation.lead.fotos[0]);
-                              return avatarUrl ? (
-                                <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-slate-300">
-                                  <ImageIcon className="w-5 h-5" />
-                                </div>
-                              );
-                            })()}
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-slate-900">{selectedConversation.lead?.cliente_nome}</h4>
-                            <p className="text-[10px] text-slate-400 font-mono">#{selectedConversation.lead?.vehicle_code}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {/* Botões de Ação */}
-                          <button 
-                            onClick={() => {
-                              if (selectedConversation.lead?.email) {
-                                window.location.href = `mailto:${selectedConversation.lead.email}`;
-                              } else {
-                                alert('E-mail do cliente não encontrado para este lead.');
-                              }
-                            }}
-                            className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
-                            title="Enviar Email"
-                          >
-                            <Mail className="w-4 h-4" />
-                          </button>
-                          {selectedConversation.lead?.telefone && (
-                            <a 
-                              href={`https://wa.me/${selectedConversation.lead.telefone.replace(/\D/g, '')}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-2 bg-emerald-100 text-emerald-600 rounded-lg hover:bg-emerald-200 transition-colors"
-                              title="WhatsApp"
-                            >
-                              <MessageCircle className="w-4 h-4" />
-                            </a>
-                          )}
-                          
-                          {selectedConversation.lead && (
-                            <button 
-                              onClick={async () => {
-                                const newValue = !selectedConversation.lead.detalhes_proposta?.ai_disabled;
-                                const newDetalhes = { ...(selectedConversation.lead.detalhes_proposta || {}), ai_disabled: newValue };
-                                try {
-                                  const { error } = await supabase
-                                    .from('leads_veiculos')
-                                    .update({ detalhes_proposta: newDetalhes })
-                                    .eq('id', selectedConversation.lead.id);
-                                  
-                                  if (error) throw error;
-                                  
-                                  // Update local state
-                                  setConversations(prev => prev.map(c => 
-                                    c.lead_id === selectedConversation.lead_id 
-                                      ? { ...c, lead: { ...c.lead, detalhes_proposta: newDetalhes } } 
-                                      : c
-                                  ));
-                                  setSelectedConversation({
-                                    ...selectedConversation,
-                                    lead: { ...selectedConversation.lead, detalhes_proposta: newDetalhes }
-                                  });
-                                } catch (err) {
-                                  console.error(err);
-                                  alert('Erro ao alterar modo de atendimento.');
-                                }
-                              }}
-                              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-bold transition-all ${selectedConversation.lead.detalhes_proposta?.ai_disabled ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200'}`}
-                              title={selectedConversation.lead.detalhes_proposta?.ai_disabled ? 'Desativar Atendimento Humano (Ativar IA)' : 'Ativar Atendimento Humano (Pausar IA)'}
-                            >
-                              <UserCheck className={`w-4 h-4 ${selectedConversation.lead.detalhes_proposta?.ai_disabled ? 'text-orange-600' : 'text-slate-500'}`} />
-                              {selectedConversation.lead.detalhes_proposta?.ai_disabled ? 'Atendimento Humano: ON' : 'Atendimento Humano'}
-                            </button>
-                          )}
-
-                          <div className="h-6 w-px bg-slate-200 mx-2" />
-                          <button 
-                            type="button"
-                            onClick={handleLearnFromChat}
-                            className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl font-bold text-xs hover:bg-slate-200 transition-all flex items-center gap-2"
-                            title="Adicionar histórico desta conversa à memória da IA"
-                          >
-                            <ShieldCheck className="w-4 h-4" />
-                            IA: Aprender
-                          </button>
-                          <button 
-                            type="button"
-                            onClick={() => {
-                              setSelectedLead(selectedConversation.lead);
-                              setShowProposalModal(true);
-                            }}
-                            className="px-4 py-2 bg-accent/10 text-accent rounded-xl font-bold text-xs hover:bg-accent/20 transition-all flex items-center gap-2"
-                          >
-                            <DollarSign className="w-4 h-4" />
-                            Ver Proposta
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Mensagens */}
-                      <div 
-                        ref={leadsScrollRef}
-                        className="flex-1 overflow-y-auto p-6 space-y-4"
-                      >
-                        {(chatMessages || []).map((msg) => (
-                          <div 
-                            key={msg.id}
-                            className={`flex ${msg.remetente === 'admin' || msg.remetente === 'bot' ? 'justify-end' : 'justify-start'}`}
-                          >
-                            <div className={`max-w-[70%] p-4 rounded-2xl text-sm shadow-sm ${
-                              msg.remetente === 'admin' 
-                                ? 'bg-slate-900 text-white rounded-tr-none' 
-                                : msg.remetente === 'bot'
-                                ? 'bg-indigo-600 text-white rounded-tr-none'
-                                : 'bg-blue-50 text-blue-900 rounded-tl-none border border-blue-100'
-                            }`}>
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-[10px] font-bold uppercase opacity-70">
-                                  {msg.remetente === 'admin' ? 'Humano' : msg.remetente === 'bot' ? 'IA' : 'Cliente'}
-                                </span>
-                              </div>
-                              <p className="whitespace-pre-wrap">{msg.conteudo}</p>
-                              <span className={`text-[9px] mt-1 block opacity-70`}>
-                                {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Input de Mensagem */}
-                      <div className="p-4 bg-white border-t border-slate-100">
-                        <div className="mb-2">
-                          <input 
-                            type="text"
-                            placeholder="Saudação"
-                            className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-accent/20 mb-1"
-                          />
-                          <textarea 
-                            value={adminMessage}
-                            onChange={(e) => setAdminMessage(e.target.value)}
-                            placeholder="Digite sua mensagem..."
-                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent/20 resize-none h-20"
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault();
-                                handleSendMessage();
-                              }
-                            }}
-                          />
-                        </div>
-                        <div className="flex gap-2">
-                          <button 
-                            type="button"
-                            onClick={handleSendMessage}
-                            disabled={isSendingMessage || !adminMessage.trim()}
-                            className="flex-1 p-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all disabled:opacity-50"
-                          >
-                            Enviar Mensagem
-                          </button>
-                        </div>
-                        <p className="text-[10px] text-slate-400 mt-2 text-center">
-                          Você está assumindo a conversa como <strong>Humano</strong>. A IA aprenderá com suas respostas.
-                        </p>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center text-slate-300 p-12 text-center">
-                      <MessageCircle className="w-16 h-16 mb-4 opacity-20" />
-                      <h3 className="text-xl font-bold text-slate-400">Selecione uma conversa</h3>
-                      <p className="text-sm max-w-xs">Escolha um cliente na lista ao lado para visualizar o histórico e assumir o atendimento.</p>
-                    </div>
-                  )
-                ) : (
-                    selectedInternalChat ? (
-                      <>
-                        {/* Cabeçalho do Chat Interno */}
-                        <div className="p-4 bg-white border-b border-slate-100 flex justify-between items-center">
-                          <div className="flex items-center gap-3">
-                            <div className="relative">
-                              <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden flex items-center justify-center">
-                                {internalConversations.find(c => c.id === selectedInternalChat)?.profile?.avatar_url ? (
-                                  <img src={internalConversations.find(c => c.id === selectedInternalChat)?.profile?.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                                ) : (
-                                  <User className="w-5 h-5 text-slate-400" />
-                                )}
-                              </div>
-                              {internalConversations.find(c => c.id === selectedInternalChat)?.is_online && (
-                                <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full" />
-                              )}
-                            </div>
-                            <div>
-                              <h4 className="font-bold text-slate-900">{internalConversations.find(c => c.id === selectedInternalChat)?.profile?.full_name || 'Usuário'}</h4>
-                              <p className="text-[10px] text-slate-400">{internalConversations.find(c => c.id === selectedInternalChat)?.profile?.role === 'admin' ? 'Administrador' : 'Vendedor'}</p>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Mensagens Internas */}
-                        <div 
-                          ref={scrollRef}
-                          className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50/50"
-                        >
-                          {internalChatMessages.map((msg, idx) => (
-                            <div 
-                              key={idx}
-                              className={`flex ${msg.sender_id === currentUser?.id ? 'justify-end' : 'justify-start'}`}
-                            >
-                              <div className={`max-w-[70%] p-3 rounded-2xl text-sm ${
-                                msg.sender_id === currentUser?.id 
-                                  ? 'bg-slate-900 text-white rounded-tr-none' 
-                                  : 'bg-white text-slate-700 border border-slate-100 rounded-tl-none shadow-sm'
-                              }`}>
-                                <p>{msg.content}</p>
-                                <span className={`text-[10px] mt-1 block opacity-70`}>
-                                  {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-
-                        {/* Input de Mensagem Interna */}
-                        <div className="p-4 bg-white border-t border-slate-100">
-                          <div className="flex gap-2">
-                            <input 
-                              type="text" 
-                              value={adminMessage}
-                              onChange={(e) => setAdminMessage(e.target.value)}
-                              onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                              placeholder="Digite sua mensagem interna..."
-                              className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent/20"
-                            />
-                            <button 
-                              type="button"
-                              onClick={handleSendMessage}
-                              disabled={isSendingMessage || !adminMessage.trim()}
-                              className="p-3 bg-slate-900 text-white rounded-xl hover:bg-accent transition-all disabled:opacity-50"
-                            >
-                              <Send className="w-5 h-5" />
-                            </button>
-                          </div>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="flex-1 flex flex-col items-center justify-center text-slate-300 p-12 text-center">
-                        <MessageCircle className="w-16 h-16 mb-4 opacity-20" />
-                        <h3 className="text-lg font-bold text-slate-600">Chat da Equipe</h3>
-                        <p className="text-sm max-w-xs">Selecione um membro da equipe para iniciar uma conversa interna.</p>
-                      </div>
-                    )
-                  )}
-                </div>
-
-                {/* Modal de Proposta (dentro do chat) */}
-                {showProposalModal && selectedLead && (
-                  <LeadDetailsCard 
-                    lead={selectedLead}
-                    onClose={() => {
-                      setShowProposalModal(false);
-                      setSelectedLead(null);
-                    }}
-                    forceShowWhatsAppBuyerModal={false}
-                    banks={banks}
-                    cooperativeDiscount={cooperativeDiscount}
-                    userRole={userProfile?.role}
-                    onSave={handleSaveLead}
-                    onDelete={handleDeleteLead}
-                    onRefresh={fetchData}
-                    fipeRules={fipeRules}
-                    jurosAtraso={jurosAtraso}
-                  />
-                )}
-              </div>
+              <AdminMessages
+                conversations={conversations}
+                selectedConversation={selectedConversation}
+                setSelectedConversation={setSelectedConversation}
+                chatMessages={chatMessages}
+                adminMessage={adminMessage}
+                setAdminMessage={setAdminMessage}
+                handleSendMessage={handleSendMessage}
+                handleLearnFromChat={handleLearnFromChat}
+                setShowProposalModal={setShowProposalModal}
+                setSelectedLead={setSelectedLead}
+                messageTab={messageTab}
+                setMessageTab={setMessageTab}
+                internalConversations={internalConversations}
+                selectedInternalChat={selectedInternalChat}
+                setSelectedInternalChat={setSelectedInternalChat}
+                internalChatMessages={internalChatMessages}
+                isGlobalAiEnabled={isGlobalAiEnabled}
+                toggleGlobalAi={toggleGlobalAi}
+                autoProposalEnabled={autoProposalEnabled}
+                setAutoProposalEnabled={setAutoProposalEnabled}
+                isUpdatingAi={isUpdatingAi}
+                fetchChatMessages={fetchChatMessages}
+                fetchInternalMessages={fetchInternalMessages}
+                users={users}
+                leads={leads}
+                setProposalCalculator={setProposalCalculator}
+                calculateProposal={calculateProposal}
+                isSendingMessage={isSendingMessage}
+                supabase={supabase}
+                setConversations={setConversations}
+              />
             )}
 
             {activeTab === 'hero' && (

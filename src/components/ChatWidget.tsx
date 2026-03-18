@@ -33,7 +33,27 @@ export default function ChatWidget() {
   const [showProposalView, setShowProposalView] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [selectedProposal, setSelectedProposal] = useState<any>(null);
+  const [isAdminOnline, setIsAdminOnline] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Check if admin is online
+  useEffect(() => {
+    const checkAdminOnline = async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('last_login')
+        .eq('role', 'admin');
+      
+      if (data) {
+        const anyOnline = data.some(p => p.last_login && (new Date().getTime() - new Date(p.last_login).getTime()) < 300000);
+        setIsAdminOnline(anyOnline);
+      }
+    };
+
+    checkAdminOnline();
+    const interval = setInterval(checkAdminOnline, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Request notification permission
   useEffect(() => {
@@ -50,6 +70,13 @@ export default function ChatWidget() {
           .from('profiles')
           .update({ last_login: new Date().toISOString() })
           .eq('id', user.id);
+
+        if (isBuyer) {
+          await supabase
+            .from('interested_buyers')
+            .update({ last_seen: new Date().toISOString() })
+            .eq('id', user.id);
+        }
       };
       
       updateOnlineStatus();
@@ -105,19 +132,21 @@ export default function ChatWidget() {
             const newMessage = payload.new;
             // Message is relevant if I am sender or receiver
             if (newMessage.sender_id === user.id || newMessage.receiver_id === user.id) {
-              // If it's from admin, show it
-              if (newMessage.sender_id !== user.id) {
-                setMessages(prev => [...prev, {
+              setMessages(prev => {
+                // Evita duplicatas (especialmente de mensagens enviadas por nós mesmos)
+                if (prev.find(m => m.id === newMessage.id)) return prev;
+                
+                return [...prev, {
                   id: newMessage.id,
                   conteudo: newMessage.content,
-                  remetente: 'admin',
+                  remetente: newMessage.sender_id === user.id ? 'cliente' : 'admin',
                   created_at: newMessage.created_at
-                }]);
-                
-                if (!isOpenRef.current) {
-                  setUnreadCount(prev => prev + 1);
-                  setIsOpen(true);
-                }
+                }];
+              });
+              
+              if (newMessage.sender_id !== user.id && !isOpenRef.current) {
+                setUnreadCount(prev => prev + 1);
+                setIsOpen(true);
               }
             }
           }
@@ -139,11 +168,21 @@ export default function ChatWidget() {
             },
             (payload) => {
               const newMessage = payload.new;
+              
+              // Atualiza mensagens se for o lead ativo
+              if (activeLeadRef.current?.id === newMessage.lead_id) {
+                setMessages(prev => {
+                  if (prev.find(m => m.id === newMessage.id)) return prev;
+                  return [...prev, newMessage];
+                });
+              }
+              
+              // Se for mensagem do admin e não estiver com o chat aberto para este lead, incrementa unread
               if (newMessage.remetente === 'admin') {
-                setMessages(prev => [...prev, newMessage]);
-                if (!isOpenRef.current) {
+                if (!isOpenRef.current || activeLeadRef.current?.id !== newMessage.lead_id) {
                   setUnreadCount(prev => prev + 1);
-                  setIsOpen(true);
+                  // Opcional: abrir o chat se for importante
+                  // setIsOpen(true);
                 }
               }
             }
@@ -316,8 +355,13 @@ export default function ChatWidget() {
           {/* Header */}
           <div className="bg-slate-900 p-4 text-white flex justify-between items-center">
             <div>
-              <h3 className="font-bold text-lg">Chat de Negociação</h3>
-              <p className="text-xs text-slate-400">Fale diretamente com nossos especialistas</p>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-lg">Chat de Negociação</h3>
+                <div className={`w-2 h-2 rounded-full ${isAdminOnline ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]' : 'bg-slate-500'}`} />
+              </div>
+              <p className="text-xs text-slate-400">
+                {isAdminOnline ? 'Especialistas Online' : 'Especialistas Offline'}
+              </p>
             </div>
             {activeLead && (
               <button 
