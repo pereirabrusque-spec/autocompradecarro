@@ -264,6 +264,9 @@ export default function LeadDetailsCard({
     
     const novasPropostas = currentLead.detalhes_proposta?.novas_propostas || [];
     const latestNovaProposta = novasPropostas.length > 0 ? novasPropostas[novasPropostas.length - 1] : null;
+    const previousProposalValue = novasPropostas.length > 0 
+      ? (novasPropostas.length > 1 ? novasPropostas[novasPropostas.length - 2].valor : finalProposal)
+      : null;
     
     // Lucro Estimado: (Tabela FIPE - 20%) - Todos os Descontos
     const profit = (fipe * 0.8) - (discountValue + fixedCosts + payoff);
@@ -291,6 +294,7 @@ export default function LeadDetailsCard({
         optionB,
         finalProposal,
         latestNovaProposta,
+        previousProposalValue,
         profit
     };
   };
@@ -531,7 +535,11 @@ export default function LeadDetailsCard({
       novas_propostas: [...novasPropostas, novaProposta]
     };
     
-    const updatedLead = { ...currentLead, detalhes_proposta: updatedDetalhes };
+    const updatedLead = { 
+      ...currentLead, 
+      detalhes_proposta: updatedDetalhes,
+      suggested_value: valor // Atualiza o valor sugerido para a nova proposta
+    };
     setCurrentLead(updatedLead);
     onSave(updatedLead);
     setShowNovaPropostaModal(false);
@@ -1283,9 +1291,16 @@ export default function LeadDetailsCard({
                       </div>
                       <div className="pt-4 border-t border-slate-200 flex justify-between items-center group cursor-pointer relative">
                         <span className="font-bold text-lg text-slate-900">Proposta Final</span>
-                        <span className={`font-bold text-lg ${getProposalClass(proposalValue) || 'text-slate-900'}`}>
-                          {formatProposalValue(proposalValue)}
-                        </span>
+                        <div className="flex flex-col items-end">
+                          <span className={`font-bold text-lg ${getProposalClass(proposalValue) || 'text-slate-900'}`}>
+                            {formatProposalValue(proposalValue)}
+                          </span>
+                          {calc.previousProposalValue && (
+                            <span className="text-[10px] text-slate-400 font-medium">
+                              Anterior: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.previousProposalValue)}
+                            </span>
+                          )}
+                        </div>
                         <div className="absolute right-0 bottom-full mb-2 bg-white border border-slate-200 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-72">
                           <div className="text-xs font-bold mb-2 border-b pb-1 text-slate-900">Comparativo de Propostas</div>
                           <div className={`flex justify-between text-xs mb-1 ${calc.optionA <= calc.optionB ? 'text-emerald-600 font-bold' : 'text-red-500'}`}>
@@ -1366,9 +1381,16 @@ export default function LeadDetailsCard({
                       </div>
                       <div className="pt-6 border-t border-white/10 flex justify-between items-center group cursor-pointer relative">
                         <span className="text-accent font-bold">PROPOSTA FINAL</span>
-                        <span className={`text-2xl font-bold font-display ${getProposalClass(proposalValue) || 'text-white'}`}>
-                          {formatProposalValue(proposalValue)}
-                        </span>
+                        <div className="flex flex-col items-end">
+                          <span className={`text-2xl font-bold font-display ${getProposalClass(proposalValue) || 'text-white'}`}>
+                            {formatProposalValue(proposalValue)}
+                          </span>
+                          {calc.previousProposalValue && (
+                            <span className="text-[10px] text-white/40 font-medium">
+                              Anterior: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.previousProposalValue)}
+                            </span>
+                          )}
+                        </div>
                         <div className="absolute right-0 bottom-full mb-2 bg-slate-800 border border-white/10 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-72">
                           <div className="text-xs font-bold mb-2 border-b border-white/10 pb-1 text-white">Comparativo de Propostas</div>
                           <div className={`flex justify-between text-xs mb-1 ${calc.optionA <= calc.optionB ? 'text-emerald-400 font-bold' : 'text-red-400'}`}>

@@ -2293,10 +2293,17 @@ Podemos prosseguir com o agendamento da vistoria?`;
     // VALOR FIP - (PROPOSTA GERADA + VALOR REAL DE QUITAÇÃO)
     const calculatedProfitMargin = fipe - (finalValue + payoffValue);
 
+    const novasPropostas = lead.detalhes_proposta?.novas_propostas || [];
+    const latestNovaProposta = novasPropostas.length > 0 ? novasPropostas[novasPropostas.length - 1] : null;
+    const previousProposalValue = novasPropostas.length > 0 
+      ? (novasPropostas.length > 1 ? novasPropostas[novasPropostas.length - 2].valor : finalValue)
+      : null;
+
     return {
       baseValue: fipe,
       deductions,
-      finalValue,
+      finalValue: latestNovaProposta?.valor || finalValue,
+      previousProposalValue,
       profitMargin: calculatedProfitMargin,
       payoffValue,
       clientPayoffValue,
@@ -4876,8 +4883,17 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 <td className="px-2 py-1.5 text-[11px] font-black text-emerald-600">
                                   {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.preco_cliente || 0)}
                                 </td>
-                                <td className={`px-2 py-1.5 text-[11px] font-black ${getProposalClass(lead.suggested_value || calculateProposal(lead).finalValue, lead.tipo_veiculo) || 'text-accent'}`}>
-                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.suggested_value || calculateProposal(lead).finalValue)}
+                                <td className="px-2 py-1.5">
+                                  <div className="flex flex-col">
+                                    <span className={`text-[11px] font-black ${getProposalClass(lead.suggested_value || calculateProposal(lead).finalValue, lead.tipo_veiculo) || 'text-accent'}`}>
+                                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.suggested_value || calculateProposal(lead).finalValue)}
+                                    </span>
+                                    {calculateProposal(lead).previousProposalValue && (
+                                      <span className="text-[9px] text-slate-400 font-medium">
+                                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculateProposal(lead).previousProposalValue)}
+                                      </span>
+                                    )}
+                                  </div>
                                 </td>
                                 <td className="px-2 py-1.5">
                                   <div className="flex items-center gap-1">
