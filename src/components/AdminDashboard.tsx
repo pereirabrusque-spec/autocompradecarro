@@ -470,7 +470,7 @@ export default function AdminDashboard() {
 
       let finalConversations = groupedConversations;
       
-      if (userProfile && (userProfile.role === 'user' || userProfile.role === 'seller')) {
+      if (userProfile && userProfile.role === 'user') {
         finalConversations = groupedConversations.filter(conv => conv.lead?.user_id === userProfile.id);
       }
 
