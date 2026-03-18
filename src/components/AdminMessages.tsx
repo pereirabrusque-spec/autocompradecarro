@@ -79,12 +79,14 @@ export default function AdminMessages({ profiles, leads }: { profiles: any[], le
         <div className="p-4 border-b border-slate-100">
           <div className="flex gap-2 mb-4">
             <button 
+              type="button"
               onClick={() => setActiveTab('leads')}
               className={`flex-1 py-2 text-xs font-bold rounded-lg ${activeTab === 'leads' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}
             >
               Leads
             </button>
             <button 
+              type="button"
               onClick={() => setActiveTab('equipe')}
               className={`flex-1 py-2 text-xs font-bold rounded-lg ${activeTab === 'equipe' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}
             >
@@ -150,10 +152,11 @@ export default function AdminMessages({ profiles, leads }: { profiles: any[], le
                 <span className="font-bold">{selectedConversation.sender_id || 'Lead'}</span>
               </div>
               <div className="flex gap-2 items-center">
-                <button className="p-2 text-slate-500 hover:text-slate-900" title="Enviar Email"><Mail className="w-4 h-4" /></button>
-                <button className="p-2 text-slate-500 hover:text-slate-900" title="WhatsApp"><MessageCircle className="w-4 h-4" /></button>
+                <button type="button" className="p-2 text-slate-500 hover:text-slate-900" title="Enviar Email"><Mail className="w-4 h-4" /></button>
+                <button type="button" className="p-2 text-slate-500 hover:text-slate-900" title="WhatsApp"><MessageCircle className="w-4 h-4" /></button>
                 
                 <button 
+                  type="button"
                   onClick={() => setIsHumanAttending(!isHumanAttending)}
                   className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${isHumanAttending ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-slate-100 text-slate-700 border border-slate-200'}`}
                 >
@@ -161,12 +164,13 @@ export default function AdminMessages({ profiles, leads }: { profiles: any[], le
                 </button>
 
                 <button 
+                    type="button"
                     onClick={() => setIsLearning(!isLearning)}
                     className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${isLearning ? 'bg-purple-100 text-purple-600 border border-purple-200' : 'bg-slate-100 text-slate-700 border border-slate-200'}`}
                 >
                     {isLearning ? 'IA: Aprendendo...' : 'IA: Aprender'}
                 </button>
-                <button onClick={() => setShowProposalModal(true)} className="px-3 py-1.5 bg-orange-50 text-orange-600 rounded-lg text-[10px] font-bold border border-orange-200">$ Ver Proposta</button>
+                <button type="button" onClick={() => setShowProposalModal(true)} className="px-3 py-1.5 bg-orange-50 text-orange-600 rounded-lg text-[10px] font-bold border border-orange-200">$ Ver Proposta</button>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
@@ -194,7 +198,7 @@ export default function AdminMessages({ profiles, leads }: { profiles: any[], le
           <div className="bg-white rounded-3xl p-8 max-w-lg w-full">
             <h3 className="text-xl font-bold mb-4">Proposta</h3>
             <p>Conteúdo da proposta...</p>
-            <button onClick={() => setShowProposalModal(false)} className="mt-4 w-full py-2 bg-slate-900 text-white rounded-lg">Fechar</button>
+            <button type="button" onClick={() => setShowProposalModal(false)} className="mt-4 w-full py-2 bg-slate-900 text-white rounded-lg">Fechar</button>
           </div>
         </div>
       )}

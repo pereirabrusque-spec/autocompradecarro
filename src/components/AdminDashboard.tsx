@@ -5349,6 +5349,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
                           <div className="h-6 w-px bg-slate-200 mx-2" />
                           <button 
+                            type="button"
                             onClick={handleLearnFromChat}
                             className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl font-bold text-xs hover:bg-slate-200 transition-all flex items-center gap-2"
                             title="Adicionar histórico desta conversa à memória da IA"
@@ -5357,6 +5358,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                             IA: Aprender
                           </button>
                           <button 
+                            type="button"
                             onClick={() => {
                               setSelectedLead(selectedConversation.lead);
                               setShowProposalModal(true);
@@ -5499,7 +5501,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                               type="text" 
                               value={adminMessage}
                               onChange={(e) => setAdminMessage(e.target.value)}
-                              onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                              onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
                               placeholder="Digite sua mensagem interna..."
                               className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent/20"
                             />

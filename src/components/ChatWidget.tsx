@@ -232,6 +232,7 @@ export default function ChatWidget() {
         animate={{ scale: 1, opacity: 1 }}
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
+        type="button"
         onClick={handleToggle}
         className="fixed bottom-6 right-6 z-[60] p-4 bg-accent text-white rounded-full shadow-2xl hover:bg-orange-600 transition-all flex items-center justify-center"
       >
@@ -254,6 +255,7 @@ export default function ChatWidget() {
             </div>
             {activeLead && (
               <button 
+                type="button"
                 onClick={() => setActiveLead(null)}
                 className="text-xs bg-white/10 px-2 py-1 rounded hover:bg-white/20 transition-colors"
               >
@@ -279,6 +281,7 @@ export default function ChatWidget() {
                   leads.map(lead => (
                     <button
                       key={lead.id}
+                      type="button"
                       onClick={() => {
                         setActiveLead(lead);
                         fetchMessages(lead.id);
@@ -330,6 +333,7 @@ export default function ChatWidget() {
                         )}
                         {msg.tipo === 'proposta' && (
                           <button 
+                            type="button"
                             onClick={() => {
                               setSelectedProposal(msg.metadata?.proposal_data);
                               setShowProposalView(true);
@@ -396,6 +400,7 @@ export default function ChatWidget() {
                   <p className="text-xs text-slate-400">Ref: {selectedProposal.vehicle_code}</p>
                 </div>
                 <button 
+                  type="button"
                   onClick={() => setShowProposalView(false)}
                   className="p-2 hover:bg-white/10 rounded-full transition-colors"
                 >
@@ -452,6 +457,7 @@ export default function ChatWidget() {
                 </div>
 
                 <button 
+                  type="button"
                   onClick={() => {
                     setShowProposalView(false);
                   }}

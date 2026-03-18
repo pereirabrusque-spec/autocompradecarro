@@ -247,10 +247,11 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
             </div>
         </div>
         <div className="flex gap-2 items-center">
-          <button className="px-3 py-1 bg-slate-900 text-white rounded-lg text-xs font-bold">
+          <button type="button" className="px-3 py-1 bg-slate-900 text-white rounded-lg text-xs font-bold">
               Humano Assume
           </button>
           <button 
+            type="button"
             onClick={() => toggleAiMode(!isAiMode)}
             disabled={isUpdatingAi}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer hover:scale-105 active:scale-95 ${
@@ -264,6 +265,7 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
           </button>
 
           <button 
+            type="button"
             onClick={clearChat}
             disabled={isDeleting}
             className="p-2 rounded-full hover:bg-red-50 text-red-500 transition-colors"
@@ -301,7 +303,7 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
         <input 
           value={input} 
           onChange={e => setInput(e.target.value)} 
-          onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+          onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
           className="flex-1 p-2 border border-slate-200 rounded-lg text-sm"
           placeholder="Digite..."
         />

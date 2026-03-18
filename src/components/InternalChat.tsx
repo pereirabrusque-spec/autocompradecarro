@@ -210,6 +210,7 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle, hide
     <>
       {showFloatingButton && (
         <button
+          type="button"
           onClick={() => setIsOpen(true)}
           className="fixed bottom-6 right-6 bg-slate-900 text-white p-4 rounded-full shadow-lg hover:bg-slate-800 transition-all z-50 flex items-center gap-2 relative"
         >
@@ -230,7 +231,7 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle, hide
               <h3 className="font-bold">Suporte Administrativo</h3>
               {leadTitle && <p className="text-xs opacity-70 truncate max-w-[200px]">Ref: {leadTitle}</p>}
             </div>
-            <button onClick={() => setIsOpen(false)} className="hover:bg-white/10 p-1 rounded-full transition-colors">
+            <button type="button" onClick={() => setIsOpen(false)} className="hover:bg-white/10 p-1 rounded-full transition-colors">
               <X className="w-5 h-5" />
             </button>
           </div>

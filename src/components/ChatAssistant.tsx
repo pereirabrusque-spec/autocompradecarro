@@ -629,12 +629,13 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
               </div>
               <div className="flex items-center gap-2">
                 <button 
+                  type="button"
                   onClick={onClose} 
                   className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors"
                 >
                   Recolher
                 </button>
-                <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl transition-colors">
+                <button type="button" onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl transition-colors">
                   <X className="w-6 h-6" />
                 </button>
               </div>
@@ -651,6 +652,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
                     Para conversar com nosso assistente e receber uma avaliação, você precisa estar logado.
                   </p>
                   <button 
+                    type="button"
                     onClick={() => setShowAuthModal(true)}
                     className="w-full py-3 bg-accent text-white rounded-xl font-bold hover:bg-accent/90 transition-all shadow-lg shadow-accent/20"
                   >
@@ -684,6 +686,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
                         </div>
                         {msg.tipo === 'proposta' && (
                           <button 
+                            type="button"
                             onClick={() => setSelectedProposal(msg.metadata?.proposal_data)}
                             className="mt-3 w-full py-2 bg-accent text-white rounded-lg text-xs font-bold hover:bg-accent/90 transition-all"
                           >
@@ -742,7 +745,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
                       </>
                     )}
                   </div>
-                  <button onClick={() => setSelectedProposal(null)} className="mt-6 w-full py-3 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-all">Fechar</button>
+                  <button type="button" onClick={() => setSelectedProposal(null)} className="mt-6 w-full py-3 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-all">Fechar</button>
                 </div>
               </div>
             )}
@@ -752,6 +755,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
                 <div className="relative inline-block">
                   <img src={selectedImage} className="w-20 h-20 object-cover rounded-xl border border-slate-200 shadow-sm" />
                   <button 
+                    type="button"
                     onClick={() => setSelectedImage(null)}
                     className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors"
                   >
@@ -767,6 +771,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
                         <Video className="w-8 h-8 text-slate-400" />
                       </div>
                       <button 
+                        type="button"
                         onClick={() => setVideos(prev => prev.filter((_, i) => i !== index))}
                         className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors"
                       >
@@ -778,6 +783,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
               )}
               <div className="flex items-center gap-3">
                 <button 
+                  type="button"
                   onClick={() => fileInputRef.current?.click()}
                   className="p-3 bg-slate-50 text-slate-400 rounded-2xl hover:bg-slate-100 hover:text-accent transition-all"
                 >
@@ -791,6 +797,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
                   className="hidden" 
                 />
                 <button 
+                  type="button"
                   onClick={() => videoInputRef.current?.click()}
                   className="p-3 bg-slate-50 text-slate-400 rounded-2xl hover:bg-slate-100 hover:text-accent transition-all"
                 >
