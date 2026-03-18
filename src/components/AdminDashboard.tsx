@@ -460,29 +460,6 @@ export default function AdminDashboard() {
 
       console.log('Grouped conversations:', groupedConversations);
 
-      // Adicionar vendedores (role 'user') na aba 'leads'
-      const leadIds = new Set();
-      if (profilesData) {
-        profilesData.forEach((p: any) => {
-          if ((p.role === 'user' || p.role === 'admin') && !leadIds.has(p.id)) {
-            leadIds.add(p.id);
-            groupedConversations.push({
-              lead_id: p.id,
-              lead_ids: [p.id],
-              conversation_key: p.id,
-              customer_email: p.email,
-              last_message: 'Vendedor',
-              last_time: p.created_at,
-              last_message_at: p.created_at,
-              lead: { cliente_nome: p.full_name, email: p.email },
-              unread: 0,
-              is_unanswered: false,
-              is_online: (new Date().getTime() - new Date(p.last_login || 0).getTime()) < 300000
-            });
-          }
-        });
-      }
-
       if (assetsData) {
         // No longer load permissions from assetsData
       }
@@ -1030,8 +1007,7 @@ export default function AdminDashboard() {
       conteudo: messageContent,
       remetente: 'admin',
       created_at: new Date().toISOString(),
-      lida: true,
-      admin_id: userProfile.id
+      lida: true
     };
 
     // Optimistic update
@@ -1043,8 +1019,7 @@ export default function AdminDashboard() {
         .insert({
           lead_id: selectedConversation.lead_ids[0],
           remetente: 'admin',
-          conteudo: messageContent,
-          admin_id: userProfile.id
+          conteudo: messageContent
         });
 
       if (error) throw error;
@@ -5282,13 +5257,17 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       <div className="p-4 bg-white border-b border-slate-100 flex justify-between items-center">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden">
-                            {selectedConversation.lead?.fotos && selectedConversation.lead.fotos[0] ? (
-                              <img src={selectedConversation.lead.fotos[0]} alt="Veículo" className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-slate-300">
-                                <ImageIcon className="w-5 h-5" />
-                              </div>
-                            )}
+                            {(() => {
+                              const profile = selectedConversation.customer_email ? users.find(u => u.email === selectedConversation.customer_email) : null;
+                              const avatarUrl = profile?.avatar_url || (selectedConversation.lead?.fotos && selectedConversation.lead.fotos[0]);
+                              return avatarUrl ? (
+                                <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                  <ImageIcon className="w-5 h-5" />
+                                </div>
+                              );
+                            })()}
                           </div>
                           <div>
                             <h4 className="font-bold text-slate-900">{selectedConversation.lead?.cliente_nome}</h4>
