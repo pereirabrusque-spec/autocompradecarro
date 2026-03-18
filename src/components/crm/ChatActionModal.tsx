@@ -40,7 +40,13 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
           .from('leads_veiculos')
           .select('*')
           .eq('user_id', conversationId);
-        if (data) setVehicles(data);
+        if (data) {
+          setVehicles(data);
+          // Se houver apenas um veículo, seleciona automaticamente
+          if (data.length === 1) {
+            setSelectedVehicle(data[0]);
+          }
+        }
       }
       setLoading(false);
     };
