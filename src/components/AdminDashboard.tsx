@@ -389,22 +389,24 @@ export default function AdminDashboard() {
         .select('*, leads_veiculos(*)')
         .order('created_at', { ascending: false });
 
-      // Group messages by email to create conversation list
+      // Group messages by email or lead_id to create conversation list
       const groupedConversations: any[] = [];
-      const customerEmails = new Set();
+      const conversationKeys = new Set();
       
       if (messagesData) {
         messagesData.forEach((msg: any) => {
-          const email = msg.leads_veiculos?.email;
-          if (email && !customerEmails.has(email)) {
-            customerEmails.add(email);
-            const customerMessages = messagesData.filter((m: any) => m.leads_veiculos?.email === email);
+          const key = msg.leads_veiculos?.email || msg.lead_id;
+          if (key && !conversationKeys.has(key)) {
+            conversationKeys.add(key);
+            const customerMessages = messagesData.filter((m: any) => (m.leads_veiculos?.email || m.lead_id) === key);
             const unreadCount = customerMessages.filter((m: any) => !m.lida && m.remetente === 'cliente').length;
             
-            const leadProfile = (profilesData || []).find((u: any) => u.email === email);
+            const email = msg.leads_veiculos?.email;
+            const leadProfile = email ? (profilesData || []).find((u: any) => u.email === email) : null;
             const isOnline = leadProfile ? (new Date().getTime() - new Date(leadProfile.last_login).getTime()) < 300000 : false;
 
             groupedConversations.push({
+              conversation_key: key,
               customer_email: email,
               lead_ids: [...new Set(customerMessages.map((m: any) => m.lead_id))],
               last_message: msg.conteudo,
@@ -422,13 +424,15 @@ export default function AdminDashboard() {
       // Adicionar leads que não possuem mensagens
       if (leadsData) {
         leadsData.forEach((lead: any) => {
-          if (lead.email && !customerEmails.has(lead.email)) {
-            customerEmails.add(lead.email);
+          const key = lead.email || lead.id;
+          if (key && !conversationKeys.has(key)) {
+            conversationKeys.add(key);
             
-            const leadProfile = (profilesData || []).find((u: any) => u.email === lead.email);
+            const leadProfile = lead.email ? (profilesData || []).find((u: any) => u.email === lead.email) : null;
             const isOnline = leadProfile ? (new Date().getTime() - new Date(leadProfile.last_login).getTime()) < 300000 : false;
 
             groupedConversations.push({
+              conversation_key: key,
               customer_email: lead.email,
               lead_ids: [lead.id],
               last_message: 'Nenhuma mensagem ainda',
@@ -5134,7 +5138,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     {messageTab === 'leads' ? (
                       conversations.map((conv) => (
                       <div 
-                        key={conv.customer_email}
+                        key={conv.conversation_key}
                         onClick={() => {
                           setSelectedConversation(conv);
                           fetchChatMessages(conv.lead_ids[0]);
@@ -5144,12 +5148,12 @@ Podemos prosseguir com o agendamento da vistoria?`;
                             setProposalCalculator(calculateProposal(lead));
                           }
                         }}
-                        className={`py-1 px-2 flex items-center gap-2 cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 ${selectedConversation?.customer_email === conv.customer_email ? 'bg-slate-50' : ''}`}
+                        className={`py-1 px-2 flex items-center gap-2 cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 ${selectedConversation?.conversation_key === conv.conversation_key ? 'bg-slate-50' : ''}`}
                       >
                         <div className="relative">
                           <div className="w-8 h-8 rounded-full bg-slate-100 overflow-hidden flex-shrink-0">
                             {(() => {
-                              const profile = users.find(u => u.email === conv.customer_email);
+                              const profile = conv.customer_email ? users.find(u => u.email === conv.customer_email) : null;
                               const avatarUrl = profile?.avatar_url || (conv.lead?.fotos && conv.lead.fotos[0]);
                               return avatarUrl ? (
                                 <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
