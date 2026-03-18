@@ -10,6 +10,8 @@ export interface AIResponse {
 }
 
 export class AIService {
+  private static lastSuccessfulKeyId: string | null = typeof window !== 'undefined' ? localStorage.getItem('ai_last_successful_key_id') : null;
+
   private static async getActiveKeys(): Promise<any[]> {
     const { data, error } = await supabase
       .from('api_keys')
@@ -31,8 +33,7 @@ export class AIService {
     });
 
     // Prioritize 'ok' status (green). 
-    // Among 'ok' keys, sort by last_used DESCENDING to "stick" to the one currently being used.
-    // For other statuses, sort by last_used ASCENDING to eventually retry older ones.
+    // Among 'ok' keys, we want to stick to the last successful one.
     return filteredData.sort((a, b) => {
       const statusOrder = { 'ok': 0, 'rate_limited': 1, 'no_credit': 2, 'disconnected': 3 };
       const orderA = statusOrder[a.status as keyof typeof statusOrder] ?? 4;
@@ -40,21 +41,39 @@ export class AIService {
       
       if (orderA !== orderB) return orderA - orderB;
       
-      const lastUsedA = a.last_used ? new Date(a.last_used).getTime() : 0;
-      const lastUsedB = b.last_used ? new Date(b.last_used).getTime() : 0;
-      
-      // If both are 'ok', newest first (stick to active)
+      // If both are 'ok', prioritize the last successful one
       if (a.status === 'ok') {
+        if (a.id === this.lastSuccessfulKeyId) return -1;
+        if (b.id === this.lastSuccessfulKeyId) return 1;
+        
+        // Otherwise newest first
+        const lastUsedA = a.last_used ? new Date(a.last_used).getTime() : 0;
+        const lastUsedB = b.last_used ? new Date(b.last_used).getTime() : 0;
         return lastUsedB - lastUsedA;
       }
       
       // Otherwise oldest first (retry queue)
+      const lastUsedA = a.last_used ? new Date(a.last_used).getTime() : 0;
+      const lastUsedB = b.last_used ? new Date(b.last_used).getTime() : 0;
       return lastUsedA - lastUsedB;
     });
   }
 
   private static async updateKeyStatus(id: string, status: 'ok' | 'no_credit' | 'disconnected' | 'rate_limited', errorCount: number = 0) {
     if (id === 'env-key') return;
+    
+    if (status === 'ok') {
+      this.lastSuccessfulKeyId = id;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('ai_last_successful_key_id', id);
+      }
+    } else if (id === this.lastSuccessfulKeyId) {
+      this.lastSuccessfulKeyId = null;
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('ai_last_successful_key_id');
+      }
+    }
+    
     try {
       await supabase
         .from('api_keys')

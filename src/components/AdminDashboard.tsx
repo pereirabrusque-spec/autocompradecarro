@@ -437,15 +437,61 @@ export default function AdminDashboard() {
       const { data: profilesData, error: profilesError } = await supabase.from('profiles').select('*');
       if (profilesError) console.error('Erro ao buscar profiles:', profilesError);
       
-      // Combine leads and profiles
-      const allLeads = [...(leadsData || [])];
-      console.log("[AdminDashboard] Leads from leads_veiculos:", allLeads.length);
+      // Deduplicate leads from leads_veiculos (keep most recent per email if it's a cold lead)
+      const uniqueLeads: any[] = [];
+      const seenEmails = new Set<string>();
+      const duplicatesToDelete: string[] = [];
       
+      // Sort leads by date descending to keep the newest one
+      const sortedLeads = [...(leadsData || [])].sort((a, b) => 
+        new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+      );
+
+      sortedLeads.forEach(lead => {
+        if (!lead.email) {
+          uniqueLeads.push(lead);
+          return;
+        }
+        
+        // If it's a "hot" lead (has brand/model), always keep it
+        if (lead.marca || lead.modelo) {
+          uniqueLeads.push(lead);
+          seenEmails.add(lead.email);
+          return;
+        }
+        
+        // If it's a cold lead, only keep if we haven't seen this email yet
+        if (!seenEmails.has(lead.email)) {
+          uniqueLeads.push(lead);
+          seenEmails.add(lead.email);
+        } else {
+          // It's a duplicate cold lead, mark for deletion
+          duplicatesToDelete.push(lead.id);
+        }
+      });
+
+      // Perform background cleanup of duplicates if any found
+      if (duplicatesToDelete.length > 0) {
+        console.log(`[AdminDashboard] Encontrados ${duplicatesToDelete.length} leads frios duplicados. Limpando...`);
+        supabase.from('leads_veiculos').delete().in('id', duplicatesToDelete)
+          .then(({ error }) => {
+            if (error) console.error('Erro ao limpar duplicados em segundo plano:', error);
+            else console.log('[AdminDashboard] Limpeza de duplicados concluída.');
+          });
+      }
+
+      // Combine leads and profiles
+      const allLeads = [...uniqueLeads];
+      console.log("[AdminDashboard] Unique leads from leads_veiculos:", allLeads.length);
+      
+      // Map to track unique emails for cold leads to avoid duplicates
+      const coldLeadEmails = new Set(allLeads.filter(l => l.email).map(l => l.email));
+
       profilesData?.forEach(profile => {
         // Do not add admins or buyers as "frio" leads
         if (profile.role === 'admin' || profile.role?.includes('buyer')) return;
 
-        if (!allLeads.find(l => l.email === profile.email)) {
+        if (!coldLeadEmails.has(profile.email)) {
           console.log("[AdminDashboard] Adding profile as cold lead:", profile.email);
           allLeads.push({
             ...profile,
@@ -457,6 +503,7 @@ export default function AdminDashboard() {
             is_frio: true,
             user_id: profile.id
           });
+          coldLeadEmails.add(profile.email);
         }
       });
       
@@ -3024,11 +3071,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     </div>
                     <div className="space-y-4">
                       {[
-                        { label: 'Novos', status: 'novo' as const, count: leads.filter(l => !l.status || l.status === 'novo').length, color: 'bg-blue-500' },
-                        { label: 'Em Contato', status: 'em_contato' as const, count: leads.filter(l => l.status === 'em_contato').length, color: 'bg-amber-500' },
-                        { label: 'Proposta Enviada', status: 'proposta_enviada' as const, count: leads.filter(l => l.status === 'proposta_enviada').length, color: 'bg-purple-500' },
-                        { label: 'Fechados', status: 'fechado' as const, count: leads.filter(l => l.status === 'fechado').length, color: 'bg-emerald-500' },
-                        { label: 'Usuários', status: 'frio' as const, count: leads.filter(l => l.status === 'frio').length, color: 'bg-red-500' },
+                        { label: 'Lead Frio', status: 'frio' as const, count: leads.filter(l => l.status === 'frio' || l.status === 'novo' || l.status === 'em_contato').length, color: 'bg-red-500' },
+                        { label: 'Leads Morna', status: 'proposta_enviada' as const, count: leads.filter(l => l.status === 'proposta_enviada').length, color: 'bg-purple-500' },
+                        { label: 'Lead Quente', status: 'fechado' as const, count: leads.filter(l => l.status === 'fechado').length, color: 'bg-emerald-500' },
                       ].map((item, i) => (
                         <div 
                           key={i} 
@@ -3716,11 +3761,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-100 overflow-x-auto">
                     {[
                       { id: 'todos', label: 'Todos' },
-                      { id: 'novo', label: 'Novos' },
-                      { id: 'em_contato', label: 'Em Contato' },
-                      { id: 'proposta_enviada', label: 'Proposta Enviada' },
-                      { id: 'fechado', label: 'Fechados' },
-                      { id: 'frio', label: 'Usuários' }
+                      { id: 'frio', label: 'Lead Frio' },
+                      { id: 'proposta_enviada', label: 'Leads Morna' },
+                      { id: 'fechado', label: 'Lead Quente' }
                     ].map((tab) => (
                       <button
                         key={tab.id}
@@ -4604,7 +4647,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       {leads
                         .filter(l => {
                           if (activeLeadTab === 'todos') return true;
-                          if (activeLeadTab === 'frio') return l.status === 'frio';
+                          if (activeLeadTab === 'frio') return l.status === 'frio' || l.status === 'novo' || l.status === 'em_contato';
                           return l.status === activeLeadTab;
                         })
                         .filter(l => !searchCode || (l.vehicle_code && l.vehicle_code.includes(searchCode)))
