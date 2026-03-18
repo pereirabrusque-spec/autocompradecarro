@@ -29,6 +29,10 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
   const { user, profile } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [leadId, setLeadId] = useState<string | null>(null);
+  const leadIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    leadIdRef.current = leadId;
+  }, [leadId]);
   const [isFormFilled, setIsFormFilled] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     { role: 'bot', text: 'Seja Bem Vindo à Auto Compra , espero fazermos um bom negócio' }
@@ -134,8 +138,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
               cliente_nome: user.user_metadata?.full_name || profile?.full_name || 'Cliente', 
               email: user.email,
               telefone: profile?.phone || user.user_metadata?.phone || '00000000000',
-              status: 'fria',
-              origem: 'chat'
+              status: 'fria'
             }])
             .select()
             .single();
@@ -149,8 +152,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
               cliente_nome: user.user_metadata?.full_name || profile?.full_name || 'Cliente', 
               email: user.email,
               telefone: profile?.phone || user.user_metadata?.phone || '00000000000',
-              status: 'fria',
-              origem: 'chat'
+              status: 'fria'
             });
           }
         }
@@ -239,12 +241,13 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
 
     const handleOpenChat = async (event: any) => {
       onOpen();
-      const initialMessage = event.detail?.message;
-      if (initialMessage) {
-        setMessages(prev => [...prev, { role: 'user', text: initialMessage }]);
-        // Opcional: disparar o envio automaticamente
-        setTimeout(() => handleSend(), 500); 
-      }
+      const initialMessage = event.detail?.message || 'Olá, gostaria de falar com um especialista';
+      
+      // Wait a bit for leadId to be ready if it's being fetched
+      setTimeout(() => {
+        console.log("[ChatAssistant] Sending initial message after delay:", initialMessage);
+        handleSend(initialMessage);
+      }, 2000);
     };
 
     window.addEventListener('open-chat', handleOpenChat);
@@ -350,47 +353,52 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
     video.src = URL.createObjectURL(file);
   };
 
-  const handleSend = async () => {
-    if ((!input.trim() && !selectedImage) || isLoading) return;
+  const handleSend = async (overrideText?: string) => {
+    if (!overrideText && !input.trim() && !selectedImage || isLoading) return;
 
-    const userText = input.trim();
+    const userText = overrideText || input.trim();
     const userImage = selectedImage;
     
-    setInput('');
+    if (!overrideText) setInput('');
     setSelectedImage(null);
     setVideos([]);
     
     setMessages(prev => {
-      console.log("Adding user message to state:", userText);
+      console.log("[ChatAssistant] Adding user message to state:", userText);
       return [...prev, { role: 'user', text: userText, image: userImage || undefined }];
     });
     
     // Salvar mensagem do usuário
-    if (leadId) {
-      console.log("Saving user message to Supabase:", userText);
+    if (leadIdRef.current) {
+      console.log("[ChatAssistant] Saving user message to Supabase:", userText);
       const { error } = await supabase.from('mensagens').insert({
-        lead_id: leadId,
+        lead_id: leadIdRef.current,
         remetente: 'cliente',
         conteudo: userText,
         metadata: { from_chat_widget: true }
       });
       if (error) {
-        console.error("Erro ao salvar mensagem:", error);
+        console.error("[ChatAssistant] Erro ao salvar mensagem:", error);
         setMessages(prev => prev.filter(m => m.text !== userText)); // Remove optimistic message
         alert("Erro ao enviar mensagem. Tente novamente.");
+        return;
       } else {
-        console.log("Message saved successfully.");
+        console.log("[ChatAssistant] Message saved successfully.");
       }
+    } else {
+      console.warn("[ChatAssistant] Cannot save message: leadId is missing");
     }
 
     setIsLoading(true);
 
     // Se a IA estiver desativada para este lead, não responde automaticamente
     if (isAiDisabled) {
+      console.log("[ChatAssistant] AI is disabled for this lead, skipping response.");
       setIsLoading(false);
       return;
     }
 
+    console.log("[ChatAssistant] Calling AI service...");
     try {
       // Construct the prompt with dynamic data
       const banksContext = contextData.banks.map((b: any) => `- ${b.name}: ${b.discount_percentage}% desconto`).join('\n');
@@ -857,7 +865,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
                   />
                   <button
                     type="button"
-                    onClick={handleSend}
+                    onClick={() => handleSend()}
                     disabled={(!input.trim() && !selectedImage) || isLoading || !leadId}
                     style={{ backgroundColor: chatColor }}
                     className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 text-white rounded-xl hover:opacity-90 disabled:opacity-50 transition-all shadow-lg"

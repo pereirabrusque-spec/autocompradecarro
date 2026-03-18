@@ -73,6 +73,32 @@ function AppContent() {
   const isWhatsAppEnabledInCRM = buyerSendSettings.whatsapp !== false;
 
   useEffect(() => {
+    if (user && !profile?.role?.includes('admin')) {
+      const createColdLead = async () => {
+        // Check if lead already exists for this email
+        const { data: existingLead } = await supabase
+          .from('leads_veiculos')
+          .select('id')
+          .eq('email', user.email)
+          .maybeSingle();
+
+        if (!existingLead) {
+          console.log('[App] Creating cold lead for logged user:', user.email);
+          await supabase
+            .from('leads_veiculos')
+            .insert([{ 
+              cliente_nome: user.user_metadata?.full_name || profile?.full_name || 'Cliente', 
+              email: user.email,
+              telefone: profile?.phone || user.user_metadata?.phone || '00000000000',
+              status: 'fria'
+            }]);
+        }
+      };
+      createColdLead();
+    }
+  }, [user, profile]);
+
+  useEffect(() => {
     if (user) {
       const updateLastLogin = async () => {
         await supabase
@@ -236,8 +262,25 @@ function AppContent() {
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
       <NotificationPermissionModal />
       
-      {/* Real-time Chat Widget for logged users (Bottom Right) */}
-      {view !== 'admin' && user && !profile?.role?.includes('buyer') && (
+      {/* Floating Chat Buttons */}
+      {view !== 'admin' && view !== 'buyer' && (
+        <div className="fixed bottom-6 right-6 flex flex-col gap-4 z-[50]">
+          {/* Main Chat Assistant Button */}
+          <button
+            onClick={() => setIsChatOpen(true)}
+            className="bg-accent text-white p-4 rounded-full shadow-2xl hover:bg-accent/90 transition-all flex items-center justify-center"
+            title="Falar com Especialista"
+          >
+            <MessageCircle className="w-8 h-8" />
+          </button>
+
+          {/* Purchasing Chat Button */}
+          <FloatingPurchasingChat />
+        </div>
+      )}
+
+      {/* Real-time Chat Widget (Bottom Right) */}
+      {view !== 'admin' && !profile?.role?.includes('buyer') && (
         <ChatAssistant 
           isOpen={isChatOpen} 
           onOpen={() => setIsChatOpen(true)} 

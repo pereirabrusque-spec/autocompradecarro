@@ -370,12 +370,14 @@ export default function AdminDashboard() {
       
       // Combine leads and profiles
       const allLeads = [...(leadsData || [])];
-      console.log("Leads fetched:", allLeads.map(l => l.id));
+      console.log("[AdminDashboard] Leads from leads_veiculos:", allLeads.length);
+      
       profilesData?.forEach(profile => {
         // Do not add admins or buyers as "frio" leads
         if (profile.role === 'admin' || profile.role?.includes('buyer')) return;
 
         if (!allLeads.find(l => l.email === profile.email)) {
+          console.log("[AdminDashboard] Adding profile as cold lead:", profile.email);
           allLeads.push({
             ...profile,
             id: profile.id,
@@ -383,12 +385,14 @@ export default function AdminDashboard() {
             cliente_nome: profile.full_name,
             email: profile.email,
             status: 'frio', // Default status for users who haven't filled a form
-            is_frio: true
+            is_frio: true,
+            user_id: profile.id
           });
         }
       });
       
       setLeads(allLeads);
+      console.log("[AdminDashboard] Total leads processed:", allLeads.length);
       addLog(`Total de leads processados: ${allLeads.length}`, 'debug');
       
       const { data: assetsData, error: assetsError } = await supabase
@@ -894,6 +898,14 @@ export default function AdminDashboard() {
           }
           fetchData();
         }
+      })
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'leads_veiculos'
+      }, (payload) => {
+        console.log("[AdminDashboard] New lead created:", payload.new);
+        fetchData();
       })
       .subscribe();
 
