@@ -167,10 +167,12 @@ export default function ChatWidget() {
               filter: `lead_id=eq.${lead.id}`
             },
             (payload) => {
+              console.log("[ChatWidget] Realtime message received:", payload.new);
               const newMessage = payload.new;
               
               // Atualiza mensagens se for o lead ativo
               if (activeLeadRef.current?.id === newMessage.lead_id) {
+                console.log("[ChatWidget] Updating messages for active lead");
                 setMessages(prev => {
                   if (prev.find(m => m.id === newMessage.id)) return prev;
                   return [...prev, newMessage];
@@ -180,6 +182,7 @@ export default function ChatWidget() {
               // Se for mensagem do admin e não estiver com o chat aberto para este lead, incrementa unread
               if (newMessage.remetente === 'admin') {
                 if (!isOpenRef.current || activeLeadRef.current?.id !== newMessage.lead_id) {
+                  console.log("[ChatWidget] New message from admin, incrementing unread count");
                   setUnreadCount(prev => prev + 1);
                   // Opcional: abrir o chat se for importante
                   // setIsOpen(true);

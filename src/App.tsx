@@ -236,9 +236,6 @@ function AppContent() {
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
       <NotificationPermissionModal />
       
-      {/* Floating Purchasing Chat for Seller Site */}
-      {view !== 'admin' && view !== 'buyer' && <FloatingPurchasingChat context={purchasingContext} />}
-      
       {/* Real-time Chat Widget for logged users (Bottom Right) */}
       {view !== 'admin' && user && !profile?.role?.includes('buyer') && (
         <ChatAssistant 

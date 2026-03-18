@@ -493,8 +493,8 @@ export default function AdminDashboard() {
 
       let finalConversations = groupedConversations;
       
-      if (userProfile && userProfile.role === 'user') {
-        finalConversations = groupedConversations.filter(conv => conv.lead?.user_id === userProfile.id);
+      if (userProfileRef.current && userProfileRef.current.role === 'user') {
+        finalConversations = groupedConversations.filter(conv => conv.lead?.user_id === userProfileRef.current.id);
       }
 
       setConversations(finalConversations);
@@ -519,9 +519,9 @@ export default function AdminDashboard() {
       const internalIds = new Set();
       
       // First, add people we have messages with
-      if (internalMessagesData && userProfile) {
+      if (internalMessagesData && userProfileRef.current) {
         internalMessagesData.forEach((msg: any) => {
-          const otherId = msg.sender_id === userProfile.id ? msg.receiver_id : msg.sender_id;
+          const otherId = msg.sender_id === userProfileRef.current.id ? msg.receiver_id : msg.sender_id;
           if (otherId && !internalIds.has(otherId)) {
             internalIds.add(otherId);
             const otherProfile = (profilesData || []).find((u: any) => u.id === otherId);
@@ -529,7 +529,7 @@ export default function AdminDashboard() {
             // Only show in "Equipe" if they are admin
             if (otherProfile && otherProfile.role === 'admin') {
               const unreadCount = internalMessagesData.filter((m: any) => 
-                m.sender_id === otherId && m.receiver_id === userProfile.id && !m.is_read
+                m.sender_id === otherId && m.receiver_id === userProfileRef.current.id && !m.is_read
               ).length;
               
               const isOnline = otherProfile.last_login ? (new Date().getTime() - new Date(otherProfile.last_login).getTime()) < 300000 : false;
@@ -548,9 +548,9 @@ export default function AdminDashboard() {
       }
 
       // Then, add other team members (admin) who haven't messaged yet
-      if (profilesData && userProfile) {
+      if (profilesData && userProfileRef.current) {
         profilesData.forEach((p: any) => {
-          if (p.id !== userProfile.id && p.role === 'admin' && !internalIds.has(p.id)) {
+          if (p.id !== userProfileRef.current.id && p.role === 'admin' && !internalIds.has(p.id)) {
             internalIds.add(p.id);
             const isOnline = p.last_login ? (new Date().getTime() - new Date(p.last_login).getTime()) < 300000 : false;
             
@@ -801,6 +801,11 @@ export default function AdminDashboard() {
   useEffect(() => {
     selectedInternalChatRef.current = selectedInternalChat;
   }, [selectedInternalChat]);
+
+  const userProfileRef = useRef(userProfile);
+  useEffect(() => {
+    userProfileRef.current = userProfile;
+  }, [userProfile]);
   useEffect(() => {
     const messagesSubscription = supabase
       .channel('admin_messages_realtime')
@@ -809,57 +814,70 @@ export default function AdminDashboard() {
         schema: 'public', 
         table: 'mensagens' 
       }, async (payload) => {
-        console.log("Realtime message received:", payload.new);
+        console.log("[AdminDashboard] Realtime message received:", payload.new);
+        addLog(`Nova mensagem recebida: ${payload.new.remetente}`, 'debug', payload.new);
+        
         // Se for uma mensagem do cliente, atualiza a lista de conversas e o chat aberto
         if (payload.new.remetente === 'cliente') {
-          console.log("Received new message from client:", payload.new);
+          console.log("[AdminDashboard] Received new message from client:", payload.new);
           
           // Automação de Status: Se o cliente responde, muda para "Em Contato"
-          const { data: leadData } = await supabase
-            .from('leads_veiculos')
-            .select('status')
-            .eq('id', payload.new.lead_id)
-            .single();
-
-          if (leadData && (leadData.status === 'novo' || leadData.status === 'proposta_enviada')) {
-            await supabase
+          try {
+            const { data: leadData, error: leadError } = await supabase
               .from('leads_veiculos')
-              .update({ status: 'em_contato' })
-              .eq('id', payload.new.lead_id);
-            console.log("Lead status updated to 'em_contato' automatically");
-            
-            // Atualiza a lista de leads e o lead selecionado se for o caso
-            fetchData();
-            if (selectedLeadRef.current?.id === payload.new.lead_id) {
-              setSelectedLead(prev => prev ? { ...prev, status: 'em_contato' } : null);
+              .select('status')
+              .eq('id', payload.new.lead_id)
+              .single();
+
+            if (leadError) {
+              console.error("[AdminDashboard] Error fetching lead for status update:", leadError);
+            } else if (leadData && (leadData.status === 'novo' || leadData.status === 'proposta_enviada')) {
+              const { error: updateError } = await supabase
+                .from('leads_veiculos')
+                .update({ status: 'em_contato' })
+                .eq('id', payload.new.lead_id);
+              
+              if (updateError) {
+                console.error("[AdminDashboard] Error updating lead status:", updateError);
+              } else {
+                console.log("[AdminDashboard] Lead status updated to 'em_contato' automatically");
+                // Atualiza a lista de leads e o lead selecionado se for o caso
+                fetchData();
+                if (selectedLeadRef.current?.id === payload.new.lead_id) {
+                  setSelectedLead(prev => prev ? { ...prev, status: 'em_contato' } : null);
+                }
+              }
             }
+          } catch (err) {
+            console.error("[AdminDashboard] Unexpected error in status automation:", err);
           }
 
-          console.log("Current selectedConversationRef:", selectedConversationRef.current);
+          console.log("[AdminDashboard] Current selectedConversationRef:", selectedConversationRef.current);
           // Atualiza mensagens do chat se estiver aberto para este lead
           const isCurrentConversation = selectedConversationRef.current?.lead_ids?.includes(payload.new.lead_id) || 
                                        selectedConversationRef.current?.lead_id === payload.new.lead_id;
                                        
           if (isCurrentConversation) {
-            console.log("Updating chat messages state");
-            setChatMessages(prev => [...prev, payload.new]);
+            console.log("[AdminDashboard] Updating chat messages state for current conversation");
+            setChatMessages(prev => {
+              if (prev.find(m => m.id === payload.new.id)) return prev;
+              return [...prev, payload.new];
+            });
+            
             // Marcar como lida automaticamente se o chat estiver aberto
             try {
               await supabase
                 .from('mensagens')
                 .update({ lida: true })
                 .eq('id', payload.new.id);
-              console.log("Message marked as read");
+              console.log("[AdminDashboard] Message marked as read");
             } catch (err) {
-              console.error("Error marking message as read:", err);
+              console.error("[AdminDashboard] Error marking message as read:", err);
             }
+          } else {
+            console.log("[AdminDashboard] Message is NOT for current conversation. Current:", selectedConversationRef.current?.lead_id, "New:", payload.new.lead_id);
           }
 
-          // MONITORAMENTO E RESPOSTA DA IA (Agora redundante com BackgroundAIManager, mas mantido como fallback se BackgroundAIManager falhar)
-          if (isGlobalAiEnabledRef.current && !payload.new.metadata?.from_chat_widget) {
-            // ... (mantido como fallback)
-          }
-          
           // Atualiza a lista de conversas
           fetchData();
         } else {
@@ -868,6 +886,7 @@ export default function AdminDashboard() {
                                        selectedConversationRef.current?.lead_id === payload.new.lead_id;
                                        
           if (isCurrentConversation) {
+            console.log("[AdminDashboard] Updating chat messages state (admin message)");
             setChatMessages(prev => {
               if (prev.find(m => m.id === payload.new.id)) return prev;
               return [...prev, payload.new];
@@ -886,11 +905,13 @@ export default function AdminDashboard() {
         schema: 'public', 
         table: 'internal_messages' 
       }, async (payload) => {
-        console.log("Nova mensagem interna recebida:", payload.new);
+        console.log("[AdminDashboard] Nova mensagem interna recebida:", payload.new);
+        addLog(`Nova mensagem interna: ${payload.new.sender_id}`, 'debug', payload.new);
         
         // Atualiza chat interno se estiver aberto para este usuário
         if (selectedInternalChatRef.current === payload.new.sender_id || 
             selectedInternalChatRef.current === payload.new.receiver_id) {
+          console.log("[AdminDashboard] Updating internal chat messages state");
           setInternalChatMessages(prev => {
             if (prev.find(m => m.id === payload.new.id)) return prev;
             return [...prev, payload.new];
@@ -1088,11 +1109,13 @@ export default function AdminDashboard() {
                     id: selectedConversation.lead_ids[0],
                     email: selectedConversation.lead?.email,
                     cliente_nome: selectedConversation.lead?.nome || selectedConversation.lead?.cliente_nome || 'Cliente',
+                    telefone: selectedConversation.lead?.telefone || '00000000000',
                     status: 'novo'
                 });
             if (insertError) {
                 console.error("Erro ao criar lead frio:", insertError);
-                alert("Erro ao preparar lead para mensagem.");
+                addLog('Erro ao criar lead frio: ' + insertError.message, 'error', insertError);
+                alert("Erro ao preparar lead para mensagem: " + insertError.message);
                 setIsSendingMessage(false);
                 return;
             }

@@ -39,19 +39,6 @@ export default function Footer() {
 
   return (
     <footer className="bg-[#0b1b2b] text-white py-20 relative">
-      {specialistEnabled && (
-        <a 
-          href={specialistAction === 'whatsapp' ? specialistLink : '#'} 
-          target={specialistAction === 'whatsapp' ? "_blank" : undefined} 
-          rel={specialistAction === 'whatsapp' ? "noopener noreferrer" : undefined}
-          onClick={handleSpecialistClick}
-          className="fixed bottom-8 left-8 z-50 bg-green-600 text-white px-6 py-4 rounded-full shadow-2xl flex items-center gap-3 hover:bg-green-700 transition-all hover:scale-105 group"
-        >
-          <MessageCircle className="w-6 h-6" />
-          <span className="font-bold text-sm uppercase tracking-wide">{specialistText}</span>
-        </a>
-      )}
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-20">
           <div className="col-span-1 md:col-span-1">

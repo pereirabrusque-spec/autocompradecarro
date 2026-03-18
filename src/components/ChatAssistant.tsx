@@ -26,7 +26,7 @@ interface ChatAssistantProps {
 
 export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistantProps) {
   const { settings } = useAssets();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [leadId, setLeadId] = useState<string | null>(null);
   const [isFormFilled, setIsFormFilled] = useState(false);
@@ -131,8 +131,9 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
           const { data: newLead, error: insertError } = await supabase
             .from('leads_veiculos')
             .insert([{ 
-              cliente_nome: user.user_metadata?.full_name || 'Cliente', 
+              cliente_nome: user.user_metadata?.full_name || profile?.full_name || 'Cliente', 
               email: user.email,
+              telefone: profile?.phone || user.user_metadata?.phone || '00000000000',
               status: 'fria',
               origem: 'chat'
             }])
@@ -143,6 +144,14 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
             currentLeadId = newLead.id;
           } else if (insertError) {
             console.error("[ChatAssistant] Error creating lead:", insertError);
+            // Log more details
+            console.log("[ChatAssistant] Insert payload:", {
+              cliente_nome: user.user_metadata?.full_name || profile?.full_name || 'Cliente', 
+              email: user.email,
+              telefone: profile?.phone || user.user_metadata?.phone || '00000000000',
+              status: 'fria',
+              origem: 'chat'
+            });
           }
         }
       } else if (!currentLeadId) {
@@ -152,6 +161,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
           .from('leads_veiculos')
           .insert([{ 
             cliente_nome: 'Visitante', 
+            telefone: '00000000000',
             status: 'fria',
             origem: 'chat'
           }])
@@ -162,6 +172,13 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
           currentLeadId = newLead.id;
         } else if (insertError) {
           console.error("[ChatAssistant] Error creating anonymous lead:", insertError);
+          // Log more details
+          console.log("[ChatAssistant] Anonymous insert payload:", { 
+            cliente_nome: 'Visitante', 
+            telefone: '00000000000',
+            status: 'fria',
+            origem: 'chat'
+          });
         }
       }
 
