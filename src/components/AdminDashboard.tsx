@@ -343,6 +343,75 @@ export default function AdminDashboard() {
     }
   }, [currentUser]);
 
+  const [isCleaningDuplicates, setIsCleaningDuplicates] = useState(false);
+
+  const handleCleanupDuplicates = async () => {
+    if (!confirm('Deseja realmente limpar leads duplicados sem formulário? Isso manterá apenas o registro mais recente para cada e-mail.')) return;
+    
+    setIsCleaningDuplicates(true);
+    addLog('Iniciando limpeza de duplicados...', 'info');
+    
+    try {
+      // 1. Busca todos os leads
+      const { data: allLeads, error } = await supabase
+        .from('leads_veiculos')
+        .select('id, email, created_at, marca, modelo')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // 2. Filtra leads sem formulário (frios)
+      const coldLeads = allLeads.filter(l => !l.marca && !l.modelo);
+      
+      // 3. Agrupa por e-mail
+      const emailGroups: Record<string, string[]> = {};
+      coldLeads.forEach(lead => {
+        if (!lead.email) return;
+        if (!emailGroups[lead.email]) {
+          emailGroups[lead.email] = [];
+        }
+        emailGroups[lead.email].push(lead.id);
+      });
+
+      // 4. Identifica IDs para excluir (todos exceto o primeiro de cada grupo, que é o mais recente)
+      const idsToDelete: string[] = [];
+      Object.values(emailGroups).forEach(ids => {
+        if (ids.length > 1) {
+          idsToDelete.push(...ids.slice(1));
+        }
+      });
+
+      if (idsToDelete.length === 0) {
+        alert('Nenhum duplicado encontrado.');
+        return;
+      }
+
+      addLog(`Excluindo ${idsToDelete.length} leads duplicados...`, 'info');
+
+      // 5. Exclui em lotes (Supabase limit ou para evitar erros de timeout)
+      const batchSize = 50;
+      for (let i = 0; i < idsToDelete.length; i += batchSize) {
+        const batch = idsToDelete.slice(i, i + batchSize);
+        const { error: deleteError } = await supabase
+          .from('leads_veiculos')
+          .delete()
+          .in('id', batch);
+        
+        if (deleteError) throw deleteError;
+      }
+
+      addLog('Limpeza concluída com sucesso!', 'info');
+      alert(`${idsToDelete.length} leads duplicados foram removidos.`);
+      fetchData(); // Atualiza a lista
+    } catch (err: any) {
+      console.error('Erro na limpeza:', err);
+      addLog('Erro ao limpar duplicados', 'error', err);
+      alert('Erro ao limpar duplicados: ' + err.message);
+    } finally {
+      setIsCleaningDuplicates(false);
+    }
+  };
+
   const fetchData = async () => {
     console.log("fetchData chamado");
     setIsLoading(true);
@@ -3723,6 +3792,20 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     </div>
 
                     <button 
+                      onClick={handleCleanupDuplicates}
+                      disabled={isCleaningDuplicates}
+                      className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-xl font-bold hover:bg-amber-600 transition-colors text-sm disabled:opacity-50"
+                      title="Limpar leads duplicados sem formulário"
+                    >
+                      {isCleaningDuplicates ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-4 h-4" />
+                      )}
+                      <span className="hidden sm:inline">Limpar Duplicados</span>
+                    </button>
+
+                    <button 
                       onClick={fetchData}
                       className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-colors text-sm"
                     >
@@ -3777,7 +3860,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                               }}
                               className={`text-xs font-bold uppercase px-3 py-1 rounded-full border-none outline-none cursor-pointer ${
                                 (selectedLead.classificacao || 'morna') === 'quente' ? 'bg-red-100 text-red-600' :
-                                (selectedLead.classificacao || 'morna') === 'fria' ? 'bg-blue-100 text-blue-600' :
+                                (selectedLead.classificacao || 'morna') === 'frio' ? 'bg-blue-100 text-blue-600' :
                                 'bg-orange-100 text-orange-600'
                               }`}
                             >

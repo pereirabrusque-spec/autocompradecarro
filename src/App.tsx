@@ -80,6 +80,7 @@ function AppContent() {
           .from('leads_veiculos')
           .select('id')
           .eq('email', user.email)
+          .limit(1)
           .maybeSingle();
 
         if (!existingLead) {
@@ -90,7 +91,7 @@ function AppContent() {
               cliente_nome: user.user_metadata?.full_name || profile?.full_name || 'Cliente', 
               email: user.email,
               telefone: profile?.phone || user.user_metadata?.phone || '00000000000',
-              status: 'fria'
+              status: 'frio'
             }]);
         }
       };

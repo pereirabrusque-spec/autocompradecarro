@@ -19,11 +19,11 @@ export const LeadCard: React.FC<LeadCardProps> = ({ lead, suggestedValue, onClic
       {/* Classification Tag */}
       <div className="absolute top-0 right-0 z-10">
         <div className={`px-4 py-1 rounded-bl-2xl text-[10px] font-black uppercase tracking-widest ${
-          (lead.classificacao || (lead.is_frio ? 'fria' : 'morna')) === 'quente' ? 'bg-red-500 text-white' :
-          (lead.classificacao || (lead.is_frio ? 'fria' : 'morna')) === 'fria' ? 'bg-blue-500 text-white' :
+          (lead.classificacao || (lead.is_frio ? 'frio' : 'morna')) === 'quente' ? 'bg-red-500 text-white' :
+          (lead.classificacao || (lead.is_frio ? 'frio' : 'morna')) === 'frio' ? 'bg-blue-500 text-white' :
           'bg-orange-500 text-white'
         }`}>
-          {lead.classificacao || (lead.is_frio ? 'fria' : 'morna')}
+          {lead.classificacao || (lead.is_frio ? 'frio' : 'morna')}
         </div>
       </div>
 

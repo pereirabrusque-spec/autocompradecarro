@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { MessageCircle, Send, Search, Mail, User, Users, ImageIcon, ShieldCheck, DollarSign, UserCheck, Loader2 } from 'lucide-react';
+import { MessageCircle, Send, Search, Mail, User, Users, ImageIcon, ShieldCheck, DollarSign, UserCheck, Loader2, Trash2 } from 'lucide-react';
 
 interface AdminMessagesProps {
   conversations: any[];
@@ -85,6 +85,71 @@ export default function AdminMessages({
       leadsScrollRef.current.scrollTop = leadsScrollRef.current.scrollHeight;
     }
   }, [chatMessages, internalChatMessages]);
+
+  useEffect(() => {
+    if (messageTab === 'leads' && !selectedConversation && conversations.length > 0) {
+      const firstConv = conversations[0];
+      setSelectedConversation(firstConv);
+      fetchChatMessages(firstConv.lead_ids);
+      const lead = leads.find(l => l.id === firstConv.lead_ids[0]);
+      if (lead) {
+        setSelectedLead(lead);
+        setProposalCalculator(calculateProposal(lead));
+      }
+    } else if (messageTab === 'internal' && !selectedInternalChat && internalConversations.length > 0) {
+      const firstConv = internalConversations[0];
+      setSelectedInternalChat(firstConv.id);
+      fetchInternalMessages(firstConv.id);
+    }
+  }, [messageTab, conversations, internalConversations]);
+
+  const handleDeleteConversation = async (e: React.MouseEvent, conv: any) => {
+    e.stopPropagation();
+    if (!window.confirm('Tem certeza que deseja excluir esta conversa? Todas as mensagens serão removidas.')) return;
+
+    try {
+      const { error } = await supabase
+        .from('mensagens')
+        .delete()
+        .in('lead_id', conv.lead_ids);
+
+      if (error) throw error;
+
+      setConversations(prev => prev.filter(c => c.conversation_key !== conv.conversation_key));
+      if (selectedConversation?.conversation_key === conv.conversation_key) {
+        setSelectedConversation(null);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao excluir conversa.');
+    }
+  };
+
+  const handleDeleteContact = async (e: React.MouseEvent, conv: any) => {
+    e.stopPropagation();
+    if (!window.confirm('Tem certeza que deseja excluir este contato? O lead e todas as mensagens serão removidos.')) return;
+
+    try {
+      // Deletar mensagens primeiro devido à chave estrangeira
+      await supabase.from('mensagens').delete().in('lead_id', conv.lead_ids);
+      
+      // Deletar lead
+      const { error } = await supabase
+        .from('leads_veiculos')
+        .delete()
+        .in('id', conv.lead_ids);
+
+      if (error) throw error;
+
+      setConversations(prev => prev.filter(c => c.conversation_key !== conv.conversation_key));
+      if (selectedConversation?.conversation_key === conv.conversation_key) {
+        setSelectedConversation(null);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao excluir contato.');
+    }
+  };
 
   return (
     <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm flex h-[700px] w-full">
@@ -195,6 +260,22 @@ export default function AdminMessages({
                     </span>
                   </div>
                   <div className="flex flex-col items-end gap-1">
+                    <div className="flex items-center gap-1">
+                      <button 
+                        onClick={(e) => handleDeleteConversation(e, conv)}
+                        className="p-1 text-slate-300 hover:text-red-500 transition-colors"
+                        title="Excluir Conversa"
+                      >
+                        <MessageCircle className="w-3 h-3" />
+                      </button>
+                      <button 
+                        onClick={(e) => handleDeleteContact(e, conv)}
+                        className="p-1 text-slate-300 hover:text-red-500 transition-colors"
+                        title="Excluir Contato"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
                     <span className="text-[10px] text-slate-400 whitespace-nowrap">{new Date(conv.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     {conv.unread > 0 && (
                       <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">

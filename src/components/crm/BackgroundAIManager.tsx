@@ -326,9 +326,9 @@ REGRAS:
                         return;
                     }
 
-                    console.log(`[BackgroundAIManager] IA habilitada para lead. Aguardando delay...`);
+                    console.log(`[BackgroundAIManager] IA habilitada para lead. Aguardando delay maior (10s) para evitar conflito com UI...`);
                     
-                    const delay = Math.floor(Math.random() * 2000) + 2000;
+                    const delay = 10000; // 10 segundos fixos para dar tempo da UI responder
                     await new Promise(resolve => setTimeout(resolve, delay));
 
                     // Verifica se JÁ existe uma resposta de ADMIN ou BOT para ESTA mensagem

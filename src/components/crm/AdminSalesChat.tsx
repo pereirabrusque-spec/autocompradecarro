@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Send, Bot, MessageCircle, Trash2 } from 'lucide-react';
+import { Send, Bot, MessageCircle, Trash2, Loader2 } from 'lucide-react';
 
 export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conversationId: string, role: string, onMessageRead: () => void }) => {
   const [messages, setMessages] = useState<any[]>([]);
@@ -60,7 +60,7 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
       .from('internal_messages')
       .select('*')
       .or(`sender_id.eq.${conversationId},receiver_id.eq.${conversationId}`)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: true });
     
     if (error) {
       console.error('[AdminSalesChat] Erro ao buscar mensagens:', error);
@@ -238,7 +238,7 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
 
   useEffect(() => {
     if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = 0;
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
   }, [messages]);
 
@@ -253,6 +253,15 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
             </div>
         </div>
         <div className="flex gap-2 items-center">
+          <button 
+            type="button"
+            onClick={clearChat}
+            disabled={isDeleting}
+            className="p-2 rounded-full hover:bg-red-50 text-red-500 transition-colors"
+            title="Apagar todas as mensagens"
+          >
+            {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+          </button>
           <button type="button" className="px-3 py-1 bg-slate-900 text-white rounded-lg text-xs font-bold">
               Humano Assume
           </button>
@@ -270,15 +279,6 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
             {isAiMode ? 'IA NESTE CHAT: ON' : 'IA NESTE CHAT: OFF'}
           </button>
 
-          <button 
-            type="button"
-            onClick={clearChat}
-            disabled={isDeleting}
-            className="p-2 rounded-full hover:bg-red-50 text-red-500 transition-colors"
-            title="Apagar todas as mensagens"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
           {userPhone && (
             <a 
               href={`https://wa.me/${userPhone.replace(/\D/g, '')}`} 
@@ -296,11 +296,14 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
       {/* Modal de regras removido pois agora é global no container */}
 
 
-      <div className="flex-1 overflow-y-auto p-4 flex flex-col-reverse gap-4 min-h-0" ref={chatContainerRef}>
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 min-h-0" ref={chatContainerRef}>
         {(messages || []).map(m => (
           <div key={m.id} className={`flex ${m.sender_id === currentUserId ? 'justify-end' : 'justify-start'}`}>
             <div className={`p-3 rounded-xl text-sm max-w-[80%] ${m.sender_id === currentUserId ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-900'}`}>
               {m.content}
+              <span className="text-[9px] mt-1 block opacity-50">
+                {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
             </div>
           </div>
         ))}
