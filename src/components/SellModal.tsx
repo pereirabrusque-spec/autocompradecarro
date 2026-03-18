@@ -78,6 +78,23 @@ export default function SellModal() {
     batido_reparo: ''
   });
 
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
+  const [videos, setVideos] = useState<File[]>([]);
+  const [videoPreviews, setVideoPreviews] = useState<string[]>([]);
+
+  useEffect(() => {
+    const newPreviews = photos.map(photo => URL.createObjectURL(photo));
+    setPhotoPreviews(newPreviews);
+    return () => newPreviews.forEach(url => URL.revokeObjectURL(url));
+  }, [photos]);
+
+  useEffect(() => {
+    const newPreviews = videos.map(video => URL.createObjectURL(video));
+    setVideoPreviews(newPreviews);
+    return () => newPreviews.forEach(url => URL.revokeObjectURL(url));
+  }, [videos]);
+
   useEffect(() => {
     const handleOpen = () => setIsOpen(true);
     window.addEventListener('openSellModal', handleOpen);
@@ -120,10 +137,47 @@ export default function SellModal() {
   };
 
   const handleSubmit = async () => {
+    if (photos.length < 5) {
+      alert("Por favor, carregue pelo menos 5 fotos do veículo.");
+      return;
+    }
+
     setIsLoading(true);
     logToStorage('Iniciando submissão de formulário de venda', 'info', formData);
-    console.log("formData antes do insert:", formData);
     try {
+      // 1. Upload de Fotos e Vídeos
+      const uploadedPhotos: string[] = [];
+      const uploadedVideos: string[] = [];
+
+      const uploadFile = async (file: File, folder: string) => {
+        try {
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('folder', folder);
+
+          const response = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) return null;
+          const data = await response.json();
+          return data.publicUrl;
+        } catch (e) {
+          return null;
+        }
+      };
+
+      for (const photo of photos) {
+        const url = await uploadFile(photo, 'fotos');
+        if (url) uploadedPhotos.push(url);
+      }
+
+      for (const video of videos) {
+        const url = await uploadFile(video, 'videos');
+        if (url) uploadedVideos.push(url);
+      }
+
       const yearNumber = parseInt(formData.year.substring(0, 4)) || 0;
 
       // Check for existing "frio" lead for this user to update it instead of creating a new one
@@ -147,7 +201,7 @@ export default function SellModal() {
         valor_fipe: formData.fipe_price,
         desired_value: parseFloat(formData.desired_price) || 0,
         entrada: parseFloat(formData.entrada) || 0,
-        status: 'proposta_enviada', // Mudar para 'proposta_enviada' (Leads Morna)
+        status: 'proposta_enviada',
         classificacao: 'morna',
         email: formData.email,
         cpf: formData.cpf,
@@ -189,7 +243,8 @@ export default function SellModal() {
         data_negociacao: new Date().toISOString(),
         juros_atraso: 2,
         origem: 'formulario',
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        media_urls: [...uploadedPhotos, ...uploadedVideos]
       };
 
       let error;
@@ -556,10 +611,80 @@ export default function SellModal() {
                           />
                         </div>
                       </div>
-                      <div className="p-6 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center gap-2 hover:border-accent transition-colors cursor-pointer group">
-                        <Camera className="w-8 h-8 text-slate-300 group-hover:text-accent transition-colors" />
-                        <span className="text-sm font-bold text-slate-400 group-hover:text-slate-600">Upload de Fotos e Vídeos</span>
-                        <span className="text-[10px] text-slate-400 uppercase tracking-widest">Arraste ou clique aqui</span>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-display text-lg font-bold">Fotos do Veículo (Mínimo 5)</h4>
+                          <span className={`text-[10px] font-bold uppercase ${photos.length >= 5 ? 'text-green-500' : 'text-red-500'}`}>
+                            {photos.length < 5 
+                              ? `Faltam ${5 - photos.length} fotos` 
+                              : `${photos.length}/10 fotos`}
+                          </span>
+                        </div>
+                        
+                        <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
+                          {photoPreviews.map((preview, index) => (
+                            <div key={index} className="relative aspect-square rounded-xl overflow-hidden border border-slate-200">
+                              <img src={preview} alt="" className="w-full h-full object-cover" />
+                              <button 
+                                onClick={() => setPhotos(prev => prev.filter((_, i) => i !== index))}
+                                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-sm"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                          {photos.length < 10 && (
+                            <label className="aspect-square border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center gap-1 hover:border-accent transition-colors cursor-pointer group relative">
+                              <input 
+                                type="file" 
+                                accept="image/*" 
+                                multiple 
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                onChange={(e) => {
+                                  if (e.target.files) {
+                                    const newPhotos = Array.from(e.target.files);
+                                    setPhotos(prev => [...prev, ...newPhotos].slice(0, 10));
+                                  }
+                                }}
+                              />
+                              <Camera className="w-5 h-5 text-slate-300 group-hover:text-accent" />
+                              <span className="text-[8px] font-bold text-slate-400 uppercase">Add Foto</span>
+                            </label>
+                          )}
+                        </div>
+
+                        <h4 className="font-display text-lg font-bold mt-6">Vídeos (Opcional)</h4>
+                        <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
+                          {videoPreviews.map((preview, index) => (
+                            <div key={index} className="relative aspect-square rounded-xl overflow-hidden border border-slate-200">
+                              <video src={preview} className="w-full h-full object-cover" />
+                              <button 
+                                onClick={() => setVideos(prev => prev.filter((_, i) => i !== index))}
+                                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-sm"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                          {videos.length < 5 && (
+                            <label className="aspect-square border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center gap-1 hover:border-accent transition-colors cursor-pointer group relative">
+                              <input 
+                                type="file" 
+                                accept="video/*" 
+                                multiple 
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                onChange={(e) => {
+                                  if (e.target.files) {
+                                    const newVideos = Array.from(e.target.files);
+                                    setVideos(prev => [...prev, ...newVideos].slice(0, 5));
+                                  }
+                                }}
+                              />
+                              <Camera className="w-5 h-5 text-slate-300 group-hover:text-accent" />
+                              <span className="text-[8px] font-bold text-slate-400 uppercase">Add Vídeo</span>
+                            </label>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}

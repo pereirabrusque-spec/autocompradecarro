@@ -1107,7 +1107,9 @@ export default function SellCar() {
                 )}
                 <div className="col-span-full text-right">
                   <span className={`text-[10px] font-bold uppercase ${photos.length >= 5 ? 'text-green-500' : 'text-red-500'}`}>
-                    {photos.length}/10 fotos adicionadas (Mínimo 5 *)
+                    {photos.length < 5 
+                      ? `Faltam ${5 - photos.length} fotos para o mínimo (Mínimo 5 *)` 
+                      : `${photos.length}/10 fotos adicionadas (Mínimo 5 *)`}
                   </span>
                 </div>
               </div>
@@ -1625,6 +1627,12 @@ export default function SellCar() {
 
           {/* Submit Button */}
           <div className="pt-8">
+            {photos.length < 5 && (
+              <div className="mb-4 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600">
+                <AlertCircle className="w-5 h-5" />
+                <span className="text-sm font-bold">Por favor, carregue pelo menos 5 fotos do veículo para continuar.</span>
+              </div>
+            )}
             <button
               type="submit"
               disabled={isSubmitting}
