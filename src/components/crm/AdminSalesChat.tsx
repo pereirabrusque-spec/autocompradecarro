@@ -6,8 +6,9 @@ import { ChatActionModal } from './ChatActionModal';
 export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conversationId: string, role: string, onMessageRead: () => void }) => {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
-  const [isAiMode, setIsAiMode] = useState(false);
-  const [isUpdatingAi, setIsUpdatingAi] = useState(false);
+  const [isAiGlobal, setIsAiGlobal] = useState(false);
+  const [propostaMode, setPropostaMode] = useState<'auto' | 'man'>('auto');
+  const [isHumanAttending, setIsHumanAttending] = useState(false);
   
   const [userPhone, setUserPhone] = useState('');
   const [userEmail, setUserEmail] = useState('');
@@ -276,26 +277,31 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
           </button>
           <button 
             type="button"
+            onClick={() => setIsAiGlobal(!isAiGlobal)}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${isAiGlobal ? 'bg-purple-600 text-white' : 'bg-slate-200 text-slate-700'}`}
+          >
+            IA Global (24h): {isAiGlobal ? 'ON' : 'OFF'}
+          </button>
+          <button 
+            type="button"
+            onClick={() => setPropostaMode(propostaMode === 'auto' ? 'man' : 'auto')}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${propostaMode === 'auto' ? 'bg-green-600 text-white' : 'bg-orange-500 text-white'}`}
+          >
+            Proposta: {propostaMode === 'auto' ? 'AUTO' : 'MAN'}
+          </button>
+          <button 
+            type="button"
+            onClick={() => setIsHumanAttending(!isHumanAttending)}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${isHumanAttending ? 'bg-red-600 text-white' : 'bg-slate-200 text-slate-700'}`}
+          >
+            {isHumanAttending ? 'Atendimento Humano: ON' : 'Atendimento Humano: OFF'}
+          </button>
+          <button 
+            type="button"
             onClick={() => setModalType('proposta')}
             className="px-3 py-1 bg-blue-500 text-white rounded-lg text-xs font-bold hover:bg-blue-600 transition-colors"
           >
             Ver Proposta
-          </button>
-          <button type="button" className="px-3 py-1 bg-slate-900 text-white rounded-lg text-xs font-bold">
-              Humano Assume
-          </button>
-          <button 
-            type="button"
-            onClick={() => toggleAiMode(!isAiMode)}
-            disabled={isUpdatingAi}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer hover:scale-105 active:scale-95 ${
-              isAiMode 
-              ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' 
-              : 'bg-slate-100 text-slate-600'
-            }`}
-          >
-            <Bot className={`w-4 h-4 ${isAiMode ? 'animate-pulse' : ''}`} />
-            {isAiMode ? 'IA NESTE CHAT: ON' : 'IA NESTE CHAT: OFF'}
           </button>
 
           {userPhone && (
