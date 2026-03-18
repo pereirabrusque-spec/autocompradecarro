@@ -462,7 +462,7 @@ export default function AdminDashboard() {
       const leadIds = new Set();
       if (profilesData) {
         profilesData.forEach((p: any) => {
-          if (p.role === 'user' && !leadIds.has(p.id)) {
+          if ((p.role === 'user' || p.role === 'admin') && !leadIds.has(p.id)) {
             leadIds.add(p.id);
             groupedConversations.push({
               lead_id: p.id,
