@@ -348,6 +348,7 @@ export default function AdminDashboard() {
       
       // Combine leads and profiles
       const allLeads = [...(leadsData || [])];
+      console.log("Leads fetched:", allLeads.map(l => l.id));
       profilesData?.forEach(profile => {
         // Do not add admins or buyers as "frio" leads
         if (profile.role === 'admin' || profile.role?.includes('buyer')) return;
@@ -467,9 +468,10 @@ export default function AdminDashboard() {
       // Sort conversations by last message time descending
       groupedConversations.sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime());
 
-      let finalConversations = groupedConversations;
+      let finalConversations = groupedConversations.filter(conv => !conv.lead?.is_frio);
+      
       if (userProfile && (userProfile.role === 'user' || userProfile.role === 'seller')) {
-        finalConversations = groupedConversations.filter(conv => conv.lead?.user_id === userProfile.id);
+        finalConversations = finalConversations.filter(conv => conv.lead?.user_id === userProfile.id);
       }
 
       setConversations(finalConversations);
@@ -1017,6 +1019,15 @@ export default function AdminDashboard() {
     // Validate lead existence
     console.log("Sending message for lead_id:", selectedConversation.lead_ids[0]);
     console.log("Selected conversation:", selectedConversation);
+    console.log("Leads in state:", leads.map(l => l.id));
+    
+    // Check if lead is 'frio'
+    if (selectedConversation.lead?.is_frio) {
+        alert("Erro: Não é possível enviar mensagens para leads 'frio'.");
+        setIsSendingMessage(false);
+        return;
+    }
+
     const leadExists = leads.some(l => l.id === selectedConversation.lead_ids[0]);
     if (!leadExists) {
         console.error("Lead não encontrado no sistema:", selectedConversation.lead_ids[0]);
