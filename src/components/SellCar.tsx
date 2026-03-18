@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react';
 import { 
   Search, Car, Calculator, ArrowRight, Loader2, CheckCircle2, 
   Camera, FileText, AlertCircle, ShieldCheck, Info, Bike, Truck,
-  Check, X, Video, Wrench
+  Check, X, Video, Wrench, MessageCircle
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/authContext';
 import { triggerAdsConversion } from './GoogleTags';
 import AuthModal from './AuthModal';
+import InternalChat from './InternalChat';
 
 export default function SellCar() {
   const { user } = useAuth();
@@ -27,6 +28,10 @@ export default function SellCar() {
   const [showEngineModal, setShowEngineModal] = useState(false);
   const [showBodyModal, setShowBodyModal] = useState(false);
   const [showGearboxModal, setShowGearboxModal] = useState(false);
+  
+  const [myVehicles, setMyVehicles] = useState<any[]>([]);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [selectedVehicleForChat, setSelectedVehicleForChat] = useState<any>(null);
   
   const [formData, setFormData] = useState({
     vehicleType: 'Carros',
@@ -106,7 +111,26 @@ export default function SellCar() {
 
   useEffect(() => {
     fetchBrands();
-  }, [formData.vehicleType]);
+    if (user) {
+      fetchMyVehicles();
+    }
+  }, [formData.vehicleType, user]);
+
+  const fetchMyVehicles = async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('leads_veiculos')
+        .select('*')
+        .eq('email', user.email)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setMyVehicles(data || []);
+    } catch (error) {
+      console.error('Error fetching my vehicles:', error);
+    }
+  };
 
   const fetchBrands = async () => {
     const type = formData.vehicleType.toLowerCase();
@@ -525,6 +549,7 @@ export default function SellCar() {
       // IMPORTANTE: Primeiro desativa o loading, depois mostra o sucesso
       // Isso ajuda a evitar erros de sincronização do React DOM
       setIsSubmitting(false);
+      fetchMyVehicles();
       
       // Trigger Google Ads Conversion
       triggerAdsConversion();
@@ -900,6 +925,71 @@ export default function SellCar() {
             >
               Voltar para Home
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* My Vehicles Section */}
+      {user && myVehicles.length > 0 && (
+        <div className="max-w-4xl mx-auto px-4 mb-12">
+          <div className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-display font-bold text-slate-900">Meus Veículos</h2>
+                <p className="text-slate-500 text-sm">Acompanhe suas negociações em tempo real.</p>
+              </div>
+              <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center">
+                <Car className="w-6 h-6 text-slate-900" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+              {myVehicles.map((vehicle) => (
+                <div 
+                  key={vehicle.id}
+                  className="flex flex-col md:flex-row items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-accent transition-all group"
+                >
+                  <div className="flex items-center gap-4 mb-4 md:mb-0">
+                    <div className="w-16 h-16 bg-white rounded-xl overflow-hidden border border-slate-200 flex-shrink-0">
+                      {vehicle.fotos?.[0] ? (
+                        <img src={vehicle.fotos[0]} alt={vehicle.modelo} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-slate-100">
+                          <Camera className="w-6 h-6 text-slate-300" />
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-900">{vehicle.marca} {vehicle.modelo}</h3>
+                      <p className="text-xs text-slate-500">{vehicle.ano_modelo} • {vehicle.cor} • {vehicle.placa || 'Sem placa'}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                          vehicle.status === 'novo' ? 'bg-blue-100 text-blue-600' :
+                          vehicle.status === 'proposta_enviada' ? 'bg-orange-100 text-orange-600' :
+                          'bg-slate-200 text-slate-600'
+                        }`}>
+                          {vehicle.status}
+                        </span>
+                        <span className="text-[10px] font-mono text-slate-400">#{vehicle.vehicle_code}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 w-full md:w-auto">
+                    <button
+                      onClick={() => {
+                        setSelectedVehicleForChat(vehicle);
+                        setIsChatOpen(true);
+                      }}
+                      className="flex-1 md:flex-none px-6 py-3 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      Chat de Negociação
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -1654,6 +1744,14 @@ export default function SellCar() {
       </div>
 
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+
+      <InternalChat 
+        leadId={selectedVehicleForChat?.id}
+        leadTitle={selectedVehicleForChat ? `[#${selectedVehicleForChat.vehicle_code}] ${selectedVehicleForChat.marca} ${selectedVehicleForChat.modelo} (${selectedVehicleForChat.ano_modelo}) - ${selectedVehicleForChat.cor}` : undefined}
+        isOpen={isChatOpen}
+        onToggle={() => setIsChatOpen(!isChatOpen)}
+        hideFloatingButton={true}
+      />
 
       {/* Error Modal */}
       {errorModalOpen && (

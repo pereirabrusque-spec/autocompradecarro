@@ -587,7 +587,7 @@ export default function BuyerView() {
       )}
       <InternalChat 
         leadId={selectedLead?.id} 
-        leadTitle={selectedLead ? `${selectedLead.marca} ${selectedLead.modelo}` : 'Atendimento Geral'} 
+        leadTitle={selectedLead ? `[#${selectedLead.vehicle_code}] ${selectedLead.marca} ${selectedLead.modelo} (${selectedLead.ano_modelo}) - ${selectedLead.cor}` : 'Atendimento Geral'} 
         isOpen={isChatOpen}
         onToggle={() => setIsChatOpen(!isChatOpen)}
         hideFloatingButton={true}

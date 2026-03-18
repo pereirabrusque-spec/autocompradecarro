@@ -120,9 +120,13 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle, hide
 
           if (!recentMsgs || recentMsgs.length === 0 || recentMsgs[0].lead_id !== leadId) {
             console.log('[InternalChat] Enviando mensagem de contexto inicial para o lead:', leadId);
+            
+            // Extrai dados do título se possível (formato: [#CODE] MARCA MODELO (ANO) - COR)
+            const contextMessage = `Olá, tenho interesse no veículo: ${leadTitle}. Gostaria de iniciar a negociação.`;
+            
             await supabase.from('internal_messages').insert({
               sender_id: user.id,
-              content: `Olá, tenho interesse no veículo: ${leadTitle}. Gostaria de mais informações.`,
+              content: contextMessage,
               lead_id: leadId,
               is_read: false // Deve ser não lida para o admin ser notificado
             });
