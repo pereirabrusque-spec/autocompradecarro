@@ -142,7 +142,7 @@ export default function AdminDashboard() {
   const [showApiKeyForm, setShowApiKeyForm] = useState(false);
   const [isSavingKey, setIsSavingKey] = useState(false);
 
-  const [activeLeadTab, setActiveLeadTab] = useState<'todos' | 'novo' | 'em_contato' | 'proposta_enviada' | 'fechado' | 'perdido'>('todos');
+  const [activeLeadTab, setActiveLeadTab] = useState<'todos' | 'novo' | 'em_contato' | 'proposta_enviada' | 'fechado' | 'frio'>('todos');
   const [leadsViewMode, setLeadsViewMode] = useState<'grid' | 'list'>('list');
   const [showBuyerPermissionsModal, setShowBuyerPermissionsModal] = useState(false);
   const [selectedBuyer, setSelectedBuyer] = useState<any>(null);
@@ -2775,7 +2775,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         { label: 'Em Contato', status: 'em_contato' as const, count: leads.filter(l => l.status === 'em_contato').length, color: 'bg-amber-500' },
                         { label: 'Proposta Enviada', status: 'proposta_enviada' as const, count: leads.filter(l => l.status === 'proposta_enviada').length, color: 'bg-purple-500' },
                         { label: 'Fechados', status: 'fechado' as const, count: leads.filter(l => l.status === 'fechado').length, color: 'bg-emerald-500' },
-                        { label: 'Perdidos', status: 'perdido' as const, count: leads.filter(l => l.status === 'perdido').length, color: 'bg-red-500' },
+                        { label: 'Usuários', status: 'frio' as const, count: leads.filter(l => l.status === 'frio').length, color: 'bg-red-500' },
                       ].map((item, i) => (
                         <div 
                           key={i} 
@@ -3394,7 +3394,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       { id: 'em_contato', label: 'Em Contato' },
                       { id: 'proposta_enviada', label: 'Proposta Enviada' },
                       { id: 'fechado', label: 'Fechados' },
-                      { id: 'perdido', label: 'Perdidos' }
+                      { id: 'frio', label: 'Usuários' }
                     ].map((tab) => (
                       <button
                         key={tab.id}
@@ -4264,7 +4264,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       {leads
                         .filter(l => {
                           if (activeLeadTab === 'todos') return true;
-                          if (activeLeadTab === 'perdido') return l.status === 'perdido' || l.status === 'frio';
+                          if (activeLeadTab === 'frio') return l.status === 'frio';
                           return l.status === activeLeadTab;
                         })
                         .filter(l => !searchCode || (l.vehicle_code && l.vehicle_code.includes(searchCode)))
@@ -4327,7 +4327,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                             {leads
                               .filter(l => {
                                 if (activeLeadTab === 'todos') return true;
-                                if (activeLeadTab === 'perdido') return l.status === 'perdido' || l.status === 'frio';
+                                if (activeLeadTab === 'frio') return l.status === 'frio';
                                 return l.status === activeLeadTab;
                               })
                               .filter(l => !searchCode || (l.vehicle_code && l.vehicle_code.includes(searchCode)))
