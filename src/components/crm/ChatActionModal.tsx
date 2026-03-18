@@ -164,11 +164,18 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
                       <p className="text-center text-slate-500">Nenhum veículo encontrado para este lead.</p>
                     ) : (
                       vehicles.map(v => {
+                        console.log('Vehicle keys:', Object.keys(v));
                         console.log('Vehicle data:', v);
                         return (
                           <div key={v.id} className="flex justify-between items-center p-4 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50" onClick={() => {
                             console.log('Vehicle clicked:', v);
-                            setSelectedVehicle(v);
+                            const vehicleWithMedia = {
+                              ...v,
+                              fotos: Array.isArray(v.fotos) ? v.fotos : (v.fotos ? [v.fotos] : []),
+                              videos: Array.isArray(v.videos) ? v.videos : (v.videos ? [v.videos] : [])
+                            };
+                            console.log('Vehicle selected and sanitized:', vehicleWithMedia);
+                            setSelectedVehicle(vehicleWithMedia);
                           }}>
                             <div className="flex items-center gap-4">
                               {v.foto_principal && (
