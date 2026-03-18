@@ -467,11 +467,12 @@ export default function AdminDashboard() {
       // Sort conversations by last message time descending
       groupedConversations.sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime());
 
-      if (assetsData) {
-        // No longer load permissions from assetsData
+      let finalConversations = groupedConversations;
+      if (userProfile && (userProfile.role === 'user' || userProfile.role === 'seller')) {
+        finalConversations = groupedConversations.filter(conv => conv.lead?.user_id === userProfile.id);
       }
 
-      setConversations(groupedConversations);
+      setConversations(finalConversations);
       setDbAssets(assetsData || []);
       setBanks(banksData || []);
       setRepairCosts(repairData || []);
