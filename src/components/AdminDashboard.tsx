@@ -448,14 +448,18 @@ export default function AdminDashboard() {
 
       // Check for expired reservations
       const now = new Date();
-      const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       
       const processedLeadsData = leadsData?.map(lead => {
-        if (lead.status === 'reservado' && lead.reserva_timestamp && new Date(lead.reserva_timestamp) < twentyFourHoursAgo) {
-          // Revert
-          supabase.from('leads_veiculos').update({ status: 'proposta_enviada', reserva_timestamp: null }).eq('id', lead.id)
-            .then(() => console.log(`[AdminDashboard] Reserva expirada revertida para lead: ${lead.id}`));
-          return { ...lead, status: 'proposta_enviada', reserva_timestamp: null };
+        if (lead.status === 'reservado' && lead.reserva_timestamp) {
+          const reservaDate = new Date(lead.reserva_timestamp);
+          const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+          
+          if (reservaDate < twentyFourHoursAgo) {
+            // Revert
+            supabase.from('leads_veiculos').update({ status: 'proposta_enviada', reserva_timestamp: null }).eq('id', lead.id)
+              .then(() => console.log(`[AdminDashboard] Reserva expirada revertida para lead: ${lead.id}`));
+            return { ...lead, status: 'proposta_enviada', reserva_timestamp: null };
+          }
         }
         return lead;
       });
@@ -4759,6 +4763,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         .filter(l => !filterYear || l.ano_modelo === parseInt(filterYear))
                         .filter(l => !filterMinPrice || (l.preco_cliente || 0) >= parseFloat(filterMinPrice))
                         .filter(l => !filterMaxPrice || (l.preco_cliente || 0) <= parseFloat(filterMaxPrice))
+                        .filter(l => l.status !== 'reservado')
                         .filter(l => {
                           if (!filterStartDate && !filterEndDate) return true;
                           const leadDate = new Date(l.created_at);

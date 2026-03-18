@@ -620,6 +620,24 @@ export default function LeadDetailsCard({
             {userRole === 'admin' && (
               <>
                 <button 
+                  onClick={async () => {
+                    if (!confirm('Deseja reservar este veículo? Ele ficará invisível no estoque por 24 horas.')) return;
+                    const { error } = await supabase
+                      .from('leads_veiculos')
+                      .update({ status: 'reservado', reserva_timestamp: new Date().toISOString() })
+                      .eq('id', currentLead.id);
+                    if (error) alert('Erro ao reservar: ' + error.message);
+                    else {
+                      alert('Veículo reservado com sucesso!');
+                      onRefresh();
+                      onClose();
+                    }
+                  }}
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5 shadow-md"
+                >
+                  <ShieldCheck className="w-4 h-4" /> Reservar
+                </button>
+                <button 
                   onClick={() => {
                     const phone = currentLead.telefone?.replace(/\D/g, '');
                     const formattedPhone = phone?.startsWith('55') ? phone : `55${phone}`;
