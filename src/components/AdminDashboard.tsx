@@ -287,6 +287,7 @@ export default function AdminDashboard() {
   const [confirmDeleteAssetId, setConfirmDeleteAssetId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const leadsScrollRef = useRef<HTMLDivElement>(null);
 
   const [buyerPermissions, setBuyerPermissions] = useState({
     show_price: true,
@@ -1268,11 +1269,14 @@ Podemos prosseguir com o agendamento da vistoria?`;
       if (scrollRef.current) {
         scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
       }
+      if (leadsScrollRef.current) {
+        leadsScrollRef.current.scrollTop = leadsScrollRef.current.scrollHeight;
+      }
     };
     scrollToBottom();
     // Also scroll after a short delay to account for rendering/images
     setTimeout(scrollToBottom, 100);
-  }, [chatMessages, selectedConversation]);
+  }, [chatMessages, selectedConversation, internalChatMessages]);
 
   const handleLearnFromChat = async () => {
     if (!selectedConversation || chatMessages.length === 0) return;
@@ -5451,7 +5455,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
                       {/* Mensagens */}
                       <div 
-                        ref={scrollRef}
+                        ref={leadsScrollRef}
                         className="flex-1 overflow-y-auto p-6 space-y-4"
                       >
                         {(chatMessages || []).map((msg) => (
