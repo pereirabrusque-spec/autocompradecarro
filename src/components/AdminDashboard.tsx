@@ -389,22 +389,24 @@ export default function AdminDashboard() {
         .select('*, leads_veiculos(*)')
         .order('created_at', { ascending: false });
 
-      // Group messages by lead_id to create conversation list
+      // Group messages by email to create conversation list
       const groupedConversations: any[] = [];
-      const leadIds = new Set();
+      const customerEmails = new Set();
       
       if (messagesData) {
         messagesData.forEach((msg: any) => {
-          if (!leadIds.has(msg.lead_id)) {
-            leadIds.add(msg.lead_id);
-            const leadMessages = messagesData.filter((m: any) => m.lead_id === msg.lead_id);
-            const unreadCount = leadMessages.filter((m: any) => !m.lida && m.remetente === 'cliente').length;
+          const email = msg.leads_veiculos?.email;
+          if (email && !customerEmails.has(email)) {
+            customerEmails.add(email);
+            const customerMessages = messagesData.filter((m: any) => m.leads_veiculos?.email === email);
+            const unreadCount = customerMessages.filter((m: any) => !m.lida && m.remetente === 'cliente').length;
             
-            const leadProfile = (profilesData || []).find((u: any) => u.email === msg.leads_veiculos?.email);
+            const leadProfile = (profilesData || []).find((u: any) => u.email === email);
             const isOnline = leadProfile ? (new Date().getTime() - new Date(leadProfile.last_login).getTime()) < 300000 : false;
 
             groupedConversations.push({
-              lead_id: msg.lead_id,
+              customer_email: email,
+              lead_ids: [...new Set(customerMessages.map((m: any) => m.lead_id))],
               last_message: msg.conteudo,
               last_time: msg.created_at,
               last_message_at: msg.created_at,
@@ -420,14 +422,15 @@ export default function AdminDashboard() {
       // Adicionar leads que não possuem mensagens
       if (leadsData) {
         leadsData.forEach((lead: any) => {
-          if (!leadIds.has(lead.id)) {
-            leadIds.add(lead.id);
+          if (lead.email && !customerEmails.has(lead.email)) {
+            customerEmails.add(lead.email);
             
             const leadProfile = (profilesData || []).find((u: any) => u.email === lead.email);
             const isOnline = leadProfile ? (new Date().getTime() - new Date(leadProfile.last_login).getTime()) < 300000 : false;
 
             groupedConversations.push({
-              lead_id: lead.id,
+              customer_email: lead.email,
+              lead_ids: [lead.id],
               last_message: 'Nenhuma mensagem ainda',
               last_time: lead.created_at,
               last_message_at: lead.created_at,
@@ -5131,22 +5134,22 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     {messageTab === 'leads' ? (
                       conversations.map((conv) => (
                       <div 
-                        key={conv.lead_id}
+                        key={conv.customer_email}
                         onClick={() => {
                           setSelectedConversation(conv);
-                          fetchChatMessages(conv.lead_id);
-                          const lead = leads.find(l => l.id === conv.lead_id);
+                          fetchChatMessages(conv.lead_ids[0]);
+                          const lead = leads.find(l => l.id === conv.lead_ids[0]);
                           if (lead) {
                             setSelectedLead(lead);
                             setProposalCalculator(calculateProposal(lead));
                           }
                         }}
-                        className={`py-1 px-2 flex items-center gap-2 cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 ${selectedConversation?.lead_id === conv.lead_id ? 'bg-slate-50' : ''}`}
+                        className={`py-1 px-2 flex items-center gap-2 cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 ${selectedConversation?.customer_email === conv.customer_email ? 'bg-slate-50' : ''}`}
                       >
                         <div className="relative">
                           <div className="w-8 h-8 rounded-full bg-slate-100 overflow-hidden flex-shrink-0">
                             {(() => {
-                              const profile = users.find(u => u.email === conv.lead?.email);
+                              const profile = users.find(u => u.email === conv.customer_email);
                               const avatarUrl = profile?.avatar_url || (conv.lead?.fotos && conv.lead.fotos[0]);
                               return avatarUrl ? (
                                 <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
@@ -5170,8 +5173,10 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                   <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" title="Aguardando resposta" />
                                 )}
                               </div>
-                              <p className="text-[10px] text-slate-500 truncate">{conv.lead?.email || 'Sem email'}</p>
-                              <span className="text-[10px] font-mono font-bold text-slate-400">#{conv.lead?.vehicle_code || '----'}</span>
+                              <p className="text-[10px] text-slate-500 truncate">{conv.customer_email || 'Sem email'}</p>
+                              <span className="text-[10px] font-mono font-bold text-slate-400">
+                                {conv.lead_ids.length > 1 ? `${conv.lead_ids.length} veículos` : `#${conv.lead?.vehicle_code || '----'}`}
+                              </span>
                             </div>
                             <div className="flex flex-col items-end gap-1">
                               <span className="text-[10px] text-slate-400 whitespace-nowrap">{new Date(conv.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
