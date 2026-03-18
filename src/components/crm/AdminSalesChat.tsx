@@ -6,8 +6,6 @@ import { ChatActionModal } from './ChatActionModal';
 export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conversationId: string, role: string, onMessageRead: () => void }) => {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
-  const [isAiGlobal, setIsAiGlobal] = useState(false);
-  const [propostaMode, setPropostaMode] = useState<'auto' | 'man'>('auto');
   
   const [userPhone, setUserPhone] = useState('');
   const [userEmail, setUserEmail] = useState('');
@@ -274,20 +272,6 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
             title="Apagar todas as mensagens"
           >
             {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-          </button>
-          <button 
-            type="button"
-            onClick={() => setIsAiGlobal(!isAiGlobal)}
-            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${isAiGlobal ? 'bg-purple-600 text-white' : 'bg-slate-200 text-slate-700'}`}
-          >
-            IA Global (24h): {isAiGlobal ? 'ON' : 'OFF'}
-          </button>
-          <button 
-            type="button"
-            onClick={() => setPropostaMode(propostaMode === 'auto' ? 'man' : 'auto')}
-            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${propostaMode === 'auto' ? 'bg-green-600 text-white' : 'bg-orange-500 text-white'}`}
-          >
-            Proposta: {propostaMode === 'auto' ? 'AUTO' : 'MAN'}
           </button>
           <button 
             type="button"

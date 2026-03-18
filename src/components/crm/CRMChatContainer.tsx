@@ -13,6 +13,7 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
   const [isSavingPrompt, setIsSavingPrompt] = useState(false);
   const [isUpdatingAi, setIsUpdatingAi] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [propostaMode, setPropostaMode] = useState<'auto' | 'man'>('auto');
   
   const selectedConversationIdRef = useRef<string | null>(null);
   const currentUserIdRef = useRef<string | null>(null);
@@ -250,6 +251,12 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
                 >
                     <Bot className={`w-3 h-3 ${isAiEnabled ? 'animate-pulse' : ''}`} />
                     <span>{isAiEnabled ? 'IA GLOBAL ON' : 'IA GLOBAL OFF'}</span>
+                </button>
+                <button 
+                    onClick={() => setPropostaMode(propostaMode === 'auto' ? 'man' : 'auto')}
+                    className={`px-2 py-1 rounded-lg text-[9px] font-bold transition-all ${propostaMode === 'auto' ? 'bg-green-600 text-white' : 'bg-orange-500 text-white'}`}
+                >
+                    Proposta: {propostaMode === 'auto' ? 'AUTO' : 'MAN'}
                 </button>
             </div>
             <button 
