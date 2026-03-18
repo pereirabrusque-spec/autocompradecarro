@@ -40,7 +40,11 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
           .from('leads_veiculos')
           .select('*')
           .eq('user_id', conversationId);
-        if (data) {
+        
+        if (error) {
+          console.error('Erro ao buscar veículos:', error);
+          alert('Erro ao buscar veículos: ' + error.message);
+        } else if (data) {
           setVehicles(data);
           // Se houver apenas um veículo, seleciona automaticamente
           if (data.length === 1) {
@@ -117,19 +121,23 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
             <>
                 {type === 'proposta' && !selectedVehicle && (
                   <div className="space-y-4">
-                    {vehicles.map(v => (
-                      <div key={v.id} className="flex justify-between items-center p-4 border border-slate-200 rounded-lg">
-                        <div className="flex items-center gap-4 cursor-pointer hover:text-blue-600" onClick={() => setSelectedVehicle(v)}>
-                          {v.foto_principal && (
-                            <img src={v.foto_principal} alt={`${v.marca} ${v.modelo}`} className="w-16 h-16 object-cover rounded-md" />
-                          )}
-                          <span className="font-semibold">{v.marca} {v.modelo} - {v.ano_modelo}</span>
+                    {vehicles.length === 0 ? (
+                      <p className="text-center text-slate-500">Nenhum veículo encontrado para este lead.</p>
+                    ) : (
+                      vehicles.map(v => (
+                        <div key={v.id} className="flex justify-between items-center p-4 border border-slate-200 rounded-lg">
+                          <div className="flex items-center gap-4 cursor-pointer hover:text-blue-600" onClick={() => setSelectedVehicle(v)}>
+                            {v.foto_principal && (
+                              <img src={v.foto_principal} alt={`${v.marca} ${v.modelo}`} className="w-16 h-16 object-cover rounded-md" />
+                            )}
+                            <span className="font-semibold">{v.marca} {v.modelo} - {v.ano_modelo}</span>
+                          </div>
+                          <button onClick={() => handleDeleteVehicle(v.id)} className="text-red-500 hover:text-red-700 p-2">
+                            <Trash2 className="w-5 h-5" />
+                          </button>
                         </div>
-                        <button onClick={() => handleDeleteVehicle(v.id)} className="text-red-500 hover:text-red-700 p-2">
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 )}
 

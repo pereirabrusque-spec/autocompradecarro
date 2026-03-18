@@ -28,9 +28,8 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
       const { data, error } = await supabase
         .from('leads_veiculos')
         .select('*')
-        .eq('user_id', conversationId)
-        .single();
-      if (data) setLeadData(data);
+        .eq('user_id', conversationId);
+      if (data && data.length > 0) setLeadData(data[0]);
   };
 
   const logWhatsAppUsage = () => {
