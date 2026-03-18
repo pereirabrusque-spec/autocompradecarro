@@ -262,6 +262,21 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
           >
             {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
           </button>
+          <button 
+            type="button"
+            onClick={async () => {
+              if (!confirm('Deseja reservar este veículo? Ele ficará invisível no estoque por 2 horas.')) return;
+              const { error } = await supabase
+                .from('leads_veiculos')
+                .update({ status: 'reservado', reserva_timestamp: new Date().toISOString() })
+                .eq('id', conversationId);
+              if (error) alert('Erro ao reservar: ' + error.message);
+              else alert('Veículo reservado com sucesso!');
+            }}
+            className="px-3 py-1 bg-amber-500 text-white rounded-lg text-xs font-bold hover:bg-amber-600 transition-colors"
+          >
+            Reservar
+          </button>
           <button type="button" className="px-3 py-1 bg-slate-900 text-white rounded-lg text-xs font-bold">
               Humano Assume
           </button>

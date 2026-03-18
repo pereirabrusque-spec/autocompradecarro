@@ -215,12 +215,23 @@ export default function BuyerView() {
         // Critérios de formulário preenchido:
         const hasPhotos = lead.fotos && Array.isArray(lead.fotos) && lead.fotos.length > 0;
         const hasClassification = (!!lead.classificacao && lead.classificacao !== 'Não informado') || lead.status === 'novo' || lead.status === 'proposta_enviada';
-        const hasBankInfo = (!!lead.banco_financiamento && lead.banco_financiamento !== 'Não informado') || lead.status === 'proposta_enviada'; // SellModal leads might not have bank info yet but are 'proposta_enviada'
+        const hasBankInfo = (!!lead.banco_financiamento && lead.banco_financiamento !== 'Não informado') || lead.status === 'proposta_enviada';
         const hasBasicData = lead.valor_fipe > 0 && lead.quilometragem > 0;
         
-        // O veículo só aparece se tiver o "mínimo profissional" preenchido (Fotos + Situação + Dados Bancários)
-        // Se for proposta_enviada ou novo, consideramos como tendo o formulário iniciado/preenchido
-        return hasPhotos && hasClassification && hasBankInfo && hasBasicData;
+        // Verifica se está reservado e se o tempo de reserva expirou (2 horas)
+        if (lead.status === 'reservado' && lead.reserva_timestamp) {
+          const reservaTime = new Date(lead.reserva_timestamp).getTime();
+          const now = new Date().getTime();
+          if (now - reservaTime > 2 * 60 * 60 * 1000) {
+            // Reserva expirou, libera o veículo
+            supabase.from('leads_veiculos').update({ status: 'novo', reserva_timestamp: null }).eq('id', lead.id);
+            return hasPhotos && hasClassification && hasBankInfo && hasBasicData;
+          }
+          return false; // Ainda reservado
+        }
+
+        // O veículo só aparece se não estiver fechado ou reservado
+        return hasPhotos && hasClassification && hasBankInfo && hasBasicData && lead.status !== 'fechado' && lead.status !== 'reservado';
       });
 
       setAuthorizedLeads(filteredLeads);
