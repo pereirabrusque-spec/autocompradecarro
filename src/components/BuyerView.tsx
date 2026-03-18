@@ -223,9 +223,9 @@ export default function BuyerView() {
           const reservaTime = new Date(lead.reserva_timestamp).getTime();
           const now = new Date().getTime();
           if (now - reservaTime > 2 * 60 * 60 * 1000) {
-            // Reserva expirou, libera o veículo
-            supabase.from('leads_veiculos').update({ status: 'novo', reserva_timestamp: null }).eq('id', lead.id);
-            return hasPhotos && hasClassification && hasBankInfo && hasBasicData;
+            // Reserva expirou, marca como reservado_expirado para alerta ao agente
+            supabase.from('leads_veiculos').update({ status: 'reservado_expirado' }).eq('id', lead.id);
+            return false; // Não aparece no estoque
           }
           return false; // Ainda reservado
         }

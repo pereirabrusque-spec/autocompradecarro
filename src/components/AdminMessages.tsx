@@ -11,6 +11,7 @@ interface AdminMessagesProps {
   handleSendMessage: () => void;
   handleLearnFromChat: () => void;
   setShowProposalModal: (show: boolean) => void;
+  setShowVehicleSelectionModal: (show: boolean) => void;
   setSelectedLead: (lead: any) => void;
   messageTab: 'leads' | 'internal';
   setMessageTab: (tab: 'leads' | 'internal') => void;
@@ -44,6 +45,7 @@ export default function AdminMessages({
   handleSendMessage,
   handleLearnFromChat,
   setShowProposalModal,
+  setShowVehicleSelectionModal,
   setSelectedLead,
   messageTab,
   setMessageTab,
@@ -430,8 +432,16 @@ export default function AdminMessages({
                 <button 
                   type="button"
                   onClick={() => {
-                    setSelectedLead(selectedConversation.lead);
-                    setShowProposalModal(true);
+                    const conversationLeads = leads.filter(l => selectedConversation.lead_ids.includes(l.id));
+                    if (conversationLeads.length > 1) {
+                      setShowVehicleSelectionModal(true);
+                    } else if (conversationLeads.length === 1) {
+                      setSelectedLead(conversationLeads[0]);
+                      setProposalCalculator(calculateProposal(conversationLeads[0]));
+                      setShowProposalModal(true);
+                    } else {
+                      alert('Nenhum veículo encontrado nesta conversa.');
+                    }
                   }}
                   className="px-4 py-2 bg-accent/10 text-accent rounded-xl font-bold text-xs hover:bg-accent/20 transition-all flex items-center gap-2"
                 >

@@ -9,6 +9,7 @@ import { useAssets } from '../lib/assetsContext';
 import { supabase } from '../lib/supabase';
 import { defaultCards } from '../lib/seedData';
 import { ProposalModal } from './ProposalModal';
+import { VehicleSelectionModal } from './VehicleSelectionModal';
 import { LeadCard } from './LeadCard';
 import LeadDetailsCard from './LeadDetailsCard';
 import AdminMessages from './AdminMessages';
@@ -40,6 +41,8 @@ export default function AdminDashboard() {
   const [adminMessage, setAdminMessage] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [showProposalModal, setShowProposalModal] = useState(false);
+  const [showVehicleSelectionModal, setShowVehicleSelectionModal] = useState(false);
+  const [showExpiredReservationAlert, setShowExpiredReservationAlert] = useState(false);
   const [showCooperativesModal, setShowCooperativesModal] = useState(false);
   const [searchCode, setSearchCode] = useState('');
   const [isSavingBuyer, setIsSavingBuyer] = useState(false);
@@ -1173,8 +1176,9 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
-    console.log('AdminDashboard: userProfile carregado:', userProfile);
-  }, [userProfile]);
+    const hasExpired = leads.some(l => l.status === 'reservado_expirado');
+    setShowExpiredReservationAlert(hasExpired);
+  }, [leads]);
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
@@ -2876,6 +2880,23 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
         {activeTab === 'dashboard' && (
               <div className="space-y-8">
+                {showExpiredReservationAlert && (
+                  <div className="p-6 bg-red-50 border border-red-200 rounded-[32px] flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <AlertTriangle className="w-8 h-8 text-red-600" />
+                      <div>
+                        <h3 className="text-lg font-bold text-red-900">Reservas Expiradas</h3>
+                        <p className="text-sm text-red-700">Existem veículos com reserva expirada que precisam de atenção humana.</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => setActiveTab('leads')}
+                      className="px-6 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-all"
+                    >
+                      Ver Leads
+                    </button>
+                  </div>
+                )}
                 {/* Stats Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                   <div 
@@ -5551,6 +5572,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 handleSendMessage={handleSendMessage}
                 handleLearnFromChat={handleLearnFromChat}
                 setShowProposalModal={setShowProposalModal}
+                setShowVehicleSelectionModal={setShowVehicleSelectionModal}
                 setSelectedLead={setSelectedLead}
                 messageTab={messageTab}
                 setMessageTab={setMessageTab}
