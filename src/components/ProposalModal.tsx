@@ -1,5 +1,6 @@
 import React from 'react';
 import { User, CheckCircle, X, AlertCircle } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 interface ProposalModalProps {
   selectedLead: any;
@@ -18,6 +19,7 @@ export const ProposalModal: React.FC<ProposalModalProps> = ({
 }) => {
   const [editedLead, setEditedLead] = React.useState(selectedLead);
   const [editedCalculator, setEditedCalculator] = React.useState(proposalCalculator);
+  const [isReserving, setIsReserving] = React.useState(false);
   
   const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 
@@ -25,6 +27,21 @@ export const ProposalModal: React.FC<ProposalModalProps> = ({
     // Aqui você deve implementar a lógica para salvar as alterações no Supabase
     console.log('Salvando:', editedLead);
     onClose();
+  };
+
+  const handleReserve = async () => {
+    if (!confirm('Deseja reservar este veículo? Ele ficará invisível no estoque por 2 horas.')) return;
+    setIsReserving(true);
+    const { error } = await supabase
+      .from('leads_veiculos')
+      .update({ status: 'reservado', reserva_timestamp: new Date().toISOString() })
+      .eq('id', editedLead.id);
+    setIsReserving(false);
+    if (error) alert('Erro ao reservar: ' + error.message);
+    else {
+      alert('Veículo reservado com sucesso!');
+      onClose();
+    }
   };
 
   return (
@@ -37,7 +54,7 @@ export const ProposalModal: React.FC<ProposalModalProps> = ({
         <h2 className="text-2xl font-bold mb-6">Proposta para {editedLead.cliente_nome}</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Coluna 1: Dados do Cliente */}
+          {/* Coluna 1: Dados do Cliente e Formulário */}
           <div className="space-y-6">
             <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
               <h4 className="text-sm font-bold mb-4 flex items-center gap-2">
@@ -61,6 +78,19 @@ export const ProposalModal: React.FC<ProposalModalProps> = ({
                   <p className="text-slate-400 uppercase font-black tracking-widest text-[9px]">Quilometragem</p>
                   <p className="font-bold">{editedLead.quilometragem || '0'} km</p>
                 </div>
+              </div>
+            </div>
+
+            {/* Copia Fiel do Formulário */}
+            <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
+              <h4 className="text-sm font-bold mb-4">Cópia Fiel do Formulário</h4>
+              <div className="space-y-2 text-xs">
+                {Object.entries(editedLead).map(([key, value]) => (
+                  <div key={key} className="flex justify-between border-b border-slate-200 pb-1">
+                    <span className="font-bold text-slate-500">{key}:</span>
+                    <span className="text-slate-900">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -104,9 +134,18 @@ export const ProposalModal: React.FC<ProposalModalProps> = ({
                 <input type="number" value={editedLead.preco_cliente} onChange={(e) => setEditedLead({...editedLead, preco_cliente: parseFloat(e.target.value)})} className="w-32 p-2 rounded-lg border border-slate-200 font-black text-accent" />
               </div>
             </div>
-            <button onClick={handleSave} className="w-full mt-6 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all">
-              Salvar e Atualizar Proposta
-            </button>
+            <div className="flex gap-4 mt-6">
+              <button onClick={handleSave} className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all">
+                Salvar e Atualizar Proposta
+              </button>
+              <button 
+                onClick={handleReserve}
+                disabled={isReserving}
+                className="flex-1 py-3 bg-amber-500 text-white rounded-xl font-bold hover:bg-amber-600 transition-all"
+              >
+                {isReserving ? 'Reservando...' : 'Reservar'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
