@@ -148,6 +148,7 @@ export default function SellModal() {
         desired_value: parseFloat(formData.desired_price) || 0,
         entrada: parseFloat(formData.entrada) || 0,
         status: 'proposta_enviada', // Mudar para 'proposta_enviada' (Leads Morna)
+        classificacao: 'morna',
         email: formData.email,
         cpf: formData.cpf,
         chassi: formData.chassi,

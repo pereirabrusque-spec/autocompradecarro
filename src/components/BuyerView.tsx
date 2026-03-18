@@ -101,7 +101,7 @@ export default function BuyerView() {
         .from('interested_buyers')
         .select('notifications_enabled')
         .eq('email', user.email)
-        .single();
+        .maybeSingle();
       
       if (error) {
         console.error('[BuyerView] Error checking notification status:', error);
@@ -214,13 +214,13 @@ export default function BuyerView() {
       const filteredLeads = (data || []).filter(lead => {
         // Critérios de formulário preenchido:
         const hasPhotos = lead.fotos && Array.isArray(lead.fotos) && lead.fotos.length > 0;
-        const hasVideos = lead.videos && Array.isArray(lead.videos) && lead.videos.length > 0;
-        const hasClassification = !!lead.classificacao && lead.classificacao !== 'Não informado';
-        const hasBankInfo = !!lead.banco_financiamento && lead.banco_financiamento !== 'Não informado';
+        const hasClassification = (!!lead.classificacao && lead.classificacao !== 'Não informado') || lead.status === 'novo' || lead.status === 'proposta_enviada';
+        const hasBankInfo = (!!lead.banco_financiamento && lead.banco_financiamento !== 'Não informado') || lead.status === 'proposta_enviada'; // SellModal leads might not have bank info yet but are 'proposta_enviada'
         const hasBasicData = lead.valor_fipe > 0 && lead.quilometragem > 0;
         
-        // O veículo só aparece se tiver o "mínimo profissional" preenchido (Fotos + Vídeos + Situação + Dados Bancários)
-        return hasPhotos && hasVideos && hasClassification && hasBankInfo && hasBasicData;
+        // O veículo só aparece se tiver o "mínimo profissional" preenchido (Fotos + Situação + Dados Bancários)
+        // Se for proposta_enviada ou novo, consideramos como tendo o formulário iniciado/preenchido
+        return hasPhotos && hasClassification && hasBankInfo && hasBasicData;
       });
 
       setAuthorizedLeads(filteredLeads);

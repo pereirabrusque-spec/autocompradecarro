@@ -4760,6 +4760,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                               .filter(l => {
                                 if (activeLeadTab === 'todos') return true;
                                 if (activeLeadTab === 'frio') return l.status === 'frio';
+                                if (activeLeadTab === 'proposta_enviada') return l.status === 'proposta_enviada' || l.status === 'novo' || l.status === 'em_contato';
                                 return l.status === activeLeadTab;
                               })
                               .filter(l => !searchCode || (l.vehicle_code && l.vehicle_code.includes(searchCode)))

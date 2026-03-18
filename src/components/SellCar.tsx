@@ -423,6 +423,7 @@ export default function SellCar() {
         preco_cliente: parseFloat((formData.desiredPrice || '').replace(/\./g, '').replace(',', '.')) || 0,
         desired_value: parseFloat((formData.desiredPrice || '').replace(/\./g, '').replace(',', '.')) || 0,
         status: 'novo',
+        classificacao: 'morna',
         observacoes: `Tipo: ${formData.vehicleType}. Localização: ${formData.ownerLocation}. Danos: ${formData.damageType}. Acessórios: ${Object.entries(formData.accessories || {}).filter(([_, v]) => v).map(([k]) => k).join(', ')}`,
         entrada: parseFloat((formData.entrada || '').replace(/\./g, '').replace(',', '.')) || 0,
         situacao_financeira: formData.situacaoFinanceira,
