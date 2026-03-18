@@ -250,7 +250,7 @@ function AppContent() {
 
       {user && view !== 'admin' && (
         <InternalChat 
-          hideFloatingButton={profile?.role?.includes('buyer')} 
+          hideFloatingButton={true} 
           leadTitle={profile?.role === 'seller' ? 'Suporte ao Vendedor' : undefined}
         />
       )}

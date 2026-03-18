@@ -227,11 +227,24 @@ export default function ChatWidget() {
           .order('created_at', { ascending: false });
 
         if (error) throw error;
-        setLeads(data || []);
         
-        if (data && data.length === 1) {
-          setActiveLead(data[0]);
-          fetchMessages(data[0].id);
+        if (data && data.length > 0) {
+          setLeads(data);
+          if (data.length === 1) {
+            setActiveLead(data[0]);
+            fetchMessages(data[0].id);
+          }
+        } else if (user) {
+          // If no lead yet, create a placeholder lead for general chat
+          const placeholderLead = { 
+            id: `gen_${user.id}`, 
+            cliente_nome: profile?.full_name || user.email, 
+            email: user.email,
+            is_placeholder: true 
+          };
+          setLeads([placeholderLead]);
+          setActiveLead(placeholderLead);
+          fetchMessages(placeholderLead.id);
         }
       }
     } catch (error) {
@@ -243,31 +256,43 @@ export default function ChatWidget() {
 
   const fetchMessages = async (id: string) => {
     try {
-      if (isBuyer) {
-        const { data, error } = await supabase
-          .from('internal_messages')
-          .select('*')
-          .or(`sender_id.eq.${user?.id},receiver_id.eq.${user?.id}`)
-          .order('created_at', { ascending: true });
+      // Fetch both types of messages to ensure continuity
+      const { data: internalData, error: internalError } = await supabase
+        .from('internal_messages')
+        .select('*')
+        .or(`sender_id.eq.${user?.id},receiver_id.eq.${user?.id}`)
+        .order('created_at', { ascending: true });
 
-        if (error) throw error;
-        // Map internal_messages to the format expected by ChatWidget UI
-        setMessages(data?.map(m => ({
-          id: m.id,
-          conteudo: m.content,
-          remetente: m.sender_id === user?.id ? 'cliente' : 'admin',
-          created_at: m.created_at
-        })) || []);
-      } else {
-        const { data, error } = await supabase
-          .from('mensagens')
-          .select('*')
-          .eq('lead_id', id)
-          .order('created_at', { ascending: true });
+      const { data: mensagensData, error: mensagensError } = await supabase
+        .from('mensagens')
+        .select('*')
+        .eq('lead_id', id)
+        .order('created_at', { ascending: true });
 
-        if (error) throw error;
-        setMessages(data || []);
-      }
+      const mappedInternal = (internalData || []).map(m => ({
+        id: m.id,
+        conteudo: m.content,
+        remetente: m.sender_id === user?.id ? 'cliente' : 'admin',
+        created_at: m.created_at
+      }));
+
+      const mappedMensagens = (mensagensData || []).map(m => ({
+        ...m,
+        // Ensure consistent format
+        conteudo: m.conteudo,
+        remetente: m.remetente,
+        created_at: m.created_at
+      }));
+
+      // Merge and sort by date
+      const merged = [...mappedInternal, ...mappedMensagens].sort((a, b) => 
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+
+      // Filter duplicates (unlikely but safe)
+      const unique = merged.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
+      
+      setMessages(unique);
     } catch (error) {
       console.error('Error fetching messages:', error);
     }
@@ -292,6 +317,32 @@ export default function ChatWidget() {
     setNewMessage('');
 
     try {
+      let currentLeadId = activeLead.id;
+
+      if (!isBuyer && activeLead.is_placeholder) {
+        // Create a real lead first
+        const { data: newLead, error: leadError } = await supabase
+          .from('leads_veiculos')
+          .insert([{
+            user_id: user.id,
+            cliente_nome: activeLead.cliente_nome,
+            email: activeLead.email,
+            status: 'novo',
+            marca: 'Interesse Geral',
+            modelo: 'Chat Direto',
+            vehicle_code: Math.random().toString(36).substring(2, 6).toUpperCase()
+          }])
+          .select()
+          .single();
+        
+        if (leadError) throw leadError;
+        if (newLead) {
+          currentLeadId = newLead.id;
+          setActiveLead(newLead);
+          setLeads(prev => prev.map(l => l.is_placeholder ? newLead : l));
+        }
+      }
+
       if (isBuyer) {
         const { error } = await supabase
           .from('internal_messages')
@@ -306,7 +357,7 @@ export default function ChatWidget() {
         const { error } = await supabase
           .from('mensagens')
           .insert([{
-            lead_id: activeLead.id,
+            lead_id: currentLeadId,
             remetente: 'cliente',
             conteudo: messageText
           }]);

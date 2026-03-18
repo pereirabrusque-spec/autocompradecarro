@@ -110,21 +110,25 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
 
   useEffect(() => {
     const initializeChat = async () => {
+      console.log("[ChatAssistant] Initializing chat...");
       // Get user and create/get lead
       let currentLeadId = localStorage.getItem('chat_lead_id');
 
       if (user) {
+        console.log("[ChatAssistant] User logged in, finding lead for:", user.email);
         // Find or create lead for logged in user
-        const { data: existingLead } = await supabase
+        const { data: existingLead, error: fetchError } = await supabase
           .from('leads_veiculos')
           .select('id, status, detalhes_proposta')
           .eq('email', user.email)
-          .single();
+          .maybeSingle();
           
         if (existingLead) {
+          console.log("[ChatAssistant] Found existing lead:", existingLead.id);
           currentLeadId = existingLead.id;
         } else {
-          const { data: newLead } = await supabase
+          console.log("[ChatAssistant] No lead found for user, creating one...");
+          const { data: newLead, error: insertError } = await supabase
             .from('leads_veiculos')
             .insert([{ 
               cliente_nome: user.user_metadata?.full_name || 'Cliente', 
@@ -134,11 +138,17 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
             }])
             .select()
             .single();
-          if (newLead) currentLeadId = newLead.id;
+          if (newLead) {
+            console.log("[ChatAssistant] New lead created:", newLead.id);
+            currentLeadId = newLead.id;
+          } else if (insertError) {
+            console.error("[ChatAssistant] Error creating lead:", insertError);
+          }
         }
       } else if (!currentLeadId) {
+        console.log("[ChatAssistant] No user and no local leadId, creating anonymous lead...");
         // Create anonymous lead
-        const { data: newLead } = await supabase
+        const { data: newLead, error: insertError } = await supabase
           .from('leads_veiculos')
           .insert([{ 
             cliente_nome: 'Visitante', 
@@ -147,7 +157,12 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
           }])
           .select()
           .single();
-        if (newLead) currentLeadId = newLead.id;
+        if (newLead) {
+          console.log("[ChatAssistant] New anonymous lead created:", newLead.id);
+          currentLeadId = newLead.id;
+        } else if (insertError) {
+          console.error("[ChatAssistant] Error creating anonymous lead:", insertError);
+        }
       }
 
       if (currentLeadId) {
@@ -159,36 +174,25 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
           .from('leads_veiculos')
           .select('status, detalhes_proposta')
           .eq('id', currentLeadId)
-          .single();
+          .maybeSingle();
 
         if (leadDetails) {
           setIsAiDisabled(leadDetails.detalhes_proposta?.ai_disabled || false);
           setIsFormFilled(leadDetails.status === 'quente' || leadDetails.status === 'morno');
         }
 
-        // Buscar última proposta enviada via chat
-        const { data: lastProp } = await supabase
-          .from('mensagens')
-          .select('*')
-          .eq('lead_id', currentLeadId)
-          .eq('tipo', 'proposta')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
-        
-        if (lastProp) {
-          setLastProposal(lastProp.metadata?.proposal_data);
-        }
-
         // Carregar mensagens anteriores
-        const { data: history } = await supabase
+        console.log("[ChatAssistant] Loading history for lead:", currentLeadId);
+        const { data: history, error: historyError } = await supabase
           .from('mensagens')
           .select('*')
           .eq('lead_id', currentLeadId)
           .order('created_at', { ascending: true });
 
-        if (history && history.length > 0) {
-          console.log("Chat history loaded:", history);
+        if (historyError) {
+          console.error("[ChatAssistant] Error loading history:", historyError);
+        } else if (history && history.length > 0) {
+          console.log("[ChatAssistant] Chat history loaded:", history.length, "messages");
           const formattedHistory: Message[] = history.map((msg: any) => ({
             role: (msg.remetente === 'cliente' ? 'user' : 'bot') as 'user' | 'bot',
             text: msg.conteudo,
@@ -197,7 +201,21 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
           }));
           setMessages(formattedHistory);
         } else {
-          console.log("No chat history found for lead:", currentLeadId);
+          console.log("[ChatAssistant] No chat history found for lead:", currentLeadId);
+        }
+
+        // Buscar última proposta
+        const { data: lastProp } = await supabase
+          .from('mensagens')
+          .select('*')
+          .eq('lead_id', currentLeadId)
+          .eq('tipo', 'proposta')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        if (lastProp) {
+          setLastProposal(lastProp.metadata?.proposal_data);
         }
       }
     };
@@ -215,7 +233,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
     window.addEventListener('open-chat', handleOpenChat);
 
     // Initialize chat when component mounts or opens
-    if (isOpen && !leadId) {
+    if (isOpen) {
       initializeChat();
     }
 

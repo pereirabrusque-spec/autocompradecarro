@@ -63,10 +63,16 @@ export default function AdminDashboard() {
   const [testingKey, setTestingKey] = useState<string | null>(null);
   const [aiSystemPrompt, setAiSystemPrompt] = useState('');
   const [aiMemory, setAiMemory] = useState('');
+  const [aiCrmPrompt, setAiCrmPrompt] = useState('');
+  const [aiCrmMemory, setAiCrmMemory] = useState('');
   const aiMemoryRef = useRef('');
   useEffect(() => {
     aiMemoryRef.current = aiMemory;
   }, [aiMemory]);
+  const aiCrmMemoryRef = useRef('');
+  useEffect(() => {
+    aiCrmMemoryRef.current = aiCrmMemory;
+  }, [aiCrmMemory]);
   const [banks, setBanks] = useState<any[]>([]);
   const [cooperativeDiscount, setCooperativeDiscount] = useState<number>(5);
   const [repairCosts, setRepairCosts] = useState<any[]>([]);
@@ -591,6 +597,16 @@ export default function AdminDashboard() {
         if (aiMemorySetting) {
           setAiMemory(aiMemorySetting.value);
         }
+
+        const aiCrmPromptSetting = settingsData.find((s: any) => s.key === 'AI_CRM_PROMPT');
+        if (aiCrmPromptSetting) {
+          setAiCrmPrompt(aiCrmPromptSetting.value);
+        }
+
+        const aiCrmMemorySetting = settingsData.find((s: any) => s.key === 'AI_CRM_MEMORY');
+        if (aiCrmMemorySetting) {
+          setAiCrmMemory(aiCrmMemorySetting.value);
+        }
         
         const repairMultipliersSetting = settingsData.find((s: any) => s.key === 'REPAIR_MULTIPLIERS');
         if (repairMultipliersSetting) {
@@ -1062,7 +1078,7 @@ export default function AdminDashboard() {
             .from('leads_veiculos')
             .select('id')
             .eq('id', selectedConversation.lead_ids[0])
-            .single();
+            .maybeSingle();
             
         if (!existingLead) {
             console.log("Lead frio não encontrado em leads_veiculos, criando registro...");
@@ -1071,7 +1087,7 @@ export default function AdminDashboard() {
                 .insert({
                     id: selectedConversation.lead_ids[0],
                     email: selectedConversation.lead?.email,
-                    nome: selectedConversation.lead?.nome,
+                    cliente_nome: selectedConversation.lead?.nome || selectedConversation.lead?.cliente_nome || 'Cliente',
                     status: 'novo'
                 });
             if (insertError) {
@@ -1301,17 +1317,31 @@ Podemos prosseguir com o agendamento da vistoria?`;
   }, [chatMessages, selectedConversation, internalChatMessages]);
 
   const handleLearnFromChat = async () => {
-    if (!selectedConversation || chatMessages.length === 0) return;
+    const isLeads = messageTab === 'leads';
+    const messages = isLeads ? chatMessages : internalChatMessages;
+    const currentMemory = isLeads ? aiMemory : aiCrmMemory;
+    const memoryKey = isLeads ? 'AI_MEMORY' : 'AI_CRM_MEMORY';
+    
+    if (isLeads && (!selectedConversation || messages.length === 0)) return;
+    if (!isLeads && (!selectedInternalChat || messages.length === 0)) return;
 
     try {
-      const chatHistory = chatMessages.map(m => `${m.remetente === 'admin' ? 'Humano' : 'Cliente'}: ${m.conteudo}`).join('\n');
+      const chatHistory = messages.map(m => {
+        if (isLeads) {
+          return `${m.remetente === 'admin' ? 'Humano' : 'Cliente'}: ${m.conteudo}`;
+        } else {
+          return `${m.sender_id === currentUser?.id ? 'Vendedor' : 'Comprador'}: ${m.content}`;
+        }
+      }).join('\n');
       
       const prompt = `Analise a conversa abaixo e extraia apenas os gatilhos de venda, informações técnicas do veículo e condições comerciais mencionadas. Ignore saudações e conversas genéricas.
         
         Conversa:
         ${chatHistory}`;
       
-      const systemInstruction = "Você é um assistente especializado em extrair informações estratégicas de vendas de veículos de conversas de chat. Retorne apenas os pontos relevantes encontrados de forma concisa.";
+      const systemInstruction = isLeads 
+        ? "Você é um assistente especializado em extrair informações estratégicas de vendas de veículos de conversas de chat com leads. Retorne apenas os pontos relevantes encontrados de forma concisa."
+        : "Você é um assistente especializado em extrair informações estratégicas de negociações de veículos entre vendedores e compradores no CRM. Retorne apenas os pontos relevantes encontrados de forma concisa.";
 
       const response = await AIService.generateContent(prompt, systemInstruction);
       
@@ -1321,12 +1351,16 @@ Podemos prosseguir com o agendamento da vistoria?`;
         return;
       }
 
-      const newMemory = `${aiMemory}\n\n--- Aprendizado de Gatilhos (${new Date().toLocaleDateString()}) ---\n${extractedInfo}\n`;
+      const newMemory = `${currentMemory}\n\n--- Aprendizado de Gatilhos (${new Date().toLocaleDateString()}) ---\n${extractedInfo}\n`;
       
-      const { error } = await supabase.from('settings').upsert({ key: 'AI_MEMORY', value: newMemory }, { onConflict: 'key' });
+      const { error } = await supabase.from('settings').upsert({ key: memoryKey, value: newMemory }, { onConflict: 'key' });
       if (error) throw error;
       
-      setAiMemory(newMemory);
+      if (isLeads) {
+        setAiMemory(newMemory);
+      } else {
+        setAiCrmMemory(newMemory);
+      }
       alert('A IA extraiu e aprendeu novos gatilhos desta conversa!');
     } catch (err) {
       console.error(err);
@@ -1738,6 +1772,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
         { key: 'SOCIAL_LINKEDIN', value: socialLinkedin },
         { key: 'AI_MEMORY', value: aiMemory },
         { key: 'AI_SYSTEM_PROMPT', value: aiSystemPrompt },
+        { key: 'AI_CRM_PROMPT', value: aiCrmPrompt },
+        { key: 'AI_CRM_MEMORY', value: aiCrmMemory },
         { key: 'AI_CRM_ENABLED', value: isGlobalAiEnabled ? 'true' : 'false' },
         { key: 'CHAT_HEIGHT', value: chatHeight },
         { key: 'CHAT_WIDTH', value: chatWidth },
@@ -2925,30 +2961,103 @@ Podemos prosseguir com o agendamento da vistoria?`;
               </div>
             )}
             {activeTab === 'ai' && (
-              <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 space-y-6">
-                <h2 className="text-2xl font-bold">Configurações de IA</h2>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase">Regras da IA (System Prompt)</label>
-                  <textarea 
-                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none h-48"
-                    value={aiSystemPrompt}
-                    onChange={(e) => setAiSystemPrompt(e.target.value)}
-                  />
+              <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 space-y-8">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-2xl font-bold">Configurações de IA</h2>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-3 h-3 rounded-full ${isGlobalAiEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
+                      <span className="text-xs font-bold uppercase text-slate-500">IA Global: {isGlobalAiEnabled ? 'Ativa' : 'Inativa'}</span>
+                    </div>
+                    <button 
+                      onClick={toggleGlobalAi}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                        isGlobalAiEnabled 
+                          ? 'bg-red-50 text-red-600 hover:bg-red-100' 
+                          : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+                      }`}
+                    >
+                      {isGlobalAiEnabled ? 'Desativar IA Global' : 'Ativar IA Global'}
+                    </button>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase">Memória da IA (Contexto)</label>
-                  <textarea 
-                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none h-48"
-                    value={aiMemory}
-                    onChange={(e) => setAiMemory(e.target.value)}
-                  />
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* VENDEDOR / LEADS */}
+                  <div className="space-y-6 p-6 bg-slate-50 rounded-[32px] border border-slate-200">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-slate-100">
+                        <Users className="w-5 h-5 text-accent" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-slate-900">IA Vendedor (Leads)</h3>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Configurações para o Chat de Vendas</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Regras da IA (System Prompt)</label>
+                      <textarea 
+                        className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-sm outline-none h-48 focus:ring-2 focus:ring-accent/20 transition-all"
+                        placeholder="Ex: Você é um vendedor de carros experiente..."
+                        value={aiSystemPrompt}
+                        onChange={(e) => setAiSystemPrompt(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Memória da IA (Contexto Aprendido)</label>
+                      <textarea 
+                        className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-sm outline-none h-48 focus:ring-2 focus:ring-accent/20 transition-all"
+                        placeholder="Informações que a IA deve lembrar sobre o negócio..."
+                        value={aiMemory}
+                        onChange={(e) => setAiMemory(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* COMPRADOR / CRM */}
+                  <div className="space-y-6 p-6 bg-slate-50 rounded-[32px] border border-slate-200">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-slate-100">
+                        <Database className="w-5 h-5 text-blue-500" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-slate-900">IA CRM (Compradores)</h3>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Configurações para o Chat de Compradores</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Regras do CRM (System Prompt)</label>
+                      <textarea 
+                        className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-sm outline-none h-48 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                        placeholder="Ex: Você é um consultor de compras especializado..."
+                        value={aiCrmPrompt}
+                        onChange={(e) => setAiCrmPrompt(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Memória do CRM (Contexto Aprendido)</label>
+                      <textarea 
+                        className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-sm outline-none h-48 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                        placeholder="Informações que a IA deve lembrar sobre os compradores..."
+                        value={aiCrmMemory}
+                        onChange={(e) => setAiCrmMemory(e.target.value)}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <button 
-                  onClick={handleSaveSettings}
-                  className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all"
-                >
-                  Salvar Configurações
-                </button>
+
+                <div className="flex justify-end pt-4">
+                  <button 
+                    onClick={handleSaveSettings}
+                    disabled={savingSettings}
+                    className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all flex items-center gap-2 shadow-lg shadow-slate-200 disabled:opacity-50"
+                  >
+                    {savingSettings ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                    Salvar Todas as Configurações de IA
+                  </button>
+                </div>
               </div>
             )}
             {activeTab === 'settings' && (

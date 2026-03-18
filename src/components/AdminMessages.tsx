@@ -448,6 +448,17 @@ export default function AdminMessages({
                     <p className="text-[10px] text-slate-400">Equipe</p>
                   </div>
                 </div>
+                <div className="flex items-center gap-2">
+                  <button 
+                    type="button"
+                    onClick={handleLearnFromChat}
+                    className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl font-bold text-xs hover:bg-slate-200 transition-all flex items-center gap-2"
+                    title="Adicionar histórico desta conversa à memória da IA do CRM"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    IA: Aprender
+                  </button>
+                </div>
               </div>
 
               {/* Mensagens Internas */}

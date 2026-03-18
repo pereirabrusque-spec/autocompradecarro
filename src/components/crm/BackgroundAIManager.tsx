@@ -7,12 +7,14 @@ export const BackgroundAIManager = () => {
     const [aiPrompt, setAiPrompt] = useState('');
     const [aiCrmPrompt, setAiCrmPrompt] = useState('');
     const [aiMemory, setAiMemory] = useState('');
+    const [aiCrmMemory, setAiCrmMemory] = useState('');
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     
     const isAiEnabledRef = useRef(false);
     const aiPromptRef = useRef('');
     const aiCrmPromptRef = useRef('');
     const aiMemoryRef = useRef('');
+    const aiCrmMemoryRef = useRef('');
     const currentUserIdRef = useRef<string | null>(null);
     const lastProcessedImage = useRef<{ url: string, base64: string } | null>(null);
 
@@ -33,21 +35,27 @@ export const BackgroundAIManager = () => {
     }, [aiMemory]);
 
     useEffect(() => {
+        aiCrmMemoryRef.current = aiCrmMemory;
+    }, [aiCrmMemory]);
+
+    useEffect(() => {
         currentUserIdRef.current = currentUserId;
     }, [currentUserId]);
 
     useEffect(() => {
         // Load initial settings
-        supabase.from('settings').select('key, value').in('key', ['AI_SYSTEM_PROMPT', 'AI_CRM_PROMPT', 'AI_CRM_ENABLED', 'AI_MEMORY']).then(({ data }) => {
+        supabase.from('settings').select('key, value').in('key', ['AI_SYSTEM_PROMPT', 'AI_CRM_PROMPT', 'AI_CRM_ENABLED', 'AI_MEMORY', 'AI_CRM_MEMORY']).then(({ data }) => {
             if (data) {
                 const prompt = data.find(s => s.key === 'AI_SYSTEM_PROMPT');
                 const crmPrompt = data.find(s => s.key === 'AI_CRM_PROMPT');
                 const enabled = data.find(s => s.key === 'AI_CRM_ENABLED');
                 const memory = data.find(s => s.key === 'AI_MEMORY');
+                const crmMemory = data.find(s => s.key === 'AI_CRM_MEMORY');
                 if (prompt) setAiPrompt(prompt.value);
                 if (crmPrompt) setAiCrmPrompt(crmPrompt.value);
                 if (enabled) setIsAiEnabled(enabled.value === 'true');
                 if (memory) setAiMemory(memory.value);
+                if (crmMemory) setAiCrmMemory(crmMemory.value);
             }
         });
 
@@ -66,6 +74,7 @@ export const BackgroundAIManager = () => {
                     if (key === 'AI_CRM_PROMPT') setAiCrmPrompt(value);
                     if (key === 'AI_CRM_ENABLED') setIsAiEnabled(value === 'true');
                     if (key === 'AI_MEMORY') setAiMemory(value);
+                    if (key === 'AI_CRM_MEMORY') setAiCrmMemory(value);
                 }
             })
             .subscribe();
@@ -250,7 +259,7 @@ MENSAGEM ATUAL: ${payload.new.content}
 
 REGRAS E MEMÓRIA DO CRM:
 ${aiCrmPromptRef.current}
-${aiMemoryRef.current ? `\nMEMÓRIA APRENDIDA:\n${aiMemoryRef.current}` : ''}
+${aiCrmMemoryRef.current ? `\nMEMÓRIA APRENDIDA NO CRM:\n${aiCrmMemoryRef.current}` : ''}
 
 REGRAS:
 1. Use os dados técnicos acima.
