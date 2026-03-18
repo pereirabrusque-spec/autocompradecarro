@@ -1113,6 +1113,11 @@ Podemos prosseguir com o agendamento da vistoria?`;
     if (confirm(`Deseja enviar a proposta oficial para o cliente?\n\n"${message}"`)) {
       try {
         // 1. Salvar mensagem no chat
+        if (!selectedLead || !selectedLead.id) {
+            console.error("Erro ao enviar mensagem: Lead inválido");
+            alert("Erro ao enviar mensagem: Lead inválido");
+            return;
+        }
         const { error: msgError } = await supabase.from('mensagens').insert([{
           lead_id: selectedLead.id,
           remetente: 'admin',
@@ -1169,6 +1174,11 @@ Podemos prosseguir com o agendamento da vistoria?`;
     if (confirm(`Deseja enviar a proposta oficial para o cliente via chat?`)) {
       try {
         // 1. Salvar mensagem no chat
+        if (!selectedLead || !selectedLead.id) {
+            console.error("Erro ao enviar mensagem: Lead inválido");
+            alert("Erro ao enviar mensagem: Lead inválido");
+            return;
+        }
         const { error: msgError } = await supabase.from('mensagens').insert([{
           lead_id: selectedLead.id,
           remetente: 'admin',
@@ -1387,6 +1397,10 @@ Podemos prosseguir com o agendamento da vistoria?`;
         const aiResponse = result.text;
 
         if (aiResponse) {
+          if (!lead || !lead.id) {
+            console.error("Erro ao enviar mensagem da IA: Lead inválido");
+            return;
+          }
           const { error: sendError } = await supabase.from('mensagens').insert({
             lead_id: lead.id,
             remetente: 'admin',
@@ -2253,6 +2267,10 @@ Podemos prosseguir com o agendamento da vistoria?`;
       if (profile) {
         const message = generateBuyerMessage(lead, buyerSendSettings, buyer.name);
         
+        if (!lead || !lead.id) {
+            console.error("Erro ao enviar mensagem: Lead inválido");
+            continue;
+        }
         const { error } = await supabase.from('mensagens').insert({
           lead_id: lead.id,
           conteudo: message,

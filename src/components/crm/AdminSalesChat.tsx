@@ -236,6 +236,12 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
     }
   };
 
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = 0;
+    }
+  }, [messages]);
+
   return (
     <div className="flex flex-col h-full bg-white">
       <div className="p-4 border-b border-slate-100 flex justify-between items-center shrink-0">
