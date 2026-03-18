@@ -402,13 +402,13 @@ export default function AdminDashboard() {
       if (messagesData) {
         messagesData.forEach((msg: any) => {
           const lead = msg.leads_veiculos;
-          const key = lead?.email || (lead?.cliente_nome + lead?.telefone) || msg.lead_id;
+          const key = lead?.email || lead?.telefone || msg.lead_id;
           
           if (key && !conversationKeys.has(key)) {
             conversationKeys.add(key);
             const customerMessages = messagesData.filter((m: any) => {
               const mLead = m.leads_veiculos;
-              const mKey = mLead?.email || (mLead?.cliente_nome + mLead?.telefone) || m.lead_id;
+              const mKey = mLead?.email || mLead?.telefone || m.lead_id;
               return mKey === key;
             });
             const unreadCount = customerMessages.filter((m: any) => !m.lida && m.remetente === 'cliente').length;
@@ -437,7 +437,7 @@ export default function AdminDashboard() {
       // Adicionar leads que não possuem mensagens
       if (leadsData) {
         leadsData.forEach((lead: any) => {
-          const key = lead.email || (lead.cliente_nome + lead.telefone) || lead.id;
+          const key = lead.email || lead.telefone || lead.id;
           if (key && !conversationKeys.has(key)) {
             conversationKeys.add(key);
             
@@ -1009,6 +1009,7 @@ export default function AdminDashboard() {
     setIsSendingMessage(true);
 
     const newMessage = {
+      id: `temp-${Date.now()}`,
       lead_id: selectedConversation.lead_ids[0],
       conteudo: messageContent,
       remetente: 'admin',
@@ -1057,6 +1058,7 @@ export default function AdminDashboard() {
     setIsSendingMessage(true);
 
     const newMessage = {
+      id: `temp-${Date.now()}`,
       sender_id: userProfile.id,
       receiver_id: selectedInternalChat,
       content: messageContent,
@@ -1192,10 +1194,15 @@ Podemos prosseguir com o agendamento da vistoria?`;
   };
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [chatMessages]);
+    const scrollToBottom = () => {
+      if (scrollRef.current) {
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      }
+    };
+    scrollToBottom();
+    // Also scroll after a short delay to account for rendering/images
+    setTimeout(scrollToBottom, 100);
+  }, [chatMessages, selectedConversation]);
 
   const handleLearnFromChat = async () => {
     if (!selectedConversation || chatMessages.length === 0) return;
@@ -5416,6 +5423,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         </div>
                         <div className="flex gap-2">
                           <button 
+                            type="button"
                             onClick={handleSendMessage}
                             disabled={isSendingMessage || !adminMessage.trim()}
                             className="flex-1 p-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all disabled:opacity-50"
@@ -5496,6 +5504,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                               className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent/20"
                             />
                             <button 
+                              type="button"
                               onClick={handleSendMessage}
                               disabled={isSendingMessage || !adminMessage.trim()}
                               className="p-3 bg-slate-900 text-white rounded-xl hover:bg-accent transition-all disabled:opacity-50"

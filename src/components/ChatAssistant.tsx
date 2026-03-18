@@ -814,6 +814,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
                     className="w-full pl-4 pr-12 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all disabled:opacity-50"
                   />
                   <button
+                    type="button"
                     onClick={handleSend}
                     disabled={(!input.trim() && !selectedImage) || isLoading || !leadId}
                     style={{ backgroundColor: chatColor }}

@@ -305,7 +305,7 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
           className="flex-1 p-2 border border-slate-200 rounded-lg text-sm"
           placeholder="Digite..."
         />
-        <button onClick={sendMessage} className="bg-slate-900 text-white p-2 rounded-lg"><Send className="w-4 h-4" /></button>
+        <button type="button" onClick={sendMessage} className="bg-slate-900 text-white p-2 rounded-lg"><Send className="w-4 h-4" /></button>
       </div>
     </div>
   );
