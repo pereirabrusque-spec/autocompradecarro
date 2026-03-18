@@ -466,6 +466,9 @@ export default function AdminDashboard() {
             leadIds.add(p.id);
             groupedConversations.push({
               lead_id: p.id,
+              lead_ids: [p.id],
+              conversation_key: p.id,
+              customer_email: p.email,
               last_message: 'Vendedor',
               last_time: p.created_at,
               last_message_at: p.created_at,
@@ -483,7 +486,6 @@ export default function AdminDashboard() {
       }
 
       setConversations(groupedConversations);
-      setLeads(leadsData || []);
       setDbAssets(assetsData || []);
       setBanks(banksData || []);
       setRepairCosts(repairData || []);
