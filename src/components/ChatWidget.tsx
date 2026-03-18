@@ -6,9 +6,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import AuthModal from './AuthModal';
 
 export default function ChatWidget() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
+  const isBuyer = profile?.role?.includes('buyer');
 
   useEffect(() => {
     if (user) {
@@ -84,74 +85,115 @@ export default function ChatWidget() {
     isOpenRef.current = isOpen;
   }, [isOpen]);
 
-  // Subscribe to new messages for ALL leads
+  // Subscribe to new messages
   useEffect(() => {
-    if (leads.length === 0) return;
+    if (!user) return;
 
-    const channels = leads.map(lead => {
-      return supabase
-        .channel(`chat:${lead.id}`)
+    let channels: any[] = [];
+
+    if (isBuyer) {
+      const channel = supabase
+        .channel(`internal_chat:${user.id}`)
         .on(
           'postgres_changes',
           {
             event: 'INSERT',
             schema: 'public',
-            table: 'mensagens',
-            filter: `lead_id=eq.${lead.id}`
+            table: 'internal_messages'
           },
           (payload) => {
             const newMessage = payload.new;
-
-            // If message is for active lead, update UI
-            if (activeLeadRef.current && newMessage.lead_id === activeLeadRef.current.id) {
-              setMessages(prev => [...prev, newMessage]);
-            }
-
-            // Play notification sound if message is from admin
-            if (newMessage.remetente === 'admin') {
-              new Audio('/notification.mp3').play().catch(() => {});
-              
-              // Auto-open chat when message arrives
-              if (!isOpenRef.current) {
-                setIsOpen(true);
-              }
-
-              if (!isOpenRef.current || (activeLeadRef.current && newMessage.lead_id !== activeLeadRef.current.id)) {
-                setUnreadCount(prev => prev + 1);
-                if (Notification.permission === 'granted') {
-                  new Notification('Nova mensagem de AutoCompra', {
-                    body: newMessage.conteudo,
-                    icon: '/favicon.ico'
-                  });
+            // Message is relevant if I am sender or receiver
+            if (newMessage.sender_id === user.id || newMessage.receiver_id === user.id) {
+              // If it's from admin, show it
+              if (newMessage.sender_id !== user.id) {
+                setMessages(prev => [...prev, {
+                  id: newMessage.id,
+                  conteudo: newMessage.content,
+                  remetente: 'admin',
+                  created_at: newMessage.created_at
+                }]);
+                
+                if (!isOpenRef.current) {
+                  setUnreadCount(prev => prev + 1);
+                  setIsOpen(true);
                 }
               }
             }
           }
         )
         .subscribe();
-    });
+      channels.push(channel);
+    } else {
+      if (leads.length === 0) return;
+      channels = leads.map(lead => {
+        return supabase
+          .channel(`chat:${lead.id}`)
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'mensagens',
+              filter: `lead_id=eq.${lead.id}`
+            },
+            (payload) => {
+              const newMessage = payload.new;
+              if (newMessage.remetente === 'admin') {
+                setMessages(prev => [...prev, newMessage]);
+                if (!isOpenRef.current) {
+                  setUnreadCount(prev => prev + 1);
+                  setIsOpen(true);
+                }
+              }
+            }
+          )
+          .subscribe();
+      });
+    }
 
     return () => {
       channels.forEach(channel => supabase.removeChannel(channel));
     };
-  }, [leads]);
+  }, [leads, isBuyer, user]);
 
   const fetchLeads = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('leads_veiculos')
-        .select('*')
-        .eq('user_id', user?.id)
-        .order('created_at', { ascending: false });
+      if (isBuyer) {
+        // For buyers, we use interested_buyers table or just the user profile
+        const { data, error } = await supabase
+          .from('interested_buyers')
+          .select('*')
+          .eq('email', user?.email)
+          .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setLeads(data || []);
-      
-      // If only one lead, select it automatically
-      if (data && data.length === 1) {
-        setActiveLead(data[0]);
-        fetchMessages(data[0].id);
+        if (error) throw error;
+        setLeads(data || []);
+        
+        if (data && data.length > 0) {
+          setActiveLead(data[0]);
+          fetchMessages(data[0].id);
+        } else if (user) {
+          // If no interested_buyer record yet, create a dummy one or use profile
+          const dummyLead = { id: user.id, nome: profile?.full_name || user.email, email: user.email };
+          setActiveLead(dummyLead);
+          fetchMessages(user.id);
+        }
+      } else {
+        const { data, error } = await supabase
+          .from('leads_veiculos')
+          .select('*')
+          .eq('user_id', user?.id)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        setLeads(data || []);
+        
+        if (data && data.length === 1) {
+          setActiveLead(data[0]);
+          fetchMessages(data[0].id);
+        }
       }
     } catch (error) {
       console.error('Error fetching leads:', error);
@@ -160,16 +202,33 @@ export default function ChatWidget() {
     }
   };
 
-  const fetchMessages = async (leadId: string) => {
+  const fetchMessages = async (id: string) => {
     try {
-      const { data, error } = await supabase
-        .from('mensagens')
-        .select('*')
-        .eq('lead_id', leadId)
-        .order('created_at', { ascending: true });
+      if (isBuyer) {
+        const { data, error } = await supabase
+          .from('internal_messages')
+          .select('*')
+          .or(`sender_id.eq.${user?.id},receiver_id.eq.${user?.id}`)
+          .order('created_at', { ascending: true });
 
-      if (error) throw error;
-      setMessages(data || []);
+        if (error) throw error;
+        // Map internal_messages to the format expected by ChatWidget UI
+        setMessages(data?.map(m => ({
+          id: m.id,
+          conteudo: m.content,
+          remetente: m.sender_id === user?.id ? 'cliente' : 'admin',
+          created_at: m.created_at
+        })) || []);
+      } else {
+        const { data, error } = await supabase
+          .from('mensagens')
+          .select('*')
+          .eq('lead_id', id)
+          .order('created_at', { ascending: true });
+
+        if (error) throw error;
+        setMessages(data || []);
+      }
     } catch (error) {
       console.error('Error fetching messages:', error);
     }
@@ -177,7 +236,7 @@ export default function ChatWidget() {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !activeLead) return;
+    if (!newMessage.trim() || !activeLead || !user) return;
 
     setSending(true);
     const tempId = Math.random().toString(36).substring(7);
@@ -189,27 +248,34 @@ export default function ChatWidget() {
       created_at: new Date().toISOString()
     };
     
-    // Adiciona a mensagem localmente de forma otimista
     setMessages(prev => [...prev, optimisticMessage]);
     const messageText = newMessage.trim();
     setNewMessage('');
 
     try {
-      const { error } = await supabase
-        .from('mensagens')
-        .insert([{
-          lead_id: activeLead.id,
-          remetente: 'cliente',
-          conteudo: messageText
-        }]);
-
-      if (error) {
-        // Se houver erro, remove a mensagem otimista
-        setMessages(prev => prev.filter(m => m.id !== tempId));
-        throw error;
+      if (isBuyer) {
+        const { error } = await supabase
+          .from('internal_messages')
+          .insert([{
+            sender_id: user.id,
+            receiver_id: null, // To be picked up by admin
+            content: messageText,
+            lead_id: activeLead.id !== user.id ? activeLead.id : null
+          }]);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('mensagens')
+          .insert([{
+            lead_id: activeLead.id,
+            remetente: 'cliente',
+            conteudo: messageText
+          }]);
+        if (error) throw error;
       }
     } catch (error) {
       console.error('Error sending message:', error);
+      setMessages(prev => prev.filter(m => m.id !== tempId));
     } finally {
       setSending(false);
     }

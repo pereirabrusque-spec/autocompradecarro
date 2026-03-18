@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { MessageCircle } from 'lucide-react';
-import InternalChat from './InternalChat';
+import ChatWidget from './ChatWidget';
 
 export default function FloatingPurchasingChat({ context }: { context?: string }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -16,12 +16,7 @@ export default function FloatingPurchasingChat({ context }: { context?: string }
       </button>
 
       {isOpen && (
-        <InternalChat 
-          isOpen={isOpen} 
-          onToggle={() => setIsOpen(!isOpen)} 
-          leadTitle={context || "Chat de Compras"}
-          hideFloatingButton={true}
-        />
+        <ChatWidget />
       )}
     </>
   );

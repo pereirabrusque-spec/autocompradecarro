@@ -248,20 +248,19 @@ ${history}
 
 MENSAGEM ATUAL: ${payload.new.content}
 
-REGRAS E MEMÓRIA:
-${payload.new.lead_id ? aiPromptRef.current : aiCrmPromptRef.current}
+REGRAS E MEMÓRIA DO CRM:
+${aiCrmPromptRef.current}
 ${aiMemoryRef.current ? `\nMEMÓRIA APRENDIDA:\n${aiMemoryRef.current}` : ''}
 
 REGRAS:
 1. Use os dados técnicos acima.
-2. Se houver parcelas, não diga que está quitado.
-3. Seja persuasivo e amigável.
-4. Confirme sempre de qual carro está falando.
+2. Seja persuasivo e amigável.
+3. Responda como um consultor de vendas especializado em compradores.
 `;
 
                         const response = await AIService.generateContent(
                             fullPrompt,
-                            "Você é um assistente de vendas altamente preciso. Responda estritamente com base nos dados técnicos do veículo fornecidos no contexto. Se a informação não estiver nos dados, não invente. Seja direto, profissional e persuasivo.",
+                            "Você é um assistente de vendas altamente preciso para COMPRADORES. Responda estritamente com base nos dados técnicos do veículo fornecidos no contexto. Se a informação não estiver nos dados, não invente. Seja direto, profissional e persuasivo.",
                             imageBase64 || undefined
                         );
 
@@ -396,9 +395,14 @@ ${history}
 
 MENSAGEM ATUAL: ${payload.new.conteudo}
 
-REGRAS E MEMÓRIA:
+REGRAS E MEMÓRIA DO VENDEDOR:
 ${aiPromptRef.current}
 ${aiMemoryRef.current ? `\nMEMÓRIA APRENDIDA:\n${aiMemoryRef.current}` : ''}
+
+REGRAS:
+1. Use os dados técnicos acima.
+2. Seja persuasivo, amigável e direto.
+3. Responda como um vendedor de carros experiente.
 `;
 
                         const response = await AIService.generateContent(
