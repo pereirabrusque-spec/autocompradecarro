@@ -2221,7 +2221,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
     }
     
     // Usar avarias do lead ou do estado global se disponível
-    const allText = `${lead.observacoes || ''} ${lead.problemas?.join(' ') || ''}`.toLowerCase();
+    const allText = `${lead.observacoes || ''} ${problemasSelecionados.join(' ')}`.toLowerCase();
     const avariasSelecionadas = lead.avarias || lead.detalhes_proposta?.avarias || repairCosts.filter(c => allText.includes(c.part_name.toLowerCase())).map(c => c.id);
     
     // Deduções manuais do modal de avarias
@@ -4061,7 +4061,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 <div className="absolute top-2 right-2 p-2 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
                                   <Maximize2 className="w-4 h-4" />
                                 </div>
-                                {selectedLead.fotos.length > 1 && (
+                                {(selectedLead.fotos && selectedLead.fotos.length > 1) && (
                                   <>
                                     <button 
                                       onClick={(e) => { e.stopPropagation(); setCurrentPhotoIndex(prev => (prev === 0 ? selectedLead.fotos.length - 1 : prev - 1)); }}
@@ -4076,7 +4076,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                       <ChevronRight className="w-5 h-5" />
                                     </button>
                                     <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
-                                      {selectedLead.fotos.map((_: any, i: number) => (
+                                      {(selectedLead.fotos || []).map((_: any, i: number) => (
                                         <div key={i} className={`w-1.5 h-1.5 rounded-full ${i === currentPhotoIndex ? 'bg-white' : 'bg-white/40'}`} />
                                       ))}
                                     </div>
@@ -4335,9 +4335,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 <div>
                                   <p className="text-slate-400 font-bold uppercase text-[10px]">Histórico / Problemas</p>
                                   <div className="flex flex-wrap gap-1 mt-1">
-                                    {selectedLead.problemas.map((p: string, i: number) => (
+                                    {(Array.isArray(selectedLead.problemas) ? selectedLead.problemas : typeof selectedLead.problemas === 'string' ? selectedLead.problemas.split(',') : []).map((p: string, i: number) => (
                                       <span key={i} className="px-2 py-1 bg-red-100 text-red-700 rounded text-[10px] font-bold uppercase">
-                                        {p}
+                                        {p.trim()}
                                       </span>
                                     ))}
                                   </div>
@@ -4347,9 +4347,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 <div>
                                   <p className="text-slate-400 font-bold uppercase text-[10px]">Avarias Informadas</p>
                                   <div className="flex flex-wrap gap-1 mt-1">
-                                    {selectedLead.avarias.map((a: string, i: number) => (
+                                    {(Array.isArray(selectedLead.avarias) ? selectedLead.avarias : typeof selectedLead.avarias === 'string' ? selectedLead.avarias.split(',') : []).map((a: string, i: number) => (
                                       <span key={i} className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-[10px] font-bold uppercase">
-                                        {a}
+                                        {a.trim()}
                                       </span>
                                     ))}
                                   </div>
@@ -4359,9 +4359,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 <div>
                                   <p className="text-slate-400 font-bold uppercase text-[10px]">Opcionais</p>
                                   <div className="flex flex-wrap gap-1 mt-1">
-                                    {selectedLead.selected_items.map((item: string, i: number) => (
+                                    {(Array.isArray(selectedLead.selected_items) ? selectedLead.selected_items : typeof selectedLead.selected_items === 'string' ? selectedLead.selected_items.split(',') : []).map((item: string, i: number) => (
                                       <span key={i} className="px-2 py-1 bg-slate-200 text-slate-700 rounded text-[10px] font-bold uppercase">
-                                        {item}
+                                        {item.trim()}
                                       </span>
                                     ))}
                                   </div>
@@ -4482,7 +4482,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                   </p>
                                   <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-2">
                                     {repairCosts.map((cost) => {
-                                      const allText = `${selectedLead.observacoes || ''} ${selectedLead.problemas?.join(' ') || ''}`.toLowerCase();
+                                      const problemasStr = Array.isArray(selectedLead.problemas) ? selectedLead.problemas.join(' ') : (typeof selectedLead.problemas === 'string' ? selectedLead.problemas : '');
+                                      const allText = `${selectedLead.observacoes || ''} ${problemasStr}`.toLowerCase();
                                       const avariasSelecionadas = selectedLead.avarias || selectedLead.detalhes_proposta?.avarias || repairCosts.filter(c => allText.includes(c.part_name.toLowerCase())).map(c => c.id);
                                       const isSelected = avariasSelecionadas.includes(cost.id);
                                       

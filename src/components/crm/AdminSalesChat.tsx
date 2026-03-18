@@ -8,7 +8,6 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
   const [input, setInput] = useState('');
   const [isAiGlobal, setIsAiGlobal] = useState(false);
   const [propostaMode, setPropostaMode] = useState<'auto' | 'man'>('auto');
-  const [isHumanAttending, setIsHumanAttending] = useState(false);
   
   const [userPhone, setUserPhone] = useState('');
   const [userEmail, setUserEmail] = useState('');
@@ -16,6 +15,8 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [leadData, setLeadData] = useState<any>(null);
+  const [isAiMode, setIsAiMode] = useState(true);
+  const [isUpdatingAi, setIsUpdatingAi] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
@@ -290,10 +291,11 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
           </button>
           <button 
             type="button"
-            onClick={() => setIsHumanAttending(!isHumanAttending)}
-            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${isHumanAttending ? 'bg-red-600 text-white' : 'bg-slate-200 text-slate-700'}`}
+            onClick={() => toggleAiMode(!isAiMode)}
+            disabled={isUpdatingAi}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${!isAiMode ? 'bg-red-600 text-white' : 'bg-slate-200 text-slate-700'}`}
           >
-            {isHumanAttending ? 'Atendimento Humano: ON' : 'Atendimento Humano: OFF'}
+            {!isAiMode ? 'Atendimento Humano: ON' : 'Atendimento Humano: OFF'}
           </button>
 
           {userPhone && (

@@ -123,9 +123,182 @@ export default function LeadDetailsCard({
   const calculateFinance = () => {
     try {
       const fipe = Number(currentLead.valor_fipe) || 0;
-      // ... (rest of the function)
+      
+      let discountValue = 0;
+      const discounts: { name: string; value: number }[] = [];
+      let fixedCosts = 0;
+      const fixedCostsDetail: { name: string; value: number }[] = [];
+      let payoff = 0;
+      const payoffBreakdown: any = {};
+
+      // 1. Desconto de Cooperativa
+      const bankName = currentLead.banco_financiamento || currentLead.banco_financiador || '';
+      const isCooperativeBank = (name: string) => {
+        if (!name) return false;
+        const normalizedSearch = name.toLowerCase().trim();
+        return banks?.some(b => 
+          b.is_cooperativa && 
+          (normalizedSearch.includes(b.name.toLowerCase().trim()) || 
+           b.name.toLowerCase().trim().includes(normalizedSearch))
+        );
+      };
+      
+      const isBankCooperative = isCooperativeBank(bankName);
+      const hasCooperativeFlag = currentLead.is_cooperativa === 'true' || 
+                                 currentLead.is_cooperativa === true || 
+                                 currentLead.is_cooperativa === 'sim';
+
+      if (hasCooperativeFlag || isBankCooperative) {
+          const coopDiscount = fipe * ((cooperativeDiscount || 0) / 100);
+          discounts.push({ 
+            name: `Desconto Cooperativa (${cooperativeDiscount || 0}%)`, 
+            value: coopDiscount
+          });
+          discountValue += coopDiscount;
+      }
+
+      // 2. Descontos por Histórico/Problemas
+      const problemasSelecionados = Array.isArray(currentLead.problemas) ? currentLead.problemas : (typeof currentLead.problemas === 'string' ? currentLead.problemas.split(',').map((p: string) => p.trim()) : []);
+      
+      let maxProblemDiscount = 0;
+      let maxProblemName = '';
+
+      problemasSelecionados.forEach((problem: string) => {
+          const rule = fipeRules?.find(r => r.condition_name.toLowerCase() === problem.toLowerCase());
+          let percentage = 0;
+          if (rule) {
+            percentage = rule.discount_percentage;
+          } else {
+            // Fallback rules
+            const p = problem.toLowerCase();
+            if (p.includes('sinistro')) percentage = 30;
+            else if (p.includes('leilao') || p.includes('leilão')) percentage = 25;
+            else if (p.includes('recuperado')) percentage = 20;
+            else if (p.includes('furto')) percentage = 15;
+            else if (p.includes('renajud') || p.includes('bloqueio judicial')) percentage = 50;
+            else if (p.includes('financiamento')) percentage = 35;
+            else if (p.includes('cooperativa')) percentage = 80;
+            else if (p.includes('busca') || p.includes('apreensão')) percentage = 60;
+            else if (p.includes('nome jurídico')) percentage = 10;
+            else if (p.includes('cobertura')) percentage = 15;
+          }
+          
+          if (percentage > 0) {
+              const val = fipe * (percentage / 100);
+              if (val > maxProblemDiscount) {
+                  maxProblemDiscount = val;
+                  maxProblemName = `${problem} (${percentage}%)`;
+              }
+          }
+      });
+
+      if (maxProblemDiscount > 0) {
+          discounts.push({ name: maxProblemName, value: maxProblemDiscount });
+          discountValue += maxProblemDiscount;
+      }
+
+      // 3. Avarias (Deduções por Valor Fixo)
+      if (currentLead.motor_reparo) {
+        const val = Number(currentLead.motor_reparo) || 0;
+        fixedCostsDetail.push({ name: 'Motor Fundido / Batendo', value: val });
+        fixedCosts += val;
+      }
+      if (currentLead.cambio_reparo) {
+        const val = Number(currentLead.cambio_reparo) || 0;
+        fixedCostsDetail.push({ name: 'Câmbio com Defeito', value: val });
+        fixedCosts += val;
+      }
+      if (currentLead.batido_reparo) {
+        const val = Number(currentLead.batido_reparo) || 0;
+        fixedCostsDetail.push({ name: 'Batido / Avariado', value: val });
+        fixedCosts += val;
+      }
+      if (currentLead.valor_ipva_multa) {
+        const val = Number(currentLead.valor_ipva_multa) || 0;
+        fixedCostsDetail.push({ name: 'IPVA/Multas Atrasados', value: val });
+        fixedCosts += val;
+      }
+
+      // Deduções manuais do modal de avarias
+      const avariasManuais = currentLead.avarias_manuais || currentLead.detalhes_proposta?.avarias_manuais || [];
+      avariasManuais.forEach((avaria: { description: string, value: number }) => {
+        const val = Number(avaria.value) || 0;
+        fixedCostsDetail.push({ 
+          name: `Avaria Manual: ${avaria.description}`, 
+          value: val
+        });
+        fixedCosts += val;
+      });
+
+      // 4. Situação Financeira e Quitação
+      if (currentLead.valor_parcela && currentLead.total_parcelas && currentLead.parcelas_pagas !== undefined) {
+        const remainingInstallments = Number(currentLead.total_parcelas) - Number(currentLead.parcelas_pagas);
+        if (remainingInstallments > 0) {
+          const totalRemaining = remainingInstallments * Number(currentLead.valor_parcela);
+          
+          // Find bank discount
+          const bank = banks?.find(b => b.name.toLowerCase() === bankName.toLowerCase());
+          let bankDiscount = 0;
+
+          if (bank) {
+            bankDiscount = bank.discount_percentage || 0;
+          } else {
+            bankDiscount = 20; // Default 20% se não encontrar
+          }
+
+          const discountAmount = totalRemaining * (bankDiscount / 100);
+          const clientPayoffValue = totalRemaining - discountAmount;
+          
+          payoff = clientPayoffValue;
+          payoffBreakdown.totalRemaining = totalRemaining;
+          payoffBreakdown.discountAmount = discountAmount;
+          payoffBreakdown.clientPayoffValue = clientPayoffValue;
+          
+          fixedCostsDetail.push({ name: `Quitação (${bankName || 'Banco'})`, value: payoff });
+          fixedCosts += payoff;
+        }
+      }
+
+      // Parcelas Atrasadas
+      if (currentLead.parcelas_atrasadas && currentLead.valor_parcela) {
+        const atrasadas = Number(currentLead.parcelas_atrasadas);
+        const valParcela = Number(currentLead.valor_parcela);
+        if (atrasadas > 0) {
+            const totalAtraso = atrasadas * valParcela;
+            const juros = totalAtraso * ((jurosAtraso || 0) / 100);
+            const totalComJuros = totalAtraso + juros;
+            
+            fixedCostsDetail.push({ name: `Parcelas Atrasadas (${atrasadas}x) + Juros`, value: totalComJuros });
+            fixedCosts += totalComJuros;
+            payoff += totalComJuros;
+        }
+      }
+
+      const optionA = fipe - discountValue - fixedCosts;
+      const optionB = optionA * 0.9; // 10% less for cash
+      const finalProposal = optionA;
+
+      const latestNovaProposta = currentLead.detalhes_proposta?.novas_propostas?.slice(-1)[0] || null;
+      const previousProposalValue = currentLead.detalhes_proposta?.novas_propostas?.length > 1 
+        ? currentLead.detalhes_proposta.novas_propostas[currentLead.detalhes_proposta.novas_propostas.length - 2].valor 
+        : null;
+
+      const profit = fipe - finalProposal;
+
       return {
-          // ...
+          fipe,
+          discountValue,
+          discounts,
+          fixedCosts,
+          fixedCostsDetail,
+          payoff,
+          payoffBreakdown,
+          optionA,
+          optionB,
+          finalProposal,
+          latestNovaProposta,
+          previousProposalValue,
+          profit
       };
     } catch (e) {
       console.error("Error in calculateFinance:", e);
@@ -1098,7 +1271,7 @@ export default function LeadDetailsCard({
                         <span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.discountValue)}</span>
                         <div className="absolute right-0 top-full bg-white border border-slate-200 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
                           {calc.discounts.map((d, i) => (
-                            <div key={i} className={`flex justify-between text-xs mb-1 ${d.isMax ? 'text-red-500 font-bold' : 'text-slate-400 line-through opacity-50'}`}>
+                            <div key={i} className="flex justify-between text-xs mb-1 text-red-500 font-bold">
                               <span>{d.name}</span>
                               <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
                             </div>
@@ -1192,7 +1365,7 @@ export default function LeadDetailsCard({
                       <div className="flex justify-between text-red-400 group cursor-pointer relative"><span className="text-white/60">Descontos Aplicados</span><span className="font-mono">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.discountValue)}</span>
                         <div className="absolute right-0 top-full bg-slate-800 border border-white/10 p-4 rounded-xl shadow-lg hidden group-hover:block z-20 w-64">
                           {calc.discounts.map((d, i) => (
-                            <div key={i} className={`flex justify-between text-xs mb-1 ${d.isMax ? 'text-red-400 font-bold' : 'text-white/40 line-through opacity-50'}`}>
+                            <div key={i} className="flex justify-between text-xs mb-1 text-red-400 font-bold">
                               <span>{d.name}</span>
                               <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</span>
                             </div>
