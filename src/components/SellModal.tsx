@@ -126,7 +126,15 @@ export default function SellModal() {
     try {
       const yearNumber = parseInt(formData.year.substring(0, 4)) || 0;
 
-      const { error } = await supabase.from('leads_veiculos').insert([{
+      // Check for existing "frio" lead for this user to update it instead of creating a new one
+      const { data: existingFrioLead } = await supabase
+        .from('leads_veiculos')
+        .select('id')
+        .eq('email', formData.email)
+        .eq('status', 'frio')
+        .maybeSingle();
+
+      const leadData = {
         cliente_nome: formData.owner_name,
         telefone: formData.owner_phone,
         marca: formData.brand,
@@ -139,7 +147,7 @@ export default function SellModal() {
         valor_fipe: formData.fipe_price,
         desired_value: parseFloat(formData.desired_price) || 0,
         entrada: parseFloat(formData.entrada) || 0,
-        status: 'novo',
+        status: 'proposta_enviada', // Mudar para 'proposta_enviada' (Leads Morna)
         email: formData.email,
         cpf: formData.cpf,
         chassi: formData.chassi,
@@ -180,7 +188,24 @@ export default function SellModal() {
         data_negociacao: new Date().toISOString(),
         juros_atraso: 2,
         origem: 'formulario',
-      }]);
+        updated_at: new Date().toISOString()
+      };
+
+      let error;
+      if (existingFrioLead) {
+        console.log("[SellModal] Updating existing cold lead:", existingFrioLead.id);
+        const { error: updateError } = await supabase
+          .from('leads_veiculos')
+          .update(leadData)
+          .eq('id', existingFrioLead.id);
+        error = updateError;
+      } else {
+        console.log("[SellModal] Creating new lead (Morna)");
+        const { error: insertError } = await supabase
+          .from('leads_veiculos')
+          .insert([leadData]);
+        error = insertError;
+      }
 
       if (error) {
         logToStorage('Erro ao salvar lead no Supabase', 'error', error);

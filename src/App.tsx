@@ -57,12 +57,9 @@ function AppContent() {
   const [purchasingContext, setPurchasingContext] = useState<string>('Chat de Compras');
 
   useEffect(() => {
-    // Test API connections on startup and every 6 hours
-    AIService.testConnections();
-    const interval = setInterval(() => {
-      AIService.testConnections();
-    }, 6 * 60 * 60 * 1000); // 6 hours
-    return () => clearInterval(interval);
+    // Inicia o teste periódico de conexões da IA
+    const stopTesting = AIService.startPeriodicTesting();
+    return () => stopTesting();
   }, []);
 
   const showChat = (primaryContact === 'chat' || (specialistButtonEnabled && specialistAction === 'chat')) && chatEnabled;

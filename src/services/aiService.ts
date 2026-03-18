@@ -11,22 +11,30 @@ export interface AIResponse {
 
 export class AIService {
   private static lastSuccessfulKeyId: string | null = typeof window !== 'undefined' ? localStorage.getItem('ai_last_successful_key_id') : null;
+  private static cachedKeys: any[] = [];
+  private static lastFetchTime: number = 0;
+  private static isTesting: boolean = false;
 
-  private static async getActiveKeys(): Promise<any[]> {
+  private static async getActiveKeys(forceRefresh: boolean = false): Promise<any[]> {
+    const now = Date.now();
+    // Cache keys for 30 seconds unless forced
+    if (!forceRefresh && this.cachedKeys.length > 0 && (now - this.lastFetchTime < 30000)) {
+      return this.cachedKeys;
+    }
+
     const { data, error } = await supabase
       .from('api_keys')
       .select('*');
 
     if (error) {
       console.error('Error fetching API keys:', error);
-      return [];
+      return this.cachedKeys;
     }
 
     // Filter out known invalid providers like 'grod'
     const filteredData = (data || []).filter(k => {
       const provider = k.provider?.trim().toLowerCase();
       if (provider === 'grod') {
-        console.warn(`[AIService] Filtrando provedor inválido: ${k.provider}`);
         return false;
       }
       return true;
@@ -34,7 +42,7 @@ export class AIService {
 
     // Prioritize 'ok' status (green). 
     // Among 'ok' keys, we want to stick to the last successful one.
-    return filteredData.sort((a, b) => {
+    const sorted = filteredData.sort((a, b) => {
       const statusOrder = { 'ok': 0, 'rate_limited': 1, 'no_credit': 2, 'disconnected': 3 };
       const orderA = statusOrder[a.status as keyof typeof statusOrder] ?? 4;
       const orderB = statusOrder[b.status as keyof typeof statusOrder] ?? 4;
@@ -57,17 +65,25 @@ export class AIService {
       const lastUsedB = b.last_used ? new Date(b.last_used).getTime() : 0;
       return lastUsedA - lastUsedB;
     });
+
+    this.cachedKeys = sorted;
+    this.lastFetchTime = now;
+    return sorted;
   }
 
   private static async updateKeyStatus(id: string, status: 'ok' | 'no_credit' | 'disconnected' | 'rate_limited', errorCount: number = 0) {
     if (id === 'env-key') return;
     
     if (status === 'ok') {
+      if (this.lastSuccessfulKeyId !== id) {
+        console.log(`[AIService] Nova API principal selecionada: ${id}`);
+      }
       this.lastSuccessfulKeyId = id;
       if (typeof window !== 'undefined') {
         localStorage.setItem('ai_last_successful_key_id', id);
       }
     } else if (id === this.lastSuccessfulKeyId) {
+      console.warn(`[AIService] API principal (${id}) falhou. Trocando para a próxima disponível...`);
       this.lastSuccessfulKeyId = null;
       if (typeof window !== 'undefined') {
         localStorage.removeItem('ai_last_successful_key_id');
@@ -83,6 +99,9 @@ export class AIService {
           last_used: new Date().toISOString()
         })
         .eq('id', id);
+      
+      // Update cache
+      this.cachedKeys = this.cachedKeys.map(k => k.id === id ? { ...k, status, error_count: errorCount, last_used: new Date().toISOString() } : k);
     } catch (e) {
       console.error('Error updating key status:', e);
     }
@@ -91,7 +110,7 @@ export class AIService {
   static async generateContent(prompt: string, systemInstruction: string, image?: string): Promise<AIResponse> {
     let keys = await this.getActiveKeys();
     let attempts = 0;
-    const maxAttempts = keys.length * 2; // Evita loops infinitos
+    const maxAttempts = Math.max(keys.length * 2, 5);
 
     while (attempts < maxAttempts) {
       const availableKeys = keys.filter(k => k.status === 'ok');
@@ -99,10 +118,11 @@ export class AIService {
       if (availableKeys.length === 0) {
         console.warn('[AIService] Nenhuma API "OK" encontrada. Forçando teste de todas as conexões...');
         await this.testConnections();
-        keys = await this.getActiveKeys();
+        keys = await this.getActiveKeys(true);
         if (keys.filter(k => k.status === 'ok').length === 0) {
           // Fallback to env key if exists
           if (process.env.GEMINI_API_KEY) {
+            console.log('[AIService] Usando chave de ambiente como fallback final.');
             return await AIClientManager.execute({
               id: 'env-key',
               provider: 'gemini',
@@ -112,19 +132,22 @@ export class AIService {
           }
           throw new Error('Nenhuma API disponível e funcional no momento.');
         }
-        continue; // Re-tenta com as chaves recarregadas
+        continue;
       }
 
+      // Se temos uma chave que funcionou por último e ela está OK, ela será a primeira da lista devido ao sort
       const apiKey = availableKeys[0];
-      console.log(`[AIService] Usando API Ativa: ${apiKey.provider} (${apiKey.id})`);
       
       try {
         const result = await AIClientManager.execute(apiKey, prompt, systemInstruction, image);
-        await this.updateKeyStatus(apiKey.id, 'ok', 0);
+        // Se funcionou, garante que o status está OK e mantém como a última de sucesso
+        if (apiKey.status !== 'ok') {
+          await this.updateKeyStatus(apiKey.id, 'ok', 0);
+        }
         return result;
       } catch (error: any) {
         const errMsg = error.message?.toLowerCase() || '';
-        console.error(`[AIService] Falha na API ${apiKey.provider} (${apiKey.id}). Erro:`, errMsg);
+        console.error(`[AIService] Falha na API ${apiKey.provider} (${apiKey.id}). Motivo: ${errMsg}. Trocando...`);
         
         let newStatus: 'ok' | 'no_credit' | 'disconnected' | 'rate_limited' = 'disconnected';
         
@@ -132,12 +155,14 @@ export class AIService {
           newStatus = 'disconnected';
         } else if (errMsg.includes('429') || errMsg.includes('too many requests') || errMsg.includes('quota')) {
           newStatus = 'rate_limited';
+        } else if (errMsg.includes('credit') || errMsg.includes('balance') || errMsg.includes('limit')) {
+          newStatus = 'no_credit';
         }
 
         await this.updateKeyStatus(apiKey.id, newStatus, (apiKey.error_count || 0) + 1);
         
-        // Recarrega chaves para a próxima iteração do loop
-        keys = await this.getActiveKeys();
+        // Força refresh das chaves para pegar a próxima melhor
+        keys = await this.getActiveKeys(true);
         attempts++;
       }
     }
@@ -145,31 +170,24 @@ export class AIService {
   }
 
   static async testConnections(): Promise<void> {
-    console.log('[AIService] Iniciando teste de conexões das APIs...');
+    if (this.isTesting) return;
+    this.isTesting = true;
+    
+    console.log('[AIService] Iniciando teste de conexões das APIs para manter todas prontas...');
     let { data: allKeys } = await supabase.from('api_keys').select('*');
     
     if (!allKeys || allKeys.length === 0) {
-      if (process.env.GEMINI_API_KEY) {
-        allKeys = [{
-          id: 'env-key',
-          provider: 'gemini',
-          key: process.env.GEMINI_API_KEY,
-          service: 'gemini-3-flash-preview',
-          status: 'ok'
-        }];
-      } else {
-        return;
-      }
+      this.isTesting = false;
+      return;
     }
 
     const testPromises = allKeys.filter(k => k.provider !== 'grod').map(async (apiKey) => {
       try {
         const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('TIMEOUT')), 15000); // 15s timeout for testing
+          setTimeout(() => reject(new Error('TIMEOUT')), 15000);
         });
 
         const apiCallPromise = async () => {
-          console.log(`[AIService] Testando API via backend: ${apiKey.provider} (${apiKey.id})`);
           const response = await fetch('/api/test-api-key', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -184,7 +202,6 @@ export class AIService {
 
         await Promise.race([apiCallPromise(), timeoutPromise]);
         await this.updateKeyStatus(apiKey.id, 'ok', 0);
-        console.log(`[AIService] API ${apiKey.provider} (${apiKey.id}) está OK.`);
       } catch (error: any) {
         const errMsg = error.message?.toLowerCase() || '';
         let newStatus: 'ok' | 'no_credit' | 'disconnected' | 'rate_limited' = 'disconnected';
@@ -196,12 +213,21 @@ export class AIService {
         }
         
         await this.updateKeyStatus(apiKey.id, newStatus, (apiKey.error_count || 0) + 1);
-        console.warn(`[AIService] API ${apiKey.provider} (${apiKey.id}) falhou. Status: ${newStatus} - Erro: ${errMsg}`);
       }
     });
 
     await Promise.allSettled(testPromises);
-    console.log('[AIService] Teste de conexões concluído.');
+    this.isTesting = false;
+    console.log('[AIService] Teste de conexões concluído. APIs verdes estão prontas.');
+  }
+
+  // Inicia um loop de teste periódico para manter as APIs prontas
+  static startPeriodicTesting(intervalMs: number = 300000) { // 5 minutos por padrão
+    this.testConnections();
+    const interval = setInterval(() => {
+      this.testConnections();
+    }, intervalMs);
+    return () => clearInterval(interval);
   }
 }
 

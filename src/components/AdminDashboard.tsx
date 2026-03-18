@@ -455,6 +455,11 @@ export default function AdminDashboard() {
         
         // If it's a "hot" lead (has brand/model), always keep it
         if (lead.marca || lead.modelo) {
+          // Fix status if it's still 'frio' but has vehicle data
+          if (lead.status === 'frio' || !lead.status) {
+            lead.status = 'proposta_enviada';
+            lead.classificacao = 'morna';
+          }
           uniqueLeads.push(lead);
           seenEmails.add(lead.email);
           return;
@@ -469,6 +474,21 @@ export default function AdminDashboard() {
           duplicatesToDelete.push(lead.id);
         }
       });
+
+      // Fix status/classification in background for leads that have vehicle data but wrong status
+      const leadsToFix = uniqueLeads.filter(l => (l.marca || l.modelo) && (l.status === 'frio' || !l.status || !l.classificacao));
+      if (leadsToFix.length > 0) {
+        console.log(`[AdminDashboard] Corrigindo ${leadsToFix.length} leads com dados de veículo mas status incorreto.`);
+        const fixPromises = leadsToFix.map(l => {
+          const newStatus = l.status === 'fechado' ? 'fechado' : 'proposta_enviada';
+          const newClass = l.status === 'fechado' ? 'quente' : 'morna';
+          return supabase.from('leads_veiculos').update({ 
+            status: newStatus, 
+            classificacao: newClass 
+          }).eq('id', l.id);
+        });
+        Promise.all(fixPromises).then(() => console.log('[AdminDashboard] Correção de status concluída.'));
+      }
 
       // Perform background cleanup of duplicates if any found
       if (duplicatesToDelete.length > 0) {
@@ -926,6 +946,17 @@ export default function AdminDashboard() {
   useEffect(() => {
     userProfileRef.current = userProfile;
   }, [userProfile]);
+
+  const playNotificationSound = () => {
+    try {
+      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+      audio.volume = 0.5;
+      audio.play().catch(e => console.warn("[AdminDashboard] Falha ao tocar som:", e));
+    } catch (e) {
+      console.error("[AdminDashboard] Erro ao carregar áudio:", e);
+    }
+  };
+
   useEffect(() => {
     const messagesSubscription = supabase
       .channel('admin_messages_realtime')
@@ -940,6 +971,9 @@ export default function AdminDashboard() {
         // Se for uma mensagem do cliente, atualiza a lista de conversas e o chat aberto
         if (payload.new.remetente === 'cliente') {
           console.log("[AdminDashboard] Received new message from client:", payload.new);
+          
+          // Tocar som de notificação
+          playNotificationSound();
           
           // Automação de Status: Se o cliente responde, muda para "Em Contato"
           try {
@@ -1021,6 +1055,7 @@ export default function AdminDashboard() {
         table: 'leads_veiculos'
       }, (payload) => {
         console.log("[AdminDashboard] New lead created:", payload.new);
+        playNotificationSound();
         fetchData();
       })
       .subscribe();
@@ -1035,6 +1070,9 @@ export default function AdminDashboard() {
       }, async (payload) => {
         console.log("[AdminDashboard] Nova mensagem interna recebida:", payload.new);
         addLog(`Nova mensagem interna: ${payload.new.sender_id}`, 'debug', payload.new);
+        
+        // Tocar som de notificação
+        playNotificationSound();
         
         // Atualiza chat interno se estiver aberto para este usuário
         if (selectedInternalChatRef.current === payload.new.sender_id || 
@@ -3071,8 +3109,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     </div>
                     <div className="space-y-4">
                       {[
-                        { label: 'Lead Frio', status: 'frio' as const, count: leads.filter(l => l.status === 'frio' || l.status === 'novo' || l.status === 'em_contato').length, color: 'bg-red-500' },
-                        { label: 'Leads Morna', status: 'proposta_enviada' as const, count: leads.filter(l => l.status === 'proposta_enviada').length, color: 'bg-purple-500' },
+                        { label: 'Lead Frio', status: 'frio' as const, count: leads.filter(l => l.status === 'frio').length, color: 'bg-red-500' },
+                        { label: 'Leads Morna', status: 'proposta_enviada' as const, count: leads.filter(l => l.status === 'proposta_enviada' || l.status === 'novo' || l.status === 'em_contato').length, color: 'bg-purple-500' },
                         { label: 'Lead Quente', status: 'fechado' as const, count: leads.filter(l => l.status === 'fechado').length, color: 'bg-emerald-500' },
                       ].map((item, i) => (
                         <div 
@@ -3916,8 +3954,18 @@ Podemos prosseguir com o agendamento da vistoria?`;
                               value={selectedLead.status}
                               onChange={async (e) => {
                                 const newVal = e.target.value;
-                                const { error } = await supabase.from('leads_veiculos').update({ status: newVal }).eq('id', selectedLead.id);
-                                if (!error) setSelectedLead({...selectedLead, status: newVal});
+                                // Map status to classification
+                                let newClass = selectedLead.classificacao;
+                                if (newVal === 'fechado') newClass = 'quente';
+                                else if (newVal === 'proposta_enviada' || newVal === 'novo' || newVal === 'em_contato') newClass = 'morna';
+                                else if (newVal === 'frio') newClass = 'frio';
+
+                                const { error } = await supabase.from('leads_veiculos').update({ 
+                                  status: newVal,
+                                  classificacao: newClass 
+                                }).eq('id', selectedLead.id);
+                                
+                                if (!error) setSelectedLead({...selectedLead, status: newVal, classificacao: newClass});
                               }}
                               className="text-xs font-bold uppercase px-3 py-1 rounded-full bg-slate-100 text-slate-600 border-none outline-none cursor-pointer"
                             >
@@ -4647,7 +4695,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       {leads
                         .filter(l => {
                           if (activeLeadTab === 'todos') return true;
-                          if (activeLeadTab === 'frio') return l.status === 'frio' || l.status === 'novo' || l.status === 'em_contato';
+                          if (activeLeadTab === 'frio') return l.status === 'frio';
+                          if (activeLeadTab === 'proposta_enviada') return l.status === 'proposta_enviada' || l.status === 'novo' || l.status === 'em_contato';
                           return l.status === activeLeadTab;
                         })
                         .filter(l => !searchCode || (l.vehicle_code && l.vehicle_code.includes(searchCode)))
@@ -4756,8 +4805,17 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                     onClick={(e) => e.stopPropagation()}
                                     onChange={async (e) => {
                                       const newStatus = e.target.value;
-                                      setLeads(leads.map(l => l.id === lead.id ? { ...l, status: newStatus } : l));
-                                      await supabase.from('leads_veiculos').update({ status: newStatus }).eq('id', lead.id);
+                                      // Map status to classification
+                                      let newClass = lead.classificacao;
+                                      if (newStatus === 'fechado') newClass = 'quente';
+                                      else if (newStatus === 'proposta_enviada' || newStatus === 'novo' || newStatus === 'em_contato') newClass = 'morna';
+                                      else if (newStatus === 'frio') newClass = 'frio';
+
+                                      setLeads(leads.map(l => l.id === lead.id ? { ...l, status: newStatus, classificacao: newClass } : l));
+                                      await supabase.from('leads_veiculos').update({ 
+                                        status: newStatus,
+                                        classificacao: newClass
+                                      }).eq('id', lead.id);
                                     }}
                                     className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border-none outline-none cursor-pointer tracking-tighter ${
                                       lead.status === 'fechado' ? 'bg-emerald-100 text-emerald-700' :
