@@ -163,22 +163,31 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
                     {vehicles.length === 0 ? (
                       <p className="text-center text-slate-500">Nenhum veículo encontrado para este lead.</p>
                     ) : (
-                      vehicles.map(v => (
-                        <div key={v.id} className="flex justify-between items-center p-4 border border-slate-200 rounded-lg">
-                          <div className="flex items-center gap-4 cursor-pointer hover:text-blue-600" onClick={() => setSelectedVehicle(v)}>
-                            {v.foto_principal && (
-                              <img src={v.foto_principal} alt={`${v.marca} ${v.modelo}`} className="w-16 h-16 object-cover rounded-md" />
-                            )}
-                            <span className="font-semibold">
-                              {v.marca || v.modelo ? `${v.marca || ''} ${v.modelo || ''}` : 'Veículo sem identificação'} 
-                              {v.ano_modelo ? ` - ${v.ano_modelo}` : (v.ano ? ` - ${v.ano}` : '')}
-                            </span>
+                      vehicles.map(v => {
+                        console.log('Vehicle data:', v);
+                        return (
+                          <div key={v.id} className="flex justify-between items-center p-4 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50" onClick={() => {
+                            console.log('Vehicle clicked:', v);
+                            setSelectedVehicle(v);
+                          }}>
+                            <div className="flex items-center gap-4">
+                              {v.foto_principal && (
+                                <img src={v.foto_principal} alt={`${v.marca} ${v.modelo}`} className="w-16 h-16 object-cover rounded-md" />
+                              )}
+                              <span className="font-semibold">
+                                {v.marca || v.modelo ? `${v.marca || ''} ${v.modelo || ''}` : (v.veiculo ? v.veiculo : 'Veículo sem identificação')} 
+                                {v.ano_modelo ? ` - ${v.ano_modelo}` : (v.ano ? ` - ${v.ano}` : '')}
+                              </span>
+                            </div>
+                            <button onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteVehicle(v.id);
+                            }} className="text-red-500 hover:text-red-700 p-2">
+                              <Trash2 className="w-5 h-5" />
+                            </button>
                           </div>
-                          <button onClick={() => handleDeleteVehicle(v.id)} className="text-red-500 hover:text-red-700 p-2">
-                            <Trash2 className="w-5 h-5" />
-                          </button>
-                        </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 )}
