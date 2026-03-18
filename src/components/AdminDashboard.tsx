@@ -3117,8 +3117,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     <div className="space-y-4">
                       {[
                         { label: 'Lead Frio', status: 'frio' as const, count: leads.filter(l => l.status === 'frio').length, color: 'bg-red-500' },
-                        { label: 'Leads Morna', status: 'proposta_enviada' as const, count: leads.filter(l => l.status === 'proposta_enviada' || l.status === 'novo' || l.status === 'em_contato').length, color: 'bg-purple-500' },
+                        { label: 'Leads Morna', status: 'proposta_enviada' as const, count: leads.filter(l => l.status === 'proposta_enviada').length, color: 'bg-purple-500' },
                         { label: 'Lead Quente', status: 'fechado' as const, count: leads.filter(l => l.status === 'fechado').length, color: 'bg-emerald-500' },
+                        { label: 'Leads Fria', status: 'frio' as const, count: leads.filter(l => l.status !== 'proposta_enviada' && l.status !== 'fechado').length, color: 'bg-blue-500' },
                       ].map((item, i) => (
                         <div 
                           key={i} 
@@ -3964,8 +3965,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 // Map status to classification
                                 let newClass = selectedLead.classificacao;
                                 if (newVal === 'fechado') newClass = 'quente';
-                                else if (newVal === 'proposta_enviada' || newVal === 'novo' || newVal === 'em_contato') newClass = 'morna';
-                                else if (newVal === 'frio') newClass = 'frio';
+                                else if (newVal === 'proposta_enviada') newClass = 'morna';
+                                else newClass = 'fria';
 
                                 const { error } = await supabase.from('leads_veiculos').update({ 
                                   status: newVal,
