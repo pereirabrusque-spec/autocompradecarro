@@ -357,6 +357,7 @@ export default function AdminDashboard() {
             ...profile,
             id: profile.id,
             nome: profile.full_name,
+            cliente_nome: profile.full_name,
             email: profile.email,
             status: 'frio', // Default status for users who haven't filled a form
             is_frio: true
@@ -434,9 +435,9 @@ export default function AdminDashboard() {
         });
       }
 
-      // Adicionar leads que não possuem mensagens
-      if (leadsData) {
-        leadsData.forEach((lead: any) => {
+      // Adicionar leads que não possuem mensagens (incluindo usuários sem formulário)
+      if (allLeads) {
+        allLeads.forEach((lead: any) => {
           const key = lead.email || lead.telefone || lead.id;
           if (key && !conversationKeys.has(key)) {
             conversationKeys.add(key);
@@ -449,7 +450,7 @@ export default function AdminDashboard() {
               customer_email: lead.email,
               lead_id: lead.id,
               lead_ids: [lead.id],
-              last_message: 'Nenhuma mensagem ainda',
+              last_message: lead.is_frio ? 'Usuário registrado (sem formulário)' : 'Nenhuma mensagem ainda',
               last_time: lead.created_at,
               last_message_at: lead.created_at,
               lead: lead,
@@ -462,6 +463,9 @@ export default function AdminDashboard() {
       }
 
       console.log('Grouped conversations:', groupedConversations);
+
+      // Sort conversations by last message time descending
+      groupedConversations.sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime());
 
       if (assetsData) {
         // No longer load permissions from assetsData
