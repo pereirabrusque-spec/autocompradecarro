@@ -322,6 +322,7 @@ export default function AdminDashboard() {
   }, [currentUser]);
 
   const fetchData = async () => {
+    console.log("fetchData chamado");
     setIsLoading(true);
     addLog('Iniciando busca de dados...', 'info');
     try {
@@ -530,6 +531,7 @@ export default function AdminDashboard() {
           }
         });
       }
+      console.log("Conversas internas agrupadas:", groupedInternal);
       setInternalConversations(groupedInternal);
       
       // Atualiza o lead selecionado se houver um
@@ -1060,6 +1062,7 @@ export default function AdminDashboard() {
     setInternalChatMessages(prev => [...prev, newMessage]);
 
     try {
+      console.log("Enviando mensagem interna:", newMessage);
       const { error } = await supabase
         .from('internal_messages')
         .insert({
@@ -1068,7 +1071,11 @@ export default function AdminDashboard() {
           content: messageContent
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao enviar mensagem interna:', error);
+        throw error;
+      }
+      console.log("Mensagem enviada com sucesso");
     } catch (error) {
       console.error('Error sending internal message:', error);
       // Rollback
@@ -5187,7 +5194,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                           <div className="relative">
                             <div className="w-12 h-12 rounded-full bg-slate-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
                               {conv.profile?.avatar_url ? (
-                                <img src={conv.profile.avatar_url} alt={conv.profile.full_name} className="w-full h-full object-cover" />
+                                <img src={conv.profile.avatar_url} alt={conv.profile.full_name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                               ) : (
                                 <User className="w-6 h-6 text-slate-400" />
                               )}

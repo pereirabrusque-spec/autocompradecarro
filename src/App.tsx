@@ -87,6 +87,7 @@ function AppContent() {
   }, [user]);
 
   useEffect(() => {
+    console.log('[DEBUG] Verificando rota:', window.location.pathname, 'user:', user, 'isLoading:', isLoading);
     const checkRoute = () => {
       const path = window.location.pathname;
       
@@ -100,6 +101,7 @@ function AppContent() {
 
       if (path === '/admin') {
         if (!user) {
+          console.log('[DEBUG] Usuário não logado, redirecionando para login');
           setView('login');
         } else if (isAdmin) {
           setView('admin');
@@ -141,6 +143,7 @@ function AppContent() {
   }, [user, isAdmin, isLoading]);
 
   useEffect(() => {
+    console.log('[DEBUG] handleAuthCallback view:', view, 'isLoading:', isLoading);
     const handleAuthCallback = async () => {
       if (view === 'auth-callback' && !isLoading) {
         console.log('[AUTH-DEBUG] Usando authManager para processar callback...');
