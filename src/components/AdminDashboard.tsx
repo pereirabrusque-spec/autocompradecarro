@@ -417,6 +417,7 @@ export default function AdminDashboard() {
             groupedConversations.push({
               conversation_key: key,
               customer_email: email,
+              lead_id: msg.lead_id,
               lead_ids: [...new Set(customerMessages.map((m: any) => m.lead_id))],
               last_message: msg.conteudo,
               last_time: msg.created_at,
@@ -443,6 +444,7 @@ export default function AdminDashboard() {
             groupedConversations.push({
               conversation_key: key,
               customer_email: lead.email,
+              lead_id: lead.id,
               lead_ids: [lead.id],
               last_message: 'Nenhuma mensagem ainda',
               last_time: lead.created_at,
@@ -896,12 +898,12 @@ export default function AdminDashboard() {
     };
   }, []);
 
-  const fetchChatMessages = async (leadId: string) => {
-    console.log('Fetching messages for lead:', leadId);
+  const fetchChatMessages = async (leadIds: string[]) => {
+    console.log('Fetching messages for leads:', leadIds);
     const { data, error } = await supabase
       .from('mensagens')
       .select('*')
-      .eq('lead_id', leadId)
+      .in('lead_id', leadIds)
       .order('created_at', { ascending: true });
     
     if (error) {
@@ -916,13 +918,13 @@ export default function AdminDashboard() {
     await supabase
       .from('mensagens')
       .update({ lida: true })
-      .eq('lead_id', leadId)
+      .in('lead_id', leadIds)
       .eq('remetente', 'cliente')
       .eq('lida', false);
       
     // Atualizar contador local
     setConversations(prev => prev.map(c => 
-      c.lead_id === leadId ? { ...c, unread: 0, is_unanswered: false } : c
+      leadIds.includes(c.lead_id) ? { ...c, unread: 0, is_unanswered: false } : c
     ));
   };
 
@@ -1024,7 +1026,7 @@ export default function AdminDashboard() {
     setIsSendingMessage(true);
 
     const newMessage = {
-      lead_id: selectedConversation.lead_id,
+      lead_id: selectedConversation.lead_ids[0],
       conteudo: messageContent,
       remetente: 'admin',
       created_at: new Date().toISOString(),
@@ -1039,7 +1041,7 @@ export default function AdminDashboard() {
       const { error } = await supabase
         .from('mensagens')
         .insert({
-          lead_id: selectedConversation.lead_id,
+          lead_id: selectedConversation.lead_ids[0],
           remetente: 'admin',
           conteudo: messageContent,
           admin_id: userProfile.id
@@ -1052,7 +1054,7 @@ export default function AdminDashboard() {
         handleAILearning({
           remetente: 'admin',
           conteudo: messageContent,
-          lead_id: selectedConversation.lead_id
+          lead_id: selectedConversation.lead_ids[0]
         });
       }
     } catch (error) {
@@ -5172,7 +5174,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         key={conv.conversation_key}
                         onClick={() => {
                           setSelectedConversation(conv);
-                          fetchChatMessages(conv.lead_ids[0]);
+                          fetchChatMessages(conv.lead_ids);
                           const lead = leads.find(l => l.id === conv.lead_ids[0]);
                           if (lead) {
                             setSelectedLead(lead);
