@@ -48,7 +48,39 @@ export const CRMChatContainer = ({ role, onOpenLead, onCloneLead, setToast }: { 
         .order('created_at', { ascending: false });
       
       if (profiles) {
-        setConversations(profiles);
+        // Para cada perfil, tenta buscar o lead_id mais recente nas mensagens
+        const enrichedProfiles = await Promise.all(profiles.map(async (profile) => {
+          const { data: lastMsg } = await supabase
+            .from('internal_messages')
+            .select('lead_id')
+            .or(`sender_id.eq.${profile.id},receiver_id.eq.${profile.id}`)
+            .not('lead_id', 'is', null)
+            .order('created_at', { ascending: false })
+            .limit(1);
+          
+          let lead = null;
+          if (lastMsg && lastMsg.length > 0 && lastMsg[0].lead_id) {
+            const { data: leadData } = await supabase
+              .from('leads_veiculos')
+              .select('*')
+              .eq('id', lastMsg[0].lead_id)
+              .single();
+            lead = leadData;
+          } else {
+            // Fallback: busca qualquer lead vinculado ao user_id
+            const { data: leadData } = await supabase
+              .from('leads_veiculos')
+              .select('*')
+              .eq('user_id', profile.id)
+              .order('created_at', { ascending: false })
+              .limit(1);
+            if (leadData && leadData.length > 0) lead = leadData[0];
+          }
+
+          return { ...profile, lead };
+        }));
+
+        setConversations(enrichedProfiles);
         
         // Busca contadores APENAS para mensagens destinadas ao admin logado
         if (uid) {
@@ -289,6 +321,11 @@ export const CRMChatContainer = ({ role, onOpenLead, onCloneLead, setToast }: { 
                     )}
                     <div className="truncate">
                         <div className="font-bold text-sm truncate">{conv.full_name || 'Sem nome'}</div>
+                        {conv.lead && (
+                            <div className="text-[10px] text-slate-400 font-mono">
+                                #{conv.lead.vehicle_code || '----'}
+                            </div>
+                        )}
                     </div>
                 </div>
                 {unreadCounts[conv.id] > 0 && (

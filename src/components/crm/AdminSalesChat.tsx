@@ -63,6 +63,28 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead, onOpenLead
         }
       }
 
+      // 4. Try to find lead_id from internal_messages if still no data
+      if (!data || data.length === 0) {
+        const { data: msgWithLead } = await supabase
+          .from('internal_messages')
+          .select('lead_id')
+          .or(`sender_id.eq.${conversationId},receiver_id.eq.${conversationId}`)
+          .not('lead_id', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        
+        if (msgWithLead && msgWithLead.length > 0 && msgWithLead[0].lead_id) {
+          const { data: dataByMsgLead } = await supabase
+            .from('leads_veiculos')
+            .select('*')
+            .eq('id', msgWithLead[0].lead_id);
+          
+          if (dataByMsgLead && dataByMsgLead.length > 0) {
+            data = dataByMsgLead;
+          }
+        }
+      }
+
       if (data) {
         console.log('[AdminSalesChat] Leads encontrados:', data.length);
         setLeads(data);
@@ -294,7 +316,8 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead, onOpenLead
     const insertData: any = {
       receiver_id: conversationId,
       content: input,
-      sender_id: user.id
+      sender_id: user.id,
+      lead_id: leadData?.id
     };
     // Removido: insertData[readColumn] = true; 
     // A mensagem deve ser inserida como não lida para o destinatário (comprador)

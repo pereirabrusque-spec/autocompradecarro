@@ -84,6 +84,31 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
             data = dataByEmail;
             error = errorByEmail;
         }
+
+        // 4. Try to find lead_id from internal_messages if still no data
+        if (!data || data.length === 0) {
+            console.log('Buscando lead_id em internal_messages para:', conversationId);
+            const { data: msgWithLead } = await supabase
+                .from('internal_messages')
+                .select('lead_id')
+                .or(`sender_id.eq.${conversationId},receiver_id.eq.${conversationId}`)
+                .not('lead_id', 'is', null)
+                .order('created_at', { ascending: false })
+                .limit(1);
+            
+            if (msgWithLead && msgWithLead.length > 0 && msgWithLead[0].lead_id) {
+                console.log('Lead ID encontrado em mensagens:', msgWithLead[0].lead_id);
+                const { data: dataByMsgLead, error: errorByMsgLead } = await supabase
+                    .from('leads_veiculos')
+                    .select('*')
+                    .eq('id', msgWithLead[0].lead_id);
+                
+                if (dataByMsgLead && dataByMsgLead.length > 0) {
+                    data = dataByMsgLead;
+                    error = errorByMsgLead;
+                }
+            }
+        }
         
         if (error) {
           console.error('Erro ao buscar veículos:', error);
