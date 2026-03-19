@@ -25,7 +25,7 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'leads' | 'hero' | 'assets' | 'footer' | 'settings' | 'ai' | 'apis' | 'crm' | 'messages' | 'buyers' | 'tags' | 'users' | 'cooperatives' | 'logs' | 'crm_chat'>('dashboard');
   const [messageTab, setMessageTab] = useState<'leads' | 'internal'>('leads');
   const [internalConversations, setInternalConversations] = useState<any[]>([]);
-  const [compradoresConversations, setCompradoresConversations] = useState<any[]>([]);
+  // const [compradoresConversations, setCompradoresConversations] = useState<any[]>([]); // Frozen for performance
   const [selectedInternalChat, setSelectedInternalChat] = useState<string | null>(null);
   const [internalChatMessages, setInternalChatMessages] = useState<any[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -53,7 +53,7 @@ export default function AdminDashboard() {
   const [savingAsset, setSavingAsset] = useState<string | null>(null);
   const [deletingAsset, setDeletingAsset] = useState<string | null>(null);
   const [uploadingAsset, setUploadingAsset] = useState<string | null>(null);
-  const [seedingCards, setSeedingCards] = useState(false);
+  // const [seedingCards, setSeedingCards] = useState(false); // Frozen for performance
   const [apiKeys, setApiKeys] = useState<any[]>([]);
   const [providers, setProviders] = useState<any[]>([]);
   const [newProviderName, setNewProviderName] = useState('');
