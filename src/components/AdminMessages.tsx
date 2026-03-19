@@ -366,10 +366,10 @@ export default function AdminMessages({
             {/* Cabeçalho do Chat */}
             <div className="p-4 bg-white border-b border-slate-100 flex justify-between items-center">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden">
+                <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden flex items-center justify-center">
                   {(() => {
                     const profile = selectedConversation.customer_email ? users.find(u => u.email === selectedConversation.customer_email) : null;
-                    const avatarUrl = profile?.avatar_url || (selectedConversation.lead?.fotos && selectedConversation.lead.fotos[0]);
+                    const avatarUrl = profile?.avatar_url || (selectedConversation.lead?.fotos && selectedConversation.lead.fotos[0]) || selectedConversation.lead?.foto_principal;
                     return avatarUrl ? (
                       <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
@@ -380,8 +380,25 @@ export default function AdminMessages({
                   })()}
                 </div>
                 <div>
-                  <h4 className="font-bold text-slate-900">{selectedConversation.lead?.cliente_nome}</h4>
-                  <p className="text-[10px] text-slate-400 font-mono">#{selectedConversation.lead?.vehicle_code}</p>
+                  <h4 className="font-bold text-slate-900">{selectedConversation.lead?.cliente_nome || 'Cliente'}</h4>
+                  <div className="flex items-center gap-2">
+                    <p className="text-[10px] text-slate-400 font-mono">{selectedConversation.customer_email}</p>
+                    {selectedConversation.lead && (
+                      <div className="flex items-center gap-1.5 bg-blue-50/50 px-1.5 py-0.5 rounded-lg border border-blue-100">
+                        {(selectedConversation.lead.foto_principal || (selectedConversation.lead.fotos && selectedConversation.lead.fotos[0])) && (
+                          <img 
+                            src={selectedConversation.lead.foto_principal || selectedConversation.lead.fotos[0]} 
+                            alt="Veículo" 
+                            className="w-5 h-5 rounded-md object-cover border border-blue-200"
+                            referrerPolicy="no-referrer"
+                          />
+                        )}
+                        <p className="text-[10px] text-blue-700 font-black uppercase tracking-tight">
+                          {selectedConversation.lead.marca} {selectedConversation.lead.modelo} (#{selectedConversation.lead.vehicle_code})
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -469,7 +486,20 @@ export default function AdminMessages({
                       setSelectionMode('clone');
                       setShowVehicleSelectionModal(true);
                     } else if (conversationLeads.length === 1) {
-                      onCloneLead(conversationLeads[0]);
+                      const v = conversationLeads[0];
+                      const vehicleWithMedia = {
+                        ...v,
+                        marca: v.marca || (v.veiculo ? v.veiculo.split(' ')[0] : 'N/A'),
+                        modelo: v.modelo || (v.veiculo ? v.veiculo.split(' ').slice(1).join(' ') : 'N/A'),
+                        ano_fabricacao: v.ano_fabricacao || v.ano_modelo || 'N/A',
+                        ano_modelo: v.ano_modelo || 'N/A',
+                        cor: v.cor || 'N/A',
+                        valor_fipe: v.valor_fipe || 0,
+                        preco_cliente: v.preco_cliente || 0,
+                        fotos: v.fotos_url || (Array.isArray(v.fotos) ? v.fotos : (v.fotos ? [v.fotos] : [])),
+                        videos: Array.isArray(v.videos) ? v.videos : (v.videos ? [v.videos] : [])
+                      };
+                      onCloneLead(vehicleWithMedia);
                     } else {
                       if (setToast) setToast({ message: 'Nenhum veículo encontrado nesta conversa.', type: 'error' });
                       else alert('Nenhum veículo encontrado nesta conversa.');
@@ -490,9 +520,22 @@ export default function AdminMessages({
                     if (conversationLeads.length > 1) {
                       setSelectionMode('proposal');
                       setShowVehicleSelectionModal(true);
-                    } else if (conversationLeads.length === 1) {
-                      setSelectedLead(conversationLeads[0]);
-                      setProposalCalculator(calculateProposal(conversationLeads[0]));
+                    } else if (conversationLeads.length === 1 && selectedConversation.lead) {
+                      const v = conversationLeads[0];
+                      const vehicleWithMedia = {
+                        ...v,
+                        marca: v.marca || (v.veiculo ? v.veiculo.split(' ')[0] : 'N/A'),
+                        modelo: v.modelo || (v.veiculo ? v.veiculo.split(' ').slice(1).join(' ') : 'N/A'),
+                        ano_fabricacao: v.ano_fabricacao || v.ano_modelo || 'N/A',
+                        ano_modelo: v.ano_modelo || 'N/A',
+                        cor: v.cor || 'N/A',
+                        valor_fipe: v.valor_fipe || 0,
+                        preco_cliente: v.preco_cliente || 0,
+                        fotos: v.fotos_url || (Array.isArray(v.fotos) ? v.fotos : (v.fotos ? [v.fotos] : [])),
+                        videos: Array.isArray(v.videos) ? v.videos : (v.videos ? [v.videos] : [])
+                      };
+                      setSelectedLead(vehicleWithMedia);
+                      setProposalCalculator(calculateProposal(vehicleWithMedia));
                       setShowProposalModal(true);
                     } else {
                       if (setToast) setToast({ message: 'Nenhum veículo encontrado nesta conversa.', type: 'error' });
@@ -592,10 +635,108 @@ export default function AdminMessages({
                     <h4 className="font-bold text-slate-900">
                       {(users || []).find(u => u.id === selectedInternalChat)?.full_name || 'Usuário'}
                     </h4>
-                    <p className="text-[10px] text-slate-400">Equipe</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-[10px] text-slate-400">Equipe</p>
+                      {(() => {
+                        const internalLeads = leads.filter(l => l.user_id === selectedInternalChat);
+                        if (internalLeads.length > 0) {
+                          const leadData = internalLeads[0];
+                          return (
+                            <div className="flex items-center gap-1.5 bg-blue-50/50 px-1.5 py-0.5 rounded-lg border border-blue-100">
+                              {(leadData.foto_principal || (leadData.fotos && leadData.fotos[0])) && (
+                                <img 
+                                  src={leadData.foto_principal || leadData.fotos[0]} 
+                                  alt="Veículo" 
+                                  className="w-5 h-5 rounded-md object-cover border border-blue-200"
+                                  referrerPolicy="no-referrer"
+                                />
+                              )}
+                              <p className="text-[10px] text-blue-700 font-black uppercase tracking-tight">
+                                {leadData.marca} {leadData.modelo} (#{leadData.vehicle_code})
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  {(() => {
+                    const internalLeads = leads.filter(l => l.user_id === selectedInternalChat);
+                    if (internalLeads.length > 0) {
+                      return (
+                        <>
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              if (internalLeads.length > 1) {
+                                setSelectedLead(null); // Clear to force selection
+                                setSelectionMode('clone');
+                                // We need a way to pass the specific leads to the modal
+                                // For now, we'll rely on the modal filtering by selectedInternalChat if needed
+                                // but the current modal logic uses selectedConversation.lead_ids
+                                // I might need to adjust the modal props or logic in AdminDashboard
+                                setShowVehicleSelectionModal(true);
+                              } else {
+                                const v = internalLeads[0];
+                                const vehicleWithMedia = {
+                                  ...v,
+                                  marca: v.marca || (v.veiculo ? v.veiculo.split(' ')[0] : 'N/A'),
+                                  modelo: v.modelo || (v.veiculo ? v.veiculo.split(' ').slice(1).join(' ') : 'N/A'),
+                                  ano_fabricacao: v.ano_fabricacao || v.ano_modelo || 'N/A',
+                                  ano_modelo: v.ano_modelo || 'N/A',
+                                  cor: v.cor || 'N/A',
+                                  valor_fipe: v.valor_fipe || 0,
+                                  preco_cliente: v.preco_cliente || 0,
+                                  fotos: v.fotos_url || (Array.isArray(v.fotos) ? v.fotos : (v.fotos ? [v.fotos] : [])),
+                                  videos: Array.isArray(v.videos) ? v.videos : (v.videos ? [v.videos] : [])
+                                };
+                                onCloneLead(vehicleWithMedia);
+                              }
+                            }}
+                            className="px-4 py-2 bg-blue-100 text-blue-600 rounded-xl font-bold text-xs hover:bg-blue-200 transition-all flex items-center gap-2"
+                            title="Clonar dados deste veículo"
+                          >
+                            <Copy className="w-4 h-4" />
+                            Clonar
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              if (internalLeads.length > 1) {
+                                setSelectionMode('proposal');
+                                setShowVehicleSelectionModal(true);
+                              } else {
+                                const v = internalLeads[0];
+                                const vehicleWithMedia = {
+                                  ...v,
+                                  marca: v.marca || (v.veiculo ? v.veiculo.split(' ')[0] : 'N/A'),
+                                  modelo: v.modelo || (v.veiculo ? v.veiculo.split(' ').slice(1).join(' ') : 'N/A'),
+                                  ano_fabricacao: v.ano_fabricacao || v.ano_modelo || 'N/A',
+                                  ano_modelo: v.ano_modelo || 'N/A',
+                                  cor: v.cor || 'N/A',
+                                  valor_fipe: v.valor_fipe || 0,
+                                  preco_cliente: v.preco_cliente || 0,
+                                  fotos: v.fotos_url || (Array.isArray(v.fotos) ? v.fotos : (v.fotos ? [v.fotos] : [])),
+                                  videos: Array.isArray(v.videos) ? v.videos : (v.videos ? [v.videos] : [])
+                                };
+                                setSelectedLead(vehicleWithMedia);
+                                setProposalCalculator(calculateProposal(vehicleWithMedia));
+                                setShowProposalModal(true);
+                              }
+                            }}
+                            className="px-4 py-2 bg-accent/10 text-accent rounded-xl font-bold text-xs hover:bg-accent/20 transition-all flex items-center gap-2"
+                          >
+                            <DollarSign className="w-4 h-4" />
+                            Ver Proposta
+                          </button>
+                        </>
+                      );
+                    }
+                    return null;
+                  })()}
                   <button 
                     type="button"
                     onClick={handleLearnFromChat}

@@ -613,6 +613,13 @@ export default function AdminDashboard() {
           const key = lead?.email || lead?.telefone || msg.lead_id;
           
           if (key && !conversationKeys.has(key)) {
+            // Check if this lead is a buyer
+            const email = lead?.email;
+            const leadProfile = email ? (profilesData || []).find((u: any) => u.email === email) : null;
+            const isBuyer = leadProfile?.role?.toLowerCase().includes('buyer');
+            
+            if (isBuyer) return; // Skip buyers in the Leads tab
+
             conversationKeys.add(key);
             const customerMessages = messagesData.filter((m: any) => {
               const mLead = m.leads_veiculos;
@@ -621,8 +628,6 @@ export default function AdminDashboard() {
             });
             const unreadCount = customerMessages.filter((m: any) => !m.lida && m.remetente === 'cliente').length;
             
-            const email = lead?.email;
-            const leadProfile = email ? (profilesData || []).find((u: any) => u.email === email) : null;
             const isOnline = leadProfile ? (new Date().getTime() - new Date(leadProfile.last_login).getTime()) < 300000 : false;
 
             groupedConversations.push({
@@ -648,9 +653,13 @@ export default function AdminDashboard() {
         allLeads.forEach((lead: any) => {
           const key = lead.email || lead.telefone || lead.id;
           if (key && !conversationKeys.has(key)) {
-            conversationKeys.add(key);
-            
+            // Check if this lead is a buyer
             const leadProfile = lead.email ? (profilesData || []).find((u: any) => u.email === lead.email) : null;
+            const isBuyer = leadProfile?.role?.toLowerCase().includes('buyer') || lead.role?.toLowerCase().includes('buyer');
+            
+            if (isBuyer) return; // Skip buyers in the Leads tab
+
+            conversationKeys.add(key);
             const isOnline = leadProfile ? (new Date().getTime() - new Date(leadProfile.last_login).getTime()) < 300000 : false;
 
             groupedConversations.push({
@@ -710,8 +719,10 @@ export default function AdminDashboard() {
             internalIds.add(otherId);
             const otherProfile = (profilesData || []).find((u: any) => u.id === otherId);
             
-            // Only show in "Equipe" if they are admin
-            if (otherProfile && otherProfile.role === 'admin') {
+            // Only show in "Equipe" if they are admin or seller/user (vendedor)
+            if (otherProfile && (otherProfile.role === 'admin' || otherProfile.role === 'user' || otherProfile.role === 'seller')) {
+              // Exclude buyers even if they somehow have admin role (safety check)
+              if (otherProfile.role?.includes('buyer')) return;
               const unreadCount = internalMessagesData.filter((m: any) => 
                 m.sender_id === otherId && m.receiver_id === userProfileRef.current.id && !m.is_read
               ).length;
@@ -731,10 +742,13 @@ export default function AdminDashboard() {
         });
       }
 
-      // Then, add other team members (admin) who haven't messaged yet
+      // Then, add other team members (admin/vendedor) who haven't messaged yet
       if (profilesData && userProfileRef.current) {
         profilesData.forEach((p: any) => {
-          if (p.id !== userProfileRef.current.id && p.role === 'admin' && !internalIds.has(p.id)) {
+          if (p.id !== userProfileRef.current.id && (p.role === 'admin' || p.role === 'user' || p.role === 'seller') && !internalIds.has(p.id)) {
+            // Exclude buyers
+            if (p.role?.includes('buyer')) return;
+            
             internalIds.add(p.id);
             const isOnline = p.last_login ? (new Date().getTime() - new Date(p.last_login).getTime()) < 300000 : false;
             
@@ -6324,7 +6338,11 @@ Podemos prosseguir com o agendamento da vistoria?`;
         <VehicleSelectionModal
           onClose={() => setShowVehicleSelectionModal(false)}
           title={selectionMode === 'clone' ? "Selecione o Veículo para Clonar" : "Selecione o Veículo para Proposta"}
-          leads={leads.filter(l => selectedConversation?.lead_ids?.includes(l.id))}
+          leads={
+            messageTab === 'internal' && selectedInternalChat
+              ? leads.filter(l => l.user_id === selectedInternalChat)
+              : leads.filter(l => selectedConversation?.lead_ids?.includes(l.id))
+          }
           onSelect={(lead) => {
             if (selectionMode === 'clone') {
               handleCloneVehicle(lead);
