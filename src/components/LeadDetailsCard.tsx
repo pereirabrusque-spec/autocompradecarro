@@ -65,7 +65,7 @@ export default function LeadDetailsCard({
             'fotos', 'videos', 'problemas', 'selected_items', 'avarias', 
             'avarias_manuais', 'fotos_url', 'detalhes_proposta', 'metadata'
           ];
-          const displayFields = ['marca', 'modelo', 'ano_modelo', 'cor', 'placa', 'quilometragem'];
+          const displayFields = ['marca', 'modelo', 'ano_modelo', 'ano_fabricacao', 'cor', 'placa', 'quilometragem'];
           
           if (complexFields.includes(key)) {
             sanitizedLead[key] = null;
@@ -613,7 +613,7 @@ export default function LeadDetailsCard({
           <div className="grid grid-cols-2 md:grid-cols-5 gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-100">
             <div className="flex flex-col">
               <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Ano</span>
-              <span className="text-xs font-bold text-slate-700">{currentLead.ano_modelo || 'N/A'}</span>
+              <span className="text-xs font-bold text-slate-700">{currentLead.ano_fabricacao || currentLead.ano_modelo || 'N/A'}</span>
             </div>
             <div className="flex flex-col">
               <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">KM</span>
