@@ -29,48 +29,28 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead, onOpenLead
   const fetchLeadData = useCallback(async () => {
       if (!conversationId) return;
       
-      console.log('[AdminSalesChat] Buscando leads para:', conversationId);
+      console.log('[AdminSalesChat] Buscando leads presentes na conversa:', conversationId);
       
       const allLeadIds = new Set<string>();
       
-      // 1. Leads by user_id
-      const { data: leadsByUser } = await supabase
-        .from('leads_veiculos')
-        .select('id')
-        .eq('user_id', conversationId);
-      leadsByUser?.forEach(l => allLeadIds.add(l.id));
-      
-      // 2. Lead by id (if conversationId is actually a lead_id)
-      const { data: leadById } = await supabase
-        .from('leads_veiculos')
-        .select('id')
-        .eq('id', conversationId);
-      leadById?.forEach(l => allLeadIds.add(l.id));
-
-      // 3. Leads from internal_messages (all unique lead_ids in this conversation)
+      // 1. Leads from internal_messages (all unique lead_ids in this conversation)
+      // This is the primary source for "vehicles in the conversation"
       const { data: msgsWithLeads } = await supabase
         .from('internal_messages')
         .select('lead_id')
         .or(`sender_id.eq.${conversationId},receiver_id.eq.${conversationId}`)
         .not('lead_id', 'is', null);
+      
       msgsWithLeads?.forEach(m => {
           if (m.lead_id) allLeadIds.add(m.lead_id);
       });
 
-      // 4. Leads by email
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('email')
-        .eq('id', conversationId)
-        .single();
-      
-      if (profile?.email) {
-        const { data: leadsByEmail } = await supabase
-          .from('leads_veiculos')
-          .select('id')
-          .eq('email', profile.email);
-        leadsByEmail?.forEach(l => allLeadIds.add(l.id));
-      }
+      // 2. Fallback: If conversationId itself is a lead_id (direct lead chat)
+      const { data: leadById } = await supabase
+        .from('leads_veiculos')
+        .select('id')
+        .eq('id', conversationId);
+      leadById?.forEach(l => allLeadIds.add(l.id));
 
       if (allLeadIds.size > 0) {
         const { data: finalLeads } = await supabase
@@ -79,12 +59,12 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead, onOpenLead
           .in('id', Array.from(allLeadIds));
         
         if (finalLeads) {
-          console.log('[AdminSalesChat] Total de leads únicos encontrados:', finalLeads.length);
+          console.log('[AdminSalesChat] Total de leads na conversa:', finalLeads.length);
           setLeads(finalLeads);
           if (finalLeads.length > 0) setLeadData(finalLeads[0]);
         }
       } else {
-          console.log('[AdminSalesChat] Nenhum lead encontrado.');
+          console.log('[AdminSalesChat] Nenhum lead vinculado às mensagens.');
           setLeads([]);
           setLeadData(null);
       }
@@ -350,12 +330,19 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead, onOpenLead
                 <div className="flex items-center gap-2">
                   <p className="text-xs text-slate-500">{userEmail}</p>
                   {leadData && (
-                    <>
-                      <span className="text-slate-300">|</span>
-                      <p className="text-[10px] text-blue-600 font-bold uppercase tracking-tight">
+                    <div className="flex items-center gap-1.5 bg-blue-50/50 px-1.5 py-0.5 rounded-lg border border-blue-100">
+                      {leadData.foto_principal && (
+                        <img 
+                          src={leadData.foto_principal} 
+                          alt="Veículo" 
+                          className="w-5 h-5 rounded-md object-cover border border-blue-200"
+                          referrerPolicy="no-referrer"
+                        />
+                      )}
+                      <p className="text-[10px] text-blue-700 font-black uppercase tracking-tight">
                         {leadData.marca} {leadData.modelo} (#{leadData.vehicle_code})
                       </p>
-                    </>
+                    </div>
                   )}
                 </div>
             </div>

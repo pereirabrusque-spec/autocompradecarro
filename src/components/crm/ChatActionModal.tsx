@@ -44,44 +44,23 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
         if (type === 'proposta' || type === 'clonar') {
           const allLeadIds = new Set<string>();
           
-          // 1. Get email for conversationId
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('email')
-            .eq('id', conversationId)
-            .single();
-          
-          if (profile?.email) {
-            const { data: leadsByEmail } = await supabase
-              .from('leads_veiculos')
-              .select('id')
-              .eq('email', profile.email);
-            leadsByEmail?.forEach(l => allLeadIds.add(l.id));
-          }
-
-          // 2. Leads by user_id
-          const { data: leadsByUser } = await supabase
-            .from('leads_veiculos')
-            .select('id')
-            .eq('user_id', conversationId);
-          leadsByUser?.forEach(l => allLeadIds.add(l.id));
-              
-          // 3. Lead by id (if conversationId is actually a lead_id)
-          const { data: leadById } = await supabase
-            .from('leads_veiculos')
-            .select('id')
-            .eq('id', conversationId);
-          leadById?.forEach(l => allLeadIds.add(l.id));
-              
-          // 4. Leads from internal_messages
+          // 1. Leads from internal_messages (primary source for "vehicles in conversation")
           const { data: msgsWithLeads } = await supabase
             .from('internal_messages')
             .select('lead_id')
             .or(`sender_id.eq.${conversationId},receiver_id.eq.${conversationId}`)
             .not('lead_id', 'is', null);
+          
           msgsWithLeads?.forEach(m => {
             if (m.lead_id) allLeadIds.add(m.lead_id);
           });
+
+          // 2. Fallback: If conversationId itself is a lead_id
+          const { data: leadById } = await supabase
+            .from('leads_veiculos')
+            .select('id')
+            .eq('id', conversationId);
+          leadById?.forEach(l => allLeadIds.add(l.id));
 
           if (allLeadIds.size > 0) {
             const { data: finalLeads, error: fetchError } = await supabase
@@ -99,6 +78,7 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
               setVehicles(enrichedData);
               
               if (enrichedData.length === 1) {
+                console.log('[ChatActionModal] Apenas um veículo encontrado na conversa, auto-selecionando...');
                 setSelectedVehicle(enrichedData[0]);
               }
             } else if (fetchError) {
