@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { AdminSalesChat } from './AdminSalesChat';
 import { MessageCircle, Bot } from 'lucide-react';
 
-export const CRMChatContainer = ({ role }: { role: string }) => {
+export const CRMChatContainer = ({ role, onOpenLead }: { role: string, onOpenLead?: (lead: any) => void }) => {
   const [conversations, setConversations] = useState<any[]>([]);
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
@@ -308,6 +308,7 @@ export const CRMChatContainer = ({ role }: { role: string }) => {
             conversationId={selectedConversationId} 
             role={role} 
             onMessageRead={fetchConversations} // Passa a função para atualizar contadores
+            onOpenLead={onOpenLead}
           />
         ) : (
           <div className="h-full flex items-center justify-center text-slate-400">

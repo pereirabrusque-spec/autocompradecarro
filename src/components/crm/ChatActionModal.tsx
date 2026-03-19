@@ -8,9 +8,10 @@ interface ChatActionModalProps {
   conversationId: string;
   lead: any;
   onClose: () => void;
+  onOpenLead?: (lead: any) => void;
 }
 
-export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversationId, lead, onClose }) => {
+export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversationId, lead, onClose, onOpenLead }) => {
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [config, setConfig] = useState<any>({ fipeRules: [], jurosAtraso: 0, banks: [], cooperativeDiscount: 0 });
@@ -195,8 +196,14 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
                               videos: Array.isArray(v.videos) ? v.videos : (v.videos ? [v.videos] : [])
                             };
                             console.log('Vehicle selected and sanitized:', vehicleWithMedia);
-                            console.log('Setting selectedVehicle:', vehicleWithMedia);
-                            setSelectedVehicle(vehicleWithMedia);
+                            
+                            if (onOpenLead) {
+                              onOpenLead(vehicleWithMedia);
+                              onClose();
+                            } else {
+                              console.log('Setting selectedVehicle:', vehicleWithMedia);
+                              setSelectedVehicle(vehicleWithMedia);
+                            }
                           }}>
                             <div className="flex items-center gap-4">
                               {v.foto_principal && (
@@ -240,18 +247,34 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
                 )}
 
                 {type === 'formulario' && lead && (
-                  <LeadDetailsCard 
-                    lead={lead} 
-                    onClose={onClose} 
-                    onSave={handleSave} 
-                    onDelete={handleDelete} 
-                    onRefresh={handleRefresh} 
-                    fipeRules={config.fipeRules} 
-                    jurosAtraso={config.jurosAtraso} 
-                    banks={config.banks} 
-                    cooperativeDiscount={config.cooperativeDiscount} 
-                    userRole="admin"
-                  />
+                  <div className="space-y-4">
+                    {onOpenLead ? (
+                      <div className="text-center p-8">
+                        <button 
+                          onClick={() => {
+                            onOpenLead(lead);
+                            onClose();
+                          }}
+                          className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold"
+                        >
+                          Abrir Detalhes do Lead
+                        </button>
+                      </div>
+                    ) : (
+                      <LeadDetailsCard 
+                        lead={lead} 
+                        onClose={onClose} 
+                        onSave={handleSave} 
+                        onDelete={handleDelete} 
+                        onRefresh={handleRefresh} 
+                        fipeRules={config.fipeRules} 
+                        jurosAtraso={config.jurosAtraso} 
+                        banks={config.banks} 
+                        cooperativeDiscount={config.cooperativeDiscount} 
+                        userRole="admin"
+                      />
+                    )}
+                  </div>
                 )}
             </>
         )}

@@ -80,11 +80,11 @@ export default function LeadDetailsCard({
   const [showUserModal, setShowUserModal] = useState(false);
 
   const mediaItems = [
-    ...(currentLead.fotos || []),
+    ...(currentLead.fotos || currentLead.fotos_url || []),
     ...(currentLead.foto1 ? [currentLead.foto1] : []),
     ...(currentLead.foto2 ? [currentLead.foto2] : []),
     ...(currentLead.foto3 ? [currentLead.foto3] : []),
-    ...(currentLead.videos || [])
+    ...(currentLead.videos || currentLead.videos_url || [])
   ];
 
   const renderMedia = (item: string, index: number) => {

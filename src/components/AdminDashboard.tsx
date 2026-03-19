@@ -2778,7 +2778,13 @@ Podemos prosseguir com o agendamento da vistoria?`;
           >
             {activeTab === 'crm_chat' && (
               <div className="h-[700px] flex flex-col gap-4">
-                <CRMChatContainer role={userProfile?.role || 'admin'} />
+                <CRMChatContainer 
+                  role={userProfile?.role || 'admin'} 
+                  onOpenLead={(lead) => {
+                    console.log("Abrindo lead via CRM Chat:", lead);
+                    setSelectedLead(lead);
+                  }}
+                />
               </div>
             )}
             {activeTab === 'logs' && (

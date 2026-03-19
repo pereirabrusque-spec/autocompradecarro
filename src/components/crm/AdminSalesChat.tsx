@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { Send, Bot, MessageCircle, Trash2, Loader2 } from 'lucide-react';
 import { ChatActionModal } from './ChatActionModal';
 
-export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conversationId: string, role: string, onMessageRead: () => void }) => {
+export const AdminSalesChat = ({ conversationId, role, onMessageRead, onOpenLead }: { conversationId: string, role: string, onMessageRead: () => void, onOpenLead?: (lead: any) => void }) => {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
   
@@ -13,6 +13,7 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [leadData, setLeadData] = useState<any>(null);
+  const [leads, setLeads] = useState<any[]>([]);
   const [isAiMode, setIsAiMode] = useState(true);
   const [isUpdatingAi, setIsUpdatingAi] = useState(false);
   const [showProposalModal, setShowProposalModal] = useState(false);
@@ -29,7 +30,10 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
         .from('leads_veiculos')
         .select('*')
         .eq('user_id', conversationId);
-      if (data && data.length > 0) setLeadData(data[0]);
+      if (data) {
+        setLeads(data);
+        if (data.length > 0) setLeadData(data[0]);
+      }
   };
 
   const logWhatsAppUsage = () => {
@@ -276,7 +280,13 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
           </button>
           <button 
             type="button"
-            onClick={() => setShowProposalModal(true)}
+            onClick={() => {
+              if (leads.length === 1 && onOpenLead) {
+                onOpenLead(leads[0]);
+              } else {
+                setShowProposalModal(true);
+              }
+            }}
             className="px-3 py-1 rounded-lg text-xs font-bold bg-green-600 text-white transition-all"
           >
             Ver Proposta
@@ -296,6 +306,7 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead }: { conver
               conversationId={conversationId}
               lead={leadData}
               onClose={() => setShowProposalModal(false)}
+              onOpenLead={onOpenLead}
             />
           )}
 
