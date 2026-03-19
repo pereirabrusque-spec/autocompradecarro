@@ -180,6 +180,7 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
                               videos: Array.isArray(v.videos) ? v.videos : (v.videos ? [v.videos] : [])
                             };
                             console.log('Vehicle selected and sanitized:', vehicleWithMedia);
+                            console.log('Setting selectedVehicle:', vehicleWithMedia);
                             setSelectedVehicle(vehicleWithMedia);
                           }}>
                             <div className="flex items-center gap-4">

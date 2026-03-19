@@ -50,6 +50,9 @@ export default function LeadDetailsCard({
   React.useEffect(() => {
     if (lead) {
       console.log("LeadDetailsCard - Raw lead data:", JSON.stringify(lead, null, 2));
+      if (!lead.id) {
+        console.error("LeadDetailsCard - lead has no id!");
+      }
       
       const fetchFullLead = async () => {
         const { data, error } = await supabase
@@ -61,6 +64,7 @@ export default function LeadDetailsCard({
           console.log("LeadDetailsCard - Full lead data from DB:", data);
           setCurrentLead(data);
         } else {
+          console.log("LeadDetailsCard - Error fetching full lead:", error);
           setCurrentLead(lead);
         }
       };
