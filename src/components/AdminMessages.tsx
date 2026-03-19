@@ -383,21 +383,35 @@ export default function AdminMessages({
                   <h4 className="font-bold text-slate-900">{selectedConversation.lead?.cliente_nome || 'Cliente'}</h4>
                   <div className="flex items-center gap-2">
                     <p className="text-[10px] text-slate-400 font-mono">{selectedConversation.customer_email}</p>
-                    {selectedConversation.lead && (
-                      <div className="flex items-center gap-1.5 bg-blue-50/50 px-1.5 py-0.5 rounded-lg border border-blue-100">
-                        {(selectedConversation.lead.foto_principal || (selectedConversation.lead.fotos && selectedConversation.lead.fotos[0])) && (
-                          <img 
-                            src={selectedConversation.lead.foto_principal || selectedConversation.lead.fotos[0]} 
-                            alt="Veículo" 
-                            className="w-5 h-5 rounded-md object-cover border border-blue-200"
-                            referrerPolicy="no-referrer"
-                          />
-                        )}
-                        <p className="text-[10px] text-blue-700 font-black uppercase tracking-tight">
-                          {selectedConversation.lead.marca} {selectedConversation.lead.modelo} (#{selectedConversation.lead.vehicle_code})
-                        </p>
-                      </div>
-                    )}
+                    {(() => {
+                      const userVehicles = leads.filter(l => 
+                        (selectedConversation.customer_email && l.email === selectedConversation.customer_email) ||
+                        (selectedConversation.lead?.user_id && l.user_id === selectedConversation.lead.user_id) ||
+                        selectedConversation.lead_ids?.includes(l.id)
+                      );
+                      
+                      if (userVehicles.length > 0) {
+                        const leadData = userVehicles[0];
+                        return (
+                          <div className="flex items-center gap-1.5 bg-blue-50/50 px-1.5 py-0.5 rounded-lg border border-blue-100">
+                            {(leadData.foto_principal || (leadData.fotos && leadData.fotos[0])) && (
+                              <img 
+                                src={leadData.foto_principal || leadData.fotos[0]} 
+                                alt="Veículo" 
+                                className="w-5 h-5 rounded-md object-cover border border-blue-200"
+                                referrerPolicy="no-referrer"
+                              />
+                            )}
+                            <p className="text-[10px] text-blue-700 font-black uppercase tracking-tight">
+                              {userVehicles.length > 1 
+                                ? `${userVehicles.length} Veículos em Estoque` 
+                                : `${leadData.marca} ${leadData.modelo} (#${leadData.vehicle_code})`}
+                            </p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                 </div>
               </div>
@@ -479,14 +493,17 @@ export default function AdminMessages({
                 <button 
                   type="button"
                   onClick={() => {
-                    const conversationLeads = leads.filter(l => 
-                      selectedConversation?.lead_ids?.includes(l.id)
+                    const userVehicles = leads.filter(l => 
+                      (selectedConversation.customer_email && l.email === selectedConversation.customer_email) ||
+                      (selectedConversation.lead?.user_id && l.user_id === selectedConversation.lead.user_id) ||
+                      selectedConversation.lead_ids?.includes(l.id)
                     );
-                    if (conversationLeads.length > 1) {
+
+                    if (userVehicles.length > 1) {
                       setSelectionMode('clone');
                       setShowVehicleSelectionModal(true);
-                    } else if (conversationLeads.length === 1) {
-                      const v = conversationLeads[0];
+                    } else if (userVehicles.length === 1) {
+                      const v = userVehicles[0];
                       const vehicleWithMedia = {
                         ...v,
                         marca: v.marca || (v.veiculo ? v.veiculo.split(' ')[0] : 'N/A'),
@@ -501,8 +518,8 @@ export default function AdminMessages({
                       };
                       onCloneLead(vehicleWithMedia);
                     } else {
-                      if (setToast) setToast({ message: 'Nenhum veículo encontrado nesta conversa.', type: 'error' });
-                      else alert('Nenhum veículo encontrado nesta conversa.');
+                      if (setToast) setToast({ message: 'Nenhum veículo encontrado para este usuário.', type: 'error' });
+                      else alert('Nenhum veículo encontrado para este usuário.');
                     }
                   }}
                   className="px-4 py-2 bg-blue-100 text-blue-600 rounded-xl font-bold text-xs hover:bg-blue-200 transition-all flex items-center gap-2"
@@ -514,14 +531,17 @@ export default function AdminMessages({
                 <button 
                   type="button"
                   onClick={() => {
-                    const conversationLeads = leads.filter(l => 
-                      selectedConversation?.lead_ids?.includes(l.id)
+                    const userVehicles = leads.filter(l => 
+                      (selectedConversation.customer_email && l.email === selectedConversation.customer_email) ||
+                      (selectedConversation.lead?.user_id && l.user_id === selectedConversation.lead.user_id) ||
+                      selectedConversation.lead_ids?.includes(l.id)
                     );
-                    if (conversationLeads.length > 1) {
+
+                    if (userVehicles.length > 1) {
                       setSelectionMode('proposal');
                       setShowVehicleSelectionModal(true);
-                    } else if (conversationLeads.length === 1 && selectedConversation.lead) {
-                      const v = conversationLeads[0];
+                    } else if (userVehicles.length === 1) {
+                      const v = userVehicles[0];
                       const vehicleWithMedia = {
                         ...v,
                         marca: v.marca || (v.veiculo ? v.veiculo.split(' ')[0] : 'N/A'),
@@ -538,8 +558,8 @@ export default function AdminMessages({
                       setProposalCalculator(calculateProposal(vehicleWithMedia));
                       setShowProposalModal(true);
                     } else {
-                      if (setToast) setToast({ message: 'Nenhum veículo encontrado nesta conversa.', type: 'error' });
-                      else alert('Nenhum veículo encontrado nesta conversa.');
+                      if (setToast) setToast({ message: 'Nenhum veículo encontrado para este usuário.', type: 'error' });
+                      else alert('Nenhum veículo encontrado para este usuário.');
                     }
                   }}
                   className="px-4 py-2 bg-accent/10 text-accent rounded-xl font-bold text-xs hover:bg-accent/20 transition-all flex items-center gap-2"
@@ -652,7 +672,9 @@ export default function AdminMessages({
                                 />
                               )}
                               <p className="text-[10px] text-blue-700 font-black uppercase tracking-tight">
-                                {leadData.marca} {leadData.modelo} (#{leadData.vehicle_code})
+                                {internalLeads.length > 1 
+                                  ? `${internalLeads.length} Veículos em Estoque` 
+                                  : `${leadData.marca} ${leadData.modelo} (#${leadData.vehicle_code})`}
                               </p>
                             </div>
                           );

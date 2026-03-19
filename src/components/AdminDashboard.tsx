@@ -6341,7 +6341,11 @@ Podemos prosseguir com o agendamento da vistoria?`;
           leads={
             messageTab === 'internal' && selectedInternalChat
               ? leads.filter(l => l.user_id === selectedInternalChat)
-              : leads.filter(l => selectedConversation?.lead_ids?.includes(l.id))
+              : leads.filter(l => 
+                  (selectedConversation?.customer_email && l.email === selectedConversation.customer_email) ||
+                  (selectedConversation?.lead?.user_id && l.user_id === selectedConversation.lead.user_id) ||
+                  selectedConversation?.lead_ids?.includes(l.id)
+                )
           }
           onSelect={(lead) => {
             if (selectionMode === 'clone') {
