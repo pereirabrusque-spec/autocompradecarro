@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { Send, Bot, MessageCircle, Trash2, Loader2 } from 'lucide-react';
 import { ChatActionModal } from './ChatActionModal';
 
-export const AdminSalesChat = ({ conversationId, role, onMessageRead, onOpenLead }: { conversationId: string, role: string, onMessageRead: () => void, onOpenLead?: (lead: any) => void }) => {
+export const AdminSalesChat = ({ conversationId, role, onMessageRead, onOpenLead, onCloneLead, setToast }: { conversationId: string, role: string, onMessageRead: () => void, onOpenLead?: (lead: any) => void, onCloneLead?: (lead: any) => void, setToast?: (toast: any) => void }) => {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
   
@@ -17,6 +17,7 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead, onOpenLead
   const [isAiMode, setIsAiMode] = useState(true);
   const [isUpdatingAi, setIsUpdatingAi] = useState(false);
   const [showProposalModal, setShowProposalModal] = useState(false);
+  const [showCloneModal, setShowCloneModal] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
@@ -92,10 +93,12 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead, onOpenLead
         // Update unread counts in parent
         onMessageRead(); 
         
-        alert('Histórico apagado com sucesso.');
+        if (setToast) setToast({ message: 'Histórico apagado com sucesso.', type: 'success' });
+        else alert('Histórico apagado com sucesso.');
     } catch (error) {
         console.error('Erro ao apagar mensagens:', error);
-        alert('Erro ao apagar mensagens. Verifique sua conexão.');
+        if (setToast) setToast({ message: 'Erro ao apagar mensagens. Verifique sua conexão.', type: 'error' });
+        else alert('Erro ao apagar mensagens. Verifique sua conexão.');
     } finally {
         setIsDeleting(false);
     }
@@ -165,7 +168,8 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead, onOpenLead
       
       if (error) {
         console.error('[AdminSalesChat] Error updating AI status in DB:', error);
-        alert('Erro ao salvar status da IA para este chat. Verifique se a coluna is_ai_enabled existe na tabela profiles.');
+        if (setToast) setToast({ message: 'Erro ao salvar status da IA para este chat.', type: 'error' });
+        else alert('Erro ao salvar status da IA para este chat. Verifique se a coluna is_ai_enabled existe na tabela profiles.');
         throw error;
       }
       
@@ -199,6 +203,20 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead, onOpenLead
     fetchMessages();
     fetchUserData();
     fetchLeadData();
+
+    // Real-time listener for leads_veiculos
+    const leadsSubscription = supabase
+      .channel(`leads_${conversationId}`)
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'leads_veiculos',
+        filter: `user_id=eq.${conversationId}`
+      }, () => {
+        console.log('[AdminSalesChat] Mudança detectada em leads_veiculos, recarregando...');
+        fetchLeadData();
+      })
+      .subscribe();
 
     // Canal único por conversa para evitar conflitos
     const channelName = `chat_${conversationId}_${currentUserId}`;
@@ -259,6 +277,7 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead, onOpenLead
     return () => {
       console.log(`[AdminSalesChat] Desinscrevendo do canal: ${channelName}`);
       supabase.removeChannel(subscription);
+      supabase.removeChannel(leadsSubscription);
     };
   }, [conversationId, currentUserId]);
 
@@ -302,7 +321,17 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead, onOpenLead
             {userAvatar && <img src={userAvatar} alt="Avatar" className="w-10 h-10 rounded-full" />}
             <div>
                 <h3 className="font-bold">Chat de Vendas</h3>
-                <p className="text-xs text-slate-500">{userEmail}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs text-slate-500">{userEmail}</p>
+                  {leadData && (
+                    <>
+                      <span className="text-slate-300">|</span>
+                      <p className="text-[10px] text-blue-600 font-bold uppercase tracking-tight">
+                        {leadData.marca} {leadData.modelo} (#{leadData.vehicle_code})
+                      </p>
+                    </>
+                  )}
+                </div>
             </div>
         </div>
         <div className="flex gap-2 items-center">
@@ -314,6 +343,13 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead, onOpenLead
             title="Apagar todas as mensagens"
           >
             {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+          </button>
+          <button 
+            type="button"
+            onClick={() => setShowCloneModal(true)}
+            className="px-3 py-1 rounded-lg text-xs font-bold bg-blue-600 text-white transition-all"
+          >
+            Clonar
           </button>
           <button 
             type="button"
@@ -360,6 +396,16 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead, onOpenLead
               lead={leadData}
               onClose={() => setShowProposalModal(false)}
               onOpenLead={onOpenLead}
+            />
+          )}
+
+          {showCloneModal && (
+            <ChatActionModal
+              type="clonar"
+              conversationId={conversationId}
+              lead={leadData}
+              onClose={() => setShowCloneModal(false)}
+              onCloneLead={onCloneLead}
             />
           )}
 

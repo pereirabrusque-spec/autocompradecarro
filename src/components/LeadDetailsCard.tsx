@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, MessageCircle, MessageSquare, Send, FileText, Edit2, ArrowLeft, ChevronLeft, ChevronRight, Upload, DollarSign, User, ShieldCheck } from 'lucide-react';
+import { X, Save, MessageCircle, MessageSquare, Send, FileText, Edit2, ArrowLeft, ChevronLeft, ChevronRight, Upload, DollarSign, User, ShieldCheck, Copy } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -8,6 +8,7 @@ interface LeadDetailsCardProps {
   onClose: () => void;
   onSave: (updatedLead: any) => void;
   onDelete: (leadId: string) => void;
+  onClone?: (lead: any) => void;
   onRefresh: () => void;
   fipeRules: any[];
   jurosAtraso: number;
@@ -22,6 +23,7 @@ export default function LeadDetailsCard({
   onClose, 
   onSave, 
   onDelete, 
+  onClone,
   onRefresh, 
   fipeRules, 
   jurosAtraso, 
@@ -819,9 +821,20 @@ export default function LeadDetailsCard({
               </div>
 
               {/* Botão Avaliar Veículo */}
-              <button onClick={() => setShowDataModal(true)} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-slate-800 transition-all shadow-lg transform hover:scale-[1.01] active:scale-[0.99]">
-                <FileText className="w-5 h-5" /> Avaliar Veículo (Formulário Completo)
-              </button>
+              <div className="flex gap-2 w-full">
+                <button onClick={() => setShowDataModal(true)} className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-slate-800 transition-all shadow-lg transform hover:scale-[1.01] active:scale-[0.99]">
+                  <FileText className="w-5 h-5" /> Avaliar Veículo
+                </button>
+                {onClone && (
+                  <button 
+                    onClick={() => onClone(currentLead)} 
+                    className="px-6 py-4 bg-blue-600 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-all shadow-lg transform hover:scale-[1.01] active:scale-[0.99]"
+                    title="Clonar este veículo para uma nova negociação"
+                  >
+                    <Copy className="w-5 h-5" /> Clonar
+                  </button>
+                )}
+              </div>
               {/* Benefícios */}
               <div className="bg-white border border-slate-200 p-4 rounded-[24px] shadow-sm">
                 <h3 className="font-bold text-slate-900 uppercase text-[10px] tracking-widest mb-3 flex items-center gap-2">

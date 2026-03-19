@@ -15,6 +15,7 @@ interface AdminMessagesProps {
   setSelectionMode: (mode: 'proposal' | 'clone') => void;
   onCloneLead: (lead: any) => void;
   setSelectedLead: (lead: any) => void;
+  setToast?: (toast: any) => void;
   messageTab: 'leads' | 'internal';
   setMessageTab: (tab: 'leads' | 'internal') => void;
   internalConversations: any[];
@@ -51,6 +52,7 @@ export default function AdminMessages({
   setSelectionMode,
   onCloneLead,
   setSelectedLead,
+  setToast,
   messageTab,
   setMessageTab,
   internalConversations,
@@ -127,7 +129,8 @@ export default function AdminMessages({
       }
     } catch (err) {
       console.error(err);
-      alert('Erro ao excluir conversa.');
+      if (setToast) setToast({ message: 'Erro ao excluir conversa.', type: 'error' });
+      else alert('Erro ao excluir conversa.');
     }
   };
 
@@ -153,7 +156,8 @@ export default function AdminMessages({
       }
     } catch (err) {
       console.error(err);
-      alert('Erro ao excluir contato.');
+      if (setToast) setToast({ message: 'Erro ao excluir contato.', type: 'error' });
+      else alert('Erro ao excluir contato.');
     }
   };
 
@@ -268,6 +272,26 @@ export default function AdminMessages({
                   <div className="flex flex-col items-end gap-1">
                     <div className="flex items-center gap-1">
                       <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const conversationLeads = leads.filter(l => conv.lead_ids.includes(l.id));
+                          if (conversationLeads.length > 1) {
+                            setSelectedConversation(conv);
+                            setSelectionMode('clone');
+                            setShowVehicleSelectionModal(true);
+                          } else if (conversationLeads.length === 1) {
+                            onCloneLead(conversationLeads[0]);
+                          } else {
+                            if (setToast) setToast({ message: 'Nenhum veículo encontrado nesta conversa.', type: 'error' });
+                            else alert('Nenhum veículo encontrado nesta conversa.');
+                          }
+                        }}
+                        className="p-1 text-slate-300 hover:text-blue-500 transition-colors"
+                        title="Clonar Veículo"
+                      >
+                        <Copy className="w-3 h-3" />
+                      </button>
+                      <button 
                         onClick={(e) => handleDeleteConversation(e, conv)}
                         className="p-1 text-slate-300 hover:text-red-500 transition-colors"
                         title="Excluir Conversa"
@@ -367,7 +391,8 @@ export default function AdminMessages({
                     if (selectedConversation.lead?.email) {
                       window.location.href = `mailto:${selectedConversation.lead.email}`;
                     } else {
-                      alert('E-mail do cliente não encontrado para este lead.');
+                      if (setToast) setToast({ message: 'E-mail do cliente não encontrado para este lead.', type: 'error' });
+                      else alert('E-mail do cliente não encontrado para este lead.');
                     }
                   }}
                   className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
@@ -412,7 +437,8 @@ export default function AdminMessages({
                         });
                       } catch (err) {
                         console.error(err);
-                        alert('Erro ao alterar modo de atendimento.');
+                        if (setToast) setToast({ message: 'Erro ao alterar modo de atendimento.', type: 'error' });
+                        else alert('Erro ao alterar modo de atendimento.');
                       }
                     }}
                     className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-bold transition-all ${selectedConversation.lead.detalhes_proposta?.ai_disabled ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200'}`}
@@ -445,7 +471,8 @@ export default function AdminMessages({
                     } else if (conversationLeads.length === 1) {
                       onCloneLead(conversationLeads[0]);
                     } else {
-                      alert('Nenhum veículo encontrado nesta conversa.');
+                      if (setToast) setToast({ message: 'Nenhum veículo encontrado nesta conversa.', type: 'error' });
+                      else alert('Nenhum veículo encontrado nesta conversa.');
                     }
                   }}
                   className="px-4 py-2 bg-blue-100 text-blue-600 rounded-xl font-bold text-xs hover:bg-blue-200 transition-all flex items-center gap-2"
@@ -468,7 +495,8 @@ export default function AdminMessages({
                       setProposalCalculator(calculateProposal(conversationLeads[0]));
                       setShowProposalModal(true);
                     } else {
-                      alert('Nenhum veículo encontrado nesta conversa.');
+                      if (setToast) setToast({ message: 'Nenhum veículo encontrado nesta conversa.', type: 'error' });
+                      else alert('Nenhum veículo encontrado nesta conversa.');
                     }
                   }}
                   className="px-4 py-2 bg-accent/10 text-accent rounded-xl font-bold text-xs hover:bg-accent/20 transition-all flex items-center gap-2"

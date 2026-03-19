@@ -4,14 +4,15 @@ import { supabase } from '../../lib/supabase';
 import LeadDetailsCard from '../LeadDetailsCard';
 
 interface ChatActionModalProps {
-  type: 'proposta' | 'formulario';
+  type: 'proposta' | 'formulario' | 'clonar';
   conversationId: string;
   lead: any;
   onClose: () => void;
   onOpenLead?: (lead: any) => void;
+  onCloneLead?: (lead: any) => void;
 }
 
-export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversationId, lead, onClose, onOpenLead }) => {
+export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversationId, lead, onClose, onOpenLead, onCloneLead }) => {
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [config, setConfig] = useState<any>({ fipeRules: [], jurosAtraso: 0, banks: [], cooperativeDiscount: 0 });
@@ -40,7 +41,7 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
         cooperativeDiscount: Number(configData.data?.value) || 0
       });
 
-      if (type === 'proposta') {
+      if (type === 'proposta' || type === 'clonar') {
         // 1. Get email for conversationId
         console.log('Buscando perfil para conversationId:', conversationId);
         const { data: profile } = await supabase
@@ -171,17 +172,25 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-xl">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold">{type === 'proposta' ? 'Veículos do Usuário' : 'Detalhes do Lead'}</h2>
+          <h2 className="text-xl font-bold">
+            {type === 'proposta' ? 'Veículos do Usuário' : type === 'clonar' ? 'Clonar Negociação' : 'Detalhes do Lead'}
+          </h2>
           <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full"><X className="w-6 h-6" /></button>
         </div>
 
         {loading ? <p>Carregando...</p> : (
             <>
-                {type === 'proposta' && !selectedVehicle && (
+                {(type === 'proposta' || type === 'clonar') && !selectedVehicle && (
                   <div className="space-y-6">
                     <div className="flex flex-col gap-1">
-                      <p className="text-slate-900 font-bold">Veículos Interessados</p>
-                      <p className="text-slate-500 text-xs">Este cliente possui múltiplos veículos cadastrados. Selecione um para negociar:</p>
+                      <p className="text-slate-900 font-bold">
+                        {type === 'clonar' ? 'Escolha o Veículo para Clonar' : 'Veículos Interessados'}
+                      </p>
+                      <p className="text-slate-500 text-xs">
+                        {type === 'clonar' 
+                          ? 'Selecione qual veículo deste cliente você deseja clonar para uma nova negociação:' 
+                          : 'Este cliente possui múltiplos veículos cadastrados. Selecione um para negociar:'}
+                      </p>
                     </div>
                     
                     {vehicles.length === 0 ? (
@@ -212,7 +221,10 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
                               key={v.id} 
                               className="group relative bg-white border border-slate-200 rounded-[24px] overflow-hidden hover:border-accent hover:shadow-xl transition-all duration-300 cursor-pointer flex flex-col"
                               onClick={() => {
-                                if (onOpenLead) {
+                                if (type === 'clonar' && onCloneLead) {
+                                  onCloneLead(vehicleWithMedia);
+                                  onClose();
+                                } else if (onOpenLead) {
                                   onOpenLead(vehicleWithMedia);
                                   onClose();
                                 } else {
@@ -262,7 +274,7 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
                                 </div>
                                 <div className="mt-4 pt-4 border-t border-slate-50">
                                   <button className="w-full py-2.5 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl group-hover:bg-accent transition-colors">
-                                    Ver Proposta
+                                    {type === 'clonar' ? 'Clonar Agora' : 'Ver Proposta'}
                                   </button>
                                 </div>
                               </div>
@@ -274,7 +286,7 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
                   </div>
                 )}
 
-                {type === 'proposta' && selectedVehicle && (
+                {(type === 'proposta' || type === 'clonar') && selectedVehicle && (
                     <div className="space-y-4">
                         <button onClick={() => setSelectedVehicle(null)} className="text-sm text-blue-600 hover:underline mb-4">← Voltar para lista</button>
                         <LeadDetailsCard 
@@ -283,6 +295,7 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
                             onSave={handleSave} 
                             onDelete={handleDelete} 
                             onRefresh={handleRefresh} 
+                            onClone={onCloneLead}
                             fipeRules={config.fipeRules} 
                             jurosAtraso={config.jurosAtraso} 
                             banks={config.banks} 
@@ -313,6 +326,7 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
                         onSave={handleSave} 
                         onDelete={handleDelete} 
                         onRefresh={handleRefresh} 
+                        onClone={onCloneLead}
                         fipeRules={config.fipeRules} 
                         jurosAtraso={config.jurosAtraso} 
                         banks={config.banks} 

@@ -6,10 +6,11 @@ interface LeadCardProps {
   suggestedValue?: number;
   onClick: () => void;
   onReserve: (e: React.MouseEvent) => void;
+  onClone?: (e: React.MouseEvent) => void;
   hideClientInfo?: boolean;
 }
 
-export const LeadCard: React.FC<LeadCardProps> = ({ lead, suggestedValue, onClick, onReserve, hideClientInfo = false }) => {
+export const LeadCard: React.FC<LeadCardProps> = ({ lead, suggestedValue, onClick, onReserve, onClone, hideClientInfo = false }) => {
   const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 
   return (
@@ -19,6 +20,15 @@ export const LeadCard: React.FC<LeadCardProps> = ({ lead, suggestedValue, onClic
     >
       {/* Classification Tag */}
       <div className="absolute top-0 right-0 z-10 flex items-center">
+        {onClone && (
+          <button 
+            onClick={onClone}
+            className="bg-blue-500 text-white px-3 py-1 text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-colors border-r border-blue-400"
+            title="Clonar Veículo"
+          >
+            Clonar
+          </button>
+        )}
         <button 
           onClick={onReserve}
           className="bg-amber-500 text-white px-3 py-1 rounded-bl-2xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition-colors"

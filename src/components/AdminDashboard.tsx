@@ -312,6 +312,14 @@ export default function AdminDashboard() {
   const [confirmDeleteUserId, setConfirmDeleteUserId] = useState<string | null>(null);
   const [confirmDeleteAssetId, setConfirmDeleteAssetId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const leadsScrollRef = useRef<HTMLDivElement>(null);
 
@@ -1267,7 +1275,7 @@ export default function AdminDashboard() {
     }
   }, [selectedInternalChat, currentUser]);
 
-  const handleCloneVehicle = async (sourceLead: any) => {
+  const handleCloneVehicle = async (sourceLead: any, buyerId?: string) => {
     if (!sourceLead || isCloning) return;
     
     setIsCloning(true);
@@ -1301,12 +1309,12 @@ export default function AdminDashboard() {
 
       // 4. Atualizar estado local
       setLeads(prev => [data, ...prev]);
+      setSelectedLead(data);
       
-      // 5. Se estivermos em uma conversa, adicionar o novo lead_id à conversa
+      // 5. Se estivermos em uma conversa de Mensagens (Legacy/Leads Tab)
       if (selectedConversation) {
         const updatedLeadIds = [...new Set([...selectedConversation.lead_ids, data.id])];
         
-        // Opcional: Enviar mensagem no chat informando sobre a clonagem
         await supabase.from('mensagens').insert({
           lead_id: data.id,
           remetente: 'admin',
@@ -1322,10 +1330,23 @@ export default function AdminDashboard() {
         setSelectedConversation(prev => prev ? { ...prev, lead_ids: updatedLeadIds } : null);
       }
 
-      alert(`Veículo clonado com sucesso! Novo código: ${newCode}`);
+      // 6. Se for via CRM Chat (internal_messages)
+      if (buyerId || (activeTab === 'crm_chat' && sourceLead?.user_id)) {
+        const targetBuyerId = buyerId || sourceLead?.user_id;
+        if (targetBuyerId) {
+          await supabase.from('internal_messages').insert({
+            sender_id: currentUser?.id,
+            receiver_id: targetBuyerId,
+            content: `🔄 Veículo clonado para nova negociação: ${data.marca} ${data.modelo} (#${data.vehicle_code})`,
+            is_read: false
+          });
+        }
+      }
+
+      setToast({ message: `Veículo clonado com sucesso! Novo código: ${newCode}`, type: 'success' });
     } catch (err: any) {
       console.error('Erro ao clonar veículo:', err);
-      alert(`Erro ao clonar veículo: ${err.message}`);
+      setToast({ message: `Erro ao clonar veículo: ${err.message}`, type: 'error' });
     } finally {
       setIsCloning(false);
       setShowVehicleSelectionModal(false);
@@ -1347,7 +1368,7 @@ export default function AdminDashboard() {
     }
 
     if (!selectedConversation || !selectedConversation.lead_ids || selectedConversation.lead_ids.length === 0) {
-      alert("Erro: Nenhum lead_id encontrado para esta conversa.");
+      setToast({ message: "Erro: Nenhum lead_id encontrado para esta conversa.", type: 'error' });
       return;
     }
 
@@ -1383,7 +1404,7 @@ export default function AdminDashboard() {
             if (insertError) {
                 console.error("Erro ao criar lead frio:", insertError);
                 addLog('Erro ao criar lead frio: ' + insertError.message, 'error', insertError);
-                alert("Erro ao preparar lead para mensagem: " + insertError.message);
+                setToast({ message: "Erro ao preparar lead para mensagem: " + insertError.message, type: 'error' });
                 setIsSendingMessage(false);
                 return;
             }
@@ -1393,7 +1414,7 @@ export default function AdminDashboard() {
     const leadExists = leads.some(l => l.id === selectedConversation.lead_ids[0]);
     if (!leadExists) {
         console.error("Lead não encontrado no sistema:", selectedConversation.lead_ids[0]);
-        alert("Erro: Lead não encontrado no sistema.");
+        setToast({ message: "Erro: Lead não encontrado no sistema.", type: 'error' });
         setIsSendingMessage(false);
         return;
     }
@@ -1431,7 +1452,7 @@ export default function AdminDashboard() {
       }
     } catch (error: any) {
       console.error('Error sending message:', error);
-      alert(`Erro ao enviar mensagem: ${error.message || JSON.stringify(error)}`);
+      setToast({ message: `Erro ao enviar mensagem: ${error.message || JSON.stringify(error)}`, type: 'error' });
       // Rollback
       setChatMessages(prev => prev.filter(m => m !== newMessage));
       setAdminMessage(messageContent);
@@ -1652,10 +1673,10 @@ Podemos prosseguir com o agendamento da vistoria?`;
       } else {
         setAiCrmMemory(newMemory);
       }
-      alert('A IA extraiu e aprendeu novos gatilhos desta conversa!');
+      setToast({ message: 'A IA extraiu e aprendeu novos gatilhos desta conversa!', type: 'success' });
     } catch (err) {
       console.error(err);
-      alert('Erro ao atualizar memória da IA.');
+      setToast({ message: 'Erro ao atualizar memória da IA.', type: 'error' });
     }
   };
 
@@ -2851,6 +2872,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     console.log("[AdminDashboard] Abrindo lead via CRM Chat:", lead.id, lead.vehicle_code);
                     setSelectedLead(lead);
                   }}
+                  onCloneLead={handleCloneVehicle}
                 />
               </div>
             )}
@@ -4083,6 +4105,10 @@ Podemos prosseguir com o agendamento da vistoria?`;
                               e.stopPropagation();
                               handleReserve(lead);
                             }}
+                            onClone={(e) => {
+                              e.stopPropagation();
+                              handleCloneVehicle(lead);
+                            }}
                           />
                         ))}
                     </div>
@@ -4896,6 +4922,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 setSelectionMode={setSelectionMode}
                 onCloneLead={handleCloneVehicle}
                 setSelectedLead={setSelectedLead}
+                setToast={setToast}
                 messageTab={messageTab}
                 setMessageTab={setMessageTab}
                 internalConversations={internalConversations}
@@ -6595,6 +6622,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
           userRole={userProfile?.role}
           onSave={handleSaveLead}
           onDelete={handleDeleteLead}
+          onClone={handleCloneVehicle}
           onRefresh={fetchData}
           fipeRules={fipeRules}
           jurosAtraso={jurosAtraso}
