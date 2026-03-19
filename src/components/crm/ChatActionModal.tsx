@@ -85,28 +85,19 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
         } else if (data) {
           console.log('Veículos carregados (brutos):', data);
           
-          // Tentar enriquecer os dados buscando na tabela 'leads' usando o vehicle_code ou id
-          const enrichedData = await Promise.all(data.map(async (v) => {
-            console.log(`Buscando detalhes completos para veículo ${v.id} ou código ${v.vehicle_code}`);
-            
-            // Busca na tabela 'leads'
-            const { data: leadData, error: leadError } = await supabase
-              .from('leads')
-              .select('*')
-              .or(`id.eq.${v.id},vehicle_code.eq.${v.vehicle_code || ''}`)
-              .maybeSingle();
-            
-            if (leadData) {
-              console.log(`Detalhes completos encontrados para ${v.id}:`, leadData);
-              return { ...v, ...leadData };
-            } else {
-              console.warn(`Nenhum detalhe completo encontrado na tabela 'leads' para ${v.id}. Usando dados brutos. Erro:`, leadError);
-              return v;
-            }
+          // Como a tabela 'leads' não existe ou não é a fonte correta,
+          // vamos confiar nos dados que já vieram de 'leads_veiculos'
+          // e garantir que eles estejam completos.
+          const enrichedData = data.map(v => ({
+            ...v,
+            marca: v.marca || 'N/A',
+            modelo: v.modelo || 'N/A',
+            ano_fabricacao: v.ano_fabricacao || 'N/A'
           }));
 
-          console.log('Veículos carregados (enriquecidos):', enrichedData);
+          console.log('Veículos carregados (processados):', enrichedData);
           setVehicles(enrichedData);
+          
           // Se houver apenas um veículo, seleciona automaticamente
           if (enrichedData.length === 1) {
             setSelectedVehicle(enrichedData[0]);
@@ -193,16 +184,14 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
                             console.log('Vehicle clicked:', v);
                             const vehicleWithMedia = {
                               ...v,
-                              // Garantir campos mínimos para o LeadDetailsCard não quebrar
                               marca: v.marca || (v.veiculo ? v.veiculo.split(' ')[0] : 'N/A'),
                               modelo: v.modelo || (v.veiculo ? v.veiculo.split(' ').slice(1).join(' ') : 'N/A'),
                               ano_fabricacao: v.ano_fabricacao || v.ano_modelo || 'N/A',
-                              fotos: [
-                                ...(Array.isArray(v.fotos) ? v.fotos : (v.fotos ? [v.fotos] : [])),
-                                ...(v.foto1 ? [v.foto1] : []),
-                                ...(v.foto2 ? [v.foto2] : []),
-                                ...(v.foto3 ? [v.foto3] : [])
-                              ],
+                              ano_modelo: v.ano_modelo || 'N/A',
+                              cor: v.cor || 'N/A',
+                              valor_fipe: v.valor_fipe || 0,
+                              preco_cliente: v.preco_cliente || 0,
+                              fotos: v.fotos_url || (Array.isArray(v.fotos) ? v.fotos : (v.fotos ? [v.fotos] : [])),
                               videos: Array.isArray(v.videos) ? v.videos : (v.videos ? [v.videos] : [])
                             };
                             console.log('Vehicle selected and sanitized:', vehicleWithMedia);
@@ -234,7 +223,6 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
 
                 {type === 'proposta' && selectedVehicle && (
                     <div className="space-y-4">
-                        {console.log('Rendering LeadDetailsCard with lead:', selectedVehicle)}
                         <button onClick={() => setSelectedVehicle(null)} className="text-sm text-blue-600 hover:underline mb-4">← Voltar para lista</button>
                         <LeadDetailsCard 
                             lead={selectedVehicle} 
