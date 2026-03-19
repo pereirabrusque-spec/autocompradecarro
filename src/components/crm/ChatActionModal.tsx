@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Trash2 } from 'lucide-react';
+import { X, Trash2, ShieldCheck, Clock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import LeadDetailsCard from '../LeadDetailsCard';
 
@@ -26,117 +26,93 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
     const fetchData = async () => {
       setLoading(true);
       
-      // Fetch config data for all types
-      const [fipeRules, jurosAtraso, banks, configData] = await Promise.all([
-        supabase.from('fipe_rules').select('*'),
-        supabase.from('settings').select('value').eq('key', 'juros_atraso').single(),
-        supabase.from('banks').select('*'),
-        supabase.from('settings').select('value').eq('key', 'cooperative_discount').single()
-      ]);
-      
-      setConfig({
-        fipeRules: fipeRules.data || [],
-        jurosAtraso: Number(jurosAtraso.data?.value) || 0,
-        banks: banks.data || [],
-        cooperativeDiscount: Number(configData.data?.value) || 0
-      });
-
-      if (type === 'proposta' || type === 'clonar') {
-        // 1. Get email for conversationId
-        console.log('Buscando perfil para conversationId:', conversationId);
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('email')
-          .eq('id', conversationId)
-          .single();
-        console.log('Perfil encontrado:', profile);
+      try {
+        const [fipeRules, jurosAtraso, banks, configData] = await Promise.all([
+          supabase.from('fipe_rules').select('*'),
+          supabase.from('settings').select('value').eq('key', 'juros_atraso').single(),
+          supabase.from('banks').select('*'),
+          supabase.from('settings').select('value').eq('key', 'cooperative_discount').single()
+        ]);
         
-        // 2. Try to fetch by user_id first
-        console.log('Buscando veículos por user_id:', conversationId);
-        let { data, error } = await supabase
-          .from('leads_veiculos')
-          .select('*')
-          .eq('user_id', conversationId);
-        console.log('Veículos encontrados por user_id:', data, 'Erro:', error);
-            
-        // 2.5 Try to fetch by lead_id (id) if no data found
-        if ((!data || data.length === 0)) {
-            console.log('Buscando veículos por id (lead_id):', conversationId);
-            const { data: dataById, error: errorById } = await supabase
-                .from('leads_veiculos')
-                .select('*')
-                .eq('id', conversationId);
-            console.log('Veículos encontrados por id:', dataById, 'Erro:', errorById);
-            if (dataById && dataById.length > 0) {
-                data = dataById;
-                error = errorById;
-            }
-        }
-            
-        // 3. Fallback to email if no data found
-        if ((!data || data.length === 0) && profile?.email) {
-            console.log('Buscando veículos por email:', profile.email);
-            const { data: dataByEmail, error: errorByEmail } = await supabase
-                .from('leads_veiculos')
-                .select('*')
-                .eq('email', profile.email);
-            console.log('Veículos encontrados por email:', dataByEmail, 'Erro:', errorByEmail);
-            data = dataByEmail;
-            error = errorByEmail;
-        }
+        setConfig({
+          fipeRules: fipeRules.data || [],
+          jurosAtraso: Number(jurosAtraso.data?.value) || 0,
+          banks: banks.data || [],
+          cooperativeDiscount: Number(configData.data?.value) || 0
+        });
 
-        // 4. Try to find lead_id from internal_messages if still no data
-        if (!data || data.length === 0) {
-            console.log('Buscando lead_id em internal_messages para:', conversationId);
-            const { data: msgWithLead } = await supabase
-                .from('internal_messages')
-                .select('lead_id')
-                .or(`sender_id.eq.${conversationId},receiver_id.eq.${conversationId}`)
-                .not('lead_id', 'is', null)
-                .order('created_at', { ascending: false })
-                .limit(1);
-            
-            if (msgWithLead && msgWithLead.length > 0 && msgWithLead[0].lead_id) {
-                console.log('Lead ID encontrado em mensagens:', msgWithLead[0].lead_id);
-                const { data: dataByMsgLead, error: errorByMsgLead } = await supabase
-                    .from('leads_veiculos')
-                    .select('*')
-                    .eq('id', msgWithLead[0].lead_id);
-                
-                if (dataByMsgLead && dataByMsgLead.length > 0) {
-                    data = dataByMsgLead;
-                    error = errorByMsgLead;
-                }
-            }
-        }
-        
-        if (error) {
-          console.error('Erro ao buscar veículos:', error);
-          alert('Erro ao buscar veículos: ' + error.message);
-        } else if (data) {
-          console.log('Veículos carregados (brutos):', data.length, data);
+        if (type === 'proposta' || type === 'clonar') {
+          const allLeadIds = new Set<string>();
           
-          // Como a tabela 'leads' não existe ou não é a fonte correta,
-          // vamos confiar nos dados que já vieram de 'leads_veiculos'
-          // e garantir que eles estejam completos.
-          const enrichedData = data.map(v => ({
-            ...v,
-            marca: v.marca || 'N/A',
-            modelo: v.modelo || 'N/A',
-            ano_fabricacao: v.ano_fabricacao || 'N/A'
-          }));
+          // 1. Get email for conversationId
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('email')
+            .eq('id', conversationId)
+            .single();
+          
+          if (profile?.email) {
+            const { data: leadsByEmail } = await supabase
+              .from('leads_veiculos')
+              .select('id')
+              .eq('email', profile.email);
+            leadsByEmail?.forEach(l => allLeadIds.add(l.id));
+          }
 
-          console.log('Veículos carregados (processados):', enrichedData.length, enrichedData);
-          setVehicles(enrichedData);
-          
-          // Se houver apenas um veículo, seleciona automaticamente
-          if (enrichedData.length === 1) {
-            console.log('Selecionando veículo único automaticamente:', enrichedData[0]);
-            setSelectedVehicle(enrichedData[0]);
+          // 2. Leads by user_id
+          const { data: leadsByUser } = await supabase
+            .from('leads_veiculos')
+            .select('id')
+            .eq('user_id', conversationId);
+          leadsByUser?.forEach(l => allLeadIds.add(l.id));
+              
+          // 3. Lead by id (if conversationId is actually a lead_id)
+          const { data: leadById } = await supabase
+            .from('leads_veiculos')
+            .select('id')
+            .eq('id', conversationId);
+          leadById?.forEach(l => allLeadIds.add(l.id));
+              
+          // 4. Leads from internal_messages
+          const { data: msgsWithLeads } = await supabase
+            .from('internal_messages')
+            .select('lead_id')
+            .or(`sender_id.eq.${conversationId},receiver_id.eq.${conversationId}`)
+            .not('lead_id', 'is', null);
+          msgsWithLeads?.forEach(m => {
+            if (m.lead_id) allLeadIds.add(m.lead_id);
+          });
+
+          if (allLeadIds.size > 0) {
+            const { data: finalLeads, error: fetchError } = await supabase
+              .from('leads_veiculos')
+              .select('*')
+              .in('id', Array.from(allLeadIds));
+            
+            if (finalLeads) {
+              const enrichedData = finalLeads.map(v => ({
+                ...v,
+                marca: v.marca || 'N/A',
+                modelo: v.modelo || 'N/A',
+                ano_fabricacao: v.ano_fabricacao || 'N/A'
+              }));
+              setVehicles(enrichedData);
+              
+              if (enrichedData.length === 1) {
+                setSelectedVehicle(enrichedData[0]);
+              }
+            } else if (fetchError) {
+              console.error('Erro ao buscar veículos:', fetchError);
+            }
+          } else {
+            setVehicles([]);
           }
         }
+      } catch (err) {
+        console.error('Erro no fetchData:', err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     fetchData();
   }, [type, conversationId]);
@@ -265,6 +241,31 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
                                     <span className="text-[10px] font-black uppercase tracking-widest">Sem Foto</span>
                                   </div>
                                 )}
+                                <div className="absolute top-3 right-3 flex gap-2">
+                                  <button 
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      if (!confirm('Deseja reservar este veículo? Ele ficará invisível no estoque por 24 horas.')) return;
+                                      const { error } = await supabase
+                                        .from('leads_veiculos')
+                                        .update({ status: 'reservado', reserva_timestamp: new Date().toISOString() })
+                                        .eq('id', v.id);
+                                      if (error) alert('Erro ao reservar: ' + error.message);
+                                      else {
+                                        alert('Veículo reservado com sucesso!');
+                                        // Refresh vehicles list
+                                        const updatedVehicles = vehicles.map(veh => 
+                                          veh.id === v.id ? { ...veh, status: 'reservado' } : veh
+                                        );
+                                        setVehicles(updatedVehicles);
+                                      }
+                                    }}
+                                    className={`p-2 rounded-xl backdrop-blur-md transition-all shadow-lg ${v.status === 'reservado' ? 'bg-amber-500 text-white' : 'bg-white/90 text-amber-600 hover:bg-amber-500 hover:text-white'}`}
+                                    title={v.status === 'reservado' ? 'Já Reservado' : 'Reservar Veículo'}
+                                  >
+                                    {v.status === 'reservado' ? <Clock className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
+                                  </button>
+                                </div>
                                 <div className="absolute top-3 left-3 flex gap-2">
                                   <span className="px-2 py-1 bg-slate-900/90 backdrop-blur-md text-white text-[10px] font-black rounded-lg uppercase tracking-widest shadow-lg">
                                     #{v.vehicle_code || '----'}
