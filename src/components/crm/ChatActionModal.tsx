@@ -208,6 +208,7 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
 
                 {type === 'proposta' && selectedVehicle && (
                     <div className="space-y-4">
+                        {console.log('Rendering LeadDetailsCard with lead:', selectedVehicle)}
                         <button onClick={() => setSelectedVehicle(null)} className="text-sm text-blue-600 hover:underline mb-4">← Voltar para lista</button>
                         <LeadDetailsCard 
                             lead={selectedVehicle} 
