@@ -171,6 +171,10 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
                             console.log('Vehicle clicked:', v);
                             const vehicleWithMedia = {
                               ...v,
+                              // Garantir campos mínimos para o LeadDetailsCard não quebrar
+                              marca: v.marca || (v.veiculo ? v.veiculo.split(' ')[0] : 'N/A'),
+                              modelo: v.modelo || (v.veiculo ? v.veiculo.split(' ').slice(1).join(' ') : 'N/A'),
+                              ano_fabricacao: v.ano_fabricacao || v.ano_modelo || 'N/A',
                               fotos: [
                                 ...(Array.isArray(v.fotos) ? v.fotos : (v.fotos ? [v.fotos] : [])),
                                 ...(v.foto1 ? [v.foto1] : []),
