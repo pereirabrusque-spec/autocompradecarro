@@ -214,8 +214,13 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
                               }}
                             >
                               <div className="aspect-[4/3] w-full bg-slate-100 relative overflow-hidden">
-                                {v.foto_principal ? (
-                                  <img src={v.foto_principal} alt={`${v.marca} ${v.modelo}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                                {(v.foto_principal || (vehicleWithMedia.fotos && vehicleWithMedia.fotos.length > 0)) ? (
+                                  <img 
+                                    src={v.foto_principal || vehicleWithMedia.fotos[0]} 
+                                    alt={`${v.marca} ${v.modelo}`} 
+                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                                    referrerPolicy="no-referrer"
+                                  />
                                 ) : (
                                   <div className="w-full h-full flex items-center justify-center text-slate-300">
                                     <span className="text-[10px] font-black uppercase tracking-widest">Sem Foto</span>

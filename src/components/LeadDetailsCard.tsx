@@ -82,12 +82,13 @@ export default function LeadDetailsCard({
   const [showUserModal, setShowUserModal] = useState(false);
 
   const mediaItems = [
+    ...(currentLead.foto_principal ? [currentLead.foto_principal] : []),
     ...(currentLead.fotos || currentLead.fotos_url || []),
     ...(currentLead.foto1 ? [currentLead.foto1] : []),
     ...(currentLead.foto2 ? [currentLead.foto2] : []),
     ...(currentLead.foto3 ? [currentLead.foto3] : []),
     ...(currentLead.videos || currentLead.videos_url || [])
-  ];
+  ].filter((item, index, self) => item && self.indexOf(item) === index); // Remove duplicates and nulls
 
   const renderMedia = (item: string, index: number) => {
     const isVideo = item.match(/\.(mp4|webm|ogg)$/i);
@@ -566,6 +567,14 @@ export default function LeadDetailsCard({
         {/* Header Fixo */}
         <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-white sticky top-0 z-50 shadow-sm">
           <div className="flex items-center gap-3 overflow-hidden">
+            {currentLead.foto_principal && (
+              <img 
+                src={currentLead.foto_principal} 
+                alt="Veículo" 
+                className="w-8 h-8 rounded-lg object-cover border border-slate-200 shrink-0"
+                referrerPolicy="no-referrer"
+              />
+            )}
             <h2 className="text-lg font-bold font-display truncate">#{currentLead.vehicle_code} - {currentLead.marca} {currentLead.modelo}</h2>
             <select
               value={currentLead.status || 'novo'}
