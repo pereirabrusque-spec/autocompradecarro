@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { MessageCircle, Send, Search, Mail, User, Users, ImageIcon, ShieldCheck, DollarSign, UserCheck, Loader2, Trash2 } from 'lucide-react';
+import { MessageCircle, Send, Search, Mail, User, Users, ImageIcon, ShieldCheck, DollarSign, UserCheck, Loader2, Trash2, Copy } from 'lucide-react';
 
 interface AdminMessagesProps {
   conversations: any[];
@@ -12,6 +12,8 @@ interface AdminMessagesProps {
   handleLearnFromChat: () => void;
   setShowProposalModal: (show: boolean) => void;
   setShowVehicleSelectionModal: (show: boolean) => void;
+  setSelectionMode: (mode: 'proposal' | 'clone') => void;
+  onCloneLead: (lead: any) => void;
   setSelectedLead: (lead: any) => void;
   messageTab: 'leads' | 'internal';
   setMessageTab: (tab: 'leads' | 'internal') => void;
@@ -46,6 +48,8 @@ export default function AdminMessages({
   handleLearnFromChat,
   setShowProposalModal,
   setShowVehicleSelectionModal,
+  setSelectionMode,
+  onCloneLead,
   setSelectedLead,
   messageTab,
   setMessageTab,
@@ -433,10 +437,31 @@ export default function AdminMessages({
                   type="button"
                   onClick={() => {
                     const conversationLeads = leads.filter(l => 
-                      selectedConversation.lead_ids.includes(l.id) && 
-                      l.status !== 'fechado'
+                      selectedConversation?.lead_ids?.includes(l.id)
                     );
                     if (conversationLeads.length > 1) {
+                      setSelectionMode('clone');
+                      setShowVehicleSelectionModal(true);
+                    } else if (conversationLeads.length === 1) {
+                      onCloneLead(conversationLeads[0]);
+                    } else {
+                      alert('Nenhum veículo encontrado nesta conversa.');
+                    }
+                  }}
+                  className="px-4 py-2 bg-blue-100 text-blue-600 rounded-xl font-bold text-xs hover:bg-blue-200 transition-all flex items-center gap-2"
+                  title="Clonar dados deste veículo para uma nova negociação"
+                >
+                  <Copy className="w-4 h-4" />
+                  Clonar
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    const conversationLeads = leads.filter(l => 
+                      selectedConversation?.lead_ids?.includes(l.id)
+                    );
+                    if (conversationLeads.length > 1) {
+                      setSelectionMode('proposal');
                       setShowVehicleSelectionModal(true);
                     } else if (conversationLeads.length === 1) {
                       setSelectedLead(conversationLeads[0]);

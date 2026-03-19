@@ -5,12 +5,14 @@ interface VehicleSelectionModalProps {
   leads: any[];
   onSelect: (lead: any) => void;
   onClose: () => void;
+  title?: string;
 }
 
 export const VehicleSelectionModal: React.FC<VehicleSelectionModalProps> = ({
   leads,
   onSelect,
   onClose,
+  title = "Selecione o Veículo",
 }) => {
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -19,7 +21,7 @@ export const VehicleSelectionModal: React.FC<VehicleSelectionModalProps> = ({
           <X className="w-6 h-6" />
         </button>
         
-        <h2 className="text-2xl font-bold mb-6">Selecione o Veículo</h2>
+        <h2 className="text-2xl font-bold mb-6">{title}</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {leads.map((lead) => (

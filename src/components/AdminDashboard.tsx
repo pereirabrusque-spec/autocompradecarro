@@ -42,6 +42,8 @@ export default function AdminDashboard() {
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [showProposalModal, setShowProposalModal] = useState(false);
   const [showVehicleSelectionModal, setShowVehicleSelectionModal] = useState(false);
+  const [selectionMode, setSelectionMode] = useState<'proposal' | 'clone'>('proposal');
+  const [isCloning, setIsCloning] = useState(false);
   const [showExpiredReservationAlert, setShowExpiredReservationAlert] = useState(false);
   const [showCooperativesModal, setShowCooperativesModal] = useState(false);
   const [searchCode, setSearchCode] = useState('');
@@ -1264,6 +1266,71 @@ export default function AdminDashboard() {
       };
     }
   }, [selectedInternalChat, currentUser]);
+
+  const handleCloneVehicle = async (sourceLead: any) => {
+    if (!sourceLead || isCloning) return;
+    
+    setIsCloning(true);
+    try {
+      // 1. Gerar novo código de veículo
+      const newCode = `CL-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+      
+      // 2. Preparar dados do novo lead (clonado)
+      const { id, created_at, updated_at, vehicle_code, ...clonedData } = sourceLead;
+      
+      const newLead = {
+        ...clonedData,
+        vehicle_code: newCode,
+        status: 'novo',
+        created_at: new Date().toISOString(),
+        detalhes_proposta: {
+          ...(sourceLead.detalhes_proposta || {}),
+          cloned_from: sourceLead.id,
+          cloned_at: new Date().toISOString()
+        }
+      };
+
+      // 3. Inserir no banco
+      const { data, error } = await supabase
+        .from('leads_veiculos')
+        .insert(newLead)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // 4. Atualizar estado local
+      setLeads(prev => [data, ...prev]);
+      
+      // 5. Se estivermos em uma conversa, adicionar o novo lead_id à conversa
+      if (selectedConversation) {
+        const updatedLeadIds = [...new Set([...selectedConversation.lead_ids, data.id])];
+        
+        // Opcional: Enviar mensagem no chat informando sobre a clonagem
+        await supabase.from('mensagens').insert({
+          lead_id: data.id,
+          remetente: 'admin',
+          conteudo: `🔄 Veículo clonado para nova negociação: ${data.marca} ${data.modelo} (#${data.vehicle_code})`
+        });
+
+        setConversations(prev => prev.map(c => 
+          c.conversation_key === selectedConversation.conversation_key 
+            ? { ...c, lead_ids: updatedLeadIds } 
+            : c
+        ));
+        
+        setSelectedConversation(prev => prev ? { ...prev, lead_ids: updatedLeadIds } : null);
+      }
+
+      alert(`Veículo clonado com sucesso! Novo código: ${newCode}`);
+    } catch (err: any) {
+      console.error('Erro ao clonar veículo:', err);
+      alert(`Erro ao clonar veículo: ${err.message}`);
+    } finally {
+      setIsCloning(false);
+      setShowVehicleSelectionModal(false);
+    }
+  };
 
   const handleSendMessage = async () => {
     if (!adminMessage.trim() || !userProfile) return;
@@ -2781,7 +2848,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 <CRMChatContainer 
                   role={userProfile?.role || 'admin'} 
                   onOpenLead={(lead) => {
-                    console.log("Abrindo lead via CRM Chat:", lead);
+                    console.log("[AdminDashboard] Abrindo lead via CRM Chat:", lead.id, lead.vehicle_code);
                     setSelectedLead(lead);
                   }}
                 />
@@ -3965,779 +4032,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 </div>
 
                 {/* LeadDetailsCard moved to global position before </main> */}
-                {false && selectedLead && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setSelectedLead(null)}>
-                    <div 
-                      className="bg-white rounded-[32px] w-full max-w-6xl max-h-[95vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden"
-                      onClick={e => e.stopPropagation()}
-                    >
-                      <div className="flex justify-between items-center p-8 pb-4 border-b border-slate-100 bg-white z-10 sticky top-0">
-                        <div>
-                          <div className="flex items-center gap-3 mb-2">
-                            <span className="px-3 py-1 bg-slate-900 text-white rounded-full text-xs font-mono font-bold tracking-widest">
-                              #{selectedLead.vehicle_code || '----'}
-                            </span>
-                            <h2 className="text-3xl font-bold font-display">{selectedLead.marca} {selectedLead.modelo}</h2>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <select
-                              value={selectedLead.classificacao || 'morna'}
-                              onChange={async (e) => {
-                                const newVal = e.target.value;
-                                const { error } = await supabase.from('leads_veiculos').update({ classificacao: newVal }).eq('id', selectedLead.id);
-                                if (!error) setSelectedLead({...selectedLead, classificacao: newVal});
-                              }}
-                              className={`text-xs font-bold uppercase px-3 py-1 rounded-full border-none outline-none cursor-pointer ${
-                                (selectedLead.classificacao || 'morna') === 'quente' ? 'bg-red-100 text-red-600' :
-                                (selectedLead.classificacao || 'morna') === 'frio' ? 'bg-blue-100 text-blue-600' :
-                                'bg-orange-100 text-orange-600'
-                              }`}
-                            >
-                              <option value="quente">🔥 Lead Quente</option>
-                              <option value="morna">🌤️ Lead Morna</option>
-                              <option value="fria">❄️ Lead Fria</option>
-                            </select>
-
-                            <select
-                              value={selectedLead.status}
-                              onChange={async (e) => {
-                                const newVal = e.target.value;
-                                // Map status to classification
-                                let newClass = selectedLead.classificacao;
-                                if (newVal === 'fechado') newClass = 'quente';
-                                else if (newVal === 'proposta_enviada') newClass = 'morna';
-                                else newClass = 'fria';
-
-                                const { error } = await supabase.from('leads_veiculos').update({ 
-                                  status: newVal,
-                                  classificacao: newClass 
-                                }).eq('id', selectedLead.id);
-                                
-                                if (!error) setSelectedLead({...selectedLead, status: newVal, classificacao: newClass});
-                              }}
-                              className="text-xs font-bold uppercase px-3 py-1 rounded-full bg-slate-100 text-slate-600 border-none outline-none cursor-pointer"
-                            >
-                              <option value="novo">Novo</option>
-                              <option value="em_contato">Em Contato</option>
-                              <option value="proposta_enviada">Proposta Enviada</option>
-                              <option value="fechado">Fechado (Venda)</option>
-                              <option value="perdido">Perdido</option>
-                            </select>
-                          </div>
-                        </div>
-                        <button onClick={() => setSelectedLead(null)} className="p-2 hover:bg-slate-100 rounded-full">
-                          <LogOut className="w-6 h-6 rotate-45" />
-                        </button>
-                      </div>
-
-                      <div className="overflow-y-auto p-8 pt-4">
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                        {/* Coluna Esquerda: Fotos e Dados */}
-                        <div className="lg:col-span-5 space-y-6">
-                          {/* Carrossel de Fotos */}
-                          <div className="relative aspect-[4/3] rounded-2xl overflow-hidden bg-slate-100 group cursor-pointer" onClick={() => {
-                            if (selectedLead.fotos && selectedLead.fotos.length > 0) {
-                              setExpandedPhoto(selectedLead.fotos[currentPhotoIndex]);
-                            }
-                          }}>
-                            {selectedLead.fotos && selectedLead.fotos.length > 0 ? (
-                              <>
-                                <img 
-                                  src={selectedLead.fotos[currentPhotoIndex]} 
-                                  alt="Veículo" 
-                                  className="w-full h-full object-cover"
-                                />
-                                <div className="absolute top-2 right-2 p-2 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <Maximize2 className="w-4 h-4" />
-                                </div>
-                                {(selectedLead.fotos && selectedLead.fotos.length > 1) && (
-                                  <>
-                                    <button 
-                                      onClick={(e) => { e.stopPropagation(); setCurrentPhotoIndex(prev => (prev === 0 ? selectedLead.fotos.length - 1 : prev - 1)); }}
-                                      className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-white/80 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                    >
-                                      <ChevronLeft className="w-5 h-5" />
-                                    </button>
-                                    <button 
-                                      onClick={(e) => { e.stopPropagation(); setCurrentPhotoIndex(prev => (prev === selectedLead.fotos.length - 1 ? 0 : prev + 1)); }}
-                                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-white/80 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                    >
-                                      <ChevronRight className="w-5 h-5" />
-                                    </button>
-                                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
-                                      {(selectedLead.fotos || []).map((_: any, i: number) => (
-                                        <div key={i} className={`w-1.5 h-1.5 rounded-full ${i === currentPhotoIndex ? 'bg-white' : 'bg-white/40'}`} />
-                                      ))}
-                                    </div>
-                                  </>
-                                )}
-                              </>
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-slate-300">
-                                <ImageIcon className="w-12 h-12" />
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="bg-slate-50 p-5 rounded-2xl space-y-4">
-                            <h3 className="font-bold flex items-center justify-between gap-2 text-slate-900 border-b border-slate-200 pb-2">
-                              <span className="flex items-center gap-2">
-                                <ShieldCheck className="w-5 h-5 text-accent" />
-                                Dados do Veículo
-                              </span>
-                              <div className="flex gap-2">
-                                <button 
-                                  onClick={async () => {
-                                    const { error } = await supabase.from('leads_veiculos').update(selectedLead).eq('id', selectedLead.id);
-                                    if (error) {
-                                      setToast({ message: 'Erro ao salvar: ' + error.message, type: 'error' });
-                                      setTimeout(() => setToast(null), 5000);
-                                    } else {
-                                      setToast({ message: 'Dados salvos!', type: 'success' });
-                                      setTimeout(() => setToast(null), 3000);
-                                    }
-                                  }}
-                                  className="text-[10px] bg-accent text-white px-2 py-1 rounded hover:bg-orange-600 font-bold"
-                                >
-                                  SALVAR
-                                </button>
-                                <button 
-                                  onClick={() => setConfirmDeleteLeadId(selectedLead.id)}
-                                  className="text-[10px] bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 font-bold flex items-center gap-1"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                  EXCLUIR
-                                </button>
-                              </div>
-                            </h3>
-                            <div className="grid grid-cols-2 gap-4 text-sm">
-                              <div>
-                                <p className="text-slate-400 font-bold uppercase text-[10px]">Cliente</p>
-                                <input 
-                                  type="text"
-                                  value={selectedLead.cliente_nome || ''}
-                                  onChange={(e) => setSelectedLead({...selectedLead, cliente_nome: e.target.value})}
-                                  className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
-                                />
-                              </div>
-                              <div>
-                                <p className="text-slate-400 font-bold uppercase text-[10px]">Email</p>
-                                <input 
-                                  type="text"
-                                  value={selectedLead.email || ''}
-                                  onChange={(e) => setSelectedLead({...selectedLead, email: e.target.value})}
-                                  className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
-                                />
-                              </div>
-                              <div>
-                                <p className="text-slate-400 font-bold uppercase text-[10px]">Telefone</p>
-                                <input 
-                                  type="text"
-                                  value={selectedLead.telefone || ''}
-                                  onChange={(e) => setSelectedLead({...selectedLead, telefone: e.target.value})}
-                                  className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
-                                />
-                              </div>
-                              <div>
-                                <p className="text-slate-400 font-bold uppercase text-[10px]">Placa</p>
-                                <input 
-                                  type="text"
-                                  value={selectedLead.placa || ''}
-                                  onChange={(e) => setSelectedLead({...selectedLead, placa: e.target.value.toUpperCase()})}
-                                  className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
-                                />
-                              </div>
-                              <div>
-                                <p className="text-slate-400 font-bold uppercase text-[10px]">Marca</p>
-                                <input 
-                                  type="text"
-                                  value={selectedLead.marca || ''}
-                                  onChange={(e) => setSelectedLead({...selectedLead, marca: e.target.value})}
-                                  className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
-                                />
-                              </div>
-                              <div>
-                                <p className="text-slate-400 font-bold uppercase text-[10px]">Modelo</p>
-                                <input 
-                                  type="text"
-                                  value={selectedLead.modelo || ''}
-                                  onChange={(e) => setSelectedLead({...selectedLead, modelo: e.target.value})}
-                                  className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
-                                />
-                              </div>
-                              <div>
-                                <p className="text-slate-400 font-bold uppercase text-[10px]">Ano/Modelo</p>
-                                <input 
-                                  type="number"
-                                  value={selectedLead.ano_modelo || ''}
-                                  onChange={(e) => setSelectedLead({...selectedLead, ano_modelo: parseInt(e.target.value)})}
-                                  className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
-                                />
-                              </div>
-                              <div>
-                                <p className="text-slate-400 font-bold uppercase text-[10px]">Cor</p>
-                                <input 
-                                  type="text"
-                                  value={selectedLead.cor || ''}
-                                  onChange={(e) => setSelectedLead({...selectedLead, cor: e.target.value})}
-                                  className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
-                                />
-                              </div>
-                              <div>
-                                <p className="text-slate-400 font-bold uppercase text-[10px]">KM</p>
-                                <input 
-                                  type="number"
-                                  value={selectedLead.quilometragem || 0}
-                                  onChange={(e) => setSelectedLead({...selectedLead, quilometragem: parseFloat(e.target.value)})}
-                                  className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
-                                />
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="bg-slate-50 p-5 rounded-2xl space-y-4">
-                            <h3 className="font-bold flex items-center gap-2 text-slate-900 border-b border-slate-200 pb-2">
-                              <Wallet className="w-5 h-5 text-accent" />
-                              Financeiro & Condição
-                            </h3>
-                            <div className="space-y-3 text-sm">
-                              <div>
-                                <p className="text-slate-400 font-bold uppercase text-[10px]">Situação Financeira</p>
-                                <p className="font-bold capitalize">{selectedLead.situacao_financeira?.replace('_', ' ') || 'Não informada'}</p>
-                              </div>
-                              {selectedLead.situacao_financeira === 'financiado' && (
-                                <div className="grid grid-cols-2 gap-2 bg-white p-3 rounded-xl border border-slate-200">
-                                  <div>
-                                    <p className="text-slate-400 font-bold uppercase text-[9px]">Banco</p>
-                                    <p className="font-bold text-xs">{selectedLead.banco || '-'}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-slate-400 font-bold uppercase text-[9px]">Valor Parcela</p>
-                                    <input 
-                                      type="number"
-                                      value={selectedLead.valor_parcela || 0}
-                                      onChange={(e) => {
-                                        const val = parseFloat(e.target.value) || 0;
-                                        const updatedLead = { ...selectedLead, valor_parcela: val };
-                                        setSelectedLead(updatedLead);
-                                        setProposalCalculator(calculateProposal(updatedLead));
-                                      }}
-                                      className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
-                                    />
-                                  </div>
-                                  <div>
-                                    <p className="text-slate-400 font-bold uppercase text-[9px]">Pagas</p>
-                                    <input 
-                                      type="number"
-                                      value={selectedLead.parcelas_pagas || 0}
-                                      onChange={(e) => {
-                                        const val = parseInt(e.target.value) || 0;
-                                        const updatedLead = { ...selectedLead, parcelas_pagas: val };
-                                        setSelectedLead(updatedLead);
-                                        setProposalCalculator(calculateProposal(updatedLead));
-                                      }}
-                                      className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
-                                    />
-                                  </div>
-                                  <div>
-                                    <p className="text-slate-400 font-bold uppercase text-[9px]">Atrasadas</p>
-                                    <input 
-                                      type="number"
-                                      value={selectedLead.parcelas_atrasadas || 0}
-                                      onChange={(e) => {
-                                        const val = parseInt(e.target.value) || 0;
-                                        const updatedLead = { ...selectedLead, parcelas_atrasadas: val };
-                                        setSelectedLead(updatedLead);
-                                        setProposalCalculator(calculateProposal(updatedLead));
-                                      }}
-                                      className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
-                                    />
-                                  </div>
-                                  <div>
-                                    <p className="text-slate-400 font-bold uppercase text-[9px]">Total</p>
-                                    <input 
-                                      type="number"
-                                      value={selectedLead.total_parcelas || 0}
-                                      onChange={(e) => {
-                                        const val = parseInt(e.target.value) || 0;
-                                        const updatedLead = { ...selectedLead, total_parcelas: val };
-                                        setSelectedLead(updatedLead);
-                                        setProposalCalculator(calculateProposal(updatedLead));
-                                      }}
-                                      className="w-full p-1 border border-slate-200 rounded text-xs font-bold"
-                                    />
-                                  </div>
-                                </div>
-                              )}
-                              
-                              <div>
-                                <p className="text-slate-400 font-bold uppercase text-[10px]">FIPE</p>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <span className="text-xs font-bold text-slate-500">R$</span>
-                                  <input 
-                                    type="number"
-                                    value={selectedLead.valor_fipe || 0}
-                                    onChange={(e) => {
-                                      const val = parseFloat(e.target.value) || 0;
-                                      const updatedLead = { ...selectedLead, valor_fipe: val };
-                                      setSelectedLead(updatedLead);
-                                      setProposalCalculator(calculateProposal(updatedLead));
-                                    }}
-                                    className="flex-1 p-2 border border-slate-200 rounded-lg text-xs font-bold bg-white"
-                                  />
-                                </div>
-                              </div>
-                              <div>
-                                <p className="text-slate-400 font-bold uppercase text-[10px]">Desejado pelo Cliente</p>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <span className="text-xs font-bold text-slate-500">R$</span>
-                                  <input 
-                                    type="number"
-                                    value={selectedLead.preco_cliente || 0}
-                                    onChange={(e) => {
-                                      const val = parseFloat(e.target.value) || 0;
-                                      const updatedLead = { ...selectedLead, preco_cliente: val };
-                                      setSelectedLead(updatedLead);
-                                    }}
-                                    className="flex-1 p-2 border border-slate-200 rounded-lg text-xs font-bold bg-white"
-                                  />
-                                </div>
-                              </div>
-                              <div>
-                                <p className="text-slate-400 font-bold uppercase text-[10px]">Débitos (Multas/IPVA)</p>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <span className="text-xs font-bold text-slate-500">R$</span>
-                                  <input 
-                                    type="number"
-                                    value={selectedLead.multas || 0}
-                                    onChange={(e) => {
-                                      const val = parseFloat(e.target.value) || 0;
-                                      const updatedLead = { ...selectedLead, multas: val };
-                                      setSelectedLead(updatedLead);
-                                      setProposalCalculator(calculateProposal(updatedLead));
-                                    }}
-                                    className="flex-1 p-2 border border-slate-200 rounded-lg text-xs font-bold bg-white"
-                                  />
-                                </div>
-                              </div>
-                              {selectedLead.problemas && selectedLead.problemas.length > 0 && (
-                                <div>
-                                  <p className="text-slate-400 font-bold uppercase text-[10px]">Histórico / Problemas</p>
-                                  <div className="flex flex-wrap gap-1 mt-1">
-                                    {(Array.isArray(selectedLead.problemas) ? selectedLead.problemas : typeof selectedLead.problemas === 'string' ? selectedLead.problemas.split(',') : []).map((p: string, i: number) => (
-                                      <span key={i} className="px-2 py-1 bg-red-100 text-red-700 rounded text-[10px] font-bold uppercase">
-                                        {p.trim()}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                              {selectedLead.avarias && selectedLead.avarias.length > 0 && (
-                                <div>
-                                  <p className="text-slate-400 font-bold uppercase text-[10px]">Avarias Informadas</p>
-                                  <div className="flex flex-wrap gap-1 mt-1">
-                                    {(Array.isArray(selectedLead.avarias) ? selectedLead.avarias : typeof selectedLead.avarias === 'string' ? selectedLead.avarias.split(',') : []).map((a: string, i: number) => (
-                                      <span key={i} className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-[10px] font-bold uppercase">
-                                        {a.trim()}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                              {selectedLead.selected_items && selectedLead.selected_items.length > 0 && (
-                                <div>
-                                  <p className="text-slate-400 font-bold uppercase text-[10px]">Opcionais</p>
-                                  <div className="flex flex-wrap gap-1 mt-1">
-                                    {(Array.isArray(selectedLead.selected_items) ? selectedLead.selected_items : typeof selectedLead.selected_items === 'string' ? selectedLead.selected_items.split(',') : []).map((item: string, i: number) => (
-                                      <span key={i} className="px-2 py-1 bg-slate-200 text-slate-700 rounded text-[10px] font-bold uppercase">
-                                        {item.trim()}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                              {selectedLead.observacoes && (
-                                <div>
-                                  <p className="text-slate-400 font-bold uppercase text-[10px]">Observações</p>
-                                  <p className="text-xs font-medium text-slate-700 mt-1 bg-white p-2 rounded border border-slate-200">
-                                    {selectedLead.observacoes}
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="bg-slate-50 p-5 rounded-2xl space-y-4">
-                            <h3 className="font-bold flex items-center gap-2 text-slate-900 border-b border-slate-200 pb-2">
-                              <Users className="w-5 h-5 text-accent" />
-                              Dados do Cadastro
-                            </h3>
-                            {userProfile?.role === 'admin' ? (
-                              <div className="space-y-3 text-sm">
-                                <div>
-                                  <p className="text-slate-400 font-bold uppercase text-[10px]">Cliente</p>
-                                  <p className="font-bold">{selectedLead.cliente_nome}</p>
-                                </div>
-                                <div>
-                                  <p className="text-slate-400 font-bold uppercase text-[10px]">Telefone</p>
-                                  <p className="font-bold">{selectedLead.telefone}</p>
-                                </div>
-                                <div>
-                                  <p className="text-slate-400 font-bold uppercase text-[10px]">Data</p>
-                                  <p className="font-bold">{new Date(selectedLead.created_at).toLocaleString()}</p>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl flex items-start gap-3">
-                                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
-                                <p className="text-xs text-amber-700 font-medium leading-relaxed">
-                                  Dados do cliente estão ocultos. Apenas administradores podem visualizar informações de contato.
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Coluna Direita: Descontos, Proposta e Envio */}
-                        <div className="lg:col-span-7 space-y-6">
-                          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-                            <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-                              <DollarSign className="w-5 h-5 text-accent" />
-                              Cálculo da Proposta
-                            </h3>
-
-                            {proposalCalculator && (
-                              <div className="space-y-6">
-                                {/* Histórico de Procedência */}
-                                <div className="space-y-3">
-                                  <p className="text-xs font-black uppercase text-slate-400 flex items-center gap-2">
-                                    <ShieldCheck className="w-4 h-4" />
-                                    Histórico de Procedência
-                                  </p>
-                                  <div className="grid grid-cols-2 gap-2">
-                                    {fipeRules.map((rule) => {
-                                      const isSelected = (selectedLead.problemas || []).includes(rule.condition_name);
-                                      return (
-                                        <label key={rule.id} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${isSelected ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'}`}>
-                                          <input 
-                                            type="checkbox"
-                                            checked={isSelected}
-                                            onChange={(e) => {
-                                              const currentProblemas = selectedLead.problemas || [];
-                                              let newProblemas;
-                                              if (e.target.checked) {
-                                                newProblemas = [...currentProblemas, rule.condition_name];
-                                              } else {
-                                                newProblemas = currentProblemas.filter((p: string) => p !== rule.condition_name);
-                                              }
-                                              const updatedLead = { ...selectedLead, problemas: newProblemas };
-                                              setSelectedLead(updatedLead);
-                                              setProposalCalculator(calculateProposal(updatedLead));
-                                            }}
-                                            className="w-3 h-3 rounded border-slate-300 text-red-500 focus:ring-red-500"
-                                          />
-                                          <span className={`text-[10px] font-bold ${isSelected ? 'text-red-700' : 'text-slate-600'}`}>{rule.condition_name}</span>
-                                          <div className="ml-auto flex items-center gap-1">
-                                            <span className={`text-[9px] font-black ${isSelected ? 'text-red-700' : 'text-slate-400'}`}>-</span>
-                                            <input 
-                                              type="number"
-                                              value={proposalOverrides.rules[rule.id] !== undefined ? proposalOverrides.rules[rule.id] : rule.discount_percentage}
-                                              onClick={(e) => e.stopPropagation()}
-                                              onChange={(e) => {
-                                                const newVal = parseFloat(e.target.value);
-                                                const newOverrides = {
-                                                  ...proposalOverrides,
-                                                  rules: { ...proposalOverrides.rules, [rule.id]: newVal }
-                                                };
-                                                setProposalOverrides(newOverrides);
-                                                setProposalCalculator(calculateProposal(selectedLead, newOverrides));
-                                              }}
-                                              className={`w-8 text-right text-[9px] font-black bg-transparent border-b border-transparent focus:border-red-500 outline-none ${isSelected ? 'text-red-700' : 'text-slate-400'}`}
-                                              disabled={!isSelected}
-                                            />
-                                            <span className={`text-[9px] font-black ${isSelected ? 'text-red-700' : 'text-slate-400'}`}>%</span>
-                                          </div>
-                                        </label>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-
-                                {/* Problemas de Avaria */}
-                                <div className="space-y-3">
-                                  <p className="text-xs font-black uppercase text-slate-400 flex items-center gap-2">
-                                    <Wrench className="w-4 h-4" />
-                                    Problemas de Avaria
-                                  </p>
-                                  <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-2">
-                                    {repairCosts.map((cost) => {
-                                      const problemasStr = Array.isArray(selectedLead.problemas) ? selectedLead.problemas.join(' ') : (typeof selectedLead.problemas === 'string' ? selectedLead.problemas : '');
-                                      const allText = `${selectedLead.observacoes || ''} ${problemasStr}`.toLowerCase();
-                                      const avariasSelecionadas = selectedLead.avarias || selectedLead.detalhes_proposta?.avarias || repairCosts.filter(c => allText.includes(c.part_name.toLowerCase())).map(c => c.id);
-                                      const isSelected = avariasSelecionadas.includes(cost.id);
-                                      
-                                      // Find multiplier
-                                      let itemMultiplier = 1;
-                                      if (cost.conditions && cost.conditions.length > 0) {
-                                        for (const cond of cost.conditions) {
-                                          if ((selectedLead.valor_fipe || 0) >= cond.min_value && (selectedLead.valor_fipe || 0) <= cond.max_value) {
-                                            itemMultiplier = cond.multiplier;
-                                            break;
-                                          }
-                                        }
-                                      }
-                                      const finalCost = cost.cost * itemMultiplier;
-
-                                      return (
-                                        <label key={cost.id} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${isSelected ? 'bg-orange-50 border-orange-200' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'}`}>
-                                          <input 
-                                            type="checkbox"
-                                            checked={isSelected}
-                                            onChange={(e) => {
-                                              let newAvarias;
-                                              if (e.target.checked) {
-                                                newAvarias = [...avariasSelecionadas, cost.id];
-                                              } else {
-                                                newAvarias = avariasSelecionadas.filter((id: string) => id !== cost.id);
-                                              }
-                                              const updatedLead = { ...selectedLead, avarias: newAvarias };
-                                              setSelectedLead(updatedLead);
-                                              setProposalCalculator(calculateProposal(updatedLead));
-                                            }}
-                                            className="w-3 h-3 rounded border-slate-300 text-orange-500 focus:ring-orange-500"
-                                          />
-                                          <span className={`text-[10px] font-bold ${isSelected ? 'text-orange-700' : 'text-slate-600'}`}>{cost.part_name}</span>
-                                          <div className="ml-auto flex items-center gap-1">
-                                            <span className={`text-[9px] font-black ${isSelected ? 'text-orange-700' : 'text-slate-400'}`}>-R$</span>
-                                            <input 
-                                              type="number"
-                                              value={proposalOverrides.repairs[cost.id] !== undefined ? (proposalOverrides.repairs[cost.id] * itemMultiplier).toFixed(2) : finalCost.toFixed(2)}
-                                              onClick={(e) => e.stopPropagation()}
-                                              onChange={(e) => {
-                                                const newVal = parseFloat(e.target.value) / itemMultiplier;
-                                                const newOverrides = {
-                                                  ...proposalOverrides,
-                                                  repairs: { ...proposalOverrides.repairs, [cost.id]: newVal }
-                                                };
-                                                setProposalOverrides(newOverrides);
-                                                setProposalCalculator(calculateProposal(selectedLead, newOverrides));
-                                              }}
-                                              className={`w-16 text-right text-[9px] font-black bg-transparent border-b border-transparent focus:border-orange-500 outline-none ${isSelected ? 'text-orange-700' : 'text-slate-400'}`}
-                                              disabled={!isSelected}
-                                            />
-                                          </div>
-                                        </label>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-
-                                {/* Situação Financeira */}
-                                <div className="space-y-3">
-                                  <p className="text-xs font-black uppercase text-slate-400 flex items-center gap-2">
-                                    <Wallet className="w-4 h-4" />
-                                    Situação Financeira
-                                  </p>
-                                  <div className="grid grid-cols-2 gap-4">
-                                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                                      <p className="text-[10px] font-bold text-slate-400 uppercase">Quitação</p>
-                                      <p className="font-black text-slate-700">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.payoffValue)}</p>
-                                      {proposalCalculator.bankNotRegistered && (
-                                        <div className="flex flex-col gap-1 mt-1">
-                                          <p className="text-[9px] font-bold text-red-500 uppercase">Banco não cadastrado: {selectedLead.banco_financiamento || selectedLead.banco}</p>
-                                          <button 
-                                            onClick={async () => {
-                                              const bankName = selectedLead.banco_financiamento || selectedLead.banco;
-                                              const isCooperativa = bankName.toLowerCase().includes('coop') || bankName.toLowerCase().includes('sicredi') || bankName.toLowerCase().includes('sicoob');
-                                              const discount = isCooperativa ? 0 : 35;
-                                              const { error } = await supabase.from('banks').insert({ name: bankName, discount_percentage: discount });
-                                              if (!error) {
-                                                alert(`Banco ${bankName} cadastrado com ${discount}% de desconto!`);
-                                                fetchData();
-                                              }
-                                            }}
-                                            className="text-[8px] bg-red-500 text-white px-2 py-0.5 rounded hover:bg-red-600 w-fit"
-                                          >
-                                            CADASTRAR AGORA
-                                          </button>
-                                        </div>
-                                      )}
-                                    </div>
-                                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                                      <p className="text-[10px] font-bold text-slate-400 uppercase">Débitos (Doc/IPVA)</p>
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-[10px] font-bold text-slate-400">R$</span>
-                                        <input 
-                                          type="number"
-                                          value={proposalOverrides.repairs['doc_debts'] !== undefined ? proposalOverrides.repairs['doc_debts'] : (selectedLead.multas || 0)}
-                                          onChange={(e) => {
-                                            const newVal = parseFloat(e.target.value);
-                                            const newOverrides = {
-                                              ...proposalOverrides,
-                                              repairs: { ...proposalOverrides.repairs, 'doc_debts': newVal }
-                                            };
-                                            setProposalOverrides(newOverrides);
-                                            setProposalCalculator(calculateProposal(selectedLead, newOverrides));
-                                          }}
-                                          className="w-full bg-transparent font-black text-slate-700 outline-none border-b border-transparent focus:border-accent"
-                                        />
-                                      </div>
-                                    </div>
-                                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                                      <p className="text-[10px] font-bold text-slate-400 uppercase">Parcelas Atrasadas</p>
-                                      <div className="mt-1 space-y-1">
-                                        <p className={`font-black ${selectedLead.parcelas_atrasadas > 0 ? 'text-red-500' : 'text-slate-700'}`}>
-                                          {selectedLead.parcelas_atrasadas || 0} parcelas
-                                        </p>
-                                        {selectedLead.parcelas_atrasadas > 0 && (
-                                          <div className="text-[9px] text-slate-500 space-y-0.5">
-                                            <p>Valor/Parc: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.valor_parcela || 0)}</p>
-                                            <p>Juros: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((selectedLead.valor_parcela * selectedLead.parcelas_atrasadas * (jurosAtraso / 100)) || 0)}</p>
-                                            <p className="font-bold text-red-600">Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((selectedLead.valor_parcela * selectedLead.parcelas_atrasadas * (1 + jurosAtraso / 100)) || 0)}</p>
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Resumo Final - Organizado */}
-                                <div className="pt-6 border-t border-slate-200 space-y-4">
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-slate-500 font-bold">Tabela FIPE</span>
-                                    <span className="font-bold text-slate-900">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.baseValue)}</span>
-                                  </div>
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-slate-500 font-bold">Valor Desejado pelo Cliente</span>
-                                    <span className="font-bold text-slate-900">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.preco_cliente || 0)}</span>
-                                  </div>
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-slate-500 font-bold">Margem de Lucro (Estimada)</span>
-                                    <span className="font-bold text-slate-900">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.profitMargin)}</span>
-                                  </div>
-                                  <div className="p-5 bg-slate-900 rounded-2xl text-white">
-                                    <p className="text-xs font-bold uppercase text-slate-400 mb-1">Valor Sugerido</p>
-                                    <p className={`text-3xl font-black ${getProposalClass(proposalCalculator.finalValue, selectedLead?.tipo_veiculo) || 'text-accent'}`}>
-                                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}
-                                    </p>
-                                  </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                  <button 
-                                    onClick={() => handleSaveProposal(false)}
-                                    className="py-4 bg-slate-100 text-slate-700 rounded-2xl font-bold hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
-                                  >
-                                    <Save className="w-5 h-5" />
-                                    Salvar Cotação
-                                  </button>
-                                  <button 
-                                    onClick={() => handleSaveProposal(true)}
-                                    className="py-4 bg-accent text-white rounded-2xl font-bold hover:bg-accent/90 transition-all flex items-center justify-center gap-2"
-                                  >
-                                    <RefreshCw className="w-5 h-5" />
-                                    Salvar e Atualizar IA
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Seção de Envio e Compradores (Agora na mesma coluna) */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-                              <h3 className="font-bold mb-4 flex items-center gap-2">
-                                <Share2 className="w-5 h-5 text-accent" />
-                                Resumo para Envio
-                              </h3>
-                              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-3 mb-6">
-                                <p><strong>Veículo:</strong> {selectedLead.marca} {selectedLead.modelo}</p>
-                                <p><strong>Ano:</strong> {selectedLead.ano_modelo}</p>
-                                <p><strong>FIPE:</strong> {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.valor_fipe || 0)}</p>
-                                <p><strong>Desejado:</strong> {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.preco_cliente || 0)}</p>
-                                <div 
-                                  className="pt-2 border-t border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors rounded-lg p-1"
-                                  onClick={() => setShowProposalDetails(true)}
-                                >
-                                  <p className="font-bold text-accent flex items-center justify-between">
-                                    <span className={getProposalClass(proposalCalculator.finalValue, selectedLead?.tipo_veiculo)}>Sugerido: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}</span>
-                                    <Info className="w-4 h-4" />
-                                  </p>
-                                </div>
-                              </div>
-                              
-                              <div className="flex flex-col gap-2">
-                                <button 
-                                  onClick={() => {
-                                    const buyers = interestedBuyers.filter(b => selectedBuyers.includes(b.id));
-                                    handleSendToWhatsApp(selectedLead, buyers);
-                                  }}
-                                  className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 shadow-lg"
-                                >
-                                  <MessageCircle className="w-5 h-5" />
-                                  WhatsApp Comprador ({selectedBuyers.length})
-                                </button>
-                                <div className="flex gap-2">
-                                  <button 
-                                    onClick={() => {
-                                      const phone = selectedLead.telefone?.replace(/\D/g, '');
-                                      const formattedPhone = phone?.startsWith('55') ? phone : `55${phone}`;
-                                      const encodedMessage = generateOwnerMessage(selectedLead, proposalCalculator);
-                                      window.open(`https://wa.me/${formattedPhone}?text=${encodedMessage}`, '_blank');
-                                    }}
-                                    className="flex-1 py-4 bg-emerald-500 text-white rounded-2xl font-bold hover:bg-emerald-600 transition-all flex items-center justify-center gap-2 shadow-md"
-                                  >
-                                    <Phone className="w-5 h-5" />
-                                    WhatsApp Proposta
-                                  </button>
-                                  <button 
-                                    onClick={handleSendProposalViaChat}
-                                    className="px-6 py-4 bg-accent text-white rounded-2xl font-bold hover:bg-accent/90 transition-all flex items-center justify-center gap-2 shadow-md"
-                                    title="Enviar Proposta via Chat do Site"
-                                  >
-                                    <Send className="w-5 h-5" />
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-
-                          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-                            <h3 className="font-bold mb-4 flex items-center gap-2">
-                              <Users className="w-5 h-5 text-accent" />
-                              Selecionar Compradores
-                            </h3>
-                            <div className="max-h-80 overflow-y-auto pr-2">
-                              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                                {interestedBuyers.map(buyer => (
-                                  <label key={buyer.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors border border-slate-100">
-                                    <input 
-                                      type="checkbox" 
-                                      checked={selectedBuyers.includes(buyer.id)}
-                                      onChange={(e) => {
-                                        if (e.target.checked) setSelectedBuyers([...selectedBuyers, buyer.id]);
-                                        else setSelectedBuyers(selectedBuyers.filter(id => id !== buyer.id));
-                                      }}
-                                      className="w-4 h-4 rounded border-slate-300 text-accent focus:ring-accent"
-                                    />
-                                    <div className="flex-grow">
-                                      <p className="text-[11px] font-bold leading-tight">{buyer.name}</p>
-                                      <p className="text-[9px] text-slate-400">{buyer.category}</p>
-                                    </div>
-                                    {sentLeads.some(s => s.lead_id === selectedLead.id && s.buyer_id === buyer.id) && (
-                                      <div className="w-2 h-2 rounded-full bg-red-500" title="Já enviado" />
-                                    )}
-                                  </label>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  </div>
-                  </div>
-                )}
                 <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm relative overflow-hidden">
                   {leadsViewMode === 'grid' ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
@@ -5599,6 +4893,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 handleLearnFromChat={handleLearnFromChat}
                 setShowProposalModal={setShowProposalModal}
                 setShowVehicleSelectionModal={setShowVehicleSelectionModal}
+                setSelectionMode={setSelectionMode}
+                onCloneLead={handleCloneVehicle}
                 setSelectedLead={setSelectedLead}
                 messageTab={messageTab}
                 setMessageTab={setMessageTab}
@@ -6716,25 +6012,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
             </div>
           </div>
         )}
-       </motion.div>
-       {selectedLead && (
-        <LeadDetailsCard 
-          lead={selectedLead} 
-          onClose={() => {
-            setSelectedLead(null);
-            setShowWhatsAppBuyerModal(false);
-          }} 
-          forceShowWhatsAppBuyerModal={showWhatsAppBuyerModal}
-          banks={banks}
-          cooperativeDiscount={cooperativeDiscount}
-          userRole={userProfile?.role}
-          onSave={handleSaveLead}
-          onDelete={handleDeleteLead}
-          onRefresh={fetchData}
-          fipeRules={fipeRules}
-          jurosAtraso={jurosAtraso}
-        />
-      )}
+      </motion.div>
     </main>
 
         {/* Modal de WhatsApp */}
@@ -7018,11 +6296,17 @@ Podemos prosseguir com o agendamento da vistoria?`;
       {showVehicleSelectionModal && (
         <VehicleSelectionModal
           onClose={() => setShowVehicleSelectionModal(false)}
-          leads={leads.filter(l => l.status !== 'fechado')}
+          title={selectionMode === 'clone' ? "Selecione o Veículo para Clonar" : "Selecione o Veículo para Proposta"}
+          leads={leads.filter(l => selectedConversation?.lead_ids?.includes(l.id))}
           onSelect={(lead) => {
-            setSelectedLead(lead);
-            setShowVehicleSelectionModal(false);
-            setShowProposalModal(true);
+            if (selectionMode === 'clone') {
+              handleCloneVehicle(lead);
+            } else {
+              setSelectedLead(lead);
+              setShowVehicleSelectionModal(false);
+              setProposalCalculator(calculateProposal(lead));
+              setShowProposalModal(true);
+            }
           }}
         />
       )}
@@ -7297,6 +6581,25 @@ Podemos prosseguir com o agendamento da vistoria?`;
           </div>
         )}
       </AnimatePresence>
+
+      {selectedLead && (
+        <LeadDetailsCard 
+          lead={selectedLead} 
+          onClose={() => {
+            setSelectedLead(null);
+            setShowWhatsAppBuyerModal(false);
+          }} 
+          forceShowWhatsAppBuyerModal={showWhatsAppBuyerModal}
+          banks={banks}
+          cooperativeDiscount={cooperativeDiscount}
+          userRole={userProfile?.role}
+          onSave={handleSaveLead}
+          onDelete={handleDeleteLead}
+          onRefresh={fetchData}
+          fipeRules={fipeRules}
+          jurosAtraso={jurosAtraso}
+        />
+      )}
     </div>
   );
 }

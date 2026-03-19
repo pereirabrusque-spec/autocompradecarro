@@ -16,6 +16,10 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
   const [loading, setLoading] = useState(false);
   const [config, setConfig] = useState<any>({ fipeRules: [], jurosAtraso: 0, banks: [], cooperativeDiscount: 0 });
   const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
+  
+  useEffect(() => {
+    console.log('[ChatActionModal] Estado de vehicles atualizado:', vehicles.length, vehicles);
+  }, [vehicles]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -84,7 +88,7 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
           console.error('Erro ao buscar veículos:', error);
           alert('Erro ao buscar veículos: ' + error.message);
         } else if (data) {
-          console.log('Veículos carregados (brutos):', data);
+          console.log('Veículos carregados (brutos):', data.length, data);
           
           // Como a tabela 'leads' não existe ou não é a fonte correta,
           // vamos confiar nos dados que já vieram de 'leads_veiculos'
@@ -96,11 +100,12 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
             ano_fabricacao: v.ano_fabricacao || 'N/A'
           }));
 
-          console.log('Veículos carregados (processados):', enrichedData);
+          console.log('Veículos carregados (processados):', enrichedData.length, enrichedData);
           setVehicles(enrichedData);
           
           // Se houver apenas um veículo, seleciona automaticamente
           if (enrichedData.length === 1) {
+            console.log('Selecionando veículo único automaticamente:', enrichedData[0]);
             setSelectedVehicle(enrichedData[0]);
           }
         }

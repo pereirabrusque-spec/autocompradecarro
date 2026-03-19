@@ -26,11 +26,44 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead, onOpenLead
   }, []);
 
   const fetchLeadData = async () => {
-      const { data, error } = await supabase
+      if (!conversationId) return;
+      
+      console.log('[AdminSalesChat] Buscando leads para:', conversationId);
+      
+      // 1. Try by user_id
+      let { data, error } = await supabase
         .from('leads_veiculos')
         .select('*')
         .eq('user_id', conversationId);
+      
+      // 2. Try by id (lead_id) if no data
+      if (!data || data.length === 0) {
+        const { data: dataById } = await supabase
+          .from('leads_veiculos')
+          .select('*')
+          .eq('id', conversationId);
+        if (dataById && dataById.length > 0) data = dataById;
+      }
+
+      // 3. Try by email if still no data
+      if (!data || data.length === 0) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('id', conversationId)
+          .single();
+        
+        if (profile?.email) {
+          const { data: dataByEmail } = await supabase
+            .from('leads_veiculos')
+            .select('*')
+            .eq('email', profile.email);
+          if (dataByEmail && dataByEmail.length > 0) data = dataByEmail;
+        }
+      }
+
       if (data) {
+        console.log('[AdminSalesChat] Leads encontrados:', data.length);
         setLeads(data);
         if (data.length > 0) setLeadData(data[0]);
       }
@@ -157,6 +190,10 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead, onOpenLead
   }, [isAiMode]);
 
   useEffect(() => {
+    console.log('[AdminSalesChat] Estado de leads atualizado:', leads.length, leads);
+  }, [leads]);
+
+  useEffect(() => {
     if (!conversationId || !currentUserId) return;
     
     fetchMessages();
@@ -281,9 +318,25 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead, onOpenLead
           <button 
             type="button"
             onClick={() => {
+              console.log('[AdminSalesChat] Botão Ver Proposta clicado. Leads:', leads.length);
               if (leads.length === 1 && onOpenLead) {
-                onOpenLead(leads[0]);
+                const v = leads[0];
+                const vehicleWithMedia = {
+                  ...v,
+                  marca: v.marca || (v.veiculo ? v.veiculo.split(' ')[0] : 'N/A'),
+                  modelo: v.modelo || (v.veiculo ? v.veiculo.split(' ').slice(1).join(' ') : 'N/A'),
+                  ano_fabricacao: v.ano_fabricacao || v.ano_modelo || 'N/A',
+                  ano_modelo: v.ano_modelo || 'N/A',
+                  cor: v.cor || 'N/A',
+                  valor_fipe: v.valor_fipe || 0,
+                  preco_cliente: v.preco_cliente || 0,
+                  fotos: v.fotos_url || (Array.isArray(v.fotos) ? v.fotos : (v.fotos ? [v.fotos] : [])),
+                  videos: Array.isArray(v.videos) ? v.videos : (v.videos ? [v.videos] : [])
+                };
+                console.log('[AdminSalesChat] Abrindo lead único:', vehicleWithMedia);
+                onOpenLead(vehicleWithMedia);
               } else {
+                console.log('[AdminSalesChat] Abrindo modal de proposta (múltiplos ou nenhum lead)');
                 setShowProposalModal(true);
               }
             }}
