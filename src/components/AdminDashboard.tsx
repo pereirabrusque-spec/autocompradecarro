@@ -3125,6 +3125,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     </div>
                     <div className="h-64 min-h-[256px] flex items-end gap-4">
                       {(() => {
+                        console.log("[AdminDashboard] Leads para gráfico:", leads);
                         const channels = [
                           { id: 'chat', label: 'Chat', color: 'bg-blue-500' },
                           { id: 'formulario', label: 'Formulário', color: 'bg-emerald-500' },
@@ -3139,6 +3140,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                           }
                           return leads.filter(l => l.origem === c.id).length;
                         });
+                        
+                        console.log("[AdminDashboard] Contagens por canal:", channelCounts);
                         
                         const maxCount = Math.max(...channelCounts, 1); // Avoid division by zero
                         
