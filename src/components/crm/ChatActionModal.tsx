@@ -85,22 +85,24 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
         } else if (data) {
           console.log('Veículos carregados (brutos):', data);
           
-          // Tentar enriquecer os dados buscando na tabela 'leads' se necessário
+          // Tentar enriquecer os dados buscando na tabela 'leads' usando o vehicle_code ou id
           const enrichedData = await Promise.all(data.map(async (v) => {
-            if (!v.marca || !v.modelo) {
-              console.log(`Buscando detalhes extras para veículo ${v.id} ou código ${v.vehicle_code}`);
-              const { data: leadData } = await supabase
-                .from('leads')
-                .select('*')
-                .or(`id.eq.${v.id},vehicle_code.eq.${v.vehicle_code || ''}`)
-                .maybeSingle();
-              
-              if (leadData) {
-                console.log(`Detalhes extras encontrados para ${v.id}:`, leadData);
-                return { ...v, ...leadData };
-              }
+            console.log(`Buscando detalhes completos para veículo ${v.id} ou código ${v.vehicle_code}`);
+            
+            // Busca na tabela 'leads'
+            const { data: leadData, error: leadError } = await supabase
+              .from('leads')
+              .select('*')
+              .or(`id.eq.${v.id},vehicle_code.eq.${v.vehicle_code || ''}`)
+              .maybeSingle();
+            
+            if (leadData) {
+              console.log(`Detalhes completos encontrados para ${v.id}:`, leadData);
+              return { ...v, ...leadData };
+            } else {
+              console.warn(`Nenhum detalhe completo encontrado na tabela 'leads' para ${v.id}. Usando dados brutos. Erro:`, leadError);
+              return v;
             }
-            return v;
           }));
 
           console.log('Veículos carregados (enriquecidos):', enrichedData);
