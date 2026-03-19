@@ -83,11 +83,31 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
           console.error('Erro ao buscar veículos:', error);
           alert('Erro ao buscar veículos: ' + error.message);
         } else if (data) {
-          console.log('Veículos carregados:', data);
-          setVehicles(data);
+          console.log('Veículos carregados (brutos):', data);
+          
+          // Tentar enriquecer os dados buscando na tabela 'leads' se necessário
+          const enrichedData = await Promise.all(data.map(async (v) => {
+            if (!v.marca || !v.modelo) {
+              console.log(`Buscando detalhes extras para veículo ${v.id} ou código ${v.vehicle_code}`);
+              const { data: leadData } = await supabase
+                .from('leads')
+                .select('*')
+                .or(`id.eq.${v.id},vehicle_code.eq.${v.vehicle_code || ''}`)
+                .maybeSingle();
+              
+              if (leadData) {
+                console.log(`Detalhes extras encontrados para ${v.id}:`, leadData);
+                return { ...v, ...leadData };
+              }
+            }
+            return v;
+          }));
+
+          console.log('Veículos carregados (enriquecidos):', enrichedData);
+          setVehicles(enrichedData);
           // Se houver apenas um veículo, seleciona automaticamente
-          if (data.length === 1) {
-            setSelectedVehicle(data[0]);
+          if (enrichedData.length === 1) {
+            setSelectedVehicle(enrichedData[0]);
           }
         }
       }
