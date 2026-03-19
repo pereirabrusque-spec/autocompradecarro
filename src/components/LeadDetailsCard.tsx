@@ -65,8 +65,12 @@ export default function LeadDetailsCard({
             'fotos', 'videos', 'problemas', 'selected_items', 'avarias', 
             'avarias_manuais', 'fotos_url', 'detalhes_proposta', 'metadata'
           ];
+          const displayFields = ['marca', 'modelo', 'ano_modelo', 'cor', 'placa', 'quilometragem'];
+          
           if (complexFields.includes(key)) {
             sanitizedLead[key] = null;
+          } else if (displayFields.includes(key)) {
+            sanitizedLead[key] = val || null;
           } else {
             sanitizedLead[key] = '';
           }
