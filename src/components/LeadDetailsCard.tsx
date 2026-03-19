@@ -49,41 +49,22 @@ export default function LeadDetailsCard({
 
   React.useEffect(() => {
     if (lead) {
-      const sanitizedLead = { ...lead };
+      console.log("LeadDetailsCard - Raw lead data:", JSON.stringify(lead, null, 2));
       
-      // Sanitiza os valores do formulário
-      Object.keys(sanitizedLead).forEach(key => {
-        const val = sanitizedLead[key];
-        
-        if (checkboxFields.includes(key)) {
-          // Converte 'sim' para 'true' (ou 'true' para 'true'), e qualquer outra coisa para 'false'
-          sanitizedLead[key] = (val === 'sim' || val === 'true' || val === true) ? 'true' : 'false';
-        } else if (val === null || val === undefined || val === 'null' || val === 'undefined') {
-          // Não converte para string vazia se for um campo que deve ser array/json ou se for nulo de verdade
-          // Colunas de array/json no Supabase não aceitam "" (string vazia), devem ser null ou o tipo correto
-          const complexFields = [
-            'fotos', 'videos', 'problemas', 'selected_items', 'avarias', 
-            'avarias_manuais', 'fotos_url', 'detalhes_proposta', 'metadata'
-          ];
-          const displayFields = ['marca', 'modelo', 'ano_modelo', 'ano_fabricacao', 'cor', 'placa', 'quilometragem'];
-          
-          if (complexFields.includes(key)) {
-            sanitizedLead[key] = null;
-          } else if (displayFields.includes(key)) {
-            sanitizedLead[key] = val || null;
-          } else {
-            sanitizedLead[key] = '';
-          }
+      const fetchFullLead = async () => {
+        const { data, error } = await supabase
+          .from('leads_veiculos')
+          .select('*')
+          .eq('id', lead.id)
+          .single();
+        if (data) {
+          console.log("LeadDetailsCard - Full lead data from DB:", data);
+          setCurrentLead(data);
+        } else {
+          setCurrentLead(lead);
         }
-      });
-
-      // Define data_negociacao com created_at se estiver vazio
-      if (!sanitizedLead.data_negociacao && sanitizedLead.created_at) {
-        sanitizedLead.data_negociacao = sanitizedLead.created_at;
-      }
-      
-      console.log("Lead sanitizado no LeadDetailsCard:", sanitizedLead);
-      setCurrentLead(sanitizedLead);
+      };
+      fetchFullLead();
     } else {
       setCurrentLead({});
     }
@@ -96,6 +77,9 @@ export default function LeadDetailsCard({
 
   const mediaItems = [
     ...(currentLead.fotos || []),
+    ...(currentLead.foto1 ? [currentLead.foto1] : []),
+    ...(currentLead.foto2 ? [currentLead.foto2] : []),
+    ...(currentLead.foto3 ? [currentLead.foto3] : []),
     ...(currentLead.videos || [])
   ];
 

@@ -171,7 +171,12 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
                             console.log('Vehicle clicked:', v);
                             const vehicleWithMedia = {
                               ...v,
-                              fotos: Array.isArray(v.fotos) ? v.fotos : (v.fotos ? [v.fotos] : []),
+                              fotos: [
+                                ...(Array.isArray(v.fotos) ? v.fotos : (v.fotos ? [v.fotos] : [])),
+                                ...(v.foto1 ? [v.foto1] : []),
+                                ...(v.foto2 ? [v.foto2] : []),
+                                ...(v.foto3 ? [v.foto3] : [])
+                              ],
                               videos: Array.isArray(v.videos) ? v.videos : (v.videos ? [v.videos] : [])
                             };
                             console.log('Vehicle selected and sanitized:', vehicleWithMedia);
