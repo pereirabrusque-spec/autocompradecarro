@@ -3964,27 +3964,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   </div>
                 </div>
 
-                {selectedLead && (
-                  <LeadDetailsCard 
-                    lead={(() => {
-                      console.log("Passando lead para LeadDetailsCard:", selectedLead);
-                      return selectedLead;
-                    })()} 
-                    onClose={() => {
-                      setSelectedLead(null);
-                      setShowWhatsAppBuyerModal(false);
-                    }} 
-                    forceShowWhatsAppBuyerModal={showWhatsAppBuyerModal}
-                    banks={banks}
-                    cooperativeDiscount={cooperativeDiscount}
-                    userRole={userProfile?.role}
-                    onSave={handleSaveLead}
-                    onDelete={handleDeleteLead}
-                    onRefresh={fetchData}
-                    fipeRules={fipeRules}
-                    jurosAtraso={jurosAtraso}
-                  />
-                )}
+                {/* LeadDetailsCard moved to global position before </main> */}
                 {false && selectedLead && (
                   <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setSelectedLead(null)}>
                     <div 
@@ -6737,7 +6717,25 @@ Podemos prosseguir com o agendamento da vistoria?`;
           </div>
         )}
        </motion.div>
-     </main>
+       {selectedLead && (
+        <LeadDetailsCard 
+          lead={selectedLead} 
+          onClose={() => {
+            setSelectedLead(null);
+            setShowWhatsAppBuyerModal(false);
+          }} 
+          forceShowWhatsAppBuyerModal={showWhatsAppBuyerModal}
+          banks={banks}
+          cooperativeDiscount={cooperativeDiscount}
+          userRole={userProfile?.role}
+          onSave={handleSaveLead}
+          onDelete={handleDeleteLead}
+          onRefresh={fetchData}
+          fipeRules={fipeRules}
+          jurosAtraso={jurosAtraso}
+        />
+      )}
+    </main>
 
         {/* Modal de WhatsApp */}
         {showWhatsAppModal && leadToWhatsApp && (
