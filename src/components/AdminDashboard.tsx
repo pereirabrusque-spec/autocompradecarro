@@ -5571,10 +5571,10 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       Testar Todas as APIs
                     </button>
                   </div>
-                  <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-h-[600px] overflow-y-auto pr-2">
                     {apiKeys.length > 0 ? (
                       apiKeys.map(key => (
-                        <div key={key.id} className={`p-5 rounded-[24px] border transition-all ${
+                        <div key={key.id} className={`p-5 rounded-[24px] border transition-all h-full ${
                           key.id === activeKeyId 
                             ? 'bg-emerald-50 border-emerald-200 shadow-sm ring-1 ring-emerald-100' 
                             : 'bg-slate-50 border-slate-200'
