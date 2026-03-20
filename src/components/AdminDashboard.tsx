@@ -2747,7 +2747,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
   const handleSeedCards = async () => {
     if (!confirm('Isso irá restaurar os cards padrão. Deseja continuar?')) return;
-    setSeedingCards(true);
     try {
       // Check if cards exist
       const { data: existing } = await supabase.from('banners').select('id').ilike('tipo', 'card_%');
@@ -2770,8 +2769,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
     } catch (error) {
       console.error('Error seeding cards:', error);
       alert('Erro ao restaurar cards.');
-    } finally {
-      setSeedingCards(false);
     }
   };
 
