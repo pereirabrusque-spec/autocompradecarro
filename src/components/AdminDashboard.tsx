@@ -4065,7 +4065,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 </div>
 
                 {/* LeadDetailsCard moved to global position before </main> */}
-                <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm relative overflow-hidden">
+                <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm relative overflow-hidden flex-grow h-full">
                   {leadsViewMode === 'grid' ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
                       {leads
@@ -5287,7 +5287,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
             <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm w-full">
               <h2 className="text-2xl font-bold mb-6">Gerenciamento de APIs & Chaves</h2>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 w-full">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-8 w-full">
                 <div className="space-y-6">
                   <div className="flex justify-between items-center">
                     <h3 className="text-lg font-bold">Configuração de APIs</h3>
