@@ -5304,31 +5304,11 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 </button>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
-                <div className="space-y-6">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-bold">Configuração de APIs</h3>
-                    <button 
-                      onClick={() => {
-                        setShowApiKeyForm(!showApiKeyForm);
-                        if (!showApiKeyForm) {
-                          setEditingApiKey(null);
-                          setNewApiKey('');
-                          setNewApiModel('gemini-1.5-flash');
-                          setNewApiProvider('gemini');
-                        }
-                      }}
-                      className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-accent transition-all"
-                    >
-                      <Plus className="w-4 h-4" />
-                      {showApiKeyForm ? 'Fechar Formulário' : 'Nova Chave'}
-                    </button>
-                  </div>
-                  
-                  {showApiKeyForm && (
-                    <div className="p-6 bg-white border border-slate-200 rounded-[32px] shadow-sm space-y-6">
-                      <h3 className="text-lg font-bold">{editingApiKey ? 'Editar Chave' : 'Adicionar Nova Chave'}</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-8">
+                {showApiKeyForm && (
+                  <div className="p-6 bg-white border border-slate-200 rounded-3xl shadow-sm space-y-6">
+                    <h3 className="text-lg font-bold">{editingApiKey ? 'Editar Chave' : 'Adicionar Nova Chave'}</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <label className="text-sm font-bold text-slate-700">Provedor</label>
                           <select 
@@ -5365,6 +5345,219 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
                                 <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash</option>
                               </optgroup>
+                              <optgroup label="OpenAI">
+                                <option value="gpt-4o-mini">GPT-4o Mini</option>
+                                <option value="gpt-4o">GPT-4o</option>
+                                <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                              </optgroup>
+                              <optgroup label="xAI Grok">
+                                <option value="grok-beta">Grok Beta</option>
+                                <option value="grok-2">Grok 2</option>
+                              </optgroup>
+                              <optgroup label="Outros">
+                                <option value="custom">Outro (Digitar abaixo)</option>
+                              </optgroup>
+                            </select>
+                          </div>
+                          {newApiModel === 'custom' && (
+                            <input 
+                              type="text"
+                              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none mt-2"
+                              placeholder="Digite o nome do modelo (ex: claude-3-opus)"
+                              onChange={e => setNewApiModel(e.target.value)}
+                            />
+                          )}
+                        </div>
+                        <div className="space-y-2 md:col-span-2">
+                          <label className="text-sm font-bold text-slate-700">Chave da API</label>
+                          <input 
+                            type="password"
+                            className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                            placeholder="sk-..."
+                            value={newApiKey}
+                            onChange={e => setNewApiKey(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-3">
+                        <button 
+                          onClick={async () => {
+                            if (!newApiKey.trim()) {
+                              alert('Por favor, insira a chave da API.');
+                              return;
+                            }
+                            
+                            setIsSavingKey(true);
+                            try {
+                              const providerToSave = newApiProvider || 'unknown';
+                              const modelToSave = newApiModel || 'unknown';
+
+                              if (editingApiKey) {
+                                const { error } = await supabase
+                                  .from('api_keys')
+                                  .update({ 
+                                    provider: providerToSave, 
+                                    key: newApiKey.trim(),
+                                    service: modelToSave,
+                                    status: 'ok'
+                                  })
+                                  .eq('id', editingApiKey);
+                                if (error) throw error;
+                                setEditingApiKey(null);
+                                setShowApiKeyForm(false);
+                              } else {
+                                const { error } = await supabase
+                                  .from('api_keys')
+                                  .insert([{ 
+                                    provider: providerToSave, 
+                                    key: newApiKey.trim(),
+                                    service: modelToSave,
+                                    status: 'ok'
+                                  }]);
+                                
+                                if (error) {
+                                  const { error: retryError } = await supabase
+                                    .from('api_keys')
+                                    .insert([{ 
+                                      provider: providerToSave, 
+                                      key: newApiKey.trim(),
+                                      service: modelToSave
+                                    }]);
+                                  if (retryError) throw retryError;
+                                }
+                                setShowApiKeyForm(false);
+                              }
+
+                              setNewApiKey('');
+                              fetchData();
+                              alert(editingApiKey ? 'Chave atualizada!' : 'Chave adicionada com sucesso!');
+                            } catch (err: any) {
+                              console.error('Erro ao salvar chave:', err);
+                              alert('Erro ao salvar: ' + (err.message || 'Erro desconhecido'));
+                            } finally {
+                              setIsSavingKey(false);
+                            }
+                          }}
+                          className="px-6 py-3 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-all"
+                        >
+                          {isSavingKey ? 'Salvando...' : (editingApiKey ? 'Atualizar Chave' : 'Salvar Chave')}
+                        </button>
+                        <button 
+                          onClick={() => setShowApiKeyForm(false)}
+                          className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-200 transition-all"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                  </div>
+                )}
+
+                <div className="space-y-6">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-bold">Chaves Ativas</h3>
+                    <button 
+                      onClick={async () => {
+                        setIsLoading(true);
+                        try {
+                          await AIService.testConnections();
+                          await fetchData();
+                          alert('Teste de todas as APIs concluído!');
+                        } catch (err) {
+                          console.error('Error testing all APIs:', err);
+                          alert('Erro ao testar APIs.');
+                        } finally {
+                          setIsLoading(false);
+                        }
+                      }}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition-all"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      Testar Todas as APIs
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full">
+                    {apiKeys.length > 0 ? (
+                      apiKeys.map(key => (
+                        <div key={key.id} className={`p-6 rounded-2xl border transition-all h-full ${
+                          key.id === activeKeyId 
+                            ? 'bg-white border-emerald-500 shadow-sm ring-1 ring-emerald-500' 
+                            : 'bg-white border-slate-200 hover:border-slate-300'
+                        } flex flex-col gap-4`}>
+                          <div className="flex justify-between items-start">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-black uppercase tracking-widest text-slate-400">{key.provider}</span>
+                                <div className={`w-2 h-2 rounded-full ${
+                                  key.status === 'ok' ? 'bg-emerald-500' : 
+                                  key.status === 'no_credit' ? 'bg-amber-500' : 'bg-red-500'
+                                }`} />
+                                {key.id === activeKeyId && (
+                                  <span className="bg-emerald-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md animate-pulse">CONECTADA</span>
+                                )}
+                              </div>
+                              <h4 className="font-bold text-slate-900">{key.service || 'Modelo não selecionado'}</h4>
+                            </div>
+                            <div className="flex gap-2">
+                              <button 
+                                onClick={async () => {
+                                  const { error } = await supabase
+                                    .from('api_keys')
+                                    .update({ status: 'ok' })
+                                    .eq('id', key.id);
+                                  if (error) alert('Erro ao testar API.');
+                                  else fetchData();
+                                }}
+                                className="p-2 text-slate-400 hover:text-emerald-600 transition-colors"
+                              >
+                                <RefreshCw className="w-4 h-4" />
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  setEditingApiKey(key.id);
+                                  setNewApiKey(key.key);
+                                  setNewApiModel(key.service);
+                                  setNewApiProvider(key.provider);
+                                  setShowApiKeyForm(true);
+                                }}
+                                className="p-2 text-slate-400 hover:text-blue-600 transition-colors"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button 
+                                onClick={async () => {
+                                  if (!confirm('Tem certeza que deseja excluir esta chave?')) return;
+                                  const { error } = await supabase
+                                    .from('api_keys')
+                                    .delete()
+                                    .eq('id', key.id);
+                                  if (error) alert('Erro ao excluir.');
+                                  else fetchData();
+                                }}
+                                className="p-2 text-slate-400 hover:text-red-600 transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                          
+                          <div className="bg-slate-50 p-3 rounded-xl font-mono text-[10px] text-slate-500 break-all">
+                            {key.key.substring(0, 10)}...{key.key.substring(key.key.length - 4)}
+                          </div>
+
+                          <div className="flex justify-between items-center text-[10px] text-slate-400 pt-2 border-t border-slate-100">
+                            <span>Último uso: {key.last_used ? new Date(key.last_used).toLocaleString() : 'Nunca'}</span>
+                            <span>Erros: {key.error_count || 0}</span>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 col-span-full">
+                        <p className="text-slate-400 text-sm">Nenhuma chave configurada.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
                               <optgroup label="OpenAI">
                                 <option value="gpt-4o-mini">GPT-4o Mini</option>
                                 <option value="gpt-4o">GPT-4o</option>
