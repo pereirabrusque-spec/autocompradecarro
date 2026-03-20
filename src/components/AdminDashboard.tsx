@@ -5558,29 +5558,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   </div>
                 </div>
               </div>
-                              <optgroup label="OpenAI">
-                                <option value="gpt-4o-mini">GPT-4o Mini</option>
-                                <option value="gpt-4o">GPT-4o</option>
-                                <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                              </optgroup>
-                              <optgroup label="xAI Grok">
-                                <option value="grok-beta">Grok Beta</option>
-                                <option value="grok-2">Grok 2</option>
-                              </optgroup>
-                              <optgroup label="Outros">
-                                <option value="custom">Outro (Digitar abaixo)</option>
-                              </optgroup>
-                            </select>
-                          </div>
-                          {newApiModel === 'custom' && (
-                            <input 
-                              type="text"
-                              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none mt-2"
-                              placeholder="Digite o nome do modelo (ex: claude-3-opus)"
-                              onChange={e => setNewApiModel(e.target.value)}
-                            />
-                          )}
-                        </div>
                         <div className="space-y-2 md:col-span-2">
                           <label className="text-sm font-bold text-slate-700">Chave da API</label>
                           <input 
