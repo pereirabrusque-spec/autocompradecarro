@@ -3952,7 +3952,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
               </div>
             )}
             {activeTab === 'leads' && (
-              <div className="grid grid-cols-1 gap-6">
+              <div className="grid grid-cols-1 gap-6 pb-16">
                 <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
                   {/* Abas de Status dos Leads */}
                   <div className="flex items-center gap-4 w-full md:w-auto">
