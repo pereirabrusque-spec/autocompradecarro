@@ -4013,31 +4013,31 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     </div>
                   </div>
 
+                  <div className="flex items-center gap-2 mb-4">
+                    <button 
+                      onClick={handleCleanupDuplicates}
+                      disabled={isCleaningDuplicates}
+                      className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-xl font-bold hover:bg-amber-600 transition-colors text-sm disabled:opacity-50"
+                      title="Limpar leads duplicados sem formulário"
+                    >
+                      {isCleaningDuplicates ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-4 h-4" />
+                      )}
+                      <span className="hidden sm:inline">Limpar Duplicados</span>
+                    </button>
+
+                    <button 
+                      onClick={fetchData}
+                      className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-colors text-sm"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                      Atualizar
+                    </button>
+                  </div>
+
                   <div className="flex flex-col gap-4">
-                    <div className="flex items-center gap-2">
-                      <button 
-                        onClick={handleCleanupDuplicates}
-                        disabled={isCleaningDuplicates}
-                        className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-xl font-bold hover:bg-amber-600 transition-colors text-sm disabled:opacity-50"
-                        title="Limpar leads duplicados sem formulário"
-                      >
-                        {isCleaningDuplicates ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <RefreshCw className="w-4 h-4" />
-                        )}
-                        <span className="hidden sm:inline">Limpar Duplicados</span>
-                      </button>
-
-                      <button 
-                        onClick={fetchData}
-                        className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-colors text-sm"
-                      >
-                        <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                        Atualizar
-                      </button>
-                    </div>
-
                     <div className="flex flex-col md:flex-row items-center gap-4 w-full">
                       <div className="relative flex-grow md:w-96">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -4073,7 +4073,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 </div>
 
                 {/* LeadDetailsCard moved to global position before </main> */}
-                <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm relative overflow-y-auto max-h-[calc(100vh - 50px)] no-scrollbar">
+                <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm relative">
                   {leadsViewMode === 'grid' ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
                       {leads
@@ -6011,53 +6011,55 @@ Podemos prosseguir com o agendamento da vistoria?`;
             </div>
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              {dbAssets.filter(a => a.tipo.startsWith('partner_')).map((asset) => (
-                <motion.div
-                  key={asset.id}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden flex flex-col"
-                >
-                  <div className="relative h-32 bg-slate-100 group p-4 flex items-center justify-center">
-                    <img 
-                      src={asset.url} 
-                      alt={asset.legenda} 
-                      className="max-w-full max-h-full object-contain"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-[32px]">
-                      <label className="cursor-pointer p-2 bg-white text-slate-900 rounded-full hover:bg-slate-100 transition-colors">
-                        <Upload className="w-4 h-4" />
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          className="hidden" 
-                          onChange={(e) => handleFileUpload(e, asset.id)}
-                          disabled={uploadingAsset === asset.id}
-                        />
-                      </label>
+              {dbAssets.filter(a => a.tipo.startsWith('partner_')).map((asset) => {
+                return (
+                  <motion.div
+                    key={asset.id}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden flex flex-col"
+                  >
+                    <div className="relative h-32 bg-slate-100 group p-4 flex items-center justify-center">
+                      <img 
+                        src={asset.url} 
+                        alt={asset.legenda} 
+                        className="max-w-full max-h-full object-contain"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-[32px]">
+                        <label className="cursor-pointer p-2 bg-white text-slate-900 rounded-full hover:bg-slate-100 transition-colors">
+                          <Upload className="w-4 h-4" />
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            className="hidden" 
+                            onChange={(e) => handleFileUpload(e, asset.id)}
+                            disabled={uploadingAsset === asset.id}
+                          />
+                        </label>
+                      </div>
+                      <button 
+                        onClick={() => handleDeleteAsset(asset.id)}
+                        className="absolute top-2 right-2 p-1 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
                     </div>
-                    <button 
-                      onClick={() => handleDeleteAsset(asset.id)}
-                      className="absolute top-2 right-2 p-1 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </div>
-                  <div className="p-4 flex flex-col gap-2 flex-1">
-                    <input 
-                      className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none"
-                      value={asset.legenda}
-                      placeholder="Nome do Parceiro"
-                      onChange={(e) => setDbAssets(prev => prev.map(a => a.id === asset.id ? { ...a, legenda: e.target.value } : a))}
-                    />
-                  </div>
-                </motion.div>
-              ))}
+                    <div className="p-4 flex flex-col gap-2 flex-1">
+                      <input 
+                        className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none"
+                        value={asset.legenda}
+                        placeholder="Nome do Parceiro"
+                        onChange={(e) => setDbAssets(prev => prev.map(a => a.id === asset.id ? { ...a, legenda: e.target.value } : a))}
+                      />
+                    </div>
+                  </motion.div>
+                );
+              })}
             </div>
           </div>
         </div>
-      )}
+      
     </motion.div>
   </main>
 
