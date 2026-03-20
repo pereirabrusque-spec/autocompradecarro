@@ -5284,10 +5284,27 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
         {activeTab === 'apis' && (
           <div className="space-y-8">
-            <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm w-full">
-              <h2 className="text-2xl font-bold mb-6">Gerenciamento de APIs & Chaves</h2>
+            <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm w-full">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold tracking-tight">Gerenciamento de APIs & Chaves</h2>
+                <button 
+                  onClick={() => {
+                    setShowApiKeyForm(!showApiKeyForm);
+                    if (!showApiKeyForm) {
+                      setEditingApiKey(null);
+                      setNewApiKey('');
+                      setNewApiModel('gemini-1.5-flash');
+                      setNewApiProvider('gemini');
+                    }
+                  }}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-all"
+                >
+                  <Plus className="w-4 h-4" />
+                  {showApiKeyForm ? 'Fechar Formulário' : 'Nova Chave'}
+                </button>
+              </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
                 <div className="space-y-6">
                   <div className="flex justify-between items-center">
                     <h3 className="text-lg font-bold">Configuração de APIs</h3>
@@ -5574,10 +5591,10 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-h-[600px] overflow-y-auto pr-2">
                     {apiKeys.length > 0 ? (
                       apiKeys.map(key => (
-                        <div key={key.id} className={`p-5 rounded-[24px] border transition-all h-full ${
+                        <div key={key.id} className={`p-6 rounded-2xl border transition-all h-full ${
                           key.id === activeKeyId 
-                            ? 'bg-emerald-50 border-emerald-200 shadow-sm ring-1 ring-emerald-100' 
-                            : 'bg-slate-50 border-slate-200'
+                            ? 'bg-white border-emerald-500 shadow-sm ring-1 ring-emerald-500' 
+                            : 'bg-white border-slate-200 hover:border-slate-300'
                         } flex flex-col gap-4`}>
                           <div className="flex justify-between items-start">
                             <div className="space-y-1">
