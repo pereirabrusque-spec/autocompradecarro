@@ -6149,7 +6149,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 </button>
               </div>
 
-              <div className="space-y-4 max-h-[60vh] overflow-y-auto mb-6 pr-2">
+              <div className="space-y-4 max-h-[80vh] overflow-y-auto mb-6 pr-2">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {leads.map(lead => {
                     const isAuthorized = buyerAuthorizations.some(a => a.buyer_id === buyerToAuth.id && a.lead_id === lead.id);
