@@ -2787,9 +2787,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
     : null;
 
   return (
-    <div className="h-screen bg-slate-50 overflow-hidden flex flex-col">
+    <div className="min-h-screen bg-slate-50">
       {/* Top Navbar */}
-      <header className="bg-slate-950 border-b border-white/5 sticky top-0 z-[100] shadow-2xl backdrop-blur-xl bg-opacity-90 shrink-0">
+      <header className="bg-slate-950 border-b border-white/5 sticky top-0 z-[100] shadow-2xl backdrop-blur-xl bg-opacity-90">
         <div className="w-full px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-6">
           <div className="flex items-center gap-6 flex-1 overflow-hidden">
             <div className="flex items-center gap-3 shrink-0">
@@ -2869,7 +2869,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
         </div>
       </header>
 
-      <main className="flex-1 w-full px-4 sm:px-6 lg:px-8 py-4 overflow-y-auto no-scrollbar">
+      <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
           {(isAdmin || userProfile?.role === 'user' || userProfile?.role === 'seller') && <BackgroundAIManager />}
           <motion.div
             key={activeTab}
@@ -3956,8 +3956,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
             )}
             {activeTab === 'leads' && (
               <div className="grid grid-cols-1 gap-6">
-                <div className="flex flex-col gap-4 mb-4">
-                  <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
                   {/* Abas de Status dos Leads */}
                   <div className="flex items-center gap-4 w-full md:w-auto">
                     <button 
@@ -4013,7 +4012,37 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 mb-4">
+                  <div className="flex items-center gap-2 w-full md:w-auto">
+                    <div className="relative flex-grow md:w-64">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input 
+                        type="text" 
+                        placeholder="Buscar por Código (4 dígitos)..."
+                        value={searchCode}
+                        onChange={(e) => setSearchCode(e.target.value.toUpperCase())}
+                        className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent/20"
+                      />
+                    </div>
+                    
+                    <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-100">
+                      <button 
+                        onClick={() => setLeadsViewMode('list')}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all ${leadsViewMode === 'list' ? 'bg-slate-900 text-white' : 'text-slate-400 hover:bg-slate-50'}`}
+                        title="Visualização em Lista"
+                      >
+                        <BarChart3 className="w-4 h-4" />
+                        <span className="text-[10px] font-bold uppercase">Lista</span>
+                      </button>
+                      <button 
+                        onClick={() => setLeadsViewMode('grid')}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all ${leadsViewMode === 'grid' ? 'bg-slate-900 text-white' : 'text-slate-400 hover:bg-slate-50'}`}
+                        title="Visualização em Cards"
+                      >
+                        <LayoutDashboard className="w-4 h-4" />
+                        <span className="text-[10px] font-bold uppercase">Cards</span>
+                      </button>
+                    </div>
+
                     <button 
                       onClick={handleCleanupDuplicates}
                       disabled={isCleaningDuplicates}
@@ -4036,44 +4065,10 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       Atualizar
                     </button>
                   </div>
-
-                  <div className="flex flex-col gap-4">
-                    <div className="flex flex-col md:flex-row items-center gap-4 w-full">
-                      <div className="relative flex-grow md:w-96">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input 
-                          type="text" 
-                          placeholder="Buscar por Código (4 dígitos)..."
-                          value={searchCode}
-                          onChange={(e) => setSearchCode(e.target.value.toUpperCase())}
-                          className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent/20"
-                        />
-                      </div>
-                      
-                      <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-100">
-                        <button 
-                          onClick={() => setLeadsViewMode('list')}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all ${leadsViewMode === 'list' ? 'bg-slate-900 text-white' : 'text-slate-400 hover:bg-slate-50'}`}
-                          title="Visualização em Lista"
-                        >
-                          <BarChart3 className="w-4 h-4" />
-                          <span className="text-[10px] font-bold uppercase">Lista</span>
-                        </button>
-                        <button 
-                          onClick={() => setLeadsViewMode('grid')}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all ${leadsViewMode === 'grid' ? 'bg-slate-900 text-white' : 'text-slate-400 hover:bg-slate-50'}`}
-                          title="Visualização em Cards"
-                        >
-                          <LayoutDashboard className="w-4 h-4" />
-                          <span className="text-[10px] font-bold uppercase">Cards</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
                 </div>
 
                 {/* LeadDetailsCard moved to global position before </main> */}
-                <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm relative">
+                <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm relative overflow-hidden">
                   {leadsViewMode === 'grid' ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
                       {leads
@@ -4132,7 +4127,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         ))}
                     </div>
                   ) : (
-                    <div className="overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+                    <div className="overflow-y-auto max-h-[calc(100vh-320px)] overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
                       <table className="w-full text-left border-collapse">
                         <thead className="sticky top-0 z-20 bg-slate-50 shadow-sm">
                           <tr className="border-b border-slate-200">
@@ -4349,6 +4344,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     )}
                   </div>
                 </div>
+            )}
 
           {activeTab === 'buyers' && (
               <div className="space-y-8">
@@ -6011,57 +6007,54 @@ Podemos prosseguir com o agendamento da vistoria?`;
             </div>
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              {dbAssets.filter(a => a.tipo.startsWith('partner_')).map((asset) => {
-                return (
-                  <motion.div
-                    key={asset.id}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden flex flex-col"
-                  >
-                    <div className="relative h-32 bg-slate-100 group p-4 flex items-center justify-center">
-                      <img 
-                        src={asset.url} 
-                        alt={asset.legenda} 
-                        className="max-w-full max-h-full object-contain"
-                        referrerPolicy="no-referrer"
-                      />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-[32px]">
-                        <label className="cursor-pointer p-2 bg-white text-slate-900 rounded-full hover:bg-slate-100 transition-colors">
-                          <Upload className="w-4 h-4" />
-                          <input 
-                            type="file" 
-                            accept="image/*" 
-                            className="hidden" 
-                            onChange={(e) => handleFileUpload(e, asset.id)}
-                            disabled={uploadingAsset === asset.id}
-                          />
-                        </label>
-                      </div>
-                      <button 
-                        onClick={() => handleDeleteAsset(asset.id)}
-                        className="absolute top-2 right-2 p-1 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
+              {dbAssets.filter(a => a.tipo.startsWith('partner_')).map((asset) => (
+                <motion.div
+                  key={asset.id}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden flex flex-col"
+                >
+                  <div className="relative h-32 bg-slate-100 group p-4 flex items-center justify-center">
+                    <img 
+                      src={asset.url} 
+                      alt={asset.legenda} 
+                      className="max-w-full max-h-full object-contain"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-[32px]">
+                      <label className="cursor-pointer p-2 bg-white text-slate-900 rounded-full hover:bg-slate-100 transition-colors">
+                        <Upload className="w-4 h-4" />
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          className="hidden" 
+                          onChange={(e) => handleFileUpload(e, asset.id)}
+                          disabled={uploadingAsset === asset.id}
+                        />
+                      </label>
                     </div>
-                    <div className="p-4 flex flex-col gap-2 flex-1">
-                      <input 
-                        className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none"
-                        value={asset.legenda}
-                        placeholder="Nome do Parceiro"
-                        onChange={(e) => setDbAssets(prev => prev.map(a => a.id === asset.id ? { ...a, legenda: e.target.value } : a))}
-                      />
-                    </div>
-                  </motion.div>
-                );
-              })}
+                    <button 
+                      onClick={() => handleDeleteAsset(asset.id)}
+                      className="absolute top-2 right-2 p-1 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                  <div className="p-4 flex flex-col gap-2 flex-1">
+                    <input 
+                      className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none"
+                      value={asset.legenda}
+                      placeholder="Nome do Parceiro"
+                      onChange={(e) => setDbAssets(prev => prev.map(a => a.id === asset.id ? { ...a, legenda: e.target.value } : a))}
+                    />
+                  </div>
+                </motion.div>
+              ))}
             </div>
           </div>
-        </div>
-      
-    </motion.div>
-  </main>
+        )}
+      </motion.div>
+    </main>
 
         {/* Modal de WhatsApp */}
         {showWhatsAppModal && leadToWhatsApp && (
