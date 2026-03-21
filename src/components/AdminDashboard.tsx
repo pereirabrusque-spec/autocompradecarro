@@ -429,9 +429,18 @@ export default function AdminDashboard() {
 
   const handleReserve = async (lead: any) => {
     if (!confirm('Deseja reservar este veículo? Ele ficará invisível no estoque por 24 horas.')) return;
+    
+    const updatedDetalhes = {
+      ...(lead.detalhes_proposta || {}),
+      reserva_timestamp: new Date().toISOString()
+    };
+
     const { error } = await supabase
       .from('leads_veiculos')
-      .update({ status: 'reservado', reserva_timestamp: new Date().toISOString() })
+      .update({ 
+        status: 'reservado', 
+        detalhes_proposta: updatedDetalhes 
+      })
       .eq('id', lead.id);
     if (error) alert('Erro ao reservar: ' + error.message);
     else {
@@ -462,15 +471,24 @@ export default function AdminDashboard() {
       const now = new Date();
       
       const processedLeadsData = leadsData?.map(lead => {
-        if (lead.status === 'reservado' && lead.reserva_timestamp) {
-          const reservaDate = new Date(lead.reserva_timestamp);
+        const reservaTimestamp = lead.detalhes_proposta?.reserva_timestamp || lead.reserva_timestamp;
+        
+        if (lead.status === 'reservado' && reservaTimestamp) {
+          const reservaDate = new Date(reservaTimestamp);
           const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
           
           if (reservaDate < twentyFourHoursAgo) {
             // Revert
-            supabase.from('leads_veiculos').update({ status: 'proposta_enviada', reserva_timestamp: null }).eq('id', lead.id)
+            const updatedDetalhes = { ...(lead.detalhes_proposta || {}) };
+            delete updatedDetalhes.reserva_timestamp;
+
+            supabase.from('leads_veiculos').update({ 
+              status: 'proposta_enviada', 
+              reserva_timestamp: null,
+              detalhes_proposta: updatedDetalhes
+            }).eq('id', lead.id)
               .then(() => console.log(`[AdminDashboard] Reserva expirada revertida para lead: ${lead.id}`));
-            return { ...lead, status: 'proposta_enviada', reserva_timestamp: null };
+            return { ...lead, status: 'proposta_enviada', reserva_timestamp: null, detalhes_proposta: updatedDetalhes };
           }
         }
         return lead;

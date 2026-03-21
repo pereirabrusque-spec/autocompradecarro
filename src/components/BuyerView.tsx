@@ -219,15 +219,23 @@ export default function BuyerView() {
         const hasBasicData = lead.valor_fipe > 0 && lead.quilometragem > 0;
         
         // Verifica se está reservado e se o tempo de reserva expirou (24 horas)
-        if (lead.status === 'reservado' && lead.reserva_timestamp) {
-          const reservaTime = new Date(lead.reserva_timestamp).getTime();
+        const reservaTimestamp = lead.detalhes_proposta?.reserva_timestamp || lead.reserva_timestamp;
+        if (lead.status === 'reservado' && reservaTimestamp) {
+          const reservaTime = new Date(reservaTimestamp).getTime();
           const now = new Date().getTime();
           const twentyFourHours = 24 * 60 * 60 * 1000;
           
           if (now - reservaTime > twentyFourHours) {
             // Reserva expirou, volta para o estoque (proposta_enviada)
+            const updatedDetalhes = { ...(lead.detalhes_proposta || {}) };
+            delete updatedDetalhes.reserva_timestamp;
+
             supabase.from('leads_veiculos')
-              .update({ status: 'proposta_enviada', reserva_timestamp: null })
+              .update({ 
+                status: 'proposta_enviada', 
+                reserva_timestamp: null,
+                detalhes_proposta: updatedDetalhes
+              })
               .eq('id', lead.id)
               .then(() => console.log(`[BuyerView] Reserva expirada revertida para lead: ${lead.id}`));
             

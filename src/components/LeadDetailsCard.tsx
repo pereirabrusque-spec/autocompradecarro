@@ -651,9 +651,18 @@ export default function LeadDetailsCard({
                 <button 
                   onClick={async () => {
                     if (!confirm('Deseja reservar este veículo? Ele ficará invisível no estoque por 24 horas.')) return;
+                    
+                    const updatedDetalhes = {
+                      ...(currentLead.detalhes_proposta || {}),
+                      reserva_timestamp: new Date().toISOString()
+                    };
+
                     const { error } = await supabase
                       .from('leads_veiculos')
-                      .update({ status: 'reservado', reserva_timestamp: new Date().toISOString() })
+                      .update({ 
+                        status: 'reservado', 
+                        detalhes_proposta: updatedDetalhes 
+                      })
                       .eq('id', currentLead.id);
                     if (error) alert('Erro ao reservar: ' + error.message);
                     else {
