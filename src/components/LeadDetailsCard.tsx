@@ -650,30 +650,36 @@ export default function LeadDetailsCard({
               <>
                 <button 
                   onClick={async () => {
-                    if (!confirm('Deseja reservar este veículo? Ele ficará invisível no estoque por 24 horas.')) return;
+                    const isReserved = currentLead.status === 'reservado';
+                    const confirmMsg = isReserved 
+                      ? 'Deseja remover a reserva deste veículo? Ele voltará a ficar visível no estoque.' 
+                      : 'Deseja reservar este veículo? Ele ficará invisível no estoque por 24 horas.';
+                    
+                    if (!confirm(confirmMsg)) return;
                     
                     const updatedDetalhes = {
                       ...(currentLead.detalhes_proposta || {}),
-                      reserva_timestamp: new Date().toISOString()
+                      reserva_timestamp: isReserved ? null : new Date().toISOString()
                     };
 
                     const { error } = await supabase
                       .from('leads_veiculos')
                       .update({ 
-                        status: 'reservado', 
+                        status: isReserved ? 'novo' : 'reservado', 
                         detalhes_proposta: updatedDetalhes 
                       })
                       .eq('id', currentLead.id);
-                    if (error) alert('Erro ao reservar: ' + error.message);
+                    
+                    if (error) alert('Erro ao processar reserva: ' + error.message);
                     else {
-                      alert('Veículo reservado com sucesso!');
+                      alert(isReserved ? 'Reserva removida com sucesso!' : 'Veículo reservado com sucesso!');
                       onRefresh();
                       onClose();
                     }
                   }}
-                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5 shadow-md"
+                  className={`px-4 py-2 ${currentLead.status === 'reservado' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-amber-500 hover:bg-amber-600'} rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5 shadow-md`}
                 >
-                  <ShieldCheck className="w-4 h-4" /> Reservar
+                  <ShieldCheck className="w-4 h-4" /> {currentLead.status === 'reservado' ? 'Reservado' : 'Reservar'}
                 </button>
                 <button 
                   onClick={() => {

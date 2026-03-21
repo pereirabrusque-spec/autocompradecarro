@@ -230,22 +230,32 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
                                   <button 
                                     onClick={async (e) => {
                                       e.stopPropagation();
-                                      if (!confirm('Deseja reservar este veículo? Ele ficará invisível no estoque por 24 horas.')) return;
+                                      const isReserved = v.status === 'reservado';
+                                      const confirmMsg = isReserved 
+                                        ? 'Deseja remover a reserva deste veículo? Ele voltará a ficar visível no estoque.' 
+                                        : 'Deseja reservar este veículo? Ele ficará invisível no estoque por 24 horas.';
+                                      
+                                      if (!confirm(confirmMsg)) return;
+                                      
                                       const { error } = await supabase
                                         .from('leads_veiculos')
-                                        .update({ status: 'reservado', reserva_timestamp: new Date().toISOString() })
+                                        .update({ 
+                                          status: isReserved ? 'novo' : 'reservado', 
+                                          reserva_timestamp: isReserved ? null : new Date().toISOString() 
+                                        })
                                         .eq('id', v.id);
-                                      if (error) alert('Erro ao reservar: ' + error.message);
+                                      
+                                      if (error) alert('Erro ao processar reserva: ' + error.message);
                                       else {
-                                        alert('Veículo reservado com sucesso!');
+                                        alert(isReserved ? 'Reserva removida com sucesso!' : 'Veículo reservado com sucesso!');
                                         // Refresh vehicles list
                                         const updatedVehicles = vehicles.map(veh => 
-                                          veh.id === v.id ? { ...veh, status: 'reservado' } : veh
+                                          veh.id === v.id ? { ...veh, status: isReserved ? 'novo' : 'reservado' } : veh
                                         );
                                         setVehicles(updatedVehicles);
                                       }
                                     }}
-                                    className={`p-2 rounded-xl backdrop-blur-md transition-all shadow-lg ${v.status === 'reservado' ? 'bg-amber-500 text-white' : 'bg-white/90 text-amber-600 hover:bg-amber-500 hover:text-white'}`}
+                                    className={`p-2 rounded-xl backdrop-blur-md transition-all shadow-lg ${v.status === 'reservado' ? 'bg-emerald-500 text-white' : 'bg-white/90 text-amber-600 hover:bg-amber-500 hover:text-white'}`}
                                     title={v.status === 'reservado' ? 'Já Reservado' : 'Reservar Veículo'}
                                   >
                                     {v.status === 'reservado' ? <Clock className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}

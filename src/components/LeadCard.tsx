@@ -35,9 +35,13 @@ export const LeadCard: React.FC<LeadCardProps> = ({ lead, suggestedValue, onClic
         )}
         <button 
           onClick={onReserve}
-          className="bg-amber-500 text-white px-3 py-1 rounded-bl-2xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition-colors"
+          className={`${
+            lead.status === 'reservado' 
+              ? 'bg-emerald-500 hover:bg-emerald-600' 
+              : 'bg-amber-500 hover:bg-amber-600'
+          } text-white px-3 py-1 rounded-bl-2xl text-[10px] font-black uppercase tracking-widest transition-colors`}
         >
-          Reserva
+          {lead.status === 'reservado' ? 'Reservado' : 'Reserva'}
         </button>
         <div className={`px-4 py-1 rounded-bl-2xl text-[10px] font-black uppercase tracking-widest ${
           (lead.classificacao || (lead.is_frio ? 'frio' : 'morna')) === 'quente' ? 'bg-red-500 text-white' :

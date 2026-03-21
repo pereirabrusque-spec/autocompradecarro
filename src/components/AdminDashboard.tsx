@@ -428,23 +428,30 @@ export default function AdminDashboard() {
   };
 
   const handleReserve = async (lead: any) => {
-    if (!confirm('Deseja reservar este veículo? Ele ficará invisível no estoque por 24 horas.')) return;
+    const isReserved = lead.status === 'reservado';
+    const confirmMsg = isReserved 
+      ? 'Deseja remover a reserva deste veículo? Ele voltará a ficar visível no estoque.' 
+      : 'Deseja reservar este veículo? Ele ficará invisível no estoque por 24 horas.';
+    
+    if (!confirm(confirmMsg)) return;
     
     const updatedDetalhes = {
       ...(lead.detalhes_proposta || {}),
-      reserva_timestamp: new Date().toISOString()
+      reserva_timestamp: isReserved ? null : new Date().toISOString()
     };
 
     const { error } = await supabase
       .from('leads_veiculos')
       .update({ 
-        status: 'reservado', 
+        status: isReserved ? 'novo' : 'reservado', 
         detalhes_proposta: updatedDetalhes 
       })
       .eq('id', lead.id);
-    if (error) alert('Erro ao reservar: ' + error.message);
-    else {
-      alert('Veículo reservado com sucesso!');
+    
+    if (error) {
+      alert('Erro ao processar reserva: ' + error.message);
+    } else {
+      alert(isReserved ? 'Reserva removida com sucesso!' : 'Veículo reservado com sucesso!');
       fetchData();
     }
   };

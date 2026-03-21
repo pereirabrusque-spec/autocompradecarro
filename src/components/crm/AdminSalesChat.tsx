@@ -353,18 +353,28 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead, onOpenLead
               type="button"
               onClick={async () => {
                 const v = leads[0];
-                if (!confirm(`Deseja reservar o veículo ${v.marca} ${v.modelo}?`)) return;
+                const isReserved = v.status === 'reservado';
+                const confirmMsg = isReserved 
+                  ? `Deseja remover a reserva do veículo ${v.marca} ${v.modelo}?` 
+                  : `Deseja reservar o veículo ${v.marca} ${v.modelo}?`;
+                
+                if (!confirm(confirmMsg)) return;
+                
                 const { error } = await supabase
                   .from('leads_veiculos')
-                  .update({ status: 'reservado', reserva_timestamp: new Date().toISOString() })
+                  .update({ 
+                    status: isReserved ? 'novo' : 'reservado', 
+                    reserva_timestamp: isReserved ? null : new Date().toISOString() 
+                  })
                   .eq('id', v.id);
-                if (error) alert('Erro ao reservar: ' + error.message);
+                
+                if (error) alert('Erro ao processar reserva: ' + error.message);
                 else {
-                  alert('Veículo reservado com sucesso!');
+                  alert(isReserved ? 'Reserva removida com sucesso!' : 'Veículo reservado com sucesso!');
                   fetchLeadData();
                 }
               }}
-              className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 ${leads[0].status === 'reservado' ? 'bg-amber-500 text-white shadow-lg shadow-amber-200' : 'bg-amber-50 text-amber-600 hover:bg-amber-100 border border-amber-200'}`}
+              className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 ${leads[0].status === 'reservado' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' : 'bg-amber-50 text-amber-600 hover:bg-amber-100 border border-amber-200'}`}
             >
               <ShieldCheck className="w-3.5 h-3.5" />
               {leads[0].status === 'reservado' ? 'Reservado' : 'Reservar'}
