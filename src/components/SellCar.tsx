@@ -1730,7 +1730,7 @@ export default function SellCar() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-6 bg-accent text-white rounded-[32px] font-black text-xl shadow-2xl shadow-accent/40 hover:bg-orange-600 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+              className="w-full py-6 bg-accent text-white rounded-[32px] font-black text-xl shadow-2xl shadow-accent/40 hover:bg-orange-600 transition-all flex items-center justify-center gap-3 disabled:opacity-50 animate-pulse-soft"
             >
               {isSubmitting ? <Loader2 className="w-8 h-8 animate-spin" /> : (
                 <>

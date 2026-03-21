@@ -602,7 +602,7 @@ export default function LeadDetailsCard({
               <option value="perdido">PERDIDO</option>
             </select>
           </div>
-          <button onClick={() => setShowDataModal(true)} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-700 flex items-center gap-1.5 shrink-0">
+          <button onClick={() => setShowDataModal(true)} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-700 flex items-center gap-1.5 shrink-0 animate-pulse-soft">
             <FileText className="w-3.5 h-3.5" /> Formulário Completo
           </button>
         </div>
@@ -683,7 +683,7 @@ export default function LeadDetailsCard({
                     const encodedMessage = encodeURIComponent(rawMessage);
                     window.open(`https://wa.me/${formattedPhone}?text=${encodedMessage}`, '_blank');
                   }} 
-                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5 shadow-md"
+                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5 shadow-md animate-pulse-soft"
                 >
                   <MessageCircle className="w-4 h-4" /> WhatsApp Proposta
                 </button>
@@ -692,7 +692,7 @@ export default function LeadDetailsCard({
                 </button>
                 <button 
                   onClick={handleSendProposalToChat} 
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5 shadow-md"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5 shadow-md animate-pulse-soft"
                 >
                   <MessageSquare className="w-4 h-4" /> Chat Proposta
                 </button>

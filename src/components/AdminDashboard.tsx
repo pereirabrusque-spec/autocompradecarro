@@ -4307,7 +4307,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                           const encodedMessage = generateOwnerMessage(lead, calc);
                                           window.open(`https://wa.me/${formattedPhone}?text=${encodedMessage}`, '_blank');
                                         }} 
-                                        className="p-1.5 bg-green-50 hover:bg-green-100 rounded-lg transition-colors text-green-600" 
+                                        className="p-1.5 bg-green-50 hover:bg-green-100 rounded-lg transition-colors text-green-600 animate-pulse-soft" 
                                         title="WhatsApp Proposta"
                                       >
                                         <Phone className="w-3.5 h-3.5" />

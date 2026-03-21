@@ -576,7 +576,7 @@ export default function BuyerView() {
                     href={`https://wa.me/${whatsappNumber}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-full py-5 bg-emerald-500 text-white rounded-[24px] font-bold hover:bg-emerald-600 transition-all flex items-center justify-center gap-3 shadow-lg shadow-emerald-200"
+                    className="w-full py-5 bg-emerald-500 text-white rounded-[24px] font-bold hover:bg-emerald-600 transition-all flex items-center justify-center gap-3 shadow-lg shadow-emerald-200 animate-pulse-soft"
                   >
                     <MessageCircle className="w-5 h-5" />
                     WhatsApp Equipe
@@ -591,7 +591,7 @@ export default function BuyerView() {
                       const message = `Olá, tenho interesse no seu veículo ${selectedLead.marca} ${selectedLead.modelo} ${selectedLead.ano_modelo}. Podemos conversar?`;
                       window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`, '_blank');
                     }}
-                    className="w-full py-5 bg-emerald-600 text-white rounded-[24px] font-bold hover:bg-emerald-700 transition-all flex items-center justify-center gap-3 shadow-lg shadow-emerald-100"
+                    className="w-full py-5 bg-emerald-600 text-white rounded-[24px] font-bold hover:bg-emerald-700 transition-all flex items-center justify-center gap-3 shadow-lg shadow-emerald-100 animate-pulse-soft"
                   >
                     <MessageCircle className="w-5 h-5" />
                     WhatsApp Cliente (Proposta)
