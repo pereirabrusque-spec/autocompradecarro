@@ -2786,9 +2786,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
     : null;
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="h-screen bg-slate-50 flex flex-col overflow-hidden">
       {/* Top Navbar */}
-      <header className="bg-slate-950 border-b border-white/5 sticky top-0 z-[100] shadow-2xl backdrop-blur-xl bg-opacity-90">
+      <header className="bg-slate-950 border-b border-white/5 shrink-0 z-[100] shadow-2xl backdrop-blur-xl bg-opacity-90">
         <div className="w-full px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-6">
           <div className="flex items-center gap-6 flex-1 overflow-hidden">
             <div className="flex items-center gap-3 shrink-0">
@@ -2868,7 +2868,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
         </div>
       </header>
 
-      <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-grow overflow-hidden px-4 sm:px-6 lg:px-8 py-4">
           {(isAdmin || userProfile?.role === 'user' || userProfile?.role === 'seller') && <BackgroundAIManager />}
           <motion.div
             key={activeTab}
@@ -2876,6 +2876,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
+            className="h-full overflow-y-auto no-scrollbar"
           >
             {activeTab === 'crm_chat' && (
               <div className="h-[700px] flex flex-col gap-4">
@@ -3954,8 +3955,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
               </div>
             )}
             {activeTab === 'leads' && (
-              <div className="grid grid-cols-1 gap-6 pb-32">
-                <div className="flex flex-col md:flex-row justify-between items-center mb-2 gap-2">
+              <div className="flex flex-col gap-6 h-full pb-4">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-2 shrink-0">
                   {/* Abas de Status dos Leads */}
                   <div className="flex items-center gap-4 w-full md:w-auto">
                     <button 
@@ -4067,9 +4068,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 </div>
 
                 {/* LeadDetailsCard moved to global position before </main> */}
-                <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm relative overflow-hidden flex-grow h-full flex flex-col">
+                <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm relative overflow-hidden flex-grow flex flex-col min-h-0">
                   {leadsViewMode === 'grid' ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6 overflow-y-auto flex-grow">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6 overflow-y-auto flex-grow scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
                       {leads
                         .filter(l => {
                           if (activeLeadTab === 'todos') return true;
@@ -4126,8 +4127,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         ))}
                     </div>
                   ) : (
-                    <div className="flex-grow overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
-                      <table className="w-full text-left border-collapse">
+                    <div className="flex-grow overflow-auto scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+                      <table className="w-full text-left border-collapse min-w-[1000px]">
                         <thead className="sticky top-0 z-20 bg-slate-50 shadow-sm">
                           <tr className="border-b border-slate-200">
                             <th className="px-2 pr-1 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Data</th>
@@ -5253,8 +5254,10 @@ Podemos prosseguir com o agendamento da vistoria?`;
             isSavingKey={isSavingKey}
             handleDeleteApiKey={async (id: string) => {
               if (confirm('Tem certeza que deseja excluir esta chave?')) {
+                console.log('Excluindo API Key:', id);
                 try {
-                  const { error } = await supabase.from('api_keys').delete().eq('id', id);
+                  const { error, data } = await supabase.from('api_keys').delete().eq('id', id).select();
+                  console.log('Resultado da exclusão:', { error, data });
                   if (error) throw error;
                   fetchData();
                 } catch (err: any) {
@@ -5269,13 +5272,15 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 return;
               }
               setIsSavingKey(true);
+              console.log('Salvando nova API Key:', { provider: newApiProvider, service: newApiModel });
               try {
-                const { error } = await supabase.from('api_keys').insert([{
+                const { error, data } = await supabase.from('api_keys').insert([{
                   provider: newApiProvider,
                   service: newApiModel,
                   key: newApiKey,
                   status: 'ok'
-                }]);
+                }]).select();
+                console.log('Resultado do salvamento:', { error, data });
                 if (error) throw error;
                 fetchData();
                 setShowApiKeyForm(false);
@@ -5288,11 +5293,14 @@ Podemos prosseguir com o agendamento da vistoria?`;
               }
             }}
             handleUpdateApiKey={async (id: string, provider: string, service: string) => {
+              console.log('Atualizando API Key:', { id, provider, service });
               try {
-                const { error } = await supabase
+                const { error, data } = await supabase
                   .from('api_keys')
                   .update({ provider, service })
-                  .eq('id', id);
+                  .eq('id', id)
+                  .select();
+                console.log('Resultado da atualização:', { error, data });
                 if (error) throw error;
                 fetchData();
                 setEditingApiKey(null);
