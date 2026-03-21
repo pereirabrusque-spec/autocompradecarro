@@ -6,6 +6,7 @@ export const ApiManagement = ({
   apiKeys, 
   showApiKeyForm, 
   setShowApiKeyForm, 
+  editingApiKey,
   setEditingApiKey, 
   setNewApiKey, 
   setNewApiModel, 
@@ -77,17 +78,56 @@ export const ApiManagement = ({
 
         <div className="space-y-4">
           {apiKeys.map((key: any) => (
-            <div key={key.id} className="flex justify-between items-center p-4 bg-white border border-slate-100 rounded-xl shadow-sm">
-              <div>
-                <p className="font-bold text-slate-900">{key.provider} - {key.service}</p>
-                <p className="text-xs text-slate-500 font-mono">****{key.key.slice(-4)}</p>
-              </div>
-              <button 
-                onClick={() => handleDeleteApiKey(key.id)}
-                className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            <div 
+              key={key.id} 
+              className={`p-4 bg-white border rounded-xl shadow-sm transition-all ${editingApiKey === key.id ? 'border-slate-900 ring-1 ring-slate-900' : 'border-slate-100'}`}
+            >
+              <div 
+                onClick={() => setEditingApiKey(editingApiKey === key.id ? null : key.id)}
+                className="flex justify-between items-center cursor-pointer"
               >
-                <Trash2 className="w-4 h-4" />
-              </button>
+                <div className="flex items-center gap-3">
+                  <div className={`w-3 h-3 rounded-full ${
+                    key.status === 'ok' ? 'bg-emerald-500' : 
+                    key.status === 'no_credit' ? 'bg-amber-500' : 'bg-red-500'
+                  }`} />
+                  <div>
+                    <p className="font-bold text-slate-900">{key.provider} - {key.service}</p>
+                    <p className="text-xs text-slate-500 font-mono">****{key.key.slice(-4)}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); handleDeleteApiKey(key.id); }}
+                  className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+
+              {editingApiKey === key.id && (
+                <div className="mt-4 pt-4 border-t border-slate-100 space-y-4">
+                  <p className="text-sm font-bold text-slate-900">Configurações</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input 
+                      type="text" 
+                      defaultValue={key.provider}
+                      className="p-3 rounded-xl border border-slate-200 text-sm"
+                      placeholder="Provedor"
+                    />
+                    <input 
+                      type="text" 
+                      defaultValue={key.service}
+                      className="p-3 rounded-xl border border-slate-200 text-sm"
+                      placeholder="Modelo"
+                    />
+                  </div>
+                  <button 
+                    className="px-5 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-all"
+                  >
+                    Salvar Alterações
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
