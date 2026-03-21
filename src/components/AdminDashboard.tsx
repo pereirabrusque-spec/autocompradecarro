@@ -4067,9 +4067,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 </div>
 
                 {/* LeadDetailsCard moved to global position before </main> */}
-                <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm relative overflow-hidden flex-grow h-full">
+                <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm relative overflow-hidden flex-grow h-full flex flex-col">
                   {leadsViewMode === 'grid' ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6 overflow-y-auto flex-grow">
                       {leads
                         .filter(l => {
                           if (activeLeadTab === 'todos') return true;
@@ -4126,7 +4126,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         ))}
                     </div>
                   ) : (
-                    <div className="overflow-y-auto max-h-[calc(100vh-100px)] overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+                    <div className="overflow-y-auto flex-grow overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
                       <table className="w-full text-left border-collapse">
                         <thead className="sticky top-0 z-20 bg-slate-50 shadow-sm">
                           <tr className="border-b border-slate-200">
