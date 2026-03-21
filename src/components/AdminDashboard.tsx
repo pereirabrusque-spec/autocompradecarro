@@ -155,7 +155,7 @@ export default function AdminDashboard() {
   const [showApiKeyForm, setShowApiKeyForm] = useState(false);
   const [isSavingKey, setIsSavingKey] = useState(false);
 
-  const [activeLeadTab, setActiveLeadTab] = useState<'todos' | 'novo' | 'em_contato' | 'proposta_enviada' | 'fechado' | 'frio'>('todos');
+  const [activeLeadTab, setActiveLeadTab] = useState<'todos' | 'novo' | 'em_contato' | 'proposta_enviada' | 'fechado' | 'frio' | 'reservado' | 'perdido'>('todos');
   const [leadsViewMode, setLeadsViewMode] = useState<'grid' | 'list'>('list');
   const [showBuyerPermissionsModal, setShowBuyerPermissionsModal] = useState(false);
   const [selectedBuyer, setSelectedBuyer] = useState<any>(null);
@@ -3990,7 +3990,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       { id: 'todos', label: 'Todos' },
                       { id: 'frio', label: 'Lead Frio' },
                       { id: 'proposta_enviada', label: 'Leads Morna' },
-                      { id: 'fechado', label: 'Lead Quente' }
+                      { id: 'reservado', label: 'Reservados' },
+                      { id: 'fechado', label: 'Lead Quente' },
+                      { id: 'perdido', label: 'Perdidos' }
                     ].map((tab) => (
                       <button
                         key={tab.id}
@@ -4093,6 +4095,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         .filter(l => {
                           if (activeLeadTab === 'todos') return true;
                           if (activeLeadTab === 'frio') return l.status === 'frio';
+                          if (activeLeadTab === 'reservado') return l.status === 'reservado';
                           if (activeLeadTab === 'proposta_enviada') return l.status === 'proposta_enviada' || l.status === 'novo' || l.status === 'em_contato';
                           return l.status === activeLeadTab;
                         })
@@ -4165,6 +4168,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                               .filter(l => {
                                 if (activeLeadTab === 'todos') return true;
                                 if (activeLeadTab === 'frio') return l.status === 'frio';
+                                if (activeLeadTab === 'reservado') return l.status === 'reservado';
                                 if (activeLeadTab === 'proposta_enviada') return l.status === 'proposta_enviada' || l.status === 'novo' || l.status === 'em_contato';
                                 return l.status === activeLeadTab;
                               })

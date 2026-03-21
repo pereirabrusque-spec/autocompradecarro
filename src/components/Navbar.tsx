@@ -53,7 +53,7 @@ export default function Navbar() {
               <a href="/vender" className="text-sm font-bold text-slate-900 hover:text-accent transition-colors">Avaliar Carro</a>
               
               {whatsappEnabled && whatsappNumber && (
-                <a href={`https://wa.me/${whatsappNumber}`} target="_blank" className="px-6 py-2 bg-green-500 text-white rounded-xl text-sm font-bold hover:bg-green-600 transition-all flex items-center gap-2">
+                <a href={`https://wa.me/${whatsappNumber}`} target="_blank" className="px-6 py-2 bg-green-500 text-white rounded-xl text-sm font-bold hover:bg-green-600 transition-all flex items-center gap-2 animate-pulse-soft">
                   <Phone className="w-4 h-4" />
                   {whatsappButtonText}
                 </a>
