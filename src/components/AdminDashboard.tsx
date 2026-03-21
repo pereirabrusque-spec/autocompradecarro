@@ -4126,7 +4126,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         ))}
                     </div>
                   ) : (
-                    <div className="overflow-y-auto max-h-[calc(100vh-320px)] overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+                    <div className="overflow-y-auto max-h-[calc(100vh-200px)] overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
                       <table className="w-full text-left border-collapse">
                         <thead className="sticky top-0 z-20 bg-slate-50 shadow-sm">
                           <tr className="border-b border-slate-200">

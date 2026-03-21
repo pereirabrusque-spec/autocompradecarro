@@ -754,8 +754,34 @@ export default function LeadDetailsCard({
             <div className="bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm space-y-4 mb-6">
               <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest">Editar Lead</h3>
               <div className="grid grid-cols-2 gap-4">
-                {/* Campos de edição podem ser adicionados aqui se necessário */}
-                <div className="col-span-2 text-center text-slate-400 text-xs italic">Use o formulário completo para edições detalhadas.</div>
+                <input 
+                  type="text" 
+                  value={currentLead.cliente_nome || ''} 
+                  onChange={(e) => setCurrentLead({...currentLead, cliente_nome: e.target.value})}
+                  className="p-3 rounded-xl border border-slate-200 text-sm"
+                  placeholder="Nome do Cliente"
+                />
+                <input 
+                  type="text" 
+                  value={currentLead.telefone || ''} 
+                  onChange={(e) => setCurrentLead({...currentLead, telefone: e.target.value})}
+                  className="p-3 rounded-xl border border-slate-200 text-sm"
+                  placeholder="Telefone"
+                />
+                <input 
+                  type="text" 
+                  value={currentLead.marca || ''} 
+                  onChange={(e) => setCurrentLead({...currentLead, marca: e.target.value})}
+                  className="p-3 rounded-xl border border-slate-200 text-sm"
+                  placeholder="Marca"
+                />
+                <input 
+                  type="text" 
+                  value={currentLead.modelo || ''} 
+                  onChange={(e) => setCurrentLead({...currentLead, modelo: e.target.value})}
+                  className="p-3 rounded-xl border border-slate-200 text-sm"
+                  placeholder="Modelo"
+                />
               </div>
               <button onClick={() => { 
                 const preparedLead = { ...currentLead };
