@@ -685,7 +685,7 @@ export default function SellCar() {
           <div className="space-y-4">
             <button 
               onClick={() => setShowAuthModal(true)}
-              className="w-full py-4 bg-accent text-white rounded-2xl font-bold hover:bg-accent/90 transition-all shadow-lg shadow-accent/20"
+              className="w-full py-4 bg-accent text-white rounded-2xl font-bold hover:bg-accent/90 transition-all shadow-lg shadow-accent/20 animate-pulse-soft"
             >
               Entrar ou Cadastrar-se
             </button>
@@ -732,7 +732,7 @@ export default function SellCar() {
                   }
                   setShowIpvaModal(false);
                 }}
-                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20"
+                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20 animate-pulse-soft"
               >
                 Confirmar Valor
               </button>
@@ -785,7 +785,7 @@ export default function SellCar() {
                   }
                   setShowEngineModal(false);
                 }}
-                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20"
+                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20 animate-pulse-soft"
               >
                 Confirmar Valor
               </button>
@@ -841,7 +841,7 @@ export default function SellCar() {
                   }
                   setShowGearboxModal(false);
                 }}
-                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20"
+                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20 animate-pulse-soft"
               >
                 Confirmar Valor
               </button>
@@ -897,7 +897,7 @@ export default function SellCar() {
                   }
                   setShowBodyModal(false);
                 }}
-                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20"
+                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20 animate-pulse-soft"
               >
                 Confirmar Valor
               </button>

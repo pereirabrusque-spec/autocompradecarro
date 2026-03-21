@@ -4464,7 +4464,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   <button 
                     onClick={handleSaveBuyer}
                     disabled={isSavingBuyer}
-                    className="mt-6 w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="mt-6 w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-2 disabled:opacity-50 animate-pulse-soft"
                   >
                     {isSavingBuyer ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                     Cadastrar Comprador e Autorizar Acesso
@@ -5139,7 +5139,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     <button 
                       onClick={() => handleUpdateAsset(asset.id, asset.url, asset.legenda, asset.tipo, asset.button_text, asset.button_link, asset.title, asset.subtitle, asset.badge_text, asset.ativo)}
                       disabled={savingAsset === asset.id}
-                      className="mt-auto w-full py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-accent transition-all disabled:opacity-50"
+                      className="mt-auto w-full py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-accent transition-all disabled:opacity-50 animate-pulse-soft"
                     >
                       {savingAsset === asset.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                       Salvar Alterações
@@ -5241,7 +5241,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     <button 
                       onClick={() => handleUpdateAsset(asset.id, asset.url, asset.legenda, asset.tipo, asset.button_text, asset.button_link, asset.title, asset.subtitle, asset.badge_text, asset.ativo)}
                       disabled={savingAsset === asset.id}
-                      className="mt-auto w-full py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-accent transition-all disabled:opacity-50"
+                      className="mt-auto w-full py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-accent transition-all disabled:opacity-50 animate-pulse-soft"
                     >
                       {savingAsset === asset.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                       Salvar Alterações

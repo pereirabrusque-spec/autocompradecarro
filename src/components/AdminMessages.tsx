@@ -619,7 +619,7 @@ export default function AdminMessages({
                 <button 
                   onClick={handleSendMessage}
                   disabled={isSendingMessage || !adminMessage.trim()}
-                  className="p-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all disabled:opacity-50"
+                  className="p-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all disabled:opacity-50 animate-pulse-soft"
                 >
                   {isSendingMessage ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
                 </button>

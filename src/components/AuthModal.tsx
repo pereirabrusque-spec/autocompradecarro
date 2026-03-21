@@ -184,7 +184,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed mt-6"
+            className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed mt-6 animate-pulse-soft"
           >
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
               <>
