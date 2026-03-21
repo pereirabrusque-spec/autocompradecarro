@@ -4083,7 +4083,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         .filter(l => !filterYear || l.ano_modelo === parseInt(filterYear))
                         .filter(l => !filterMinPrice || (l.preco_cliente || 0) >= parseFloat(filterMinPrice))
                         .filter(l => !filterMaxPrice || (l.preco_cliente || 0) <= parseFloat(filterMaxPrice))
-                        .filter(l => l.status !== 'reservado')
                         .filter(l => {
                           if (!filterStartDate && !filterEndDate) return true;
                           const leadDate = new Date(l.created_at);
@@ -4209,6 +4208,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                     className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border-none outline-none cursor-pointer tracking-tighter ${
                                       lead.status === 'fechado' ? 'bg-emerald-100 text-emerald-700' :
                                       lead.status === 'perdido' ? 'bg-red-100 text-red-700' :
+                                      lead.status === 'reservado' ? 'bg-amber-100 text-amber-700' :
                                       lead.status === 'proposta_enviada' ? 'bg-blue-100 text-blue-700' :
                                       lead.status === 'em_contato' ? 'bg-amber-100 text-amber-700' :
                                       'bg-slate-100 text-slate-600'
@@ -4217,6 +4217,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                     <option value="novo">NOVO</option>
                                     <option value="em_contato">EM CONTATO</option>
                                     <option value="proposta_enviada">PROPOSTA ENVIADA</option>
+                                    <option value="reservado">RESERVADO</option>
                                     <option value="fechado">FECHADO</option>
                                     <option value="perdido">PERDIDO</option>
                                   </select>

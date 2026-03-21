@@ -16,7 +16,11 @@ export const LeadCard: React.FC<LeadCardProps> = ({ lead, suggestedValue, onClic
   return (
     <div 
       onClick={onClick}
-      className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer space-y-4 group relative overflow-hidden"
+      className={`p-6 rounded-[32px] border transition-all cursor-pointer space-y-4 group relative overflow-hidden ${
+        lead.status === 'reservado' 
+          ? 'bg-amber-50 border-amber-200 shadow-inner' 
+          : 'bg-white border-slate-100 shadow-sm hover:shadow-md'
+      }`}
     >
       {/* Classification Tag */}
       <div className="absolute top-0 right-0 z-10 flex items-center">
@@ -63,6 +67,7 @@ export const LeadCard: React.FC<LeadCardProps> = ({ lead, suggestedValue, onClic
             <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tighter ${
               lead.status === 'fechado' ? 'bg-emerald-100 text-emerald-700' :
               lead.status === 'perdido' ? 'bg-red-100 text-red-700' :
+              lead.status === 'reservado' ? 'bg-amber-200 text-amber-800' :
               lead.status === 'proposta_enviada' ? 'bg-blue-100 text-blue-700' :
               lead.status === 'em_contato' ? 'bg-amber-100 text-amber-700' :
               'bg-slate-100 text-slate-600'

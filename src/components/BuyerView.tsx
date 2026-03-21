@@ -218,16 +218,24 @@ export default function BuyerView() {
         const hasBankInfo = (!!lead.banco_financiamento && lead.banco_financiamento !== 'Não informado') || lead.status === 'proposta_enviada';
         const hasBasicData = lead.valor_fipe > 0 && lead.quilometragem > 0;
         
-        // Verifica se está reservado e se o tempo de reserva expirou (2 horas)
+        // Verifica se está reservado e se o tempo de reserva expirou (24 horas)
         if (lead.status === 'reservado' && lead.reserva_timestamp) {
           const reservaTime = new Date(lead.reserva_timestamp).getTime();
           const now = new Date().getTime();
-          if (now - reservaTime > 2 * 60 * 60 * 1000) {
-            // Reserva expirou, marca como reservado_expirado para alerta ao agente
-            supabase.from('leads_veiculos').update({ status: 'reservado_expirado' }).eq('id', lead.id);
-            return false; // Não aparece no estoque
+          const twentyFourHours = 24 * 60 * 60 * 1000;
+          
+          if (now - reservaTime > twentyFourHours) {
+            // Reserva expirou, volta para o estoque (proposta_enviada)
+            supabase.from('leads_veiculos')
+              .update({ status: 'proposta_enviada', reserva_timestamp: null })
+              .eq('id', lead.id)
+              .then(() => console.log(`[BuyerView] Reserva expirada revertida para lead: ${lead.id}`));
+            
+            // Como a atualização é assíncrona, vamos permitir que este lead apareça agora mesmo no estado local
+            // se ele atender aos outros critérios
+            return hasPhotos && hasClassification && hasBankInfo && hasBasicData;
           }
-          return false; // Ainda reservado
+          return false; // Ainda reservado e dentro do prazo
         }
 
         // O veículo só aparece se não estiver fechado ou reservado

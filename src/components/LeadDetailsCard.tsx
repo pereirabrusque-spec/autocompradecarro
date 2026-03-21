@@ -588,6 +588,7 @@ export default function LeadDetailsCard({
                 currentLead.status === 'novo' ? 'bg-blue-100 text-blue-600' :
                 currentLead.status === 'em_contato' ? 'bg-orange-100 text-orange-600' :
                 currentLead.status === 'proposta_enviada' ? 'bg-indigo-100 text-indigo-600' :
+                currentLead.status === 'reservado' ? 'bg-amber-100 text-amber-600' :
                 currentLead.status === 'fechado' ? 'bg-emerald-100 text-emerald-600' :
                 currentLead.status === 'perdido' ? 'bg-slate-100 text-slate-600' :
                 'bg-slate-100 text-slate-600'
@@ -596,6 +597,7 @@ export default function LeadDetailsCard({
               <option value="novo">NOVO</option>
               <option value="em_contato">EM CONTATO</option>
               <option value="proposta_enviada">PROPOSTA ENVIADA</option>
+              <option value="reservado">RESERVADO</option>
               <option value="fechado">FECHADO</option>
               <option value="perdido">PERDIDO</option>
             </select>
