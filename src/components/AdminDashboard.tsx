@@ -4126,7 +4126,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         ))}
                     </div>
                   ) : (
-                    <div className="overflow-y-auto max-h-[calc(100vh-200px)] overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+                    <div className="overflow-y-auto max-h-[calc(100vh-100px)] overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
                       <table className="w-full text-left border-collapse">
                         <thead className="sticky top-0 z-20 bg-slate-50 shadow-sm">
                           <tr className="border-b border-slate-200">
@@ -5253,12 +5253,53 @@ Podemos prosseguir com o agendamento da vistoria?`;
             isSavingKey={isSavingKey}
             handleDeleteApiKey={async (id: string) => {
               if (confirm('Tem certeza que deseja excluir esta chave?')) {
-                await supabase.from('api_keys').delete().eq('id', id);
-                fetchData();
+                try {
+                  const { error } = await supabase.from('api_keys').delete().eq('id', id);
+                  if (error) throw error;
+                  fetchData();
+                } catch (err: any) {
+                  console.error('Erro ao excluir API:', err);
+                  alert('Erro ao excluir API: ' + err.message);
+                }
               }
             }}
             handleSaveApiKey={async () => {
-              // Lógica de salvar movida para dentro do componente ou mantida aqui se necessário
+              if (!newApiKey || !newApiProvider || !newApiModel) {
+                alert('Preencha todos os campos.');
+                return;
+              }
+              setIsSavingKey(true);
+              try {
+                const { error } = await supabase.from('api_keys').insert([{
+                  provider: newApiProvider,
+                  service: newApiModel,
+                  key: newApiKey,
+                  status: 'ok'
+                }]);
+                if (error) throw error;
+                fetchData();
+                setShowApiKeyForm(false);
+                setNewApiKey('');
+              } catch (err: any) {
+                console.error('Erro ao salvar API:', err);
+                alert('Erro ao salvar API: ' + err.message);
+              } finally {
+                setIsSavingKey(false);
+              }
+            }}
+            handleUpdateApiKey={async (id: string, provider: string, service: string) => {
+              try {
+                const { error } = await supabase
+                  .from('api_keys')
+                  .update({ provider, service })
+                  .eq('id', id);
+                if (error) throw error;
+                fetchData();
+                setEditingApiKey(null);
+              } catch (err: any) {
+                console.error('Erro ao atualizar API:', err);
+                alert('Erro ao atualizar API: ' + err.message);
+              }
             }}
             newApiKey={newApiKey}
             newApiProvider={newApiProvider}

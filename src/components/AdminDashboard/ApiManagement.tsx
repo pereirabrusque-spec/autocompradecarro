@@ -14,10 +14,14 @@ export const ApiManagement = ({
   isSavingKey,
   handleDeleteApiKey,
   handleSaveApiKey,
+  handleUpdateApiKey,
   newApiKey,
   newApiProvider,
   newApiModel
 }: any) => {
+  const [editProvider, setEditProvider] = useState('');
+  const [editModel, setEditModel] = useState('');
+
   return (
     <div className="space-y-8">
       <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm w-full">
@@ -83,7 +87,11 @@ export const ApiManagement = ({
               className={`p-4 bg-white border rounded-xl shadow-sm transition-all ${editingApiKey === key.id ? 'border-slate-900 ring-1 ring-slate-900' : 'border-slate-100'}`}
             >
               <div 
-                onClick={() => setEditingApiKey(editingApiKey === key.id ? null : key.id)}
+                onClick={() => {
+                  setEditingApiKey(editingApiKey === key.id ? null : key.id);
+                  setEditProvider(key.provider);
+                  setEditModel(key.service);
+                }}
                 className="flex justify-between items-center cursor-pointer"
               >
                 <div className="flex items-center gap-3">
@@ -110,18 +118,21 @@ export const ApiManagement = ({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <input 
                       type="text" 
-                      defaultValue={key.provider}
+                      value={editProvider}
+                      onChange={(e) => setEditProvider(e.target.value)}
                       className="p-3 rounded-xl border border-slate-200 text-sm"
                       placeholder="Provedor"
                     />
                     <input 
                       type="text" 
-                      defaultValue={key.service}
+                      value={editModel}
+                      onChange={(e) => setEditModel(e.target.value)}
                       className="p-3 rounded-xl border border-slate-200 text-sm"
                       placeholder="Modelo"
                     />
                   </div>
                   <button 
+                    onClick={() => handleUpdateApiKey(key.id, editProvider, editModel)}
                     className="px-5 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-all"
                   >
                     Salvar Alterações
