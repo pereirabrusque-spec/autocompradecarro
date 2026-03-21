@@ -598,7 +598,7 @@ export default function BuyerView() {
                   </button>
                 )}
 
-                <button onClick={() => setIsChatOpen(true)} className="w-full py-5 bg-slate-900 text-white rounded-[24px] font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-3 shadow-lg shadow-slate-200">
+                <button onClick={() => setIsChatOpen(true)} className="w-full py-5 bg-slate-900 text-white rounded-[24px] font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-3 shadow-lg shadow-slate-200 animate-pulse-soft">
                   <MessageCircle className="w-5 h-5" />
                   Chat com Equipe
                 </button>
@@ -638,7 +638,7 @@ export default function BuyerView() {
             <div className="flex flex-col gap-3">
               <button 
                 onClick={() => handleAuthorizeNotifications(true)}
-                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all"
+                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all animate-pulse-soft"
               >
                 Sim, desejo receber
               </button>

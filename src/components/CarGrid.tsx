@@ -45,7 +45,7 @@ export default function CarGrid({ setPurchasingContext }: { setPurchasingContext
                     setPurchasingContext(`Interesse no veículo: ${v.legenda}`);
                     window.location.href = v.button_link || '/vender';
                   }}
-                  className={`mt-auto ${colors[i % colors.length]} text-white p-6 rounded-2xl text-center font-black text-sm leading-tight min-h-[80px] flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity`}
+                  className={`mt-auto ${colors[i % colors.length]} text-white p-6 rounded-2xl text-center font-black text-sm leading-tight min-h-[80px] flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity animate-pulse-soft`}
                 >
                   {(v.button_text || v.legenda).toUpperCase()}
                 </div>

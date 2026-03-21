@@ -18,7 +18,7 @@ export default function WhatsAppButton({ forceShow = false }: { forceShow?: bool
       href={whatsappUrl}
       target="_blank"
       rel="noopener noreferrer"
-      className="fixed bottom-8 right-8 z-50 bg-[#25D366] text-white p-4 rounded-full shadow-2xl hover:bg-[#128C7E] transition-all hover:scale-110 flex items-center gap-2 group"
+      className="fixed bottom-8 right-8 z-50 bg-[#25D366] text-white p-4 rounded-full shadow-2xl hover:bg-[#128C7E] transition-all hover:scale-110 flex items-center gap-2 group animate-pulse-soft"
       title={text}
     >
       <MessageCircle className="w-8 h-8" />

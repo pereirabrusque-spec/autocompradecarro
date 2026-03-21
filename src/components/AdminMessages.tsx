@@ -436,7 +436,7 @@ export default function AdminMessages({
                     href={`https://wa.me/${selectedConversation.lead.telefone.replace(/\D/g, '')}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-2 bg-emerald-100 text-emerald-600 rounded-lg hover:bg-emerald-200 transition-colors"
+                    className="p-2 bg-emerald-100 text-emerald-600 rounded-lg hover:bg-emerald-200 transition-colors animate-pulse-soft"
                     title="WhatsApp"
                   >
                     <MessageCircle className="w-4 h-4" />

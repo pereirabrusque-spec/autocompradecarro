@@ -117,7 +117,7 @@ export default function CarCard({ car }: CarCardProps) {
 
           <button 
             onClick={() => setIsModalOpen(true)}
-            className="w-full py-3 bg-accent text-white rounded-2xl font-bold text-sm hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/10"
+            className="w-full py-3 bg-accent text-white rounded-2xl font-bold text-sm hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/10 animate-pulse-soft"
           >
             {buttonText}
           </button>
@@ -200,7 +200,7 @@ export default function CarCard({ car }: CarCardProps) {
                     <button
                       disabled={isSubmitting}
                       type="submit"
-                      className="w-full py-4 bg-accent text-white rounded-2xl font-bold hover:bg-blue-600 transition-all shadow-lg shadow-blue-100 flex items-center justify-center gap-2 disabled:opacity-50"
+                      className="w-full py-4 bg-accent text-white rounded-2xl font-bold hover:bg-blue-600 transition-all shadow-lg shadow-blue-100 flex items-center justify-center gap-2 disabled:opacity-50 animate-pulse-soft"
                     >
                       {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Enviar Interesse'}
                     </button>

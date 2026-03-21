@@ -329,7 +329,7 @@ export default function SellModal() {
                   <p className="text-slate-500 mb-8">Você precisa estar logado para solicitar uma avaliação.</p>
                   <button 
                     onClick={() => setShowAuthModal(true)}
-                    className="w-full py-4 bg-accent text-white rounded-2xl font-bold hover:bg-accent/90 transition-all shadow-lg shadow-accent/20"
+                    className="w-full py-4 bg-accent text-white rounded-2xl font-bold hover:bg-accent/90 transition-all shadow-lg shadow-accent/20 animate-pulse-soft"
                   >
                     Entrar ou Cadastrar-se
                   </button>
@@ -705,7 +705,7 @@ export default function SellModal() {
                 {step < 4 ? (
                   <button 
                     onClick={nextStep}
-                    className="px-8 py-3 bg-accent text-white rounded-2xl font-bold flex items-center gap-2 hover:bg-blue-600 transition-all"
+                    className="px-8 py-3 bg-accent text-white rounded-2xl font-bold flex items-center gap-2 hover:bg-blue-600 transition-all animate-pulse-soft"
                   >
                     Próximo
                     <ChevronRight className="w-5 h-5" />
@@ -714,7 +714,7 @@ export default function SellModal() {
                   <button 
                     onClick={handleSubmit}
                     disabled={isLoading}
-                    className="px-8 py-3 bg-slate-900 text-white rounded-2xl font-bold flex items-center gap-2 hover:bg-accent transition-all disabled:opacity-50"
+                    className="px-8 py-3 bg-slate-900 text-white rounded-2xl font-bold flex items-center gap-2 hover:bg-accent transition-all disabled:opacity-50 animate-pulse-soft"
                   >
                     {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Enviar Proposta'}
                   </button>

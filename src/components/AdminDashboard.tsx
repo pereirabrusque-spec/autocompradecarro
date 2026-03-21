@@ -4314,7 +4314,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                         className="p-1.5 bg-green-50 hover:bg-green-100 rounded-lg transition-colors text-green-600 animate-pulse-soft" 
                                         title="WhatsApp Proposta"
                                       >
-                                        <Phone className="w-3.5 h-3.5" />
+                                        <MessageCircle className="w-3.5 h-3.5" />
                                       </button>
                                     )}
                                     {lead.telefone && (
@@ -4324,7 +4324,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                           setSelectedLead(lead);
                                           setShowWhatsAppBuyerModal(true);
                                         }} 
-                                        className="p-1.5 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors text-emerald-600" 
+                                        className="p-1.5 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors text-emerald-600 animate-pulse-soft" 
                                         title="WhatsApp Comprador"
                                       >
                                         <MessageCircle className="w-3.5 h-3.5" />
