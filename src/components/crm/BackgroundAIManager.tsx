@@ -4,6 +4,7 @@ import { AIService } from '../../services/aiService';
 
 export const BackgroundAIManager = () => {
     const [isAiEnabled, setIsAiEnabled] = useState(false);
+    const [autoProposalEnabled, setAutoProposalEnabled] = useState(false);
     const [aiPrompt, setAiPrompt] = useState('');
     const [aiCrmPrompt, setAiCrmPrompt] = useState('');
     const [aiMemory, setAiMemory] = useState('');
@@ -11,6 +12,7 @@ export const BackgroundAIManager = () => {
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     
     const isAiEnabledRef = useRef(false);
+    const autoProposalEnabledRef = useRef(false);
     const aiPromptRef = useRef('');
     const aiCrmPromptRef = useRef('');
     const aiMemoryRef = useRef('');
@@ -21,6 +23,10 @@ export const BackgroundAIManager = () => {
     useEffect(() => {
         isAiEnabledRef.current = isAiEnabled;
     }, [isAiEnabled]);
+
+    useEffect(() => {
+        autoProposalEnabledRef.current = autoProposalEnabled;
+    }, [autoProposalEnabled]);
 
     useEffect(() => {
         aiPromptRef.current = aiPrompt;
@@ -44,16 +50,18 @@ export const BackgroundAIManager = () => {
 
     useEffect(() => {
         // Load initial settings
-        supabase.from('settings').select('key, value').in('key', ['AI_SYSTEM_PROMPT', 'AI_CRM_PROMPT', 'AI_CRM_ENABLED', 'AI_MEMORY', 'AI_CRM_MEMORY']).then(({ data }) => {
+        supabase.from('settings').select('key, value').in('key', ['AI_SYSTEM_PROMPT', 'AI_CRM_PROMPT', 'AI_CRM_ENABLED', 'AI_MEMORY', 'AI_CRM_MEMORY', 'AUTO_PROPOSAL_ENABLED']).then(({ data }) => {
             if (data) {
                 const prompt = data.find(s => s.key === 'AI_SYSTEM_PROMPT');
                 const crmPrompt = data.find(s => s.key === 'AI_CRM_PROMPT');
                 const enabled = data.find(s => s.key === 'AI_CRM_ENABLED');
+                const autoProposal = data.find(s => s.key === 'AUTO_PROPOSAL_ENABLED');
                 const memory = data.find(s => s.key === 'AI_MEMORY');
                 const crmMemory = data.find(s => s.key === 'AI_CRM_MEMORY');
                 if (prompt) setAiPrompt(prompt.value);
                 if (crmPrompt) setAiCrmPrompt(crmPrompt.value);
                 if (enabled) setIsAiEnabled(enabled.value === 'true');
+                if (autoProposal) setAutoProposalEnabled(autoProposal.value === 'true');
                 if (memory) setAiMemory(memory.value);
                 if (crmMemory) setAiCrmMemory(crmMemory.value);
             }
@@ -73,6 +81,7 @@ export const BackgroundAIManager = () => {
                     if (key === 'AI_SYSTEM_PROMPT') setAiPrompt(value);
                     if (key === 'AI_CRM_PROMPT') setAiCrmPrompt(value);
                     if (key === 'AI_CRM_ENABLED') setIsAiEnabled(value === 'true');
+                    if (key === 'AUTO_PROPOSAL_ENABLED') setAutoProposalEnabled(value === 'true');
                     if (key === 'AI_MEMORY') setAiMemory(value);
                     if (key === 'AI_CRM_MEMORY') setAiCrmMemory(value);
                 }
@@ -126,6 +135,7 @@ export const BackgroundAIManager = () => {
                         .maybeSingle();
 
                     const isGlobalAiEnabled = isAiEnabledRef.current;
+                    const isAutoProposalEnabled = autoProposalEnabledRef.current;
                     const conversationAiState = buyerProfile?.is_ai_enabled;
 
                     let shouldRespond = false;
@@ -231,12 +241,16 @@ export const BackgroundAIManager = () => {
                         if (specificLead) {
                             const allPhotos = specificLead.fotos || [];
                             vehiclePhoto = allPhotos[0] || "";
+                            
+                            const propostaFinal = specificLead.detalhes_proposta?.propostaFinal || specificLead.preco_cliente;
+                            
                             specificVehicleInfo = `
 DETALHES COMPLETOS DO VEÍCULO EM FOCO:
 - ID: ${specificLead.id}
 - Marca/Modelo: ${specificLead.marca} ${specificLead.modelo}
 - Ano: ${specificLead.ano_fabricacao}/${specificLead.ano_modelo}
-- Preço: R$ ${specificLead.preco_cliente || 'A consultar'}
+- Preço Sugerido/Cliente: R$ ${specificLead.preco_cliente || 'A consultar'}
+- PROPOSTA FINAL CALCULADA: R$ ${propostaFinal || 'A calcular'}
 - Cor: ${specificLead.cor || 'Não informada'}
 - KM: ${specificLead.quilometragem || specificLead.km || '0'}
 - SITUAÇÃO FINANCEIRA: ${specificLead.situacao_financeira || 'Não informada'}
@@ -279,7 +293,12 @@ REGRAS E MEMÓRIA DO CRM:
 ${aiCrmPromptRef.current}
 ${aiCrmMemoryRef.current ? `\nMEMÓRIA APRENDIDA NO CRM:\n${aiCrmMemoryRef.current}` : ''}
 
-REGRAS:
+REGRAS DE PROPOSTA:
+${isAutoProposalEnabled ? 
+    "VOCÊ ESTÁ AUTORIZADO A ENVIAR A PROPOSTA FINAL. Use o valor 'PROPOSTA FINAL CALCULADA' mencionado acima se o cliente perguntar sobre valores ou propostas." : 
+    "VOCÊ NÃO ESTÁ AUTORIZADO A ENVIAR VALORES DE PROPOSTA. Se o cliente perguntar sobre preço ou proposta, diga que um consultor humano está finalizando os cálculos para garantir a melhor oferta e entrará em contato em breve. Foque em outros detalhes do veículo."}
+
+REGRAS GERAIS:
 1. Use os dados técnicos acima.
 2. Seja persuasivo e amigável.
 3. Responda como um consultor de vendas especializado em compradores.
@@ -327,6 +346,8 @@ REGRAS:
                     
                     // Verifica se a IA está habilitada globalmente
                     const isGlobalAiEnabled = isAiEnabledRef.current;
+                    const isAutoProposalEnabled = autoProposalEnabledRef.current;
+                    
                     if (!isGlobalAiEnabled) {
                         console.log(`[BackgroundAIManager] IA Global desativada. Ignorando mensagem de lead.`);
                         return;
@@ -390,11 +411,15 @@ REGRAS:
                         if (vehicle) {
                             const allPhotos = vehicle.fotos || [];
                             vehiclePhoto = allPhotos[0] || "";
+                            
+                            const propostaFinal = vehicle.detalhes_proposta?.propostaFinal || vehicle.preco_cliente;
+                            
                             vehicleInfo = `
 VEÍCULO EM NEGOCIAÇÃO:
 - Marca/Modelo: ${vehicle.marca} ${vehicle.modelo}
 - Ano: ${vehicle.ano_fabricacao}/${vehicle.ano_modelo}
-- Preço: R$ ${vehicle.preco_cliente || 'A consultar'}
+- Preço Sugerido/Cliente: R$ ${vehicle.preco_cliente || 'A consultar'}
+- PROPOSTA FINAL CALCULADA: R$ ${propostaFinal || 'A calcular'}
 - KM: ${vehicle.quilometragem || vehicle.km || '0'}
 - Cor: ${vehicle.cor || 'Não informada'}
 - Sinistro/Leilão: ${vehicle.tem_sinistro === 'sim' ? 'Sim' : 'Não'} / ${vehicle.passagem_leilao === 'sim' ? 'Sim' : 'Não'}
@@ -426,7 +451,12 @@ REGRAS E MEMÓRIA DO VENDEDOR:
 ${aiPromptRef.current}
 ${aiMemoryRef.current ? `\nMEMÓRIA APRENDIDA:\n${aiMemoryRef.current}` : ''}
 
-REGRAS:
+REGRAS DE PROPOSTA:
+${isAutoProposalEnabled ? 
+    "VOCÊ ESTÁ AUTORIZADO A ENVIAR A PROPOSTA FINAL. Use o valor 'PROPOSTA FINAL CALCULADA' mencionado acima se o cliente perguntar sobre valores ou propostas." : 
+    "VOCÊ NÃO ESTÁ AUTORIZADO A ENVIAR VALORES DE PROPOSTA. Se o cliente perguntar sobre preço ou proposta, diga que um consultor humano está finalizando os cálculos para garantir a melhor oferta e entrará em contato em breve. Foque em outros detalhes do veículo."}
+
+REGRAS GERAIS:
 1. Use os dados técnicos acima.
 2. Seja persuasivo, amigável e direto.
 3. Responda como um vendedor de carros experiente.

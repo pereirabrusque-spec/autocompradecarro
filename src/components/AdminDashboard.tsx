@@ -265,6 +265,24 @@ export default function AdminDashboard() {
     }
   };
 
+  const toggleAutoProposal = async () => {
+    setIsUpdatingAi(true);
+    const newValue = !autoProposalEnabled;
+    try {
+      const { data: existing } = await supabase.from('settings').select('key').eq('key', 'AUTO_PROPOSAL_ENABLED').maybeSingle();
+      if (existing) {
+        await supabase.from('settings').update({ value: newValue.toString() }).eq('key', 'AUTO_PROPOSAL_ENABLED');
+      } else {
+        await supabase.from('settings').insert({ key: 'AUTO_PROPOSAL_ENABLED', value: newValue.toString() });
+      }
+      setAutoProposalEnabled(newValue);
+    } catch (e) {
+      console.error('Error toggling auto proposal:', e);
+    } finally {
+      setIsUpdatingAi(false);
+    }
+  };
+
   const [filterUser, setFilterUser] = useState('');
   const [isRefreshingUsers, setIsRefreshingUsers] = useState(false);
 
@@ -4976,7 +4994,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 isGlobalAiEnabled={isGlobalAiEnabled}
                 toggleGlobalAi={toggleGlobalAi}
                 autoProposalEnabled={autoProposalEnabled}
-                setAutoProposalEnabled={setAutoProposalEnabled}
+                toggleAutoProposal={toggleAutoProposal}
                 isUpdatingAi={isUpdatingAi}
                 fetchChatMessages={fetchChatMessages}
                 fetchInternalMessages={fetchInternalMessages}
@@ -5000,20 +5018,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   <p className="text-xs text-slate-500">Quando ativado, a IA envia propostas diretamente ao cliente.</p>
                 </div>
                 <button 
-                  onClick={async () => {
-                    const newValue = !autoProposalEnabled;
-                    setAutoProposalEnabled(newValue);
-                    try {
-                      const { error } = await supabase
-                        .from('settings')
-                        .upsert({ key: 'AUTO_PROPOSAL_ENABLED', value: newValue ? 'true' : 'false' }, { onConflict: 'key' });
-                      if (error) throw error;
-                      alert(`IA Automática ${newValue ? 'ativada' : 'desativada'}!`);
-                    } catch (err) {
-                      console.error(err);
-                      alert('Erro ao salvar configuração.');
-                    }
-                  }}
+                  onClick={toggleAutoProposal}
+                  disabled={isUpdatingAi}
                   className={`w-16 h-8 rounded-full transition-colors flex items-center px-1 ${autoProposalEnabled ? 'bg-green-500' : 'bg-slate-200'}`}
                 >
                   <div className={`w-6 h-6 bg-white rounded-full transition-transform ${autoProposalEnabled ? 'translate-x-8' : 'translate-x-0'}`} />

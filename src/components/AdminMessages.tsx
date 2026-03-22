@@ -25,7 +25,7 @@ interface AdminMessagesProps {
   isGlobalAiEnabled: boolean;
   toggleGlobalAi: () => void;
   autoProposalEnabled: boolean;
-  setAutoProposalEnabled: (enabled: boolean) => void;
+  toggleAutoProposal: () => void;
   isUpdatingAi: boolean;
   isSendingMessage: boolean;
   fetchChatMessages: (leadIds: string[]) => void;
@@ -62,7 +62,7 @@ export default function AdminMessages({
   isGlobalAiEnabled,
   toggleGlobalAi,
   autoProposalEnabled,
-  setAutoProposalEnabled,
+  toggleAutoProposal,
   isUpdatingAi,
   isSendingMessage,
   fetchChatMessages,
@@ -196,8 +196,8 @@ export default function AdminMessages({
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-600">PROPOSTA AUTO/MAN</span>
               <button 
-                onClick={() => setAutoProposalEnabled(!autoProposalEnabled)}
-                disabled={!isGlobalAiEnabled}
+                onClick={toggleAutoProposal}
+                disabled={!isGlobalAiEnabled || isUpdatingAi}
                 className={`w-10 h-5 rounded-full transition-colors ${autoProposalEnabled && isGlobalAiEnabled ? 'bg-blue-600' : 'bg-slate-300'} ${!isGlobalAiEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <div className={`w-4 h-4 bg-white rounded-full transition-transform ${autoProposalEnabled && isGlobalAiEnabled ? 'translate-x-5' : 'translate-x-1'}`} />
