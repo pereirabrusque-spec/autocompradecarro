@@ -365,9 +365,9 @@ REGRAS GERAIS:
                         return;
                     }
 
-                    console.log(`[BackgroundAIManager] IA habilitada para lead. Aguardando delay maior (10s) para evitar conflito com UI...`);
+                    console.log(`[BackgroundAIManager] IA habilitada para lead. Aguardando delay maior (30s) para evitar conflito com UI...`);
                     
-                    const delay = 10000; // 10 segundos fixos para dar tempo da UI responder
+                    const delay = 30000; // 30 segundos fixos para dar tempo da UI responder
                     await new Promise(resolve => setTimeout(resolve, delay));
 
                     // Verifica se JÁ existe uma resposta de ADMIN ou BOT para ESTA mensagem
@@ -460,6 +460,8 @@ REGRAS GERAIS:
 1. Use os dados técnicos acima.
 2. Seja persuasivo, amigável e direto.
 3. Responda como um vendedor de carros experiente.
+4. EVITE REPETIR SAUDAÇÕES: Se o histórico já contém um "Bom dia", "Boa tarde" ou "Olá" recente, NÃO repita. Vá direto ao assunto.
+5. NÃO envie mensagens duplicadas. Se a última mensagem do histórico já responde o que o cliente perguntou, não responda novamente.
 `;
 
                         const response = await AIService.generateContent(

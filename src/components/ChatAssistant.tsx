@@ -448,12 +448,17 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         - **Negociação/Estimativa:** Se o usuário pedir uma estimativa de valor ou quiser negociar, diga que para isso ele **PRECISA preencher o formulário completo** clicando em "Vender Meu Carro" ou fornecendo todos os dados aqui no chat.
 
         ### 4. FLUXO DE ATENDIMENTO (Seja educado e prestativo)
-        1. **Boas-vindas:** Já peça o Modelo e Ano (se não tiver).
+        1. **Boas-vindas:** Já peça o Modelo e Ano (se não tiver). Se o histórico já tiver uma saudação, NÃO repita.
         2. **Análise:** Peça detalhes do problema (Dívida? Mecânica?).
         3. **Documentação:** Peça foto do CRLV ou Placa/Renavam para consulta.
         4. **Visual:** Peça fotos do carro (frente, traseira, laterais, interior).
         5. **Financeiro:** Pergunte: Banco? Valor parcela? Quantas pagas? Quantas faltam? **Quanto deu de entrada?**
         6. **ENCERRAMENTO:** Agradeça e diga que um consultor enviará a proposta em breve.
+
+        ### 5. REGRAS DE SAUDAÇÃO:
+        - NUNCA diga "Bom dia", "Boa tarde" ou "Olá" se o histórico já mostrar que você já cumprimentou o cliente.
+        - Se o cliente já forneceu dados, vá direto para a análise técnica.
+        - Se o cliente já preencheu o formulário, foque em fechar o negócio.
 
         ### 5. SAÍDA DE DADOS (JSON Oculto)
         Sempre que tiver dados suficientes (ou no final da proposta), gere este bloco JSON para o sistema registrar o lead:
@@ -517,6 +522,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         [DIRETRIZ DE RESPOSTA]
         Responda de forma direta, autoritária e empática.
         **REGRA DE OURO:** Suas respostas devem ter NO MÁXIMO 4 LINHAS. Seja extremamente conciso. Não use textos longos. Pareça um humano digitando rápido no WhatsApp.
+        **EVITE REPETIÇÕES:** Se o histórico já contém uma saudação, NÃO repita. Se o cliente já enviou os dados, não peça novamente.
         Se o usuário quiser uma avaliação detalhada ou estiver fornecendo muitos dados técnicos, sugira: "Para uma avaliação completa e rápida, use nosso formulário oficial clicando em 'Vender Meu Carro' no menu".
         Se a informação necessária para seguir as regras não estiver disponível, peça-a ao usuário.
       `;
@@ -710,10 +716,16 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
                   {messages.map((msg, i) => (
                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`flex gap-3 max-w-[90%] ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm overflow-hidden ${
                       msg.role === 'user' ? '' : 'bg-white border border-slate-100 text-slate-900'
                     }`} style={msg.role === 'user' ? { backgroundColor: chatColor, color: 'white' } : {}}>
-                      {msg.role === 'user' ? <User className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
+                      {msg.role === 'user' ? (
+                        <User className="w-5 h-5" />
+                      ) : chatAvatarUrl ? (
+                        <img src={chatAvatarUrl} alt="Bot" className="w-full h-full object-cover" />
+                      ) : (
+                        <Bot className="w-5 h-5" />
+                      )}
                     </div>
                     <div className="space-y-2">
                       {msg.image && (
@@ -746,8 +758,12 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
               {isLoading && (
                 <div className="flex justify-start">
                   <div className="flex gap-3">
-                    <div className="w-9 h-9 bg-white border border-slate-100 rounded-xl flex items-center justify-center shadow-sm">
-                      <Bot className="w-5 h-5 text-slate-900" />
+                    <div className="w-9 h-9 bg-white border border-slate-100 rounded-xl flex items-center justify-center shadow-sm overflow-hidden">
+                      {chatAvatarUrl ? (
+                        <img src={chatAvatarUrl} alt="Bot" className="w-full h-full object-cover" />
+                      ) : (
+                        <Bot className="w-5 h-5 text-slate-900" />
+                      )}
                     </div>
                     <div className="p-4 bg-white border border-slate-100 rounded-2xl rounded-tl-none shadow-sm flex items-center gap-2">
                       <Loader2 className="w-4 h-4 animate-spin" style={{ color: chatColor }} />
