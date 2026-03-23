@@ -151,6 +151,7 @@ export default function LeadDetailsCard({
           fixedCostsDetail: [],
           discounts: [],
           discountValue: 0,
+          valorDesejado: 0,
           payoffBreakdown: {
             remainingInstallments: 0,
             totalRemaining: 0,
@@ -1252,6 +1253,7 @@ export default function LeadDetailsCard({
                             </div>
                         </div>
                       </div>
+                      <div className="flex justify-between"><span className="text-slate-500">Valor Desejado</span><span className="font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.valorDesejado)}</span></div>
                       <div className="pt-4 border-t border-slate-200 flex justify-between items-center group cursor-pointer relative">
                         <span className="font-bold text-lg text-slate-900">Proposta Final</span>
                         <div className="flex flex-col items-end">
@@ -1342,6 +1344,7 @@ export default function LeadDetailsCard({
                             </div>
                         </div>
                       </div>
+                      <div className="flex justify-between"><span className="text-white/60">Valor Desejado</span><span className="font-mono">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.valorDesejado)}</span></div>
                       <div className="pt-6 border-t border-white/10 flex justify-between items-center group cursor-pointer relative">
                         <span className="text-accent font-bold">PROPOSTA FINAL</span>
                         <div className="flex flex-col items-end">

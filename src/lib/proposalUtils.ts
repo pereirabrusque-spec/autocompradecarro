@@ -24,6 +24,7 @@ export interface ProposalResult {
   fixedCostsDetail: ProposalDeduction[];
   discounts: ProposalDeduction[];
   discountValue: number;
+  valorDesejado: number;
   payoffBreakdown: {
     remainingInstallments: number;
     totalRemaining: number;
@@ -266,10 +267,14 @@ export const calculateProposal = (
   const totalDeductions = maxPercentDiscount + fixedDeductions;
   const profitMargin = fipe * (profitMarginPercentage / 100); 
   
-  let finalValue = fipe - totalDeductions - payoffValue - docDebts - profitMargin;
+  const propostaBase = fipe - totalDeductions - payoffValue - docDebts - profitMargin;
+  const valorDesejado = Number(lead.preco_cliente) || Number(lead.desired_value) || 0;
+  const limiteDesejado = valorDesejado > 0 ? valorDesejado * 0.6 : propostaBase;
 
-  if (lead.preco_cliente && finalValue > lead.preco_cliente) {
-    finalValue = lead.preco_cliente;
+  // Se proposta base < limite desejado (valor desejado - 40%), usa proposta base. Senão usa limite desejado.
+  let finalValue = propostaBase;
+  if (valorDesejado > 0 && propostaBase > limiteDesejado) {
+    finalValue = limiteDesejado;
   }
 
   if (finalValue < 0) finalValue = 0;
@@ -282,8 +287,8 @@ export const calculateProposal = (
 
   const finalProposalValue = latestNovaProposta?.valor || finalValue;
   const calculatedProfitMargin = fipe - (fipe * 0.2) - maxPercentDiscount - repairTotal - finalProposalValue;
-  const optionA = finalProposalValue;
-  const optionB = finalProposalValue + payoffValue;
+  const optionA = propostaBase;
+  const optionB = limiteDesejado;
 
   return {
     baseValue: fipe,
@@ -303,6 +308,7 @@ export const calculateProposal = (
     fixedCostsDetail: deductions.filter(d => d.type === 'fixed'),
     discounts: deductions.filter(d => d.type === 'percent'),
     discountValue: maxPercentDiscount,
+    valorDesejado,
     payoffBreakdown,
     optionA,
     optionB
