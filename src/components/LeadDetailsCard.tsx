@@ -48,7 +48,7 @@ export default function LeadDetailsCard({
     'ar_condicionado', 'direcao_hidraulica', 'vidros_eletricos', 'travas_eletricas', 
     'alarme', 'som_multimidia', 'bancos_couro', 'rodas_liga_leve', 'sensor_re', 
     'camera_re', 'tem_sinistro', 'passagem_leilao', 'recuperado_banco', 
-    'historico_furto_roubo', 'is_financiamento_atrasado', 'is_busca_apreensao', 
+    'historico_furto_roubo', 'faz_procuracao', 'is_financiamento_atrasado', 'is_busca_apreensao', 
     'is_ipva_multas_atrasados', 'is_renajud', 'is_motor_fundido', 
     'is_cambio_defeito', 'is_batido_avariado', 'is_sinistrado_leilao'
   ];
@@ -1090,6 +1090,7 @@ export default function LeadDetailsCard({
                             { label: 'Cor', key: 'cor' },
                             { label: 'Quilometragem', key: 'quilometragem' },
                             { label: 'Valor FIPE', key: 'valor_fipe' },
+                            { label: 'Valor Desejado', key: 'preco_cliente' },
                             { label: 'Valor Entrada', key: 'entrada' },
                             { label: 'Banco Financiamento', key: 'banco_financiamento' },
                             { label: 'Total Parcelas', key: 'total_parcelas' },
@@ -1104,6 +1105,7 @@ export default function LeadDetailsCard({
                             { label: 'Passagem por Leilão?', key: 'passagem_leilao' },
                             { label: 'Recuperado de Banco?', key: 'recuperado_banco' },
                             { label: 'Histórico de Furto/Roubo?', key: 'historico_furto_roubo' },
+                            { label: 'Faz Procuração?', key: 'faz_procuracao' },
                             { label: 'Tipo de Monta (Danos)', key: 'avarias_manuais' },
                             { label: 'Financiamento Atrasado', key: 'financiamento_atrasado' },
                             { label: 'Busca e Apreensão', key: 'busca_apreensao' },
@@ -1146,6 +1148,7 @@ export default function LeadDetailsCard({
                                       field.key === 'sinistrado_leilao' ? 'Sinistrado / Leilão' : 
                                       field.key === 'recuperado_banco' ? 'Recuperado de Banco' :
                                       field.key === 'historico_furto_roubo' ? 'Histórico de Furto/Roubo' :
+                                      field.key === 'faz_procuracao' ? 'Faz Procuração' :
                                       field.key === 'passagem_leilao' ? 'Passagem por Leilão' :
                                       field.key === 'tem_sinistro' ? 'Sinistro' : ''
                                     ) || 
@@ -1160,7 +1163,11 @@ export default function LeadDetailsCard({
                                 <input 
                                   type="text"
                                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-accent/20 outline-none transition-all" 
-                                  value={currentLead[field.key] ?? ''} 
+                                  value={
+                                    field.key === 'valor_fipe' || field.key === 'entrada' || field.key === 'preco_cliente' || field.key === 'valor_parcela' || field.key === 'multas' || field.key === 'motor_reparo' || field.key === 'cambio_reparo' || field.key === 'batido_reparo'
+                                      ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(currentLead[field.key] || 0)
+                                      : currentLead[field.key] ?? ''
+                                  }
                                   readOnly
                                 />
                               )}

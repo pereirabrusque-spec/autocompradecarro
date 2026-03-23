@@ -95,6 +95,7 @@ export default function SellCar() {
     hasManualKey: false,
     fullMaintenanceHistory: false,
     tireCondition: 'Bom',
+    faz_procuracao: false,
     
     desiredPrice: '',
     ownerName: '',
@@ -385,6 +386,7 @@ export default function SellCar() {
     if (formData.hasLeilao) problems.push('Passagem por Leilão');
     if (formData.isRecuperado) problems.push('Recuperado de Banco');
     if (formData.hasFurtoRoubo) problems.push('Histórico de Furto/Roubo');
+    if (formData.faz_procuracao) problems.push('Faz Procuração');
 
     try {
       // 1. Upload de Fotos e Vídeos para o Supabase Storage
@@ -480,6 +482,7 @@ export default function SellCar() {
         historico_furto_roubo: formData.hasFurtoRoubo,
         tem_sinistro: formData.hasSinistro || formData.hasSinistradoLeilao,
         passagem_leilao: formData.hasLeilao || formData.hasSinistradoLeilao,
+        faz_procuracao: formData.faz_procuracao,
         fotos: uploadedPhotos,
         videos: uploadedVideos,
         fotos_url: uploadedPhotos,
@@ -653,6 +656,7 @@ export default function SellCar() {
       hasManualKey: false,
       fullMaintenanceHistory: false,
       tireCondition: 'Bom',
+      faz_procuracao: false,
       desiredPrice: '',
       ownerName: '',
       ownerPhone: '',
@@ -1399,7 +1403,8 @@ export default function SellCar() {
                 { id: 'hasSinistro', label: 'Tem Sinistro?' },
                 { id: 'hasLeilao', label: 'Passagem por Leilão?' },
                 { id: 'isRecuperado', label: 'Recuperado de Banco?' },
-                { id: 'hasFurtoRoubo', label: 'Histórico de Furto/Roubo?' }
+                { id: 'hasFurtoRoubo', label: 'Histórico de Furto/Roubo?' },
+                { id: 'faz_procuracao', label: 'Faz Procuração?' }
               ].map(item => (
                 <label key={item.id} className="flex items-center gap-3 p-4 border border-slate-100 rounded-2xl cursor-pointer hover:bg-slate-50 transition-colors">
                   <input 

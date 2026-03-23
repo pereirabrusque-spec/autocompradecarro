@@ -67,6 +67,7 @@ export default function SellModal() {
     is_cambio_defeito: false,
     is_batido_avariado: false,
     is_sinistrado_leilao: false,
+    faz_procuracao: false,
     fipe_price: 0,
     desired_price: '',
     entrada: '',
@@ -199,6 +200,7 @@ export default function SellModal() {
         placa: formData.plate,
         renavam: formData.renavam,
         valor_fipe: formData.fipe_price,
+        preco_cliente: parseFloat(formData.desired_price) || 0,
         desired_value: parseFloat(formData.desired_price) || 0,
         entrada: parseFloat(formData.entrada) || 0,
         status: 'proposta_enviada',
@@ -232,6 +234,7 @@ export default function SellModal() {
         leilao: formData.leilao,
         furto_roubo: formData.furto_roubo,
         busca_apreensao: formData.busca_apreensao,
+        faz_procuracao: formData.faz_procuracao,
         is_financiamento_atrasado: formData.is_financiamento_atrasado ? 'sim' : 'nao',
         is_busca_apreensao: formData.is_busca_apreensao ? 'sim' : 'nao',
         is_ipva_multas_atrasados: formData.is_ipva_multas_atrasados ? 'sim' : 'nao',
@@ -551,6 +554,13 @@ export default function SellModal() {
                       <div className="space-y-1">
                         <label className="text-xs font-bold text-slate-400 uppercase ml-1">Busca e Apreensão</label>
                         <select className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" value={formData.busca_apreensao} onChange={e => setFormData({...formData, busca_apreensao: e.target.value})}>
+                          <option value="nao">Não</option>
+                          <option value="sim">Sim</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400 uppercase ml-1">Faz Procuração?</label>
+                        <select className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" value={formData.faz_procuracao ? 'sim' : 'nao'} onChange={e => setFormData({...formData, faz_procuracao: e.target.value === 'sim'})}>
                           <option value="nao">Não</option>
                           <option value="sim">Sim</option>
                         </select>
