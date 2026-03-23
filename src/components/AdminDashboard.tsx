@@ -1168,12 +1168,14 @@ export default function AdminDashboard() {
         }
       })
       .on('postgres_changes', {
-        event: 'INSERT',
+        event: '*',
         schema: 'public',
         table: 'leads_veiculos'
       }, (payload) => {
-        console.log("[AdminDashboard] New lead created:", payload.new);
-        playNotificationSound();
+        console.log("[AdminDashboard] Lead changed (realtime):", payload.eventType, payload.new);
+        if (payload.eventType === 'INSERT') {
+          playNotificationSound();
+        }
         fetchData();
       })
       .subscribe();
@@ -2356,6 +2358,18 @@ Podemos prosseguir com o agendamento da vistoria?`;
         .eq('id', selectedLead.id);
 
       if (error) throw error;
+
+      // Update local state
+      setLeads(prev => prev.map(l => l.id === selectedLead.id ? { 
+        ...l, 
+        suggested_value: proposalCalculator.finalValue,
+        detalhes_proposta: {
+          ...proposalCalculator,
+          overrides: proposalOverrides,
+          avarias: selectedLead.avarias || [],
+          avarias_manuais: selectedLead.avarias_manuais || []
+        }
+      } : l));
 
       if (updateGlobal) {
         // Update global rules (fipeRules)
@@ -5633,11 +5647,22 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     <span className="font-bold">- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.profitMargin)}</span>
                   </div>
 
-                <div className="pt-4 border-t border-slate-200 mt-4">
+                <div className="pt-4 border-t border-slate-200 mt-4 space-y-4">
                   <div className="flex justify-between items-center">
                     <span className="font-bold text-xl text-slate-900">Valor Final</span>
                     <span className={`font-black text-2xl ${getProposalClass(proposalCalculator.finalValue, selectedLead?.tipo_veiculo) || 'text-accent'}`}>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposalCalculator.finalValue)}</span>
                   </div>
+
+                  <button 
+                    onClick={() => {
+                      handleSaveProposal(false);
+                      setShowProposalDetails(false);
+                    }}
+                    className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-accent transition-all flex items-center justify-center gap-2"
+                  >
+                    <Save className="w-5 h-5" />
+                    Salvar Proposta no Lead
+                  </button>
                 </div>
               </div>
             </div>
@@ -5656,12 +5681,17 @@ Podemos prosseguir com o agendamento da vistoria?`;
           selectedLead={selectedLead}
           proposalCalculator={proposalCalculator}
           onClose={() => setShowProposalModal(false)}
+          onSave={(updatedLead) => {
+            setLeads(prev => prev.map(l => l.id === updatedLead.id ? updatedLead : l));
+          }}
           setAvarias={setAvarias}
           setShowAvariasModal={setShowAvariasModal}
           fipeRules={fipeRules}
           jurosAtraso={jurosAtraso}
           banks={banks}
           cooperativeDiscount={cooperativeDiscount}
+          profitMarginPercentage={profitMarginPercentage}
+          repairCosts={repairCosts}
         />
       )}
 

@@ -7,24 +7,30 @@ interface ProposalModalProps {
   selectedLead: any;
   proposalCalculator: any;
   onClose: () => void;
+  onSave: (lead: any) => void;
   setAvarias: (avarias: any[]) => void;
   setShowAvariasModal: (show: boolean) => void;
   fipeRules: any[];
   jurosAtraso: number;
   banks: any[];
   cooperativeDiscount: number;
+  profitMarginPercentage: number;
+  repairCosts: any[];
 }
 
 export const ProposalModal: React.FC<ProposalModalProps> = ({
   selectedLead,
   proposalCalculator,
   onClose,
+  onSave,
   setAvarias,
   setShowAvariasModal,
   fipeRules,
   jurosAtraso,
   banks,
   cooperativeDiscount,
+  profitMarginPercentage,
+  repairCosts,
 }) => {
   const [editedLead, setEditedLead] = React.useState(selectedLead);
 
@@ -37,6 +43,7 @@ export const ProposalModal: React.FC<ProposalModalProps> = ({
     else {
       alert('Alterações salvas com sucesso!');
       setEditedLead(updatedLead);
+      onSave(updatedLead);
     }
   };
 
@@ -69,6 +76,8 @@ export const ProposalModal: React.FC<ProposalModalProps> = ({
             jurosAtraso={jurosAtraso} 
             banks={banks} 
             cooperativeDiscount={cooperativeDiscount} 
+            profitMarginPercentage={profitMarginPercentage}
+            repairCosts={repairCosts}
             userRole="admin"
         />
       </div>

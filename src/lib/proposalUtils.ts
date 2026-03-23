@@ -57,7 +57,8 @@ export const calculateProposal = (
 ): ProposalResult => {
   const { fipeRules, banks, cooperativeDiscount, profitMarginPercentage, jurosAtraso, repairCosts, overrides } = options;
   
-  const currentOverrides = overrides || lead.detalhes_proposta?.overrides || { rules: {}, repairs: {} };
+  const hasOverrides = overrides && (Object.keys(overrides.rules || {}).length > 0 || Object.keys(overrides.repairs || {}).length > 0);
+  const currentOverrides = hasOverrides ? overrides : (lead.detalhes_proposta?.overrides || { rules: {}, repairs: {} });
   const fipe = Number(lead.valor_fipe) || 0;
   const deductions: ProposalDeduction[] = [];
 
@@ -266,7 +267,7 @@ export const calculateProposal = (
   let finalValue = fipe - totalDeductions - payoffValue - docDebts - profitMargin;
 
   if (lead.preco_cliente && finalValue > lead.preco_cliente) {
-    finalValue = lead.preco_cliente * 0.60;
+    finalValue = lead.preco_cliente;
   }
 
   if (finalValue < 0) finalValue = 0;
@@ -279,14 +280,15 @@ export const calculateProposal = (
     ? (novasPropostas.length > 1 ? novasPropostas[novasPropostas.length - 2].valor : finalValue)
     : null;
 
-  const optionA = finalValue;
-  const optionB = finalValue + payoffValue;
+  const finalProposalValue = latestNovaProposta?.valor || finalValue;
+  const optionA = finalProposalValue;
+  const optionB = finalProposalValue + payoffValue;
 
   return {
     baseValue: fipe,
     fipe,
     deductions,
-    finalValue: latestNovaProposta?.valor || finalValue,
+    finalValue: finalProposalValue,
     previousProposalValue,
     profitMargin: calculatedProfitMargin,
     profit: calculatedProfitMargin,

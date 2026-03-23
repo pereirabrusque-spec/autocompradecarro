@@ -15,9 +15,9 @@ export const BackgroundAIManager = () => {
     // Configurações de Proposta
     const [fipeRules, setFipeRules] = useState<any[]>([]);
     const [banks, setBanks] = useState<any[]>([]);
-    const [cooperativeDiscount, setCooperativeDiscount] = useState(80);
+    const [cooperativeDiscount, setCooperativeDiscount] = useState(5);
     const [profitMarginPercentage, setProfitMarginPercentage] = useState(20);
-    const [jurosAtraso, setJurosAtraso] = useState(1);
+    const [jurosAtraso, setJurosAtraso] = useState(2);
     const [repairCosts, setRepairCosts] = useState<any[]>([]);
 
     const isAiEnabledRef = useRef(false);
@@ -31,9 +31,9 @@ export const BackgroundAIManager = () => {
 
     const fipeRulesRef = useRef<any[]>([]);
     const banksRef = useRef<any[]>([]);
-    const cooperativeDiscountRef = useRef(80);
+    const cooperativeDiscountRef = useRef(5);
     const profitMarginPercentageRef = useRef(20);
-    const jurosAtrasoRef = useRef(1);
+    const jurosAtrasoRef = useRef(2);
     const repairCostsRef = useRef<any[]>([]);
 
     useEffect(() => {
@@ -92,7 +92,7 @@ export const BackgroundAIManager = () => {
         // Load initial settings
         supabase.from('settings').select('key, value').in('key', [
             'AI_SYSTEM_PROMPT', 'AI_CRM_PROMPT', 'AI_CRM_ENABLED', 'AI_MEMORY', 'AI_CRM_MEMORY', 'AUTO_PROPOSAL_ENABLED',
-            'COOPERATIVE_DISCOUNT', 'PROFIT_MARGIN_PERCENTAGE', 'JUROS_ATRASO'
+            'COOPERATIVE_DISCOUNT_PERCENTAGE', 'PROFIT_MARGIN_PERCENTAGE', 'JUROS_ATRASO'
         ]).then(({ data }) => {
             if (data) {
                 const prompt = data.find(s => s.key === 'AI_SYSTEM_PROMPT');
@@ -101,7 +101,7 @@ export const BackgroundAIManager = () => {
                 const autoProposal = data.find(s => s.key === 'AUTO_PROPOSAL_ENABLED');
                 const memory = data.find(s => s.key === 'AI_MEMORY');
                 const crmMemory = data.find(s => s.key === 'AI_CRM_MEMORY');
-                const coopDiscount = data.find(s => s.key === 'COOPERATIVE_DISCOUNT');
+                const coopDiscount = data.find(s => s.key === 'COOPERATIVE_DISCOUNT_PERCENTAGE');
                 const margin = data.find(s => s.key === 'PROFIT_MARGIN_PERCENTAGE');
                 const juros = data.find(s => s.key === 'JUROS_ATRASO');
 
@@ -111,9 +111,9 @@ export const BackgroundAIManager = () => {
                 if (autoProposal) setAutoProposalEnabled(autoProposal.value === 'true');
                 if (memory) setAiMemory(memory.value);
                 if (crmMemory) setAiCrmMemory(crmMemory.value);
-                if (coopDiscount) setCooperativeDiscount(Number(coopDiscount.value) || 80);
+                if (coopDiscount) setCooperativeDiscount(Number(coopDiscount.value) || 5);
                 if (margin) setProfitMarginPercentage(Number(margin.value) || 20);
-                if (juros) setJurosAtraso(Number(juros.value) || 1);
+                if (juros) setJurosAtraso(Number(juros.value) || 2);
             }
         });
 
@@ -147,7 +147,7 @@ export const BackgroundAIManager = () => {
                     if (key === 'AUTO_PROPOSAL_ENABLED') setAutoProposalEnabled(value === 'true');
                     if (key === 'AI_MEMORY') setAiMemory(value);
                     if (key === 'AI_CRM_MEMORY') setAiCrmMemory(value);
-                    if (key === 'COOPERATIVE_DISCOUNT') setCooperativeDiscount(Number(value) || 80);
+                    if (key === 'COOPERATIVE_DISCOUNT_PERCENTAGE') setCooperativeDiscount(Number(value) || 5);
                     if (key === 'PROFIT_MARGIN_PERCENTAGE') setProfitMarginPercentage(Number(value) || 20);
                     if (key === 'JUROS_ATRASO') setJurosAtraso(Number(value) || 1);
                 }
