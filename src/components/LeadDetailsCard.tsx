@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, MessageCircle, MessageSquare, Send, FileText, Edit2, ArrowLeft, ChevronLeft, ChevronRight, Upload, DollarSign, User, ShieldCheck, Copy } from 'lucide-react';
+import { X, Save, MessageCircle, MessageSquare, Send, FileText, Edit2, ArrowLeft, ChevronLeft, ChevronRight, Upload, DollarSign, User, ShieldCheck, Copy, AlertTriangle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -168,7 +168,8 @@ export default function LeadDetailsCard({
             jurosAtrasadas: 0
           },
           optionA: 0,
-          optionB: 0
+          optionB: 0,
+          requiresManualAnalysis: false
       };
     }
   };
@@ -1279,7 +1280,15 @@ export default function LeadDetailsCard({
                           <div className="text-[10px] text-slate-400 mt-2 italic">* O sistema seleciona automaticamente o menor valor.</div>
                         </div>
                       </div>
-                      <div className="flex justify-between text-emerald-600 font-medium"><span>Lucro Estimado</span><span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.profit)}</span></div>
+                      {calc.requiresManualAnalysis && (
+                        <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2">
+                          <AlertTriangle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                          <p className="text-xs text-red-700 font-medium leading-tight">
+                            Atenção: A proposta calculada está muito baixa (abaixo de zero ou menor que 10% da FIPE). O envio automático pelo agente foi bloqueado. É necessária análise manual.
+                          </p>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-emerald-600 font-medium mt-4"><span>Lucro Estimado</span><span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calc.profit)}</span></div>
                     </div>
                   </div>
 
@@ -1370,6 +1379,14 @@ export default function LeadDetailsCard({
                           <div className="text-[10px] text-white/40 mt-2 italic">* O sistema seleciona automaticamente o menor valor.</div>
                         </div>
                       </div>
+                      {calc.requiresManualAnalysis && (
+                        <div className="mt-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-2">
+                          <AlertTriangle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+                          <p className="text-xs text-red-300 font-medium leading-tight">
+                            Atenção: A proposta calculada está muito baixa (abaixo de zero ou menor que 10% da FIPE). O envio automático pelo agente foi bloqueado. É necessária análise manual.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

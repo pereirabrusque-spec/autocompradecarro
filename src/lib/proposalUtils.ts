@@ -42,6 +42,7 @@ export interface ProposalResult {
   };
   optionA: number;
   optionB: number;
+  requiresManualAnalysis: boolean;
 }
 
 export const calculateProposal = (
@@ -271,6 +272,8 @@ export const calculateProposal = (
   const valorDesejado = Number(lead.preco_cliente) || Number(lead.desired_value) || 0;
   const limiteDesejado = valorDesejado > 0 ? valorDesejado * 0.6 : propostaBase;
 
+  const requiresManualAnalysis = propostaBase < 0 || propostaBase < (fipe * 0.10);
+
   // Se proposta base < limite desejado (valor desejado - 40%), usa proposta base. Senão usa limite desejado.
   let finalValue = propostaBase;
   if (valorDesejado > 0 && propostaBase > limiteDesejado) {
@@ -311,6 +314,7 @@ export const calculateProposal = (
     valorDesejado,
     payoffBreakdown,
     optionA,
-    optionB
+    optionB,
+    requiresManualAnalysis
   };
 };

@@ -279,6 +279,7 @@ export const BackgroundAIManager = () => {
                         let vehicleContext = "";
                         let specificVehicleInfo = "";
                         let vehiclePhoto = "";
+                        let requiresManualAnalysis = false;
 
                         if (!currentLeadId) {
                             const lastMsgWithLead = historyData?.find(m => m.lead_id);
@@ -340,6 +341,7 @@ export const BackgroundAIManager = () => {
                                 repairCosts: repairCostsRef.current
                             });
                             const propostaFinal = proposalResult.finalValue;
+                            requiresManualAnalysis = proposalResult.requiresManualAnalysis;
                             
                             specificVehicleInfo = `
 DETALHES COMPLETOS DO VEÍCULO EM FOCO:
@@ -407,9 +409,11 @@ ${aiCrmPromptRef.current}
 ${aiCrmMemoryRef.current ? `\nMEMÓRIA APRENDIDA NO CRM:\n${aiCrmMemoryRef.current}` : ''}
 
 REGRAS DE PROPOSTA:
-${isAutoProposalEnabled ? 
+${isAutoProposalEnabled && !requiresManualAnalysis ? 
     "VOCÊ ESTÁ AUTORIZADO A ENVIAR A PROPOSTA FINAL. Use o valor 'PROPOSTA FINAL CALCULADA' mencionado acima se o cliente perguntar sobre valores ou propostas." : 
-    "VOCÊ NÃO ESTÁ AUTORIZADO A ENVIAR VALORES DE PROPOSTA. Se o cliente perguntar sobre preço ou proposta, diga que você e sua equipe de especialistas estão finalizando os cálculos técnicos para garantir a melhor oferta e que você retornará com o valor exato em breve. Foque em outros detalhes do veículo."}
+    (requiresManualAnalysis ? 
+        "VOCÊ NÃO ESTÁ AUTORIZADO A ENVIAR VALORES DE PROPOSTA. O valor calculado requer análise manual do analista para não queimar o negócio. Diga que você e sua equipe de especialistas estão finalizando os cálculos técnicos para garantir a melhor oferta e que você retornará com o valor exato em breve. Foque em outros detalhes do veículo." :
+        "VOCÊ NÃO ESTÁ AUTORIZADO A ENVIAR VALORES DE PROPOSTA. Se o cliente perguntar sobre preço ou proposta, diga que você e sua equipe de especialistas estão finalizando os cálculos técnicos para garantir a melhor oferta e que você retornará com o valor exato em breve. Foque em outros detalhes do veículo.")}
 
 REGRAS DE ESTOQUE:
 - Se o usuário perguntar sobre "outros modelos", "o que tem no sistema" ou "meus carros", você DEVE confirmar os veículos listando explicitamente o **ANO e MODELO** de cada um.
@@ -527,6 +531,7 @@ REGRAS GERAIS:
                         let inventoryContext = "";
                         let vehicleInfo = "";
                         let vehiclePhoto = "";
+                        let requiresManualAnalysis = false;
                         if (vehicle) {
                             const allPhotos = vehicle.fotos || [];
                             vehiclePhoto = allPhotos[0] || "";
@@ -540,6 +545,7 @@ REGRAS GERAIS:
                                 repairCosts: repairCostsRef.current
                             });
                             const propostaFinal = proposalResult.finalValue;
+                            requiresManualAnalysis = proposalResult.requiresManualAnalysis;
                             
                             vehicleInfo = `
 VEÍCULO EM NEGOCIAÇÃO:
@@ -608,9 +614,11 @@ ${aiPromptRef.current}
 ${aiMemoryRef.current ? `\nMEMÓRIA APRENDIDA:\n${aiMemoryRef.current}` : ''}
 
 REGRAS DE PROPOSTA:
-${isAutoProposalEnabled ? 
+${isAutoProposalEnabled && !requiresManualAnalysis ? 
     "VOCÊ ESTÁ AUTORIZADO A ENVIAR A PROPOSTA FINAL. Use o valor 'PROPOSTA FINAL CALCULADA' mencionado acima se o cliente perguntar sobre valores ou propostas." : 
-    "VOCÊ NÃO ESTÁ AUTORIZADO A ENVIAR VALORES DE PROPOSTA. Se o cliente perguntar sobre preço ou proposta, diga que você e sua equipe de especialistas estão finalizando os cálculos técnicos para garantir a melhor oferta e que você retornará com o valor exato em breve. Foque em outros detalhes do veículo."}
+    (requiresManualAnalysis ? 
+        "VOCÊ NÃO ESTÁ AUTORIZADO A ENVIAR VALORES DE PROPOSTA. O valor calculado requer análise manual do analista para não queimar o negócio. Diga que você e sua equipe de especialistas estão finalizando os cálculos técnicos para garantir a melhor oferta e que você retornará com o valor exato em breve. Foque em outros detalhes do veículo." :
+        "VOCÊ NÃO ESTÁ AUTORIZADO A ENVIAR VALORES DE PROPOSTA. Se o cliente perguntar sobre preço ou proposta, diga que você e sua equipe de especialistas estão finalizando os cálculos técnicos para garantir a melhor oferta e que você retornará com o valor exato em breve. Foque em outros detalhes do veículo.")}
 
 REGRAS DE ESTOQUE:
 - Se o usuário perguntar sobre "outros modelos", "o que tem no sistema" ou "meus carros", você DEVE confirmar os veículos listando explicitamente o **ANO e MODELO** de cada um.

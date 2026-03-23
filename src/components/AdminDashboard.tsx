@@ -4133,6 +4133,11 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(getProposalResult(lead)?.previousProposalValue)}
                                       </span>
                                     )}
+                                    {getProposalResult(lead)?.requiresManualAnalysis && (
+                                      <span className="text-[9px] text-red-500 font-bold flex items-center gap-0.5 mt-0.5" title="Requer análise manual">
+                                        <AlertTriangle className="w-3 h-3" /> Análise
+                                      </span>
+                                    )}
                                   </div>
                                 </td>
                                 <td className="px-2 py-1.5">
