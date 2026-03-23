@@ -273,7 +273,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
   useEffect(() => {
     fetchApiKey();
     fetchData();
-  }, [settings]);
+  }, [settings, leadId]);
 
   useEffect(() => {
     let leadSubscription: any;
@@ -541,7 +541,9 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         Responda de forma direta, autoritária e empática.
         **REGRA DE OURO:** Suas respostas devem ter NO MÁXIMO 4 LINHAS. Seja extremamente conciso. Não use textos longos. Pareça um humano digitando rápido no WhatsApp.
         **EVITE REPETIÇÕES:** Se o histórico já contém uma saudação, NÃO repita. Se o cliente já enviou os dados, não peça novamente.
-        **ESTOQUE:** Se o usuário perguntar sobre outros carros ou o que temos no sistema, use a lista de "OUTROS MODELOS NO SISTEMA" acima para confirmar. Informe Ano, Modelo e Descrição para tranquilizar o usuário.
+        **ESTOQUE:** Se o usuário perguntar sobre outros carros ou o que temos no sistema, você DEVE confirmar os veículos listando explicitamente o **ANO e MODELO** de cada um.
+        **PROIBIÇÃO:** NUNCA diga que "por questões de segurança não detalhamos os modelos". Você deve ser transparente para deixar o usuário tranquilo de que os dados estão no banco de dados.
+        Informe o Ano, Modelo e uma breve descrição (Cor/KM) para cada veículo do estoque.
         Se o usuário quiser uma avaliação detalhada ou estiver fornecendo muitos dados técnicos, sugira: "Para uma avaliação completa e rápida, use nosso formulário oficial clicando em 'Vender Meu Carro' no menu".
         Se a informação necessária para seguir as regras não estiver disponível, peça-a ao usuário.
       `;

@@ -224,6 +224,7 @@ export const BackgroundAIManager = () => {
                             .from('leads_veiculos')
                             .select('id, marca, modelo, ano_modelo, preco_cliente, situacao_financeira, cor, quilometragem')
                             .eq('user_id', uid)
+                            .neq('id', currentLeadId)
                             .limit(15);
 
                         let inventoryContext = "";
@@ -313,8 +314,9 @@ ${isAutoProposalEnabled ?
     "VOCÊ NÃO ESTÁ AUTORIZADO A ENVIAR VALORES DE PROPOSTA. Se o cliente perguntar sobre preço ou proposta, diga que um consultor humano está finalizando os cálculos para garantir a melhor oferta e entrará em contato em breve. Foque em outros detalhes do veículo."}
 
 REGRAS DE ESTOQUE:
-- Se o usuário perguntar sobre "outros modelos", "o que tem no sistema" ou "meus carros", use a lista de "ESTOQUE COMPLETO DO VENDEDOR" acima para confirmar os veículos.
-- Informe o Ano, Modelo e uma breve descrição (Cor/KM/Preço) para deixar o vendedor/comprador tranquilo de que os dados estão no banco de dados.
+- Se o usuário perguntar sobre "outros modelos", "o que tem no sistema" ou "meus carros", você DEVE confirmar os veículos listando explicitamente o **ANO e MODELO** de cada um.
+- **PROIBIÇÃO:** NUNCA diga que "por questões de segurança não detalhamos os modelos". Você deve ser transparente para deixar o vendedor tranquilo de que os dados estão no banco de dados.
+- Informe o Ano, Modelo e uma breve descrição (Cor/KM) para cada veículo do estoque.
 
 REGRAS GERAIS:
 1. Use os dados técnicos acima.
