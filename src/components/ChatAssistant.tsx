@@ -504,7 +504,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
 
       const formStatusContext = isFormFilled 
         ? `\n**STATUS DO CLIENTE:** O cliente JÁ PREENCHEU o formulário com os dados do veículo. \n**AÇÃO:** Inicie a negociação para comprar o veículo. Demonstre interesse, confirme se os dados estão corretos e tente fechar negócio ou preparar para a proposta do consultor.`
-        : `\n**STATUS DO CLIENTE:** O cliente AINDA NÃO preencheu o formulário com os dados do veículo. \n**AÇÃO:** Induza o cliente a preencher o formulário ou forneça os dados do veículo aqui no chat para que possamos avaliar e fazer uma proposta.`;
+        : `\n**STATUS DO CLIENTE:** O cliente AINDA NÃO preencheu o formulário com os dados do veículo. \n**AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação.`;
 
       const finalSystemPrompt = `
         [INSTRUÇÃO DE SISTEMA - PRIORIDADE MÁXIMA]

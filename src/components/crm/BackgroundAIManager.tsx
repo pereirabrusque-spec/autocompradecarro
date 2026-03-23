@@ -158,7 +158,7 @@ export const BackgroundAIManager = () => {
                         console.log(`[BackgroundAIManager] Nenhum lead encontrado para ${senderId}. Induzindo preenchimento.`);
                         await supabase.from('internal_messages').insert({
                             receiver_id: senderId,
-                            content: "Olá! Para que eu possa te ajudar a encontrar o melhor negócio, você poderia preencher nosso formulário com os dados do veículo que você procura ou deseja vender? Assim consigo agilizar tudo para você!",
+                            content: "Olá! Para que eu possa te ajudar a encontrar o melhor negócio e fornecer uma proposta de valor, você precisa preencher nosso formulário completo aqui: https://autocompra.online/vender. Assim nossa equipe consegue fazer uma análise técnica detalhada para você!",
                             sender_id: uid
                         });
                         return;
@@ -294,7 +294,16 @@ DETALHES COMPLETOS DO VEÍCULO EM FOCO:
                             }
                         }
 
+                        const isFormFilled = existingLead && existingLead.marca && existingLead.modelo;
+                        const formStatusContext = isFormFilled 
+                            ? `\n**STATUS DO CLIENTE:** O cliente JÁ PREENCHEU o formulário com os dados do veículo. \n**AÇÃO:** Inicie a negociação para comprar o veículo. Demonstre interesse, confirme se os dados estão corretos e tente fechar negócio ou preparar para a proposta do consultor.`
+                            : `\n**STATUS DO CLIENTE:** O cliente AINDA NÃO preencheu o formulário com os dados do veículo. \n**AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação.`;
+
                         const fullPrompt = `
+Você é o ESPECIALISTA SÊNIOR da "LOJA ONLINE - SOLUÇÕES AUTOMOTIVAS".
+
+${formStatusContext}
+
 ${specificVehicleInfo}
 ${vehicleContext}
 ${inventoryContext}
@@ -459,7 +468,16 @@ VEÍCULO EM NEGOCIAÇÃO:
                             } catch (e) {}
                         }
 
+                        const isFormFilled = vehicle && vehicle.marca && vehicle.modelo;
+                        const formStatusContext = isFormFilled 
+                            ? `\n**STATUS DO CLIENTE:** O cliente JÁ PREENCHEU o formulário com os dados do veículo. \n**AÇÃO:** Inicie a negociação para comprar o veículo. Demonstre interesse, confirme se os dados estão corretos e tente fechar negócio ou preparar para a proposta do consultor.`
+                            : `\n**STATUS DO CLIENTE:** O cliente AINDA NÃO preencheu o formulário com os dados do veículo. \n**AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação.`;
+
                         const fullPrompt = `
+Você é o ESPECIALISTA SÊNIOR da "LOJA ONLINE - SOLUÇÕES AUTOMOTIVAS".
+
+${formStatusContext}
+
 ${vehicleInfo}
 
 HISTÓRICO:
