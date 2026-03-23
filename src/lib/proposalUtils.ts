@@ -67,25 +67,27 @@ export const calculateProposal = (
 
   // 1.1 Desconto de Cooperativa
   const bankName = lead.banco_financiamento || lead.banco_financiador || '';
-  const isCooperativeBank = (name: string) => {
-    if (!name) return false;
+  const findCooperativeBank = (name: string) => {
+    if (!name) return null;
     const normalizedSearch = name.toLowerCase().trim();
-    return banks.some(b => 
+    return banks.find(b => 
       b.is_cooperativa && 
       (normalizedSearch.includes(b.name.toLowerCase().trim()) || 
        b.name.toLowerCase().trim().includes(normalizedSearch))
     );
   };
   
-  const isBankCooperative = isCooperativeBank(bankName);
+  const coopBank = findCooperativeBank(bankName);
+  const isBankCooperative = !!coopBank;
   const hasCooperativeFlag = lead.is_cooperativa === 'true' || 
                              lead.is_cooperativa === true || 
                              lead.is_cooperativa === 'sim';
 
   if (hasCooperativeFlag || isBankCooperative) {
+      const discountToUse = coopBank?.discount_percentage || cooperativeDiscount;
       percentDiscounts.push({ 
-        name: `Desconto Cooperativa (${cooperativeDiscount}%)`, 
-        value: fipe * (cooperativeDiscount / 100)
+        name: `Desconto Cooperativa (${discountToUse}%)`, 
+        value: fipe * (discountToUse / 100)
       });
   }
 
@@ -272,8 +274,6 @@ export const calculateProposal = (
 
   if (finalValue < 0) finalValue = 0;
 
-  const calculatedProfitMargin = fipe - (finalValue + payoffValue);
-
   const novasPropostas = lead.detalhes_proposta?.novas_propostas || [];
   const latestNovaProposta = novasPropostas.length > 0 ? novasPropostas[novasPropostas.length - 1] : null;
   const previousProposalValue = novasPropostas.length > 0 
@@ -281,6 +281,7 @@ export const calculateProposal = (
     : null;
 
   const finalProposalValue = latestNovaProposta?.valor || finalValue;
+  const calculatedProfitMargin = fipe - (fipe * 0.2) - maxPercentDiscount - repairTotal - finalProposalValue;
   const optionA = finalProposalValue;
   const optionB = finalProposalValue + payoffValue;
 
