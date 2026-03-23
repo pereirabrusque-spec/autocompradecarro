@@ -219,6 +219,19 @@ export const BackgroundAIManager = () => {
                             specificLead = data;
                         }
 
+                        // BUSCA O ESTOQUE COMPLETO DO VENDEDOR (ADMIN) PARA INFORMAR SOBRE OUTROS MODELOS
+                        const { data: sellerInventory } = await supabase
+                            .from('leads_veiculos')
+                            .select('id, marca, modelo, ano_modelo, preco_cliente, situacao_financeira, cor, quilometragem')
+                            .eq('user_id', uid)
+                            .limit(15);
+
+                        let inventoryContext = "";
+                        if (sellerInventory && sellerInventory.length > 0) {
+                            inventoryContext = "\n\nESTOQUE COMPLETO DO VENDEDOR (OUTROS MODELOS DISPONÍVEIS NO SISTEMA):\n" + 
+                                sellerInventory.map(l => `- ${l.marca} ${l.modelo} (${l.ano_modelo}) | Cor: ${l.cor || 'N/A'} | KM: ${l.quilometragem || '0'} | Preço: R$ ${l.preco_cliente || 'A consultar'} [${l.situacao_financeira || 'Disponível'}]`).join('\n');
+                        }
+
                         const content = payload.new.content.toLowerCase();
                         if (!specificLead) {
                             const { data: searchLeads } = await supabase
@@ -283,6 +296,7 @@ DETALHES COMPLETOS DO VEÍCULO EM FOCO:
                         const fullPrompt = `
 ${specificVehicleInfo}
 ${vehicleContext}
+${inventoryContext}
 
 HISTÓRICO:
 ${history}
@@ -297,6 +311,10 @@ REGRAS DE PROPOSTA:
 ${isAutoProposalEnabled ? 
     "VOCÊ ESTÁ AUTORIZADO A ENVIAR A PROPOSTA FINAL. Use o valor 'PROPOSTA FINAL CALCULADA' mencionado acima se o cliente perguntar sobre valores ou propostas." : 
     "VOCÊ NÃO ESTÁ AUTORIZADO A ENVIAR VALORES DE PROPOSTA. Se o cliente perguntar sobre preço ou proposta, diga que um consultor humano está finalizando os cálculos para garantir a melhor oferta e entrará em contato em breve. Foque em outros detalhes do veículo."}
+
+REGRAS DE ESTOQUE:
+- Se o usuário perguntar sobre "outros modelos", "o que tem no sistema" ou "meus carros", use a lista de "ESTOQUE COMPLETO DO VENDEDOR" acima para confirmar os veículos.
+- Informe o Ano, Modelo e uma breve descrição (Cor/KM/Preço) para deixar o vendedor/comprador tranquilo de que os dados estão no banco de dados.
 
 REGRAS GERAIS:
 1. Use os dados técnicos acima.

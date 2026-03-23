@@ -52,6 +52,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
   const [contextData, setContextData] = useState({ banks: [], repairCosts: [], fipeRules: [] });
 
   const [isAiDisabled, setIsAiDisabled] = useState(false);
+  const [otherModels, setOtherModels] = useState<any[]>([]);
   const [lastProposal, setLastProposal] = useState<any>(null);
   const [selectedProposal, setSelectedProposal] = useState<any>(null);
 
@@ -86,6 +87,20 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
     const { data: repairCosts } = await supabase.from('repair_costs').select('*');
     const { data: fipeRules } = await supabase.from('fipe_rules').select('*');
     setContextData({ banks: banks || [], repairCosts: repairCosts || [], fipeRules: fipeRules || [] });
+
+    // Se tiver leadId, busca outros modelos do mesmo vendedor
+    if (leadId) {
+      const { data: lead } = await supabase.from('leads_veiculos').select('user_id').eq('id', leadId).single();
+      if (lead?.user_id) {
+        const { data: others } = await supabase
+          .from('leads_veiculos')
+          .select('marca, modelo, ano_modelo, preco_cliente, cor, quilometragem')
+          .eq('user_id', lead.user_id)
+          .neq('id', leadId)
+          .limit(10);
+        setOtherModels(others || []);
+      }
+    }
   };
 
   const isInitializingRef = useRef(false);
@@ -515,6 +530,9 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         ${banksContext}
         ${repairContext}
         
+        ### OUTROS MODELOS NO SISTEMA (PARA CONSULTA):
+        ${otherModels.length > 0 ? otherModels.map(m => `- ${m.marca} ${m.modelo} (${m.ano_modelo}) | Cor: ${m.cor || 'N/A'} | KM: ${m.quilometragem || '0'} | Preço: R$ ${m.preco_cliente || 'A consultar'}`).join('\n') : 'Nenhum outro modelo listado.'}
+
         ### 6. NOTIFICAÇÕES (APÓS FORMULÁRIO)
         - Após o formulário ser preenchido, pergunte: "Deseja receber notificações sobre o status da sua negociação?"
         - Se o usuário disser SIM, responda com o JSON: {"notifications_authorized": true}
@@ -523,6 +541,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         Responda de forma direta, autoritária e empática.
         **REGRA DE OURO:** Suas respostas devem ter NO MÁXIMO 4 LINHAS. Seja extremamente conciso. Não use textos longos. Pareça um humano digitando rápido no WhatsApp.
         **EVITE REPETIÇÕES:** Se o histórico já contém uma saudação, NÃO repita. Se o cliente já enviou os dados, não peça novamente.
+        **ESTOQUE:** Se o usuário perguntar sobre outros carros ou o que temos no sistema, use a lista de "OUTROS MODELOS NO SISTEMA" acima para confirmar. Informe Ano, Modelo e Descrição para tranquilizar o usuário.
         Se o usuário quiser uma avaliação detalhada ou estiver fornecendo muitos dados técnicos, sugira: "Para uma avaliação completa e rápida, use nosso formulário oficial clicando em 'Vender Meu Carro' no menu".
         Se a informação necessária para seguir as regras não estiver disponível, peça-a ao usuário.
       `;
