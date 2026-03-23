@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { AIService } from '../../services/aiService';
+import { calculateProposal } from '../../lib/proposalUtils';
 
 export const BackgroundAIManager = () => {
     const [isAiEnabled, setIsAiEnabled] = useState(false);
@@ -11,6 +12,14 @@ export const BackgroundAIManager = () => {
     const [aiCrmMemory, setAiCrmMemory] = useState('');
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     
+    // Configurações de Proposta
+    const [fipeRules, setFipeRules] = useState<any[]>([]);
+    const [banks, setBanks] = useState<any[]>([]);
+    const [cooperativeDiscount, setCooperativeDiscount] = useState(80);
+    const [profitMarginPercentage, setProfitMarginPercentage] = useState(20);
+    const [jurosAtraso, setJurosAtraso] = useState(1);
+    const [repairCosts, setRepairCosts] = useState<any[]>([]);
+
     const isAiEnabledRef = useRef(false);
     const autoProposalEnabledRef = useRef(false);
     const aiPromptRef = useRef('');
@@ -19,6 +28,37 @@ export const BackgroundAIManager = () => {
     const aiCrmMemoryRef = useRef('');
     const currentUserIdRef = useRef<string | null>(null);
     const lastProcessedImage = useRef<{ url: string, base64: string } | null>(null);
+
+    const fipeRulesRef = useRef<any[]>([]);
+    const banksRef = useRef<any[]>([]);
+    const cooperativeDiscountRef = useRef(80);
+    const profitMarginPercentageRef = useRef(20);
+    const jurosAtrasoRef = useRef(1);
+    const repairCostsRef = useRef<any[]>([]);
+
+    useEffect(() => {
+        fipeRulesRef.current = fipeRules;
+    }, [fipeRules]);
+
+    useEffect(() => {
+        banksRef.current = banks;
+    }, [banks]);
+
+    useEffect(() => {
+        cooperativeDiscountRef.current = cooperativeDiscount;
+    }, [cooperativeDiscount]);
+
+    useEffect(() => {
+        profitMarginPercentageRef.current = profitMarginPercentage;
+    }, [profitMarginPercentage]);
+
+    useEffect(() => {
+        jurosAtrasoRef.current = jurosAtraso;
+    }, [jurosAtraso]);
+
+    useEffect(() => {
+        repairCostsRef.current = repairCosts;
+    }, [repairCosts]);
 
     useEffect(() => {
         isAiEnabledRef.current = isAiEnabled;
@@ -50,7 +90,10 @@ export const BackgroundAIManager = () => {
 
     useEffect(() => {
         // Load initial settings
-        supabase.from('settings').select('key, value').in('key', ['AI_SYSTEM_PROMPT', 'AI_CRM_PROMPT', 'AI_CRM_ENABLED', 'AI_MEMORY', 'AI_CRM_MEMORY', 'AUTO_PROPOSAL_ENABLED']).then(({ data }) => {
+        supabase.from('settings').select('key, value').in('key', [
+            'AI_SYSTEM_PROMPT', 'AI_CRM_PROMPT', 'AI_CRM_ENABLED', 'AI_MEMORY', 'AI_CRM_MEMORY', 'AUTO_PROPOSAL_ENABLED',
+            'COOPERATIVE_DISCOUNT', 'PROFIT_MARGIN_PERCENTAGE', 'JUROS_ATRASO'
+        ]).then(({ data }) => {
             if (data) {
                 const prompt = data.find(s => s.key === 'AI_SYSTEM_PROMPT');
                 const crmPrompt = data.find(s => s.key === 'AI_CRM_PROMPT');
@@ -58,14 +101,34 @@ export const BackgroundAIManager = () => {
                 const autoProposal = data.find(s => s.key === 'AUTO_PROPOSAL_ENABLED');
                 const memory = data.find(s => s.key === 'AI_MEMORY');
                 const crmMemory = data.find(s => s.key === 'AI_CRM_MEMORY');
+                const coopDiscount = data.find(s => s.key === 'COOPERATIVE_DISCOUNT');
+                const margin = data.find(s => s.key === 'PROFIT_MARGIN_PERCENTAGE');
+                const juros = data.find(s => s.key === 'JUROS_ATRASO');
+
                 if (prompt) setAiPrompt(prompt.value);
                 if (crmPrompt) setAiCrmPrompt(crmPrompt.value);
                 if (enabled) setIsAiEnabled(enabled.value === 'true');
                 if (autoProposal) setAutoProposalEnabled(autoProposal.value === 'true');
                 if (memory) setAiMemory(memory.value);
                 if (crmMemory) setAiCrmMemory(crmMemory.value);
+                if (coopDiscount) setCooperativeDiscount(Number(coopDiscount.value) || 80);
+                if (margin) setProfitMarginPercentage(Number(margin.value) || 20);
+                if (juros) setJurosAtraso(Number(juros.value) || 1);
             }
         });
+
+        // Load other proposal data
+        const loadProposalData = async () => {
+            const [rulesRes, banksRes, costsRes] = await Promise.all([
+                supabase.from('fipe_rules').select('*'),
+                supabase.from('banks').select('*'),
+                supabase.from('repair_costs').select('*')
+            ]);
+            if (rulesRes.data) setFipeRules(rulesRes.data);
+            if (banksRes.data) setBanks(banksRes.data);
+            if (costsRes.data) setRepairCosts(costsRes.data);
+        };
+        loadProposalData();
 
         // Get current user
         supabase.auth.getUser().then(({ data: { user } }) => {
@@ -84,12 +147,24 @@ export const BackgroundAIManager = () => {
                     if (key === 'AUTO_PROPOSAL_ENABLED') setAutoProposalEnabled(value === 'true');
                     if (key === 'AI_MEMORY') setAiMemory(value);
                     if (key === 'AI_CRM_MEMORY') setAiCrmMemory(value);
+                    if (key === 'COOPERATIVE_DISCOUNT') setCooperativeDiscount(Number(value) || 80);
+                    if (key === 'PROFIT_MARGIN_PERCENTAGE') setProfitMarginPercentage(Number(value) || 20);
+                    if (key === 'JUROS_ATRASO') setJurosAtraso(Number(value) || 1);
                 }
             })
             .subscribe();
 
+        // Listen for other data changes
+        const dataSubscription = supabase
+            .channel('bg_ai_data')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'fipe_rules' }, () => loadProposalData())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'banks' }, () => loadProposalData())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'repair_costs' }, () => loadProposalData())
+            .subscribe();
+
         return () => {
             supabase.removeChannel(settingsSubscription);
+            supabase.removeChannel(dataSubscription);
         };
     }, []);
 
@@ -256,7 +331,15 @@ export const BackgroundAIManager = () => {
                             const allPhotos = specificLead.fotos || [];
                             vehiclePhoto = allPhotos[0] || "";
                             
-                            const propostaFinal = specificLead.detalhes_proposta?.propostaFinal || specificLead.preco_cliente;
+                            const proposalResult = calculateProposal(specificLead, {
+                                fipeRules: fipeRulesRef.current,
+                                banks: banksRef.current,
+                                cooperativeDiscount: cooperativeDiscountRef.current,
+                                profitMarginPercentage: profitMarginPercentageRef.current,
+                                jurosAtraso: jurosAtrasoRef.current,
+                                repairCosts: repairCostsRef.current
+                            });
+                            const propostaFinal = proposalResult.finalValue;
                             
                             specificVehicleInfo = `
 DETALHES COMPLETOS DO VEÍCULO EM FOCO:
@@ -442,7 +525,15 @@ REGRAS GERAIS:
                             const allPhotos = vehicle.fotos || [];
                             vehiclePhoto = allPhotos[0] || "";
                             
-                            const propostaFinal = vehicle.detalhes_proposta?.propostaFinal || vehicle.preco_cliente;
+                            const proposalResult = calculateProposal(vehicle, {
+                                fipeRules: fipeRulesRef.current,
+                                banks: banksRef.current,
+                                cooperativeDiscount: cooperativeDiscountRef.current,
+                                profitMarginPercentage: profitMarginPercentageRef.current,
+                                jurosAtraso: jurosAtrasoRef.current,
+                                repairCosts: repairCostsRef.current
+                            });
+                            const propostaFinal = proposalResult.finalValue;
                             
                             vehicleInfo = `
 VEÍCULO EM NEGOCIAÇÃO:

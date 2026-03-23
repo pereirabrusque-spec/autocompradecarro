@@ -20,6 +20,8 @@ import { logToStorage, getStorageLogs, clearStorageLogs } from '../lib/logger';
 import { ApiManagement } from './AdminDashboard/ApiManagement';
 import { TagsManagement } from './AdminDashboard/TagsManagement';
 
+import { calculateProposal } from '../lib/proposalUtils';
+
 export default function AdminDashboard() {
   const [leads, setLeads] = useState<any[]>([]);
   const [dbAssets, setDbAssets] = useState<any[]>([]);
@@ -198,6 +200,19 @@ export default function AdminDashboard() {
     bankNotRegistered?: boolean;
   } | null>(null);
   const [proposalOverrides, setProposalOverrides] = useState<{ rules: Record<string, number>, repairs: Record<string, number> }>({ rules: {}, repairs: {} });
+
+  const getProposalResult = (lead: any) => {
+    if (!lead) return null;
+    return calculateProposal(lead, {
+      fipeRules,
+      banks,
+      cooperativeDiscount,
+      profitMarginPercentage,
+      jurosAtraso,
+      repairCosts,
+      overrides: proposalOverrides
+    });
+  };
 
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null);
@@ -1027,7 +1042,7 @@ export default function AdminDashboard() {
       if (selectedLead.detalhes_proposta) {
         setProposalCalculator(selectedLead.detalhes_proposta);
       } else {
-        const initialCalc = calculateProposal(selectedLead);
+        const initialCalc = getProposalResult(selectedLead);
         setProposalCalculator(initialCalc);
       }
     } else {
@@ -2275,225 +2290,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
     }
   };
 
-  const calculateProposal = (lead: any, overrides?: { rules: Record<string, number>, repairs: Record<string, number> }, entryValue: number = 0) => {
-    const currentOverrides = overrides || proposalOverrides;
-    const fipe = lead.valor_fipe || 0;
-    const deductions: { name: string; value: number; type: 'fixed' | 'percent'; isMax?: boolean }[] = [];
 
-    // 1. Coletar todos os descontos percentuais (Cooperativa + Regras)
-    const percentDiscounts: { name: string; value: number }[] = [];
-
-    // 1.1 Desconto de Cooperativa
-    const bankName = lead.banco_financiamento || lead.banco_financiador || '';
-    const isCooperativeBank = (name: string) => {
-      if (!name) return false;
-      const normalizedSearch = name.toLowerCase().trim();
-      return banks.some(b => 
-        b.is_cooperativa && 
-        (normalizedSearch.includes(b.name.toLowerCase().trim()) || 
-         b.name.toLowerCase().trim().includes(normalizedSearch))
-      );
-    };
-    
-    const isBankCooperative = isCooperativeBank(bankName);
-    const hasCooperativeFlag = lead.is_cooperativa === 'true' || 
-                               lead.is_cooperativa === true || 
-                               lead.is_cooperativa === 'sim';
-
-    if (hasCooperativeFlag || isBankCooperative) {
-        percentDiscounts.push({ 
-          name: `Desconto Cooperativa (${cooperativeDiscount}%)`, 
-          value: fipe * (cooperativeDiscount / 100)
-        });
-    }
-
-    // 1.2 Descontos por Histórico/Problemas
-    const problemasSelecionados = Array.isArray(lead.problemas) ? lead.problemas : (typeof lead.problemas === 'string' ? lead.problemas.split(',').map((p: string) => p.trim()) : []);
-    problemasSelecionados.forEach((problem: string) => {
-        const rule = fipeRules.find(r => r.condition_name.toLowerCase() === problem.toLowerCase());
-        let percentage = 0;
-        if (rule) {
-          percentage = currentOverrides.rules[rule.id] !== undefined ? currentOverrides.rules[rule.id] : rule.discount_percentage;
-        } else {
-          // Fallback rules
-          const p = problem.toLowerCase();
-          if (p.includes('sinistro')) percentage = 30;
-          else if (p.includes('leilao') || p.includes('leilão')) percentage = 25;
-          else if (p.includes('recuperado')) percentage = 20;
-          else if (p.includes('furto')) percentage = 15;
-          else if (p.includes('renajud') || p.includes('bloqueio judicial')) percentage = 50;
-          else if (p.includes('financiamento')) percentage = 35;
-          else if (p.includes('cooperativa')) percentage = 80;
-          else if (p.includes('busca') || p.includes('apreensão')) percentage = 60;
-          else if (p.includes('nome jurídico')) percentage = 10;
-          else if (p.includes('cobertura')) percentage = 15;
-        }
-        
-        if (percentage > 0) {
-            percentDiscounts.push({
-                name: `${problem} (${percentage}%)`,
-                value: fipe * (percentage / 100)
-            });
-        }
-    });
-
-    // 2. Encontrar o maior desconto percentual
-    const maxPercentDiscount = percentDiscounts.length > 0 
-        ? Math.max(...percentDiscounts.map(d => d.value)) 
-        : 0;
-
-    percentDiscounts.forEach(d => {
-        deductions.push({
-            name: d.name,
-            value: d.value,
-            type: 'percent',
-            isMax: d.value === maxPercentDiscount && maxPercentDiscount > 0
-        });
-    });
-
-    // 3. Avarias (Deduções por Valor Fixo)
-    let repairTotal = 0;
-    
-    if (lead.motor_reparo) {
-      repairTotal += lead.motor_reparo;
-      deductions.push({ name: 'Motor Fundido / Batendo', value: lead.motor_reparo, type: 'fixed' });
-    }
-    if (lead.cambio_reparo) {
-      repairTotal += lead.cambio_reparo;
-      deductions.push({ name: 'Câmbio com Defeito', value: lead.cambio_reparo, type: 'fixed' });
-    }
-    if (lead.batido_reparo) {
-      repairTotal += lead.batido_reparo;
-      deductions.push({ name: 'Batido / Avariado', value: lead.batido_reparo, type: 'fixed' });
-    }
-    
-    // Usar avarias do lead ou do estado global se disponível
-    const allText = `${lead.observacoes || ''} ${problemasSelecionados.join(' ')}`.toLowerCase();
-    const avariasSelecionadas = lead.avarias || lead.detalhes_proposta?.avarias || repairCosts.filter(c => allText.includes(c.part_name.toLowerCase())).map(c => c.id);
-    
-    // Deduções manuais do modal de avarias
-    const avariasManuais = lead.avarias_manuais || lead.detalhes_proposta?.avarias_manuais || [];
-    avariasManuais.forEach((avaria: { description: string, value: number }) => {
-      repairTotal += avaria.value;
-      deductions.push({ 
-        name: `Avaria Manual: ${avaria.description}`, 
-        value: avaria.value, 
-        type: 'fixed' 
-      });
-    });
-    
-    repairCosts.forEach(cost => {
-      if (avariasSelecionadas.includes(cost.id)) {
-        let itemMultiplier = 1;
-        if (cost.conditions && cost.conditions.length > 0) {
-          for (const cond of cost.conditions) {
-            if (fipe >= cond.min_value && fipe <= cond.max_value) {
-              itemMultiplier = cond.multiplier;
-              break;
-            }
-          }
-        }
-        
-        let baseCost = cost.cost;
-        if (currentOverrides.repairs[cost.id] !== undefined) {
-          baseCost = currentOverrides.repairs[cost.id];
-        }
-
-        const finalCost = baseCost * itemMultiplier;
-        repairTotal += finalCost;
-        deductions.push({ 
-          name: `Avaria: ${cost.part_name} (x${itemMultiplier})`, 
-          value: finalCost, 
-          type: 'fixed' 
-        });
-      }
-    });
-
-    // 3. Situação Financeira e Quitação
-    let payoffValue = 0;
-    let clientPayoffValue = 0;
-    let bankNotRegistered = false;
-    
-    if (lead.valor_parcela && lead.total_parcelas && lead.parcelas_pagas !== undefined) {
-      const remainingInstallments = lead.total_parcelas - lead.parcelas_pagas;
-      if (remainingInstallments > 0) {
-        const totalRemaining = remainingInstallments * lead.valor_parcela;
-        
-        // Find bank discount
-        const bankName = lead.banco_financiamento || lead.banco || '';
-        const bank = banks.find(b => b.name.toLowerCase() === bankName.toLowerCase());
-        
-        let bankDiscount = 0;
-
-        if (!bank && bankName) {
-          bankNotRegistered = true;
-          // Auto-register logic (handled outside calculation to avoid side effects during render)
-          // For now, use default logic: 100% for cooperativa, 35% for others
-          const isCooperativa = bankName.toLowerCase().includes('coop') || bankName.toLowerCase().includes('sicredi') || bankName.toLowerCase().includes('sicoob');
-          bankDiscount = isCooperativa ? 0 : 0.35; // 0% discount (100% payoff) for coop, 35% discount for others
-        } else if (bank) {
-          bankDiscount = (bank.discount_percentage / 100);
-        }
-        
-        // Calculate payoff for profit (with bank discount)
-        payoffValue = totalRemaining * (1 - bankDiscount);
-        
-        // Calculate payoff for client (valor parcelas vezes quantidade de parcelas + juros)
-        const atrasadas = lead.parcelas_atrasadas || 0;
-        const jurosTotal = lead.valor_parcela * atrasadas * (jurosAtraso / 100);
-        clientPayoffValue = totalRemaining + jurosTotal;
-      }
-    }
-    
-    // IPVA e Multas (Dívidas de Documentação)
-    let docDebts = lead.multas || 0;
-    if (currentOverrides.repairs['doc_debts'] !== undefined) {
-      docDebts = currentOverrides.repairs['doc_debts'];
-    }
-    if (docDebts > 0) {
-      deductions.push({ name: 'IPVA e Multas Atrasadas', value: docDebts, type: 'fixed' });
-    }
-
-    // 4. Cálculo de Lucro (FIPE - Deduções - Quitação - Documentos - Margem)
-    const fixedDeductions = deductions.filter(d => d.type === 'fixed').reduce((acc, d) => acc + d.value, 0);
-    const totalDeductions = maxPercentDiscount + fixedDeductions;
-    
-    // Margem de lucro configurável
-    let profitMargin = fipe * (profitMarginPercentage / 100); 
-    
-    // Fórmula final: Lucro = FIPE - (Deduções + Quitação + Documentos + Margem)
-    let finalValue = fipe - totalDeductions - payoffValue - docDebts - profitMargin;
-
-    // Logic: If proposal is higher than desired price, offer 40% less than desired price
-    if (lead.preco_cliente && finalValue > lead.preco_cliente) {
-      finalValue = lead.preco_cliente * 0.60;
-    }
-
-    if (finalValue < 0) finalValue = 0;
-
-    // Recalcular a margem de lucro conforme a fórmula do usuário:
-    // VALOR FIP - (PROPOSTA GERADA + VALOR REAL DE QUITAÇÃO)
-    const calculatedProfitMargin = fipe - (finalValue + payoffValue);
-
-    const novasPropostas = lead.detalhes_proposta?.novas_propostas || [];
-    const latestNovaProposta = novasPropostas.length > 0 ? novasPropostas[novasPropostas.length - 1] : null;
-    const previousProposalValue = novasPropostas.length > 0 
-      ? (novasPropostas.length > 1 ? novasPropostas[novasPropostas.length - 2].valor : finalValue)
-      : null;
-
-    return {
-      baseValue: fipe,
-      deductions,
-      finalValue: latestNovaProposta?.valor || finalValue,
-      previousProposalValue,
-      profitMargin: calculatedProfitMargin,
-      payoffValue,
-      clientPayoffValue,
-      docDebts,
-      repairDebts: repairTotal,
-      bankNotRegistered
-    };
-  };
 
   const getProposalClass = (value: number, vehicleType: string) => {
     if (value <= 0) return "";
@@ -4152,11 +3949,11 @@ Podemos prosseguir com o agendamento da vistoria?`;
                           <LeadCard 
                             key={lead.id} 
                             lead={lead} 
-                            suggestedValue={calculateProposal(lead).finalValue}
+                            suggestedValue={getProposalResult(lead)?.finalValue || 0}
                             hideClientInfo={userProfile?.role === 'buyer_premium'}
                             onClick={() => {
                               setSelectedLead(lead);
-                              setProposalCalculator(calculateProposal(lead));
+                              setProposalCalculator(getProposalResult(lead));
                               setSelectedBuyers([]);
                               setCurrentPhotoIndex(0);
                             }} 
@@ -4227,7 +4024,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                  return (
                               <tr key={lead.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer group" onClick={() => {
                                 setSelectedLead(lead);
-                                setProposalCalculator(calculateProposal(lead));
+                                setProposalCalculator(getProposalResult(lead));
                                 setSelectedBuyers([]);
                                 setCurrentPhotoIndex(0);
                               }}>
@@ -4314,12 +4111,12 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 </td>
                                 <td className="px-2 py-1.5">
                                   <div className="flex flex-col">
-                                    <span className={`text-[11px] font-black ${getProposalClass(lead.suggested_value || calculateProposal(lead).finalValue, lead.tipo_veiculo) || 'text-accent'}`}>
-                                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.suggested_value || calculateProposal(lead).finalValue)}
+                                    <span className={`text-[11px] font-black ${getProposalClass(getProposalResult(lead)?.finalValue || 0, lead.tipo_veiculo) || 'text-accent'}`}>
+                                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(getProposalResult(lead)?.finalValue || 0)}
                                     </span>
-                                    {calculateProposal(lead).previousProposalValue && (
+                                    {getProposalResult(lead)?.previousProposalValue && (
                                       <span className="text-[9px] text-slate-400 font-medium">
-                                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculateProposal(lead).previousProposalValue)}
+                                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(getProposalResult(lead)?.previousProposalValue)}
                                       </span>
                                     )}
                                   </div>
@@ -4332,7 +4129,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                           e.stopPropagation(); 
                                           const phone = lead.telefone?.replace(/\D/g, '');
                                           const formattedPhone = phone?.startsWith('55') ? phone : `55${phone}`;
-                                          const calc = calculateProposal(lead);
+                                          const calc = getProposalResult(lead);
                                           const encodedMessage = generateOwnerMessage(lead, calc);
                                           window.open(`https://wa.me/${formattedPhone}?text=${encodedMessage}`, '_blank');
                                         }} 
@@ -4363,7 +4160,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setSelectedLead(lead);
-                                        setProposalCalculator(calculateProposal(lead));
+                                        setProposalCalculator(getProposalResult(lead));
                                       }}
                                       className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-accent transition-colors"
                                       title="Editar"
@@ -5001,7 +4798,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 users={users}
                 leads={leads}
                 setProposalCalculator={setProposalCalculator}
-                calculateProposal={calculateProposal}
+                calculateProposal={getProposalResult}
                 isSendingMessage={isSendingMessage}
                 supabase={supabase}
                 setConversations={setConversations}
@@ -5775,7 +5572,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 onClick={() => {
                   const updatedLead = { ...selectedLead, avarias_manuais: avarias };
                   setSelectedLead(updatedLead);
-                  setProposalCalculator(calculateProposal(updatedLead));
+                  setProposalCalculator(getProposalResult(updatedLead));
                   setShowAvariasModal(false);
                 }}
                 className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all"
@@ -5887,7 +5684,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
             } else {
               setSelectedLead(lead);
               setShowVehicleSelectionModal(false);
-              setProposalCalculator(calculateProposal(lead));
+              setProposalCalculator(getProposalResult(lead));
               setShowProposalModal(true);
             }
           }}
@@ -6175,6 +5972,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
           forceShowWhatsAppBuyerModal={showWhatsAppBuyerModal}
           banks={banks}
           cooperativeDiscount={cooperativeDiscount}
+          profitMarginPercentage={profitMarginPercentage}
+          repairCosts={repairCosts}
           userRole={userProfile?.role}
           onSave={handleSaveLead}
           onDelete={handleDeleteLead}
