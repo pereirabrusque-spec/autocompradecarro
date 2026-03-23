@@ -435,6 +435,7 @@ REGRAS GERAIS:
                             .eq('id', leadId)
                             .single();
 
+                        let inventoryContext = "";
                         let vehicleInfo = "";
                         let vehiclePhoto = "";
                         if (vehicle) {
@@ -453,6 +454,19 @@ VEÍCULO EM NEGOCIAÇÃO:
 - Cor: ${vehicle.cor || 'Não informada'}
 - Sinistro/Leilão: ${vehicle.tem_sinistro === 'sim' ? 'Sim' : 'Não'} / ${vehicle.passagem_leilao === 'sim' ? 'Sim' : 'Não'}
 `;
+
+                            // Busca outros veículos do mesmo vendedor (por email ou user_id)
+                            const { data: others } = await supabase
+                                .from('leads_veiculos')
+                                .select('marca, modelo, ano_modelo, preco_cliente, cor, quilometragem')
+                                .or(`email.eq.${vehicle.email}${vehicle.user_id ? `,user_id.eq.${vehicle.user_id}` : ''}`)
+                                .neq('id', leadId)
+                                .limit(10);
+
+                            if (others && others.length > 0) {
+                                inventoryContext = "\nOUTROS VEÍCULOS DESTE VENDEDOR NO SISTEMA:\n" + 
+                                    others.map(v => `- ${v.marca} ${v.modelo} (${v.ano_modelo}) - ${v.cor} - ${v.quilometragem}km`).join('\n');
+                            }
                         }
 
                         let imageBase64 = "";
@@ -479,6 +493,7 @@ Você é o ESPECIALISTA SÊNIOR da "LOJA ONLINE - SOLUÇÕES AUTOMOTIVAS".
 ${formStatusContext}
 
 ${vehicleInfo}
+${inventoryContext}
 
 HISTÓRICO:
 ${history}
@@ -493,6 +508,11 @@ REGRAS DE PROPOSTA:
 ${isAutoProposalEnabled ? 
     "VOCÊ ESTÁ AUTORIZADO A ENVIAR A PROPOSTA FINAL. Use o valor 'PROPOSTA FINAL CALCULADA' mencionado acima se o cliente perguntar sobre valores ou propostas." : 
     "VOCÊ NÃO ESTÁ AUTORIZADO A ENVIAR VALORES DE PROPOSTA. Se o cliente perguntar sobre preço ou proposta, diga que um consultor humano está finalizando os cálculos para garantir a melhor oferta e entrará em contato em breve. Foque em outros detalhes do veículo."}
+
+REGRAS DE ESTOQUE:
+- Se o usuário perguntar sobre "outros modelos", "o que tem no sistema" ou "meus carros", você DEVE confirmar os veículos listando explicitamente o **ANO e MODELO** de cada um.
+- **PROIBIÇÃO:** NUNCA diga que "por questões de segurança não detalhamos os modelos". Você deve ser transparente para deixar o vendedor tranquilo de que os dados estão no banco de dados.
+- Informe o Ano, Modelo e uma breve descrição (Cor/KM) para cada veículo do estoque.
 
 REGRAS GERAIS:
 1. Use os dados técnicos acima.
