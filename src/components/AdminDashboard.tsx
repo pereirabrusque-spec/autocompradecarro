@@ -5054,6 +5054,59 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         onChange={(e) => setDbAssets(prev => prev.map(a => a.id === asset.id ? { ...a, legenda: e.target.value } : a))}
                       />
                     </div>
+                    {(asset.tipo.startsWith('card_') || asset.tipo.startsWith('trigger')) && (
+                      <>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Badge (Etiqueta)</label>
+                          <input 
+                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none"
+                            value={asset.badge_text || ''}
+                            placeholder="Ex: CARRO"
+                            onChange={(e) => setDbAssets(prev => prev.map(a => a.id === asset.id ? { ...a, badge_text: e.target.value } : a))}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Título</label>
+                          <input 
+                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none"
+                            value={asset.title || ''}
+                            placeholder="Ex: Título do Card"
+                            onChange={(e) => setDbAssets(prev => prev.map(a => a.id === asset.id ? { ...a, title: e.target.value } : a))}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Subtítulo / Descrição</label>
+                          <textarea 
+                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none h-20"
+                            value={asset.subtitle || ''}
+                            placeholder="Ex: Descrição do Card"
+                            onChange={(e) => setDbAssets(prev => prev.map(a => a.id === asset.id ? { ...a, subtitle: e.target.value } : a))}
+                          />
+                        </div>
+                        {asset.tipo.startsWith('card_') && (
+                          <>
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Texto do Botão</label>
+                              <input 
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none"
+                                value={asset.button_text || ''}
+                                placeholder="Ex: VER OFERTA"
+                                onChange={(e) => setDbAssets(prev => prev.map(a => a.id === asset.id ? { ...a, button_text: e.target.value } : a))}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Link do Botão</label>
+                              <input 
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none"
+                                value={asset.button_link || ''}
+                                placeholder="Ex: /vender"
+                                onChange={(e) => setDbAssets(prev => prev.map(a => a.id === asset.id ? { ...a, button_link: e.target.value } : a))}
+                              />
+                            </div>
+                          </>
+                        )}
+                      </>
+                    )}
                     <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl">
                       <span className="text-sm font-bold text-slate-700">Status do Asset</span>
                       <button
