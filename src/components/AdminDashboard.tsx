@@ -2661,6 +2661,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
             <nav className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-2">
               {[
                 { id: 'dashboard', label: 'Início', icon: LayoutDashboard, roles: ['admin'] },
+                { id: 'hero', label: 'Site', icon: ImageIcon, roles: ['admin'] },
+                { id: 'assets', label: 'Fotos', icon: Maximize2, roles: ['admin'] },
+                { id: 'footer', label: 'Rodapé', icon: Info, roles: ['admin'] },
                 { id: 'leads', label: 'Leads', icon: Car, roles: ['admin', 'buyer_premium', 'buyer_master', 'user', 'seller'] },
                 { id: 'messages', label: 'Mensagens', icon: MessageCircle, badge: conversations.reduce((acc, curr) => acc + (curr.unread || 0), 0), roles: ['admin', 'user', 'seller'] },
                 { id: 'crm_chat', label: 'CRM Chat', icon: MessageCircle, roles: ['admin', 'buyer', 'buyer_premium', 'buyer_master'] },
@@ -2670,9 +2673,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 { id: 'ai', label: 'IA', icon: Bot, roles: ['admin'] },
                 { id: 'cooperatives', label: 'Cooperativas', icon: Wallet, roles: ['admin'] },
                 { id: 'tags', label: 'Marketing', icon: BarChart3, roles: ['admin'] },
-                { id: 'hero', label: 'Site', icon: ImageIcon, roles: ['admin'] },
-                { id: 'assets', label: 'Fotos', icon: Maximize2, roles: ['admin'] },
-                { id: 'footer', label: 'Rodapé', icon: Info, roles: ['admin'] },
                 { id: 'logs', label: 'Logs', icon: Database, roles: ['admin'] },
               ].filter(tab => !tab.roles || tab.roles.includes(userProfile?.role) || currentUser?.email === 'pereira.brusque@gmail.com').map((tab) => (
                 <button 
