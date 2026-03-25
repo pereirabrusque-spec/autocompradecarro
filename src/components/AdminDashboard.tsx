@@ -2649,7 +2649,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
       {/* Top Navbar */}
       <header className="bg-slate-950 border-b border-white/5 shrink-0 z-[100] shadow-2xl backdrop-blur-xl bg-opacity-90">
         <div className="w-full px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-6">
-          <div className="flex items-center gap-6 flex-1 overflow-hidden">
+          <div className="flex items-center gap-6 flex-1">
             <div className="flex items-center gap-3 shrink-0">
               <div className="w-10 h-10 bg-accent rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(242,125,38,0.4)]">
                 <ShieldCheck className="w-6 h-6 text-white" />
@@ -2663,7 +2663,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
             <div className="h-8 w-px bg-white/10 hidden md:block"></div>
             
             {/* Navigation Menu */}
-            <nav className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-2">
+            <nav className="flex flex-wrap items-center gap-x-1.5 gap-y-1 py-1 overflow-y-auto no-scrollbar max-h-[72px] flex-1">
               {[
                 { id: 'dashboard', label: 'Início', icon: LayoutDashboard, roles: ['admin'] },
                 { id: 'hero', label: 'Site', icon: ImageIcon, roles: ['admin'] },
@@ -2683,13 +2683,13 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 <button 
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)} 
-                  className={`px-4 py-2.5 rounded-xl font-bold text-[11px] transition-all whitespace-nowrap flex items-center gap-2.5 relative group ${
+                  className={`px-3 py-1.5 rounded-xl font-bold text-[10px] transition-all whitespace-nowrap flex items-center gap-2 relative group ${
                     activeTab === tab.id 
                       ? 'bg-accent text-white shadow-[0_0_20px_rgba(242,125,38,0.3)]' 
                       : 'text-slate-400 hover:text-white hover:bg-white/5'
                   }`}
                 >
-                  <tab.icon className={`w-3.5 h-3.5 ${activeTab === tab.id ? 'text-white' : 'text-slate-500 group-hover:text-accent'}`} />
+                  <tab.icon className={`w-3 h-3 ${activeTab === tab.id ? 'text-white' : 'text-slate-500 group-hover:text-accent'}`} />
                   <span className="uppercase tracking-wider">{tab.label}</span>
                   {tab.badge !== undefined && tab.badge > 0 && (
                     <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[8px] flex items-center justify-center rounded-full border-2 border-slate-950 font-black">
