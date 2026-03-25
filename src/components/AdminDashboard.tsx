@@ -1303,7 +1303,7 @@ export default function AdminDashboard() {
         setCurrentUser(data.user);
         addLog('Usuário autenticado: ' + data.user.email, 'info');
         
-        const { data: profile } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', data.user.id)
@@ -1312,7 +1312,12 @@ export default function AdminDashboard() {
         if (profile) {
           setUserProfile(profile);
           addLog('Perfil carregado: ' + profile.role, 'info');
+        } else {
+          console.error('Perfil não encontrado:', profileError);
+          setIsLoading(false);
         }
+      } else {
+        setIsLoading(false);
       }
     });
   }, []);

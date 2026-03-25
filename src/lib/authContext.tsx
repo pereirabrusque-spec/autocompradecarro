@@ -38,7 +38,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshProfile = async (currentUser?: User) => {
     const targetUser = currentUser || user;
-    if (!targetUser) return;
+    if (!targetUser) {
+      setIsLoading(false);
+      return;
+    }
     
     setIsProfileLoading(true);
     try {
@@ -64,11 +67,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else if (error.code === '42P17' || error.message?.includes('recursion')) {
           console.error('Recursion detected in profiles policy. Please fix DB policies.');
           // Don't crash, but we can't do much more with profiles
-          setIsLoading(false);
           return;
         } else if (error.code === '42P01') {
           console.warn('Profiles table missing or inaccessible.');
-          setIsLoading(false);
           return;
         } else {
           console.error('Error fetching profile:', error);
@@ -142,6 +143,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('Error in refreshProfile:', error);
     } finally {
       setIsProfileLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -175,9 +177,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (user) {
-      refreshProfile(user).then(() => {
-        setIsLoading(false);
-      });
+      refreshProfile(user);
     }
   }, [user]);
 
