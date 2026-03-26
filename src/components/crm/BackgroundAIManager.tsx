@@ -354,6 +354,7 @@ DETALHES COMPLETOS DO VEÍCULO EM FOCO:
 - ID: ${specificLead.id}
 - Marca/Modelo: ${specificLead.marca} ${specificLead.modelo}
 - Ano: ${specificLead.ano_fabricacao}/${specificLead.ano_modelo}
+- Placa: ${specificLead.placa || 'N/A'}
 - Preço Sugerido/Cliente: R$ ${specificLead.preco_cliente || 'A consultar'}
 - PROPOSTA FINAL CALCULADA: R$ ${propostaFinal || 'A calcular'}
 - Cor: ${specificLead.cor || 'Não informada'}
@@ -364,6 +365,8 @@ DETALHES COMPLETOS DO VEÍCULO EM FOCO:
 - TOTAL PARCELAS: ${specificLead.total_parcelas || '0'}
 - BANCO: ${specificLead.banco_financiamento || 'Nenhum'}
 - Sinistro/Leilão: ${specificLead.tem_sinistro === 'sim' ? 'Sim' : 'Não'} / ${specificLead.passagem_leilao === 'sim' ? 'Sim' : 'Não'}
+- Observações: ${specificLead.observacoes || 'N/A'}
+- Status do Lead: ${specificLead.status || 'N/A'}
 `;
                         }
 
@@ -385,13 +388,19 @@ DETALHES COMPLETOS DO VEÍCULO EM FOCO:
                             }
                         }
 
-                        const isFormFilled = !!(existingLead && existingLead.marca && existingLead.modelo);
+                        const isFormFilled = !!(specificLead && specificLead.marca && specificLead.modelo);
                         const formStatusContext = isFormFilled 
                             ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente JÁ PREENCHEU o formulário com os dados do veículo. \n**AÇÃO:** Fale sobre o veículo dele, demonstre interesse técnico e informe que a proposta oficial está sendo analisada pela nossa equipe técnica e será enviada em breve. NÃO peça para preencher o formulário novamente. Foque em manter o cliente engajado enquanto aguarda.`
                             : `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente AINDA NÃO preencheu o formulário com os dados do veículo. \n**AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação.`;
 
                         const fullPrompt = `
+[INSTRUÇÃO DE SISTEMA - PRIORIDADE MÁXIMA]
 Você é o ESPECIALISTA SÊNIOR da "LOJA ONLINE - SOLUÇÕES AUTOMOTIVAS".
+
+SUA MISSÃO:
+1. ANALISAR E SEGUIR ESTRITAMENTE as REGRAS PERSONALIZADAS e a MEMÓRIA fornecidas abaixo.
+2. Se houver conflito entre o seu conhecimento geral e as REGRAS PERSONALIZADAS, as REGRAS PERSONALIZADAS prevalecem.
+3. Você deve consultar a MEMÓRIA DE LONGO PRAZO antes de formular qualquer resposta.
 
 **IMPORTANTE:** 
 - NUNCA diga que você é uma Inteligência Artificial ou um robô.
@@ -555,13 +564,22 @@ REGRAS GERAIS:
                             
                             vehicleInfo = `
 VEÍCULO EM NEGOCIAÇÃO:
+- ID: ${vehicle.id}
 - Marca/Modelo: ${vehicle.marca} ${vehicle.modelo}
 - Ano: ${vehicle.ano_fabricacao}/${vehicle.ano_modelo}
+- Placa: ${vehicle.placa || 'N/A'}
 - Preço Sugerido/Cliente: R$ ${vehicle.preco_cliente || 'A consultar'}
 - PROPOSTA FINAL CALCULADA: R$ ${propostaFinal || 'A calcular'}
 - KM: ${vehicle.quilometragem || vehicle.km || '0'}
 - Cor: ${vehicle.cor || 'Não informada'}
+- Situação Financeira: ${vehicle.situacao_financeira || 'Não informada'}
+- Entrada: R$ ${vehicle.entrada || '0'}
+- Valor Parcela: R$ ${vehicle.valor_parcela || '0'}
+- Total Parcelas: ${vehicle.total_parcelas || '0'}
+- Banco: ${vehicle.banco_financiamento || 'Nenhum'}
 - Sinistro/Leilão: ${vehicle.tem_sinistro === 'sim' ? 'Sim' : 'Não'} / ${vehicle.passagem_leilao === 'sim' ? 'Sim' : 'Não'}
+- Observações: ${vehicle.observacoes || 'N/A'}
+- Status do Lead: ${vehicle.status || 'N/A'}
 `;
 
                             // Busca outros veículos do mesmo vendedor (por email ou user_id)
@@ -597,7 +615,13 @@ VEÍCULO EM NEGOCIAÇÃO:
                             : `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente AINDA NÃO preencheu o formulário com os dados do veículo. \n**AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação.`;
 
                         const fullPrompt = `
+[INSTRUÇÃO DE SISTEMA - PRIORIDADE MÁXIMA]
 Você é o ESPECIALISTA SÊNIOR da "LOJA ONLINE - SOLUÇÕES AUTOMOTIVAS".
+
+SUA MISSÃO:
+1. ANALISAR E SEGUIR ESTRITAMENTE as REGRAS PERSONALIZADAS e a MEMÓRIA fornecidas abaixo.
+2. Se houver conflito entre o seu conhecimento geral e as REGRAS PERSONALIZADAS, as REGRAS PERSONALIZADAS prevalecem.
+3. Você deve consultar a MEMÓRIA DE LONGO PRAZO antes de formular qualquer resposta.
 
 **IMPORTANTE:** 
 - NUNCA diga que você é uma Inteligência Artificial ou um robô.

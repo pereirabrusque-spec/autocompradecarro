@@ -35,6 +35,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
     leadIdRef.current = leadId;
   }, [leadId]);
   const [isFormFilled, setIsFormFilled] = useState(false);
+  const [leadData, setLeadData] = useState<any>(null);
   const [messages, setMessages] = useState<Message[]>([
     { role: 'bot', text: 'Seja Bem Vindo à Auto Compra , espero fazermos um bom negócio' }
   ]);
@@ -211,13 +212,14 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
           // Fetch lead details and history
           const { data: leadDetails } = await supabase
             .from('leads_veiculos')
-            .select('status, detalhes_proposta')
+            .select('*')
             .eq('id', currentLeadId)
             .maybeSingle();
 
           if (leadDetails) {
+            setLeadData(leadDetails);
             setIsAiDisabled(leadDetails.detalhes_proposta?.ai_disabled || false);
-            setIsFormFilled(leadDetails.status === 'quente' || leadDetails.status === 'morno');
+            setIsFormFilled(!!(leadDetails.marca && leadDetails.modelo));
           }
 
           const { data: history } = await supabase
@@ -507,6 +509,26 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente JÁ PREENCHEU o formulário com os dados do veículo. \n**AÇÃO:** Fale sobre o veículo dele, demonstre interesse técnico e informe que a proposta oficial está sendo analisada pela nossa equipe técnica e será enviada em breve. NÃO peça para preencher o formulário novamente. Foque em manter o cliente engajado enquanto aguarda.`
         : `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente AINDA NÃO preencheu o formulário com os dados do veículo. \n**AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação.`;
 
+      const vehicleContext = leadData ? `
+DADOS DO VEÍCULO ATUAL (LEAD):
+- ID: ${leadData.id}
+- Marca: ${leadData.marca || 'N/A'}
+- Modelo: ${leadData.modelo || 'N/A'}
+- Ano: ${leadData.ano_fabricacao}/${leadData.ano_modelo || 'N/A'}
+- Placa: ${leadData.placa || 'N/A'}
+- KM: ${leadData.quilometragem || 'N/A'}
+- Cor: ${leadData.cor || 'N/A'}
+- Preço Cliente: R$ ${leadData.preco_cliente || 'N/A'}
+- Situação Financeira: ${leadData.situacao_financeira || 'N/A'}
+- Entrada: R$ ${leadData.entrada || '0'}
+- Valor Parcela: R$ ${leadData.valor_parcela || '0'}
+- Total Parcelas: ${leadData.total_parcelas || '0'}
+- Banco: ${leadData.banco_financiamento || 'Nenhum'}
+- Sinistro/Leilão: ${leadData.tem_sinistro === 'sim' ? 'Sim' : 'Não'} / ${leadData.passagem_leilao === 'sim' ? 'Sim' : 'Não'}
+- Observações: ${leadData.observacoes || 'N/A'}
+- Status do Lead: ${leadData.status || 'N/A'}
+` : '';
+
       const finalSystemPrompt = `
         [INSTRUÇÃO DE SISTEMA - PRIORIDADE MÁXIMA]
         Você é o ESPECIALISTA SÊNIOR da "LOJA ONLINE - SOLUÇÕES AUTOMOTIVAS".
@@ -517,6 +539,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         3. Você deve consultar a MEMÓRIA DE LONGO PRAZO antes de formular qualquer resposta.
         
         ${formStatusContext}
+        ${vehicleContext}
 
         [REGRAS DE NEGÓCIO E COMPORTAMENTO]
         ${systemPrompt || defaultRules}
