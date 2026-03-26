@@ -1,4 +1,6 @@
 import React, { useRef, useEffect } from 'react';
+import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { MessageCircle, Send, Search, Mail, User, Users, ImageIcon, ShieldCheck, DollarSign, UserCheck, Loader2, Trash2, Copy } from 'lucide-react';
 
 interface AdminMessagesProps {
@@ -592,7 +594,18 @@ export default function AdminMessages({
                         {msg.remetente === 'admin' ? 'Humano' : msg.remetente === 'bot' ? 'IA' : 'Cliente'}
                       </span>
                     </div>
-                    <p className="whitespace-pre-wrap">{msg.conteudo}</p>
+                    <div className="markdown-body prose prose-invert prose-sm max-w-none">
+                      <Markdown 
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          a: ({ node, ...props }) => (
+                            <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline" />
+                          )
+                        }}
+                      >
+                        {msg.conteudo}
+                      </Markdown>
+                    </div>
                     <span className={`text-[9px] mt-1 block opacity-70`}>
                       {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>

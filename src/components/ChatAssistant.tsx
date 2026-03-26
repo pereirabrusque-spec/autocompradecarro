@@ -4,6 +4,7 @@ import { MessageSquare, Send, X, Bot, User, Loader2, Camera, Paperclip, FileText
 import { triggerAdsConversion } from './GoogleTags';
 import OpenAI from 'openai';
 import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { supabase } from '../lib/supabase';
 import { AIService } from '../services/aiService';
 import { useAssets } from '../lib/assetsContext';
@@ -760,7 +761,16 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
                           : 'bg-white border border-slate-100 text-slate-700 rounded-tl-none'
                       }`} style={msg.role === 'user' ? { backgroundColor: chatColor } : {}}>
                         <div className="markdown-body prose prose-sm max-w-none">
-                          <Markdown>{msg.text}</Markdown>
+                          <Markdown 
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              a: ({ node, ...props }) => (
+                                <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline" />
+                              )
+                            }}
+                          >
+                            {msg.text}
+                          </Markdown>
                         </div>
                         {msg.tipo === 'proposta' && (
                           <button 

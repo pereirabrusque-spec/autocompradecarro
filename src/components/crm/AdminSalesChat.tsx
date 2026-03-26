@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { supabase } from '../../lib/supabase';
 import { Send, Bot, MessageCircle, Trash2, Loader2, Car, ShieldCheck } from 'lucide-react';
 import { ChatActionModal } from './ChatActionModal';
@@ -483,7 +485,18 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead, onOpenLead
         {(messages || []).map(m => (
           <div key={m.id || Math.random()} className={`flex ${m.sender_id === currentUserId ? 'justify-end' : 'justify-start'}`}>
             <div className={`p-3 rounded-xl text-sm max-w-[80%] ${m.sender_id === currentUserId ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-900'}`}>
-              {m.content}
+              <div className="markdown-body prose prose-sm max-w-none">
+                <Markdown 
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    a: ({ node, ...props }) => (
+                      <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline" />
+                    )
+                  }}
+                >
+                  {m.content}
+                </Markdown>
+              </div>
               <span className="text-[9px] mt-1 block opacity-50">
                 {m.created_at ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
               </span>

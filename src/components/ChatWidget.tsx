@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useAuth } from '../lib/authContext';
 import { supabase } from '../lib/supabase';
 import { MessageSquare, X, Send, Loader2, User, ShieldCheck, FileText, AlertCircle } from 'lucide-react';
@@ -486,7 +488,18 @@ export default function ChatWidget() {
                             : 'bg-white border border-slate-200 text-slate-700 rounded-tl-none'
                         }`}
                       >
-                        <div className="whitespace-pre-wrap">{msg.conteudo}</div>
+                        <div className="markdown-body prose prose-sm max-w-none">
+                          <Markdown 
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              a: ({ node, ...props }) => (
+                                <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline" />
+                              )
+                            }}
+                          >
+                            {msg.conteudo}
+                          </Markdown>
+                        </div>
                         {msg.tipo === 'proposta' && msg.metadata?.proposal_data && (
                           <div className="mt-3 p-3 bg-white/20 rounded-xl text-xs space-y-1 border border-white/20">
                             <p className="font-bold">Valor Final:</p>
