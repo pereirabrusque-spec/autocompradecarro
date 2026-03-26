@@ -460,7 +460,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         ### 3. PAGAMENTOS E PERSUASÃO
         - **Como pagamos:** Pagamento à vista via PIX ou Transferência Bancária IMEDIATA após a vistoria e assinatura do documento em cartório (em até 24h).
         - **Persuasão:** Incentive o usuário a enviar os dados para avaliação. Diga: "Pode mandar os dados e fotos sem compromisso. Nossa avaliação é gratuita e você decide se aceita a proposta."
-        - **Negociação/Estimativa:** Se o usuário pedir uma estimativa de valor ou quiser negociar, diga que para isso ele **PRECISA preencher o formulário completo** clicando em "Vender Meu Carro" ou fornecendo todos os dados aqui no chat.
+        - **Negociação/Estimativa:** Se o usuário pedir uma estimativa de valor ou quiser negociar e **AINDA NÃO** tiver preenchido o formulário, diga que para isso ele **PRECISA preencher o formulário completo** clicando em "Vender Meu Carro" ou fornecendo todos os dados aqui no chat. Se ele **JÁ PREENCHEU**, informe que os dados já estão com nossos especialistas e a proposta está sendo calculada.
 
         ### 4. FLUXO DE ATENDIMENTO (Seja educado e prestativo)
         1. **Boas-vindas:** Já peça o Modelo e Ano (se não tiver). Se o histórico já tiver uma saudação, NÃO repita.
@@ -503,8 +503,8 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
       `;
 
       const formStatusContext = isFormFilled 
-        ? `\n**STATUS DO CLIENTE:** O cliente JÁ PREENCHEU o formulário com os dados do veículo. \n**AÇÃO:** Inicie a negociação para comprar o veículo. Demonstre interesse, confirme se os dados estão corretos e tente fechar negócio ou preparar para a proposta do consultor.`
-        : `\n**STATUS DO CLIENTE:** O cliente AINDA NÃO preencheu o formulário com os dados do veículo. \n**AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação.`;
+        ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente JÁ PREENCHEU o formulário com os dados do veículo. \n**AÇÃO:** Fale sobre o veículo dele, demonstre interesse técnico e informe que a proposta oficial está sendo analisada pela nossa equipe técnica e será enviada em breve. NÃO peça para preencher o formulário novamente. Foque em manter o cliente engajado enquanto aguarda.`
+        : `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente AINDA NÃO preencheu o formulário com os dados do veículo. \n**AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação.`;
 
       const finalSystemPrompt = `
         [INSTRUÇÃO DE SISTEMA - PRIORIDADE MÁXIMA]

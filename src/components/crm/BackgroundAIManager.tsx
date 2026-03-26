@@ -198,9 +198,15 @@ export const BackgroundAIManager = () => {
                     // Verifica se o comprador específico tem a IA ligada
                     const { data: buyerProfile } = await supabase
                         .from('profiles')
-                        .select('is_ai_enabled')
+                        .select('is_ai_enabled, role')
                         .eq('id', senderId)
                         .single();
+                    
+                    const isBuyer = buyerProfile?.role?.toLowerCase().includes('buyer');
+                    if (!isBuyer) {
+                        console.log(`[BackgroundAIManager] Sender is not a buyer (${buyerProfile?.role}). Skipping.`);
+                        return;
+                    }
                     
                     // Verifica se já existe um lead (veículo) para este comprador
                     const { data: existingLead, error: leadError } = await supabase
@@ -379,10 +385,10 @@ DETALHES COMPLETOS DO VEÍCULO EM FOCO:
                             }
                         }
 
-                        const isFormFilled = existingLead && existingLead.marca && existingLead.modelo;
+                        const isFormFilled = !!(existingLead && existingLead.marca && existingLead.modelo);
                         const formStatusContext = isFormFilled 
-                            ? `\n**STATUS DO CLIENTE:** O cliente JÁ PREENCHEU o formulário com os dados do veículo. \n**AÇÃO:** Inicie a negociação para comprar o veículo. Demonstre interesse, confirme se os dados estão corretos e tente fechar negócio ou preparar para a proposta do consultor.`
-                            : `\n**STATUS DO CLIENTE:** O cliente AINDA NÃO preencheu o formulário com os dados do veículo. \n**AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação.`;
+                            ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente JÁ PREENCHEU o formulário com os dados do veículo. \n**AÇÃO:** Fale sobre o veículo dele, demonstre interesse técnico e informe que a proposta oficial está sendo analisada pela nossa equipe técnica e será enviada em breve. NÃO peça para preencher o formulário novamente. Foque em manter o cliente engajado enquanto aguarda.`
+                            : `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente AINDA NÃO preencheu o formulário com os dados do veículo. \n**AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação.`;
 
                         const fullPrompt = `
 Você é o ESPECIALISTA SÊNIOR da "LOJA ONLINE - SOLUÇÕES AUTOMOTIVAS".
@@ -585,10 +591,10 @@ VEÍCULO EM NEGOCIAÇÃO:
                             } catch (e) {}
                         }
 
-                        const isFormFilled = vehicle && vehicle.marca && vehicle.modelo;
+                        const isFormFilled = !!(vehicle && vehicle.marca && vehicle.modelo);
                         const formStatusContext = isFormFilled 
-                            ? `\n**STATUS DO CLIENTE:** O cliente JÁ PREENCHEU o formulário com os dados do veículo. \n**AÇÃO:** Inicie a negociação para comprar o veículo. Demonstre interesse, confirme se os dados estão corretos e tente fechar negócio ou preparar para a proposta do consultor.`
-                            : `\n**STATUS DO CLIENTE:** O cliente AINDA NÃO preencheu o formulário com os dados do veículo. \n**AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação.`;
+                            ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente JÁ PREENCHEU o formulário com os dados do veículo. \n**AÇÃO:** Fale sobre o veículo dele, demonstre interesse técnico e informe que a proposta oficial está sendo analisada pela nossa equipe técnica e será enviada em breve. NÃO peça para preencher o formulário novamente. Foque em manter o cliente engajado enquanto aguarda.`
+                            : `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente AINDA NÃO preencheu o formulário com os dados do veículo. \n**AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação.`;
 
                         const fullPrompt = `
 Você é o ESPECIALISTA SÊNIOR da "LOJA ONLINE - SOLUÇÕES AUTOMOTIVAS".
