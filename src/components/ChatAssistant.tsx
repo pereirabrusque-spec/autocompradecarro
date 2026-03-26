@@ -370,6 +370,22 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
     video.src = URL.createObjectURL(file);
   };
 
+  const fetchImageAsBase64 = async (url: string): Promise<string> => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (error) {
+      console.error('Error fetching image for AI:', error);
+      return '';
+    }
+  };
+
   const handleSend = async (overrideText?: string) => {
     if (!overrideText && !input.trim() && !selectedImage || isLoading) return;
 
@@ -581,7 +597,14 @@ DADOS DO VEÍCULO ATUAL (LEAD):
 
     // No prompt, enviamos o histórico completo (messages)
     const prompt = `HISTÓRICO COMPLETO (PARA APRENDIZADO):\n${messages.map(m => `${m.role.toUpperCase()}: ${m.text}`).join('\n')}\n\nENTRADA ATUAL:\n${userText}`;
-      const aiResponse = await AIService.generateContent(prompt, finalSystemPrompt, userImage || undefined);
+    
+    let aiImage = userImage;
+    if (!aiImage && leadData?.fotos && Array.isArray(leadData.fotos) && leadData.fotos.length > 0) {
+      console.log("[ChatAssistant] Fetching vehicle photo for AI analysis...");
+      aiImage = await fetchImageAsBase64(leadData.fotos[0]);
+    }
+
+    const aiResponse = await AIService.generateContent(prompt, finalSystemPrompt, aiImage || undefined);
 
       const botText = aiResponse.text || 'Entendido. Por favor, continue com as informações solicitadas.';
       
