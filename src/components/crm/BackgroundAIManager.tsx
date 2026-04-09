@@ -168,187 +168,165 @@ export const BackgroundAIManager = () => {
         };
     }, []);
 
-    useEffect(() => {
-        if (!currentUserId) return;
+    const handleInternalMessage = async (payload: any) => {
+        const uid = currentUserIdRef.current;
+        if (!uid) return;
 
-        const channelName = `bg_ai_messages_${currentUserId}`;
-        console.log(`[BackgroundAIManager] Iniciando monitoramento global: ${channelName}`);
+        // Só processa se a mensagem for para o admin logado (receiver_id === uid ou null)
+        const isForMe = payload.receiver_id === uid || (!payload.receiver_id && uid);
+        
+        // Só responde se a mensagem não for minha
+        if (isForMe && payload.sender_id !== uid) {
+            const senderId = payload.sender_id;
+            const messageId = payload.id;
 
-        // Listen for internal messages
-        const internalMessageSubscription = supabase
-            .channel(channelName)
-            .on('postgres_changes', { 
-                event: 'INSERT', 
-                schema: 'public', 
-                table: 'internal_messages' 
-            }, async (payload) => {
-                const uid = currentUserIdRef.current;
-                if (!uid) return;
+            console.log(`[BackgroundAIManager] IA Global processando mensagem interna (${messageId}) de ${senderId}`);
+            
+            // Verifica se o comprador específico tem a IA ligada
+            const { data: buyerProfile } = await supabase
+                .from('profiles')
+                .select('is_ai_enabled, role')
+                .eq('id', senderId)
+                .single();
+            
+            const isBuyer = buyerProfile?.role?.toLowerCase().includes('buyer') || !!payload.lead_id;
+            if (!isBuyer && !buyerProfile?.role?.toLowerCase().includes('seller')) {
+                console.log(`[BackgroundAIManager] Sender role unknown and no lead_id. Defaulting to processing.`);
+            }
+            
+            // Verifica se já existe um lead (veículo) para este remetente (se for vendedor)
+            const { data: existingLead } = await supabase
+                .from('leads_veiculos')
+                .select('id, marca, modelo')
+                .eq('user_id', senderId)
+                .maybeSingle();
 
-                // Só processa se a mensagem for para o admin logado (receiver_id === uid ou null)
-                const isForMe = payload.new.receiver_id === uid || (!payload.new.receiver_id && uid);
-                
-                // Só responde se a mensagem não for minha
-                if (isForMe && payload.new.sender_id !== uid) {
-                    const senderId = payload.new.sender_id;
-                    const messageId = payload.new.id;
+            const isGlobalAiEnabled = isAiEnabledRef.current;
+            const conversationAiState = buyerProfile?.is_ai_enabled;
 
-                    console.log(`[BackgroundAIManager] IA Global detectou nova mensagem interna (${messageId}) de ${senderId}`);
-                    
-                    // Verifica se o comprador específico tem a IA ligada
-                    const { data: buyerProfile } = await supabase
-                        .from('profiles')
-                        .select('is_ai_enabled, role')
-                        .eq('id', senderId)
-                        .single();
-                    
-                    const isBuyer = buyerProfile?.role?.toLowerCase().includes('buyer') || !!payload.new.lead_id;
-                    if (!isBuyer && !buyerProfile?.role?.toLowerCase().includes('seller')) {
-                        console.log(`[BackgroundAIManager] Sender role unknown and no lead_id. Defaulting to processing.`);
-                    }
-                    
-                    // Verifica se já existe um lead (veículo) para este remetente (se for vendedor)
-                    const { data: existingLead, error: leadError } = await supabase
+            let shouldRespond = false;
+            if (isGlobalAiEnabled) {
+                shouldRespond = conversationAiState !== false;
+            } else {
+                shouldRespond = conversationAiState === true;
+            }
+
+            if (!shouldRespond) {
+                console.log(`[BackgroundAIManager] IA não deve responder (Global: ${isGlobalAiEnabled}, Conversa: ${conversationAiState}). Ignorando.`);
+                return;
+            }
+
+            // Lógica de verificação de lead (APENAS se não for um comprador interessado em um carro do estoque)
+            if (!existingLead && !payload.lead_id) {
+                console.log(`[BackgroundAIManager] Nenhum lead encontrado para ${senderId} e não é interesse em estoque. Induzindo preenchimento.`);
+                await supabase.from('internal_messages').insert({
+                    receiver_id: senderId,
+                    content: "Olá! Para que eu possa te ajudar a encontrar o melhor negócio e fornecer uma proposta de valor, você precisa preencher nosso formulário completo aqui: https://autocompra.online/vender. Assim nossa equipe consegue fazer uma análise técnica detalhada para você!",
+                    sender_id: uid
+                });
+                return;
+            }
+
+            // Pequeno delay aleatório para evitar que múltiplos admins respondam ao mesmo tempo
+            const delay = Math.floor(Math.random() * 1000) + 500;
+            await new Promise(resolve => setTimeout(resolve, delay));
+
+            // Verifica se JÁ existe uma resposta de ADMIN para ESTA mensagem específica
+            const { data: recentAdminMsg } = await supabase
+                .from('internal_messages')
+                .select('id')
+                .eq('sender_id', uid)
+                .eq('receiver_id', senderId)
+                .gt('created_at', payload.created_at)
+                .limit(1);
+
+            if (recentAdminMsg && recentAdminMsg.length > 0) {
+                console.log(`[BackgroundAIManager] Já existe uma resposta posterior para a mensagem interna ${messageId}. Pulando.`);
+                return;
+            }
+
+            try {
+                // Busca histórico recente para contexto
+                const { data: historyData } = await supabase
+                    .from('internal_messages')
+                    .select('*')
+                    .or(`sender_id.eq.${senderId},receiver_id.eq.${senderId}`)
+                    .order('created_at', { ascending: false })
+                    .limit(15);
+
+                const history = (historyData || []).reverse().map(m => 
+                    `${m.sender_id === uid ? 'Admin' : 'Cliente'}: ${m.content} ${m.lead_id ? `(Ref: ${m.lead_id})` : ''}`
+                ).join('\n');
+
+                let currentLeadId = payload.lead_id;
+                let specificLead = null;
+                let vehicleContext = "";
+                let specificVehicleInfo = "";
+                let vehiclePhoto = "";
+                let requiresManualAnalysis = false;
+
+                if (!currentLeadId) {
+                    const lastMsgWithLead = historyData?.find(m => m.lead_id);
+                    if (lastMsgWithLead) currentLeadId = lastMsgWithLead.lead_id;
+                }
+
+                if (currentLeadId) {
+                    const { data } = await supabase
                         .from('leads_veiculos')
-                        .select('id, marca, modelo')
-                        .eq('user_id', senderId)
+                        .select('*')
+                        .eq('id', currentLeadId)
                         .maybeSingle();
+                    specificLead = data;
+                }
 
-                    const isGlobalAiEnabled = isAiEnabledRef.current;
-                    const isAutoProposalEnabled = autoProposalEnabledRef.current;
-                    const conversationAiState = buyerProfile?.is_ai_enabled;
+                const { data: sellerInventory } = await supabase
+                    .from('leads_veiculos')
+                    .select('id, marca, modelo, ano_modelo, preco_cliente, situacao_financeira, cor, quilometragem')
+                    .eq('user_id', uid)
+                    .neq('id', currentLeadId)
+                    .limit(15);
 
-                    let shouldRespond = false;
+                let inventoryContext = "";
+                if (sellerInventory && sellerInventory.length > 0) {
+                    inventoryContext = "\n\nESTOQUE COMPLETO DO VENDEDOR (OUTROS MODELOS DISPONÍVEIS NO SISTEMA):\n" + 
+                        sellerInventory.map(l => `- ${l.marca} ${l.modelo} (${l.ano_modelo}) | Cor: ${l.cor || 'N/A'} | KM: ${l.quilometragem || '0'} | Preço: R$ ${l.preco_cliente || 'A consultar'} [${l.situacao_financeira || 'Disponível'}]`).join('\n');
+                }
 
-                    if (isGlobalAiEnabled) {
-                        // Global is ON. Respond unless explicitly disabled for this conversation.
-                        shouldRespond = conversationAiState !== false;
-                    } else {
-                        // Global is OFF. Respond ONLY if explicitly enabled for this conversation.
-                        shouldRespond = conversationAiState === true;
+                const content = payload.content.toLowerCase();
+                if (!specificLead) {
+                    const { data: searchLeads } = await supabase
+                        .from('leads_veiculos')
+                        .select('*')
+                        .or(`marca.ilike.%${content}%,modelo.ilike.%${content}%`)
+                        .limit(5);
+
+                    if (searchLeads && searchLeads.length > 0) {
+                        if (searchLeads.length === 1) {
+                            specificLead = searchLeads[0];
+                        } else {
+                            vehicleContext = "\n\nVEÍCULOS ENCONTRADOS (OPÇÕES PARA O CLIENTE):\n" + searchLeads.map(l => 
+                                `- ID: ${l.id} | ${l.marca} ${l.modelo} (${l.ano_modelo}) - R$ ${l.preco_cliente || 'A consultar'}`
+                            ).join('\n');
+                        }
                     }
+                }
 
-                    if (!shouldRespond) {
-                        console.log(`[BackgroundAIManager] IA não deve responder (Global: ${isGlobalAiEnabled}, Conversa: ${conversationAiState}). Ignorando.`);
-                        return;
-                    }
-
-                    // Lógica de verificação de lead (APENAS se não for um comprador interessado em um carro do estoque)
-                    if (!existingLead && !payload.new.lead_id) {
-                        console.log(`[BackgroundAIManager] Nenhum lead encontrado para ${senderId} e não é interesse em estoque. Induzindo preenchimento.`);
-                        await supabase.from('internal_messages').insert({
-                            receiver_id: senderId,
-                            content: "Olá! Para que eu possa te ajudar a encontrar o melhor negócio e fornecer uma proposta de valor, você precisa preencher nosso formulário completo aqui: https://autocompra.online/vender. Assim nossa equipe consegue fazer uma análise técnica detalhada para você!",
-                            sender_id: uid
-                        });
-                        return;
-                    }
-
-                    console.log(`[BackgroundAIManager] Lead encontrado (${existingLead.id}). IA habilitada. Aguardando delay...`);
+                if (specificLead) {
+                    const allPhotos = specificLead.fotos || [];
+                    vehiclePhoto = allPhotos[0] || "";
                     
-                    // Pequeno delay aleatório para evitar que múltiplos admins respondam ao mesmo tempo
-                    const delay = Math.floor(Math.random() * 1000) + 500;
-                    await new Promise(resolve => setTimeout(resolve, delay));
-
-                    // Verifica se JÁ existe uma resposta de ADMIN para ESTA mensagem específica
-                    const { data: recentAdminMsg } = await supabase
-                        .from('internal_messages')
-                        .select('id')
-                        .eq('sender_id', uid)
-                        .eq('receiver_id', senderId)
-                        .gt('created_at', payload.new.created_at)
-                        .limit(1);
-
-                    if (recentAdminMsg && recentAdminMsg.length > 0) {
-                        console.log(`[BackgroundAIManager] Já existe uma resposta posterior para a mensagem interna ${messageId}. Pulando.`);
-                        return;
-                    }
-
-                    console.log(`[BackgroundAIManager] Nenhuma resposta de admin detectada. Gerando resposta para interna: "${payload.new.content.substring(0, 30)}..."`);
-
-                    try {
-                        // Busca histórico recente para contexto
-                        const { data: historyData } = await supabase
-                            .from('internal_messages')
-                            .select('*')
-                            .or(`sender_id.eq.${senderId},receiver_id.eq.${senderId}`)
-                            .order('created_at', { ascending: false })
-                            .limit(15);
-
-                        const history = (historyData || []).reverse().map(m => 
-                            `${m.sender_id === uid ? 'Admin' : 'Cliente'}: ${m.content} ${m.lead_id ? `(Ref: ${m.lead_id})` : ''}`
-                        ).join('\n');
-
-                        let currentLeadId = payload.new.lead_id;
-                        let specificLead = null;
-                        let vehicleContext = "";
-                        let specificVehicleInfo = "";
-                        let vehiclePhoto = "";
-                        let requiresManualAnalysis = false;
-
-                        if (!currentLeadId) {
-                            const lastMsgWithLead = historyData?.find(m => m.lead_id);
-                            if (lastMsgWithLead) currentLeadId = lastMsgWithLead.lead_id;
-                        }
-
-                        if (currentLeadId) {
-                            const { data } = await supabase
-                                .from('leads_veiculos')
-                                .select('*')
-                                .eq('id', currentLeadId)
-                                .maybeSingle();
-                            specificLead = data;
-                        }
-
-                        // BUSCA O ESTOQUE COMPLETO DO VENDEDOR (ADMIN) PARA INFORMAR SOBRE OUTROS MODELOS
-                        const { data: sellerInventory } = await supabase
-                            .from('leads_veiculos')
-                            .select('id, marca, modelo, ano_modelo, preco_cliente, situacao_financeira, cor, quilometragem')
-                            .eq('user_id', uid)
-                            .neq('id', currentLeadId)
-                            .limit(15);
-
-                        let inventoryContext = "";
-                        if (sellerInventory && sellerInventory.length > 0) {
-                            inventoryContext = "\n\nESTOQUE COMPLETO DO VENDEDOR (OUTROS MODELOS DISPONÍVEIS NO SISTEMA):\n" + 
-                                sellerInventory.map(l => `- ${l.marca} ${l.modelo} (${l.ano_modelo}) | Cor: ${l.cor || 'N/A'} | KM: ${l.quilometragem || '0'} | Preço: R$ ${l.preco_cliente || 'A consultar'} [${l.situacao_financeira || 'Disponível'}]`).join('\n');
-                        }
-
-                        const content = payload.new.content.toLowerCase();
-                        if (!specificLead) {
-                            const { data: searchLeads } = await supabase
-                                .from('leads_veiculos')
-                                .select('*')
-                                .or(`marca.ilike.%${content}%,modelo.ilike.%${content}%`)
-                                .limit(5);
-
-                            if (searchLeads && searchLeads.length > 0) {
-                                if (searchLeads.length === 1) {
-                                    specificLead = searchLeads[0];
-                                } else {
-                                    vehicleContext = "\n\nVEÍCULOS ENCONTRADOS (OPÇÕES PARA O CLIENTE):\n" + searchLeads.map(l => 
-                                        `- ID: ${l.id} | ${l.marca} ${l.modelo} (${l.ano_modelo}) - R$ ${l.preco_cliente || 'A consultar'}`
-                                    ).join('\n');
-                                }
-                            }
-                        }
-
-                        if (specificLead) {
-                            const allPhotos = specificLead.fotos || [];
-                            vehiclePhoto = allPhotos[0] || "";
-                            
-                            const proposalResult = calculateProposal(specificLead, {
-                                fipeRules: fipeRulesRef.current,
-                                banks: banksRef.current,
-                                cooperativeDiscount: cooperativeDiscountRef.current,
-                                profitMarginPercentage: profitMarginPercentageRef.current,
-                                jurosAtraso: jurosAtrasoRef.current,
-                                repairCosts: repairCostsRef.current
-                            });
-                            const propostaFinal = proposalResult.finalValue;
-                            requiresManualAnalysis = proposalResult.requiresManualAnalysis;
-                            
-                            specificVehicleInfo = `
+                    const proposalResult = calculateProposal(specificLead, {
+                        fipeRules: fipeRulesRef.current,
+                        banks: banksRef.current,
+                        cooperativeDiscount: cooperativeDiscountRef.current,
+                        profitMarginPercentage: profitMarginPercentageRef.current,
+                        jurosAtraso: jurosAtrasoRef.current,
+                        repairCosts: repairCostsRef.current
+                    });
+                    const propostaFinal = proposalResult.finalValue;
+                    requiresManualAnalysis = proposalResult.requiresManualAnalysis;
+                    
+                    specificVehicleInfo = `
 DETALHES COMPLETOS DO VEÍCULO EM FOCO:
 - ID: ${specificLead.id}
 - Marca/Modelo: ${specificLead.marca} ${specificLead.modelo}
@@ -367,36 +345,36 @@ DETALHES COMPLETOS DO VEÍCULO EM FOCO:
 - Observações: ${specificLead.observacoes || 'N/A'}
 - Status do Lead: ${specificLead.status || 'N/A'}
 `;
-                        }
+                }
 
-                        let imageBase64 = "";
-                        if (vehiclePhoto) {
-                            if (lastProcessedImage.current?.url === vehiclePhoto) {
-                                imageBase64 = lastProcessedImage.current.base64;
-                            } else {
-                                try {
-                                    const imgResp = await fetch(vehiclePhoto);
-                                    const blob = await imgResp.blob();
-                                    imageBase64 = await new Promise((resolve) => {
-                                        const reader = new FileReader();
-                                        reader.onloadend = () => resolve(reader.result as string);
-                                        reader.readAsDataURL(blob);
-                                    });
-                                    lastProcessedImage.current = { url: vehiclePhoto, base64: imageBase64 };
-                                } catch (e) {}
-                            }
-                        }
+                let imageBase64 = "";
+                if (vehiclePhoto) {
+                    if (lastProcessedImage.current?.url === vehiclePhoto) {
+                        imageBase64 = lastProcessedImage.current.base64;
+                    } else {
+                        try {
+                            const imgResp = await fetch(vehiclePhoto);
+                            const blob = await imgResp.blob();
+                            imageBase64 = await new Promise((resolve) => {
+                                const reader = new FileReader();
+                                reader.onloadend = () => resolve(reader.result as string);
+                                reader.readAsDataURL(blob);
+                            });
+                            lastProcessedImage.current = { url: vehiclePhoto, base64: imageBase64 };
+                        } catch (e) {}
+                    }
+                }
 
-                        const isFormFilled = !!(specificLead && specificLead.marca && specificLead.modelo);
-                        const isBuyerContext = !!payload.new.lead_id;
+                const isFormFilled = !!(specificLead && specificLead.marca && specificLead.modelo);
+                const isBuyerContext = !!payload.lead_id;
 
-                        const formStatusContext = isBuyerContext
-                            ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**CONTEXTO DE COMPRA:** O cliente está interessado em COMPRAR o veículo ${specificLead?.marca} ${specificLead?.modelo}. \n**AÇÃO:** Seja um vendedor persuasivo. Fale sobre as qualidades deste veículo específico, condições de pagamento e incentive o fechamento. NÃO peça para preencher formulário de venda.`
-                            : (isFormFilled 
-                                ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente JÁ PREENCHEU o formulário com os dados do veículo. \n**AÇÃO:** Fale sobre o veículo dele, demonstre interesse técnico e informe que a proposta oficial está sendo analisada pela nossa equipe técnica e será enviada em breve. NÃO peça para preencher o formulário novamente. Foque em manter o cliente engajado enquanto aguarda.`
-                                : `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente AINDA NÃO preencheu o formulário com os dados do veículo. \n**AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação.`);
+                const formStatusContext = isBuyerContext
+                    ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**CONTEXTO DE COMPRA:** O cliente está interessado em COMPRAR o veículo ${specificLead?.marca} ${specificLead?.modelo}. \n**AÇÃO:** Seja um vendedor persuasivo. Fale sobre as qualidades deste veículo específico, condições de pagamento e incentive o fechamento. NÃO peça para preencher formulário de venda.`
+                    : (isFormFilled 
+                        ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente JÁ PREENCHEU o formulário com os dados do veículo. \n**AÇÃO:** Fale sobre o veículo dele, demonstre interesse técnico e informe que a proposta oficial está sendo analisada pela nossa equipe técnica e será enviada em breve. NÃO peça para preencher o formulário novamente. Foque em manter o cliente engajado enquanto aguarda.`
+                        : `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente AINDA NÃO preencheu o formulário com os dados do veículo. \n**AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação.`);
 
-                        const fullPrompt = `
+                const fullPrompt = `
 [SISTEMA DE CONTROLE DE AGENTES E MEMÓRIA — AUTOCOMPRA.ONLINE]
 OBJETIVO: Roteamento inteligente e uso estrito de memórias/regras.
 
@@ -430,14 +408,14 @@ ${inventoryContext}
 HISTÓRICO:
 ${history}
 
-MENSAGEM ATUAL: ${payload.new.content}
+MENSAGEM ATUAL: ${payload.content}
 
 [REGRAS E MEMÓRIA DO CRM - ORIGEM: MENU IA]
 ${aiCrmPromptRef.current}
 ${aiCrmMemoryRef.current ? `\nMEMÓRIA APRENDIDA NO CRM (CONSULTE ANTES DE RESPONDER):\n${aiCrmMemoryRef.current}` : ''}
 
 REGRAS DE PROPOSTA:
-${isAutoProposalEnabled && !requiresManualAnalysis ? 
+${autoProposalEnabledRef.current && !requiresManualAnalysis ? 
     "VOCÊ ESTÁ AUTORIZADO A ENVIAR A PROPOSTA FINAL. Use o valor 'PROPOSTA FINAL CALCULADA' mencionado acima se o cliente perguntar sobre valores ou propostas." : 
     (requiresManualAnalysis ? 
         "VOCÊ NÃO ESTÁ AUTORIZADO A ENVIAR VALORES DE PROPOSTA. O valor calculado requer análise manual do analista para não queimar o negócio. Diga que você e sua equipe de especialistas estão finalizando os cálculos técnicos para garantir a melhor oferta e que você retornará com o valor exato em breve. Foque em outros detalhes do veículo." :
@@ -454,128 +432,115 @@ REGRAS GERAIS:
 3. Responda como um consultor de vendas especializado em compradores.
 `;
 
-                        const response = await AIService.generateContent(
-                            fullPrompt,
-                            "Você é um especialista de vendas altamente preciso. Responda estritamente com base nos dados técnicos do veículo fornecidos no contexto. Se a informação não estiver nos dados, não invente. Seja direto, profissional e persuasivo. NUNCA mencione ser uma IA ou que haverá contato humano posterior, você é o especialista responsável.",
-                            imageBase64 || undefined
-                        );
+                const response = await AIService.generateContent(
+                    fullPrompt,
+                    "Você é um especialista de vendas altamente preciso. Responda estritamente com base nos dados técnicos do veículo fornecidos no contexto. Se a informação não estiver nos dados, não invente. Seja direto, profissional e persuasivo. NUNCA mencione ser uma IA ou que haverá contato humano posterior, você é o especialista responsável.",
+                    imageBase64 || undefined
+                );
 
-                        if (response && response.text) {
-                            await supabase.from('internal_messages').insert({
-                                receiver_id: senderId,
-                                content: response.text,
-                                sender_id: uid,
-                                lead_id: currentLeadId
-                            });
-                            console.log('[BackgroundAIManager] Resposta automática enviada para interna');
-                        }
-                    } catch (err) {
-                        console.error('[BackgroundAIManager] Erro ao processar resposta interna:', err);
-                    }
+                if (response && response.text) {
+                    await supabase.from('internal_messages').insert({
+                        receiver_id: senderId,
+                        content: response.text,
+                        sender_id: uid,
+                        lead_id: currentLeadId
+                    });
+                    console.log('[BackgroundAIManager] Resposta automática enviada para interna');
                 }
-            })
-            .subscribe();
+            } catch (err) {
+                console.error('[BackgroundAIManager] Erro ao processar resposta interna:', err);
+            }
+        }
+    };
 
-        // Listen for public messages (leads)
-        const publicMessageSubscription = supabase
-            .channel(`bg_ai_public_${currentUserId}`)
-            .on('postgres_changes', { 
-                event: 'INSERT', 
-                schema: 'public', 
-                table: 'mensagens' 
-            }, async (payload) => {
-                const uid = currentUserIdRef.current;
-                if (!uid) return;
+    const handlePublicMessage = async (payload: any) => {
+        const uid = currentUserIdRef.current;
+        if (!uid) return;
 
-                // Só responde se a mensagem for do cliente
-                if (payload.new.remetente === 'cliente') {
-                    const leadId = payload.new.lead_id;
-                    const messageId = payload.new.id;
+        // Só responde se a mensagem for do cliente
+        if (payload.remetente === 'cliente') {
+            const leadId = payload.lead_id;
+            const messageId = payload.id;
 
-                    console.log(`[BackgroundAIManager] IA Global detectou nova mensagem de lead (${messageId}) para lead ${leadId}`);
+            console.log(`[BackgroundAIManager] IA Global processando mensagem de lead (${messageId}) para lead ${leadId}`);
+            
+            // Verifica se a IA está habilitada globalmente
+            const isGlobalAiEnabled = isAiEnabledRef.current;
+            if (!isGlobalAiEnabled) {
+                console.log(`[BackgroundAIManager] IA Global desativada. Ignorando mensagem de lead.`);
+                return;
+            }
+
+            // Verifica se o lead específico tem a IA desativada (atendimento humano)
+            const { data: lead } = await supabase
+                .from('leads_veiculos')
+                .select('detalhes_proposta')
+                .eq('id', leadId)
+                .single();
+            
+            if (lead?.detalhes_proposta?.ai_disabled) {
+                console.log(`[BackgroundAIManager] IA desativada para este lead (Atendimento Humano ON). Ignorando.`);
+                return;
+            }
+
+            // Aguarda delay maior (30s) para evitar conflito com UI
+            const delay = 30000; 
+            await new Promise(resolve => setTimeout(resolve, delay));
+
+            // Verifica se JÁ existe uma resposta de ADMIN ou BOT para ESTA mensagem
+            const { data: recentMsg } = await supabase
+                .from('mensagens')
+                .select('id')
+                .eq('lead_id', leadId)
+                .in('remetente', ['admin', 'bot'])
+                .gt('created_at', payload.created_at)
+                .limit(1);
+
+            if (recentMsg && recentMsg.length > 0) {
+                console.log(`[BackgroundAIManager] Já existe uma resposta posterior para o lead ${leadId}. Pulando.`);
+                return;
+            }
+
+            try {
+                // Busca histórico recente
+                const { data: historyData } = await supabase
+                    .from('mensagens')
+                    .select('*')
+                    .eq('lead_id', leadId)
+                    .order('created_at', { ascending: false })
+                    .limit(15);
+
+                const history = (historyData || []).reverse().map(m => 
+                    `${m.remetente === 'cliente' ? 'Cliente' : 'Vendedor'}: ${m.conteudo}`
+                ).join('\n');
+
+                // Busca dados do veículo
+                const { data: vehicle } = await supabase
+                    .from('leads_veiculos')
+                    .select('*')
+                    .eq('id', leadId)
+                    .single();
+
+                let inventoryContext = "";
+                let vehicleInfo = "";
+                let vehiclePhoto = "";
+                let requiresManualAnalysis = false;
+                if (vehicle) {
+                    const allPhotos = vehicle.fotos || [];
+                    vehiclePhoto = allPhotos[0] || "";
                     
-                    // Verifica se a IA está habilitada globalmente
-                    const isGlobalAiEnabled = isAiEnabledRef.current;
-                    const isAutoProposalEnabled = autoProposalEnabledRef.current;
+                    const proposalResult = calculateProposal(vehicle, {
+                        fipeRules: fipeRulesRef.current,
+                        banks: banksRef.current,
+                        cooperativeDiscount: cooperativeDiscountRef.current,
+                        profitMarginPercentage: profitMarginPercentageRef.current,
+                        jurosAtraso: jurosAtrasoRef.current,
+                        repairCosts: repairCostsRef.current
+                    });
+                    const propostaFinal = proposalResult.finalValue;
+                    requiresManualAnalysis = proposalResult.requiresManualAnalysis;
                     
-                    if (!isGlobalAiEnabled) {
-                        console.log(`[BackgroundAIManager] IA Global desativada. Ignorando mensagem de lead.`);
-                        return;
-                    }
-
-                    // Verifica se o lead específico tem a IA desativada (atendimento humano)
-                    const { data: lead } = await supabase
-                        .from('leads_veiculos')
-                        .select('detalhes_proposta')
-                        .eq('id', leadId)
-                        .single();
-                    
-                    if (lead?.detalhes_proposta?.ai_disabled) {
-                        console.log(`[BackgroundAIManager] IA desativada para este lead (Atendimento Humano ON). Ignorando.`);
-                        return;
-                    }
-
-                    console.log(`[BackgroundAIManager] IA habilitada para lead. Aguardando delay maior (30s) para evitar conflito com UI...`);
-                    
-                    const delay = 30000; // 30 segundos fixos para dar tempo da UI responder
-                    await new Promise(resolve => setTimeout(resolve, delay));
-
-                    // Verifica se JÁ existe uma resposta de ADMIN ou BOT para ESTA mensagem
-                    const { data: recentMsg } = await supabase
-                        .from('mensagens')
-                        .select('id')
-                        .eq('lead_id', leadId)
-                        .in('remetente', ['admin', 'bot'])
-                        .gt('created_at', payload.new.created_at)
-                        .limit(1);
-
-                    if (recentMsg && recentMsg.length > 0) {
-                        console.log(`[BackgroundAIManager] Já existe uma resposta posterior para o lead ${leadId}. Pulando.`);
-                        return;
-                    }
-
-                    console.log(`[BackgroundAIManager] Gerando resposta para lead: "${payload.new.conteudo.substring(0, 30)}..."`);
-
-                    try {
-                        // Busca histórico recente
-                        const { data: historyData } = await supabase
-                            .from('mensagens')
-                            .select('*')
-                            .eq('lead_id', leadId)
-                            .order('created_at', { ascending: false })
-                            .limit(15);
-
-                        const history = (historyData || []).reverse().map(m => 
-                            `${m.remetente === 'cliente' ? 'Cliente' : 'Vendedor'}: ${m.conteudo}`
-                        ).join('\n');
-
-                        // Busca dados do veículo
-                        const { data: vehicle } = await supabase
-                            .from('leads_veiculos')
-                            .select('*')
-                            .eq('id', leadId)
-                            .single();
-
-                        let inventoryContext = "";
-                        let vehicleInfo = "";
-                        let vehiclePhoto = "";
-                        let requiresManualAnalysis = false;
-                        if (vehicle) {
-                            const allPhotos = vehicle.fotos || [];
-                            vehiclePhoto = allPhotos[0] || "";
-                            
-                            const proposalResult = calculateProposal(vehicle, {
-                                fipeRules: fipeRulesRef.current,
-                                banks: banksRef.current,
-                                cooperativeDiscount: cooperativeDiscountRef.current,
-                                profitMarginPercentage: profitMarginPercentageRef.current,
-                                jurosAtraso: jurosAtrasoRef.current,
-                                repairCosts: repairCostsRef.current
-                            });
-                            const propostaFinal = proposalResult.finalValue;
-                            requiresManualAnalysis = proposalResult.requiresManualAnalysis;
-                            
-                            vehicleInfo = `
+                    vehicleInfo = `
 VEÍCULO EM NEGOCIAÇÃO:
 - ID: ${vehicle.id}
 - Marca/Modelo: ${vehicle.marca} ${vehicle.modelo}
@@ -595,39 +560,39 @@ VEÍCULO EM NEGOCIAÇÃO:
 - Status do Lead: ${vehicle.status || 'N/A'}
 `;
 
-                            // Busca outros veículos do mesmo vendedor (por email ou user_id)
-                            const { data: others } = await supabase
-                                .from('leads_veiculos')
-                                .select('marca, modelo, ano_modelo, preco_cliente, cor, quilometragem')
-                                .or(`email.eq.${vehicle.email}${vehicle.user_id ? `,user_id.eq.${vehicle.user_id}` : ''}`)
-                                .neq('id', leadId)
-                                .limit(10);
+                    // Busca outros veículos do mesmo vendedor (por email ou user_id)
+                    const { data: others } = await supabase
+                        .from('leads_veiculos')
+                        .select('marca, modelo, ano_modelo, preco_cliente, cor, quilometragem')
+                        .or(`email.eq.${vehicle.email}${vehicle.user_id ? `,user_id.eq.${vehicle.user_id}` : ''}`)
+                        .neq('id', leadId)
+                        .limit(10);
 
-                            if (others && others.length > 0) {
-                                inventoryContext = "\nOUTROS VEÍCULOS DESTE VENDEDOR NO SISTEMA:\n" + 
-                                    others.map(v => `- ${v.marca} ${v.modelo} (${v.ano_modelo}) - ${v.cor} - ${v.quilometragem}km`).join('\n');
-                            }
-                        }
+                    if (others && others.length > 0) {
+                        inventoryContext = "\nOUTROS VEÍCULOS DESTE VENDEDOR NO SISTEMA:\n" + 
+                            others.map(v => `- ${v.marca} ${v.modelo} (${v.ano_modelo}) - ${v.cor} - ${v.quilometragem}km`).join('\n');
+                    }
+                }
 
-                        let imageBase64 = "";
-                        if (vehiclePhoto) {
-                            try {
-                                const imgResp = await fetch(vehiclePhoto);
-                                const blob = await imgResp.blob();
-                                imageBase64 = await new Promise((resolve) => {
-                                    const reader = new FileReader();
-                                    reader.onloadend = () => resolve(reader.result as string);
-                                    reader.readAsDataURL(blob);
-                                });
-                            } catch (e) {}
-                        }
+                let imageBase64 = "";
+                if (vehiclePhoto) {
+                    try {
+                        const imgResp = await fetch(vehiclePhoto);
+                        const blob = await imgResp.blob();
+                        imageBase64 = await new Promise((resolve) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => resolve(reader.result as string);
+                            reader.readAsDataURL(blob);
+                        });
+                    } catch (e) {}
+                }
 
-                        const isFormFilled = !!(vehicle && vehicle.marca && vehicle.modelo);
-                        const formStatusContext = isFormFilled 
-                            ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente JÁ PREENCHEU o formulário com os dados do veículo. \n**AÇÃO:** Fale sobre o veículo dele, demonstre interesse técnico e informe que a proposta oficial está sendo analisada pela nossa equipe técnica e será enviada em breve. NÃO peça para preencher o formulário novamente. Foque em manter o cliente engajado enquanto aguarda.`
-                            : `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente AINDA NÃO preencheu o formulário com os dados do veículo. \n**AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação.`;
+                const isFormFilled = !!(vehicle && vehicle.marca && vehicle.modelo);
+                const formStatusContext = isFormFilled 
+                    ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente JÁ PREENCHEU o formulário com os dados do veículo. \n**AÇÃO:** Fale sobre o veículo dele, demonstre interesse técnico e informe que a proposta oficial está sendo analisada pela nossa equipe técnica e será enviada em breve. NÃO peça para preencher o formulário novamente. Foque em manter o cliente engajado enquanto aguarda.`
+                    : `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente AINDA NÃO preencheu o formulário com os dados do veículo. \n**AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação.`;
 
-                        const fullPrompt = `
+                const fullPrompt = `
 [SISTEMA DE CONTROLE DE AGENTES E MEMÓRIA — AUTOCOMPRA.ONLINE]
 OBJETIVO: Roteamento inteligente e uso estrito de memórias/regras.
 
@@ -660,14 +625,14 @@ ${inventoryContext}
 HISTÓRICO:
 ${history}
 
-MENSAGEM ATUAL: ${payload.new.conteudo}
+MENSAGEM ATUAL: ${payload.conteudo}
 
 [REGRAS E MEMÓRIA DO VENDEDOR - ORIGEM: MENU IA]
 ${aiPromptRef.current}
 ${aiMemoryRef.current ? `\nMEMÓRIA APRENDIDA (CONSULTE ANTES DE RESPONDER):\n${aiMemoryRef.current}` : ''}
 
 REGRAS DE PROPOSTA:
-${isAutoProposalEnabled && !requiresManualAnalysis ? 
+${autoProposalEnabledRef.current && !requiresManualAnalysis ? 
     "VOCÊ ESTÁ AUTORIZADO A ENVIAR A PROPOSTA FINAL. Use o valor 'PROPOSTA FINAL CALCULADA' mencionado acima se o cliente perguntar sobre valores ou propostas." : 
     (requiresManualAnalysis ? 
         "VOCÊ NÃO ESTÁ AUTORIZADO A ENVIAR VALORES DE PROPOSTA. O valor calculado requer análise manual do analista para não queimar o negócio. Diga que você e sua equipe de especialistas estão finalizando os cálculos técnicos para garantir a melhor oferta e que você retornará com o valor exato em breve. Foque em outros detalhes do veículo." :
@@ -686,33 +651,127 @@ REGRAS GERAIS:
 5. NÃO envie mensagens duplicadas. Se a última mensagem do histórico já responde o que o cliente perguntou, não responda novamente.
 `;
 
-                        const response = await AIService.generateContent(
-                            fullPrompt,
-                            "Você é um especialista de vendas altamente preciso. Responda estritamente com base nos dados técnicos do veículo fornecidos no contexto. Se a informação não estiver nos dados, não invente. Seja direto, profissional e persuasivo. NUNCA mencione ser uma IA ou que haverá contato humano posterior, você é o especialista responsável.",
-                            imageBase64 || undefined
-                        );
+                const response = await AIService.generateContent(
+                    fullPrompt,
+                    "Você é um especialista de vendas altamente preciso. Responda estritamente com base nos dados técnicos do veículo fornecidos no contexto. Se a informação não estiver nos dados, não invente. Seja direto, profissional e persuasivo. NUNCA mencione ser uma IA ou que haverá contato humano posterior, você é o especialista responsável.",
+                    imageBase64 || undefined
+                );
 
-                        if (response && response.text) {
-                            await supabase.from('mensagens').insert({
-                                lead_id: leadId,
-                                conteudo: response.text,
-                                remetente: 'bot'
-                            });
-                            console.log('[BackgroundAIManager] Resposta automática enviada para lead');
-                        }
-                    } catch (err) {
-                        console.error('[BackgroundAIManager] Erro ao processar resposta para lead:', err);
+                if (response && response.text) {
+                    await supabase.from('mensagens').insert({
+                        lead_id: leadId,
+                        conteudo: response.text,
+                        remetente: 'bot'
+                    });
+                    console.log('[BackgroundAIManager] Resposta automática enviada para lead');
+                }
+            } catch (err) {
+                console.error('[BackgroundAIManager] Erro ao processar resposta para lead:', err);
+            }
+        }
+    };
+
+    const scanForOpenMessages = async () => {
+        const uid = currentUserIdRef.current;
+        if (!uid) return;
+
+        console.log('[BackgroundAIManager] Escaneando mensagens em aberto...');
+
+        // 1. Escaneia mensagens internas (Compradores)
+        const { data: openInternal } = await supabase
+            .from('internal_messages')
+            .select('*')
+            .or(`receiver_id.eq.${uid},receiver_id.is.null`)
+            .order('created_at', { ascending: false })
+            .limit(50);
+
+        if (openInternal) {
+            // Agrupa por sender_id e pega a última
+            const conversations = new Map();
+            openInternal.forEach(m => {
+                if (!conversations.has(m.sender_id)) conversations.set(m.sender_id, m);
+            });
+
+            for (const [senderId, lastMsg] of conversations.entries()) {
+                if (lastMsg.sender_id !== uid) {
+                    // Verifica se já passou tempo suficiente (ex: 1 minuto) para não atropelar o tempo real
+                    const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
+                    if (timeDiff > 60000) {
+                        handleInternalMessage(lastMsg);
                     }
                 }
+            }
+        }
+
+        // 2. Escaneia mensagens públicas (Vendedores)
+        const { data: openPublic } = await supabase
+            .from('mensagens')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(100);
+
+        if (openPublic) {
+            const leads = new Map();
+            openPublic.forEach(m => {
+                if (!leads.has(m.lead_id)) leads.set(m.lead_id, m);
+            });
+
+            for (const [leadId, lastMsg] of leads.entries()) {
+                if (lastMsg.remetente === 'cliente') {
+                    const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
+                    if (timeDiff > 60000) {
+                        handlePublicMessage(lastMsg);
+                    }
+                }
+            }
+        }
+    };
+
+    useEffect(() => {
+        if (!currentUserId) return;
+
+        // Escaneia ao montar
+        scanForOpenMessages();
+
+        // Escaneia periodicamente a cada 5 minutos
+        const interval = setInterval(scanForOpenMessages, 300000);
+
+        const channelName = `bg_ai_messages_${currentUserId}`;
+        console.log(`[BackgroundAIManager] Iniciando monitoramento global: ${channelName}`);
+
+        // Listen for internal messages
+        const internalMessageSubscription = supabase
+            .channel(channelName)
+            .on('postgres_changes', { 
+                event: 'INSERT', 
+                schema: 'public', 
+                table: 'internal_messages' 
+            }, async (payload) => {
+                handleInternalMessage(payload.new);
+            })
+            .subscribe();
+
+        // Listen for public messages (leads)
+        const publicMessageSubscription = supabase
+            .channel(`bg_ai_public_${currentUserId}`)
+            .on('postgres_changes', { 
+                event: 'INSERT', 
+                schema: 'public', 
+                table: 'mensagens' 
+            }, async (payload) => {
+                handlePublicMessage(payload.new);
             })
             .subscribe();
 
         return () => {
+            clearInterval(interval);
             supabase.removeChannel(internalMessageSubscription);
             supabase.removeChannel(publicMessageSubscription);
         };
 
     }, [currentUserId]);
 
-    return null; // Componente invisível
+    return null;
 };
+
+export default BackgroundAIManager;
