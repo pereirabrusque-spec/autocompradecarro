@@ -742,7 +742,11 @@ DADOS DO VEÍCULO ATUAL (LEAD):
                   {chatAvatarUrl ? (
                     <img src={chatAvatarUrl} alt="Atendente" className="w-full h-full object-cover" />
                   ) : (
-                    <Bot className="w-7 h-7" />
+                    <img 
+                      src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?q=80&w=100&h=100&auto=format&fit=crop" 
+                      alt="Atendente" 
+                      className="w-full h-full object-cover" 
+                    />
                   )}
                 </div>
                 <div>
@@ -799,7 +803,11 @@ DADOS DO VEÍCULO ATUAL (LEAD):
                       ) : chatAvatarUrl ? (
                         <img src={chatAvatarUrl} alt="Bot" className="w-full h-full object-cover" />
                       ) : (
-                        <Bot className="w-5 h-5" />
+                        <img 
+                          src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?q=80&w=100&h=100&auto=format&fit=crop" 
+                          alt="Bot" 
+                          className="w-full h-full object-cover" 
+                        />
                       )}
                     </div>
                     <div className="space-y-2">

@@ -246,7 +246,11 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle, hide
               <div key={msg.id} className={`flex ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[80%] p-3 rounded-2xl text-sm shadow-sm flex items-end gap-2 ${msg.sender_id === user?.id ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-slate-800 text-white rounded-tl-none'}`}>
                   {msg.sender_id !== user?.id && (
-                    <img src={msg.profiles?.avatar_url || '/default-avatar.png'} alt="Avatar" className="w-6 h-6 rounded-full" />
+                    <img 
+                      src={msg.profiles?.avatar_url || 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?q=80&w=100&h=100&auto=format&fit=crop'} 
+                      alt="Avatar" 
+                      className="w-6 h-6 rounded-full object-cover border border-white/20" 
+                    />
                   )}
                   <div>
                     {msg.content}

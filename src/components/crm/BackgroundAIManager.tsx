@@ -189,17 +189,17 @@ export const BackgroundAIManager = () => {
                 .eq('id', senderId)
                 .single();
             
-            const isBuyer = buyerProfile?.role?.toLowerCase().includes('buyer') || !!payload.lead_id;
-            if (!isBuyer && !buyerProfile?.role?.toLowerCase().includes('seller')) {
-                console.log(`[BackgroundAIManager] Sender role unknown and no lead_id. Defaulting to processing.`);
-            }
-            
             // Verifica se já existe um lead (veículo) para este remetente (se for vendedor)
             const { data: existingLead } = await supabase
                 .from('leads_veiculos')
                 .select('id, marca, modelo')
                 .eq('user_id', senderId)
                 .maybeSingle();
+
+            const isBuyer = buyerProfile?.role?.toLowerCase().includes('buyer') || (payload.lead_id && payload.lead_id !== 'null' && payload.lead_id !== '');
+            const isSeller = buyerProfile?.role?.toLowerCase().includes('seller') || (!isBuyer && !!existingLead);
+            
+            console.log(`[BackgroundAIManager] isBuyer: ${isBuyer}, isSeller: ${isSeller}, payload.lead_id: ${payload.lead_id}, sender: ${senderId}`);
 
             const isGlobalAiEnabled = isAiEnabledRef.current;
             const conversationAiState = buyerProfile?.is_ai_enabled;
@@ -216,13 +216,15 @@ export const BackgroundAIManager = () => {
                 return;
             }
 
-            // Lógica de verificação de lead (APENAS se não for um comprador interessado em um carro do estoque)
-            if (!existingLead && !payload.lead_id) {
-                console.log(`[BackgroundAIManager] Nenhum lead encontrado para ${senderId} e não é interesse em estoque. Induzindo preenchimento.`);
+            // Lógica de verificação de lead (APENAS se for um vendedor sem lead cadastrado)
+            // Se for um COMPRADOR (isBuyer ou tem lead_id), NUNCA induz preenchimento de formulário de venda
+            if (!isBuyer && isSeller && !existingLead && !payload.lead_id) {
+                console.log(`[BackgroundAIManager] Vendedor sem lead encontrado. Induzindo preenchimento.`);
                 await supabase.from('internal_messages').insert({
                     receiver_id: senderId,
                     content: "Olá! Para que eu possa te ajudar a encontrar o melhor negócio e fornecer uma proposta de valor, você precisa preencher nosso formulário completo aqui: https://autocompra.online/vender. Assim nossa equipe consegue fazer uma análise técnica detalhada para você!",
-                    sender_id: uid
+                    sender_id: uid,
+                    lead_id: null
                 });
                 return;
             }
@@ -366,16 +368,17 @@ DETALHES COMPLETOS DO VEÍCULO EM FOCO:
                 }
 
                 const isFormFilled = !!(specificLead && specificLead.marca && specificLead.modelo);
-                const isBuyerContext = !!payload.lead_id;
+                const isBuyerContext = isBuyer || !!payload.lead_id;
 
                 const formStatusContext = isBuyerContext
-                    ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**CONTEXTO DE COMPRA:** O cliente está interessado em COMPRAR o veículo ${specificLead?.marca} ${specificLead?.modelo}. \n**AÇÃO:** Seja um vendedor persuasivo. Fale sobre as qualidades deste veículo específico, condições de pagamento e incentive o fechamento. NÃO peça para preencher formulário de venda.`
+                    ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**CONTEXTO DE COMPRA:** O cliente é um COMPRADOR interessado no veículo ${specificLead?.marca} ${specificLead?.modelo}. \n**AÇÃO:** Seja um vendedor persuasivo. Fale sobre as qualidades deste veículo específico, condições de pagamento e incentive o fechamento. NÃO peça para preencher formulário de venda.`
                     : (isFormFilled 
-                        ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente JÁ PREENCHEU o formulário com os dados do veículo. \n**AÇÃO:** Fale sobre o veículo dele, demonstre interesse técnico e informe que a proposta oficial está sendo analisada pela nossa equipe técnica e será enviada em breve. NÃO peça para preencher o formulário novamente. Foque em manter o cliente engajado enquanto aguarda.`
-                        : `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente AINDA NÃO preencheu o formulário com os dados do veículo. \n**AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação.`);
+                        ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente é um VENDEDOR que JÁ PREENCHEU o formulário. \n**AÇÃO:** Fale sobre o veículo dele, demonstre interesse técnico e informe que a proposta oficial está sendo analisada pela nossa equipe técnica e será enviada em breve. NÃO peça para preencher o formulário novamente. Foque em manter o cliente engajado enquanto aguarda.`
+                        : `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente é um VENDEDOR que AINDA NÃO preencheu o formulário. \n**AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação.`);
 
                 const fullPrompt = `
 [SISTEMA DE CONTROLE DE AGENTES E MEMÓRIA — AUTOCOMPRA.ONLINE]
+IDENTIFICAÇÃO DO PERFIL: ${isBuyerContext ? 'COMPRADOR (INTERESSADO EM ESTOQUE)' : 'VENDEDOR (QUERENDO VENDEDOR VEÍCULO)'}
 OBJETIVO: Roteamento inteligente e uso estrito de memórias/regras.
 
 ### 1. CONTEXTO: CHAT DO SITE — COMPRADOR (CRM)
@@ -483,8 +486,8 @@ REGRAS GERAIS:
                 return;
             }
 
-            // Aguarda delay maior (30s) para evitar conflito com UI
-            const delay = 30000; 
+            // Aguarda delay menor (5s) para ser mais responsivo
+            const delay = 5000; 
             await new Promise(resolve => setTimeout(resolve, delay));
 
             // Verifica se JÁ existe uma resposta de ADMIN ou BOT para ESTA mensagem
@@ -594,6 +597,7 @@ VEÍCULO EM NEGOCIAÇÃO:
 
                 const fullPrompt = `
 [SISTEMA DE CONTROLE DE AGENTES E MEMÓRIA — AUTOCOMPRA.ONLINE]
+IDENTIFICAÇÃO DO PERFIL: VENDEDOR (QUERENDO VENDER VEÍCULO)
 OBJETIVO: Roteamento inteligente e uso estrito de memórias/regras.
 
 ### 1. CONTEXTO: CHAT DO SITE — VENDEDOR (LEADS)
@@ -692,7 +696,8 @@ REGRAS GERAIS:
                 if (!conversations.has(m.sender_id)) conversations.set(m.sender_id, m);
             });
 
-            for (const [senderId, lastMsg] of conversations.entries()) {
+            const conversationsArray = Array.from(conversations.entries()).slice(0, 5); // Limita a 5 conversas por scan
+            for (const [senderId, lastMsg] of conversationsArray) {
                 if (lastMsg.sender_id !== uid) {
                     // Verifica se já passou tempo suficiente (ex: 1 minuto) para não atropelar o tempo real
                     const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
@@ -716,7 +721,8 @@ REGRAS GERAIS:
                 if (!leads.has(m.lead_id)) leads.set(m.lead_id, m);
             });
 
-            for (const [leadId, lastMsg] of leads.entries()) {
+            const leadsArray = Array.from(leads.entries()).slice(0, 5); // Limita a 5 leads por scan
+            for (const [leadId, lastMsg] of leadsArray) {
                 if (lastMsg.remetente === 'cliente') {
                     const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
                     if (timeDiff > 60000) {
@@ -733,7 +739,7 @@ REGRAS GERAIS:
         // Escaneia ao montar
         scanForOpenMessages();
 
-        // Escaneia periodicamente a cada 5 minutos
+        // Escaneia periodicamente a cada 5 minutos para ser mais responsivo
         const interval = setInterval(scanForOpenMessages, 300000);
 
         const channelName = `bg_ai_messages_${currentUserId}`;
