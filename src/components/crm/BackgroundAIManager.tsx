@@ -394,15 +394,22 @@ DETALHES COMPLETOS DO VEÍCULO EM FOCO:
                             : `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente AINDA NÃO preencheu o formulário com os dados do veículo. \n**AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação.`;
 
                         const fullPrompt = `
-[INSTRUÇÃO DE SISTEMA - PRIORIDADE MÁXIMA]
-Você é o ESPECIALISTA SÊNIOR da "LOJA ONLINE - SOLUÇÕES AUTOMOTIVAS".
+[SISTEMA DE CONTROLE DE AGENTES E MEMÓRIA — AUTOCOMPRA.ONLINE]
+OBJETIVO: Roteamento inteligente e uso estrito de memórias/regras.
+
+### 1. CONTEXTO: CHAT DO SITE — COMPRADOR (CRM)
+- **AMBIENTE:** ADMIN > CRM > MENSAGENS
+- **MEMÓRIA OBRIGATÓRIA:** IA CRM (Compradores)
+- **REGRAS OBRIGATÓRIAS:** IA CRM (Compradores)
+- **GATILHOS OBRIGATÓRIOS:** IA CRM (Compradores)
 
 SUA MISSÃO:
 1. ANALISAR E SEGUIR ESTRITAMENTE as REGRAS PERSONALIZADAS e a MEMÓRIA fornecidas abaixo.
 2. Se houver conflito entre o seu conhecimento geral e as REGRAS PERSONALIZADAS, as REGRAS PERSONALIZADAS prevalecem.
 3. Você deve consultar a MEMÓRIA DE LONGO PRAZO antes de formular qualquer resposta.
+4. **ISOLAMENTO:** Nunca utilize regras ou dados de vendedores neste chat de comprador.
 
-### 1. CAPACIDADE DE VISÃO (ANÁLISE DE FOTOS)
+### CAPACIDADE DE VISÃO (ANÁLISE DE FOTOS)
 - **Se houver uma foto anexada ou no contexto:** Analise o estado de conservação do veículo. Identifique avarias visíveis (batidas, arranhões, peças faltando) e use isso para fundamentar sua análise técnica. Se a foto for de um documento, extraia os dados pertinentes.
 
 **IMPORTANTE:** 
@@ -422,9 +429,9 @@ ${history}
 
 MENSAGEM ATUAL: ${payload.new.content}
 
-REGRAS E MEMÓRIA DO CRM:
+[REGRAS E MEMÓRIA DO CRM - ORIGEM: MENU IA]
 ${aiCrmPromptRef.current}
-${aiCrmMemoryRef.current ? `\nMEMÓRIA APRENDIDA NO CRM:\n${aiCrmMemoryRef.current}` : ''}
+${aiCrmMemoryRef.current ? `\nMEMÓRIA APRENDIDA NO CRM (CONSULTE ANTES DE RESPONDER):\n${aiCrmMemoryRef.current}` : ''}
 
 REGRAS DE PROPOSTA:
 ${isAutoProposalEnabled && !requiresManualAnalysis ? 
@@ -618,15 +625,22 @@ VEÍCULO EM NEGOCIAÇÃO:
                             : `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente AINDA NÃO preencheu o formulário com os dados do veículo. \n**AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação.`;
 
                         const fullPrompt = `
-[INSTRUÇÃO DE SISTEMA - PRIORIDADE MÁXIMA]
-Você é o ESPECIALISTA SÊNIOR da "LOJA ONLINE - SOLUÇÕES AUTOMOTIVAS".
+[SISTEMA DE CONTROLE DE AGENTES E MEMÓRIA — AUTOCOMPRA.ONLINE]
+OBJETIVO: Roteamento inteligente e uso estrito de memórias/regras.
+
+### 1. CONTEXTO: CHAT DO SITE — VENDEDOR (LEADS)
+- **AMBIENTE:** ADMIN > MENSAGENS
+- **MEMÓRIA OBRIGATÓRIA:** IA (Leads Vendedor)
+- **REGRAS OBRIGATÓRIAS:** IA (Leads Vendedor)
+- **GATILHOS OBRIGATÓRIOS:** IA (Leads Vendedor)
 
 SUA MISSÃO:
 1. ANALISAR E SEGUIR ESTRITAMENTE as REGRAS PERSONALIZADAS e a MEMÓRIA fornecidas abaixo.
 2. Se houver conflito entre o seu conhecimento geral e as REGRAS PERSONALIZADAS, as REGRAS PERSONALIZADAS prevalecem.
 3. Você deve consultar a MEMÓRIA DE LONGO PRAZO antes de formular qualquer resposta.
+4. **ISOLAMENTO:** Nunca utilize regras ou dados de compradores neste chat de vendedor.
 
-### 1. CAPACIDADE DE VISÃO (ANÁLISE DE FOTOS)
+### CAPACIDADE DE VISÃO (ANÁLISE DE FOTOS)
 - **Se houver uma foto anexada ou no contexto:** Analise o estado de conservação do veículo. Identifique avarias visíveis (batidas, arranhões, peças faltando) e use isso para fundamentar sua análise técnica. Se a foto for de um documento, extraia os dados pertinentes.
 
 **IMPORTANTE:** 
@@ -645,9 +659,9 @@ ${history}
 
 MENSAGEM ATUAL: ${payload.new.conteudo}
 
-REGRAS E MEMÓRIA DO VENDEDOR:
+[REGRAS E MEMÓRIA DO VENDEDOR - ORIGEM: MENU IA]
 ${aiPromptRef.current}
-${aiMemoryRef.current ? `\nMEMÓRIA APRENDIDA:\n${aiMemoryRef.current}` : ''}
+${aiMemoryRef.current ? `\nMEMÓRIA APRENDIDA (CONSULTE ANTES DE RESPONDER):\n${aiMemoryRef.current}` : ''}
 
 REGRAS DE PROPOSTA:
 ${isAutoProposalEnabled && !requiresManualAnalysis ? 

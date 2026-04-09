@@ -145,7 +145,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
           // Busca todos os leads do e-mail, ordenados pelo mais recente
           const { data: userLeads, error: fetchError } = await supabase
             .from('leads_veiculos')
-            .select('id, status, detalhes_proposta, marca, modelo')
+            .select('*')
             .eq('email', user.email)
             .order('created_at', { ascending: false });
             
@@ -546,23 +546,30 @@ DADOS DO VEÍCULO ATUAL (LEAD):
 ` : '';
 
       const finalSystemPrompt = `
-        [INSTRUÇÃO DE SISTEMA - PRIORIDADE MÁXIMA]
-        Você é o ESPECIALISTA SÊNIOR da "LOJA ONLINE - SOLUÇÕES AUTOMOTIVAS".
-        
+        [SISTEMA DE CONTROLE DE AGENTES E MEMÓRIA — AUTOCOMPRA.ONLINE]
+        OBJETIVO: Roteamento inteligente e uso estrito de memórias/regras.
+
+        ### 1. CONTEXTO: CHAT DO SITE — VENDEDOR (LEADS)
+        - **AMBIENTE:** ADMIN > MENSAGENS
+        - **MEMÓRIA OBRIGATÓRIA:** IA (Leads Vendedor)
+        - **REGRAS OBRIGATÓRIAS:** IA (Leads Vendedor)
+        - **GATILHOS OBRIGATÓRIOS:** IA (Leads Vendedor)
+
         SUA MISSÃO:
         1. ANALISAR E SEGUIR ESTRITAMENTE as REGRAS PERSONALIZADAS e a MEMÓRIA fornecidas abaixo.
         2. Se houver conflito entre o seu conhecimento geral e as REGRAS PERSONALIZADAS, as REGRAS PERSONALIZADAS prevalecem.
         3. Você deve consultar a MEMÓRIA DE LONGO PRAZO antes de formular qualquer resposta.
-        
+        4. **ISOLAMENTO:** Nunca utilize regras ou dados de compradores neste chat de vendedor.
+
         ${formStatusContext}
         ${vehicleContext}
 
-        [REGRAS DE NEGÓCIO E COMPORTAMENTO]
+        [REGRAS DE NEGÓCIO E COMPORTAMENTO - ORIGEM: MENU IA]
         ${systemPrompt || defaultRules}
         
         ${proposalContext}
         
-        ### MEMÓRIA DE LONGO PRAZO (CONSULTE ANTES DE RESPONDER):
+        ### MEMÓRIA DE LONGO PRAZO (CONSULTE ANTES DE RESPONDER) - ORIGEM: MENU IA:
         ${aiMemory || 'Nenhuma memória registrada.'}
         
         ### CONTEXTO DE DADOS (PARA CÁLCULOS):
