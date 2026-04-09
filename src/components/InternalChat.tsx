@@ -32,7 +32,7 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle, hide
 
   useEffect(() => {
     if (user) {
-      const channelName = 'public_internal_messages';
+      const channelName = `internal_messages_${user.id}`;
       console.log(`[InternalChat] Inscrevendo no canal: ${channelName}`);
       
       const subscription = supabase
@@ -51,10 +51,26 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle, hide
             
             if (isMyMessage || isForMe) {
               console.log('[InternalChat] Mensagem relevante, atualizando UI');
-              setMessages(prev => {
-                if (prev.some(m => m.id === payload.new.id)) return prev;
-                return [payload.new, ...prev];
-              });
+              
+              // Busca o perfil do remetente para ter o avatar correto em tempo real
+              supabase
+                .from('profiles')
+                .select('full_name, avatar_url, role')
+                .eq('id', payload.new.sender_id)
+                .maybeSingle()
+                .then(({ data: profileData }) => {
+                  const newMessageWithProfile = {
+                    ...payload.new,
+                    profiles: profileData
+                  };
+
+                  setMessages(prev => {
+                    // Evita duplicados
+                    if (prev.some(m => m.id === payload.new.id)) return prev;
+                    // Adiciona no topo (devido ao flex-col-reverse)
+                    return [newMessageWithProfile, ...prev];
+                  });
+                });
 
               if (!isOpenStateRef.current && !isMyMessage) {
                 setUnreadCount(prev => prev + 1);
@@ -164,7 +180,7 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle, hide
     console.log('[InternalChat] Fetching messages for user:', user?.id, 'leadId:', leadId);
     const { data, error } = await supabase
       .from('internal_messages')
-      .select('*')
+      .select('*, profiles:sender_id(full_name, avatar_url, role)')
       .or(`sender_id.eq.${user?.id},receiver_id.eq.${user?.id}`)
       .order('created_at', { ascending: false }); // Mudado para false para flex-col-reverse
 
@@ -242,25 +258,28 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle, hide
 
           <div className="flex-1 overflow-y-auto p-4 flex flex-col-reverse gap-4 bg-slate-50">
             <div ref={messagesEndRef} />
-            {messages.map((msg) => (
-              <div key={msg.id} className={`flex ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] p-3 rounded-2xl text-sm shadow-sm flex items-end gap-2 ${msg.sender_id === user?.id ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-slate-800 text-white rounded-tl-none'}`}>
-                  {msg.sender_id !== user?.id && (
-                    <img 
-                      src={msg.profiles?.avatar_url || 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?q=80&w=100&h=100&auto=format&fit=crop'} 
-                      alt="Avatar" 
-                      className="w-6 h-6 rounded-full object-cover border border-white/20" 
-                    />
-                  )}
-                  <div>
-                    {msg.content}
-                    <p className={`text-[9px] mt-1 text-right ${msg.sender_id === user?.id ? 'text-blue-100' : 'text-slate-400'}`}>
-                      {msg.created_at ? `${new Date(msg.created_at).toLocaleDateString()} ${new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Data indisponível'}
-                    </p>
+            {messages.map((msg) => {
+              console.log(`[InternalChat] Renderizando mensagem ${msg.id}, profiles:`, msg.profiles);
+              return (
+                <div key={msg.id} className={`flex ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[80%] p-3 rounded-2xl text-sm shadow-sm flex items-end gap-2 ${msg.sender_id === user?.id ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-slate-800 text-white rounded-tl-none'}`}>
+                    {msg.sender_id !== user?.id && (
+                      <img 
+                        src={msg.profiles?.avatar_url || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=100&h=100&auto=format&fit=crop'} 
+                        alt="Avatar" 
+                        className="w-6 h-6 rounded-full object-cover border border-white/20" 
+                      />
+                    )}
+                    <div>
+                      {msg.content}
+                      <p className={`text-[9px] mt-1 text-right ${msg.sender_id === user?.id ? 'text-blue-100' : 'text-slate-400'}`}>
+                        {msg.created_at ? `${new Date(msg.created_at).toLocaleDateString()} ${new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Data indisponível'}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             {messages.length === 0 && (
               <div className="text-center text-slate-400 text-sm mt-10">
                 <p>Nenhuma mensagem ainda.</p>

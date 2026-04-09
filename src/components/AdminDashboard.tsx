@@ -392,6 +392,7 @@ export default function AdminDashboard() {
   }, [currentUser]);
 
   const [isCleaningDuplicates, setIsCleaningDuplicates] = useState(false);
+  const isFetchingRef = useRef(false);
 
   const handleCleanupDuplicates = async () => {
     if (!confirm('Deseja realmente limpar leads duplicados sem formulário? Isso manterá apenas o registro mais recente para cada e-mail.')) return;
@@ -489,12 +490,25 @@ export default function AdminDashboard() {
     }
   };
 
+  const fetchDataDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
   const fetchData = async () => {
-    console.log("fetchData chamado");
-    setIsLoading(true);
-    addLog('Iniciando busca de dados...', 'info');
-    try {
-      console.log('Fetching leads from Supabase...');
+    if (isFetchingRef.current) return;
+    
+    // Debounce to avoid multiple calls in a short period
+    if (fetchDataDebounceRef.current) {
+      clearTimeout(fetchDataDebounceRef.current);
+    }
+    
+    fetchDataDebounceRef.current = setTimeout(async () => {
+      if (isFetchingRef.current) return;
+      isFetchingRef.current = true;
+      
+      console.log("fetchData chamado (executando)");
+      setIsLoading(true);
+      addLog('Iniciando busca de dados...', 'info');
+      try {
+        console.log('Fetching leads from Supabase...');
       const { data: leadsData, error: leadsError } = await supabase
         .from('leads_veiculos')
         .select('*')
@@ -596,12 +610,22 @@ export default function AdminDashboard() {
 
       // Perform background cleanup of duplicates if any found
       if (duplicatesToDelete.length > 0) {
-        console.log(`[AdminDashboard] Encontrados ${duplicatesToDelete.length} leads frios duplicados. Limpando...`);
-        supabase.from('leads_veiculos').delete().in('id', duplicatesToDelete)
-          .then(({ error }) => {
-            if (error) console.error('Erro ao limpar duplicados em segundo plano:', error);
-            else console.log('[AdminDashboard] Limpeza de duplicados concluída.');
-          });
+        console.log(`[AdminDashboard] Encontrados ${duplicatesToDelete.length} leads frios duplicados. Limpando em lotes...`);
+        
+        const deleteInBatches = async () => {
+          const batchSize = 50;
+          for (let i = 0; i < duplicatesToDelete.length; i += batchSize) {
+            const batch = duplicatesToDelete.slice(i, i + batchSize);
+            const { error } = await supabase.from('leads_veiculos').delete().in('id', batch);
+            if (error) {
+              console.error(`[AdminDashboard] Erro ao limpar lote de duplicados (${i}-${i + batchSize}):`, error);
+              break; // Stop on error to avoid infinite loop if it's a persistent issue
+            }
+          }
+          console.log('[AdminDashboard] Limpeza de duplicados concluída.');
+        };
+        
+        deleteInBatches();
       }
 
       // Combine leads and profiles
@@ -1027,8 +1051,11 @@ export default function AdminDashboard() {
       console.error('Error fetching admin data:', error);
     } finally {
       setIsLoading(false);
+      isFetchingRef.current = false;
+      fetchDataDebounceRef.current = null;
     }
-  };
+  }, 500); // 500ms debounce
+};
 
   useEffect(() => {
     if (userProfile) {
@@ -1221,7 +1248,21 @@ export default function AdminDashboard() {
         setUsers(prev => prev.map(u => u.id === payload.new.id ? { ...u, ...payload.new } : u));
         
         // Se o perfil atualizado for o do lead selecionado ou de uma conversa, força refresh
-        fetchData();
+        // Apenas se houver mudança significativa (role ou nome), para evitar loop com last_login
+        const oldProfile = payload.old as any;
+        const newProfile = payload.new as any;
+        
+        // Se não tiver o perfil antigo (Replica Identity), comparamos com o que temos no estado
+        const profileInState = users.find(u => u.id === newProfile.id);
+        
+        if (profileInState) {
+          if (profileInState.role !== newProfile.role || profileInState.full_name !== newProfile.full_name) {
+            fetchData();
+          }
+        } else {
+          // Se for um novo perfil que não estava no estado, melhor atualizar
+          fetchData();
+        }
       })
       .subscribe();
 
@@ -5202,12 +5243,15 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 setIsSavingKey(false);
               }
             }}
-            handleUpdateApiKey={async (id: string, provider: string, service: string) => {
-              console.log('Atualizando API Key:', { id, provider, service });
+            handleUpdateApiKey={async (id: string, provider: string, service: string, status?: string) => {
+              console.log('Atualizando API Key:', { id, provider, service, status });
               try {
+                const updateData: any = { provider, service };
+                if (status) updateData.status = status;
+                
                 const { error, data } = await supabase
                   .from('api_keys')
-                  .update({ provider, service })
+                  .update(updateData)
                   .eq('id', id)
                   .select();
                 console.log('Resultado da atualização:', { error, data });

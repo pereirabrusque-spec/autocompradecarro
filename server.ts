@@ -243,10 +243,24 @@ async function startServer() {
   async function testApiKey(provider: string, key: string) {
     const trimmedKey = key?.trim();
     if (provider === 'gemini') {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${trimmedKey}`);
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error?.message || 'Chave Gemini inválida');
-      return data.models
+      // 1. Fetch models first to see what's available and if the key is valid
+      // Try v1beta as it's the most common for testing
+      const modelsResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${trimmedKey}`);
+      const modelsData = await modelsResponse.json();
+      
+      if (!modelsResponse.ok) {
+        const errMsg = modelsData.error?.message || 'Chave Gemini inválida';
+        const lowerMsg = errMsg.toLowerCase();
+        if (lowerMsg.includes('quota') || lowerMsg.includes('limit') || lowerMsg.includes('credit') || modelsResponse.status === 429) {
+          throw new Error('QUOTA_EXCEEDED: ' + errMsg);
+        }
+        if (lowerMsg.includes('denied access') || lowerMsg.includes('suspended') || lowerMsg.includes('disabled')) {
+          throw new Error('ACCESS_DENIED: ' + errMsg);
+        }
+        throw new Error(errMsg);
+      }
+
+      const availableModels = modelsData.models
         ?.filter((m: any) => 
           m.supportedGenerationMethods.includes('generateContent') && 
           !m.name.includes('embedding') && 
@@ -254,13 +268,68 @@ async function startServer() {
           !m.name.includes('speech-to-text')
         )
         .map((m: any) => m.name.replace('models/', '')) || [];
+
+      if (availableModels.length === 0) {
+        throw new Error('Nenhum modelo compatível encontrado para esta chave.');
+      }
+
+      // 2. Test the first available model (prefer flash)
+      const testModel = availableModels.find(m => m.includes('flash')) || availableModels[0];
+
+      const testResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${testModel}:generateContent?key=${trimmedKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: 'hi' }] }],
+          generationConfig: { maxOutputTokens: 1 }
+        })
+      });
+
+      if (!testResponse.ok) {
+        const testData = await testResponse.json();
+        const errMsg = testData.error?.message || `Erro ao testar modelo ${testModel}`;
+        const lowerMsg = errMsg.toLowerCase();
+        if (lowerMsg.includes('quota') || lowerMsg.includes('limit') || lowerMsg.includes('credit') || testResponse.status === 429) {
+          throw new Error('QUOTA_EXCEEDED: ' + errMsg);
+        }
+        if (lowerMsg.includes('denied access') || lowerMsg.includes('suspended') || lowerMsg.includes('disabled')) {
+          throw new Error('ACCESS_DENIED: ' + errMsg);
+        }
+        throw new Error(errMsg);
+      }
+      
+      return availableModels;
     } else if (provider === 'openai') {
-      const response = await fetch('https://api.openai.com/v1/models', {
+      // Test with a minimal chat completion call
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${trimmedKey}` 
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: 'hi' }],
+          max_tokens: 1
+        })
+      });
+      
+      const data = await response.json();
+      if (!response.ok) {
+        const errMsg = data.error?.message || 'Chave OpenAI inválida';
+        if (errMsg.toLowerCase().includes('quota') || errMsg.toLowerCase().includes('billing') || errMsg.toLowerCase().includes('limit') || response.status === 429) {
+          throw new Error('QUOTA_EXCEEDED: ' + errMsg);
+        }
+        throw new Error(errMsg);
+      }
+      
+      // If generation works, fetch models
+      const modelsResponse = await fetch('https://api.openai.com/v1/models', {
         headers: { 'Authorization': `Bearer ${trimmedKey}` }
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error?.message || 'Chave OpenAI inválida');
-      return data.data
+      const modelsData = await modelsResponse.json();
+      
+      return modelsData.data
         ?.filter((m: any) => 
           (m.id.includes('gpt') || m.id.includes('o1') || m.id.includes('o3')) && 
           !m.id.includes('instruct') && 
@@ -268,34 +337,79 @@ async function startServer() {
         )
         .map((m: any) => m.id) || [];
     } else if (provider === 'grok') {
-      const response = await fetch('https://api.x.ai/v1/models', {
+      const response = await fetch('https://api.x.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${trimmedKey}` 
+        },
+        body: JSON.stringify({
+          model: 'grok-beta',
+          messages: [{ role: 'user', content: 'hi' }],
+          max_tokens: 1
+        })
+      });
+      
+      const data = await response.json();
+      if (!response.ok) {
+        const errMsg = data.error?.message || 'Chave Grok inválida';
+        if (errMsg.toLowerCase().includes('quota') || response.status === 429) {
+          throw new Error('QUOTA_EXCEEDED: ' + errMsg);
+        }
+        throw new Error(errMsg);
+      }
+
+      const modelsResponse = await fetch('https://api.x.ai/v1/models', {
         headers: { 'Authorization': `Bearer ${trimmedKey}` }
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error?.message || 'Chave Grok inválida');
-      return data.data
+      const modelsData = await modelsResponse.json();
+      return modelsData.data
         ?.filter((m: any) => m.id.includes('grok'))
         .map((m: any) => m.id) || [];
     } else {
       // Fallback for other OpenAI-compatible providers
       const baseUrl = `https://api.${provider}.com/v1`;
-      let response;
+      
+      // Minimal test call
       try {
-        response = await fetch(`${baseUrl}/models`, {
+        const response = await fetch(`${baseUrl}/chat/completions`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${trimmedKey}` 
+          },
+          body: JSON.stringify({
+            model: 'gpt-3.5-turbo', // Generic guess
+            messages: [{ role: 'user', content: 'hi' }],
+            max_tokens: 1
+          })
+        });
+        
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          const errMsg = data.error?.message || `Erro na API ${provider}`;
+          if (errMsg.toLowerCase().includes('quota') || response.status === 429) {
+            throw new Error('QUOTA_EXCEEDED: ' + errMsg);
+          }
+        }
+      } catch (err: any) {
+        if (err.message?.includes('QUOTA_EXCEEDED')) throw err;
+        // Ignore other errors for generic providers as they might not support this specific model
+      }
+
+      let modelsResponse;
+      try {
+        modelsResponse = await fetch(`${baseUrl}/models`, {
           headers: { 'Authorization': `Bearer ${trimmedKey}` }
         });
       } catch (err) {
-        // Silently return empty array to prevent test failure and log spam
         return [];
       }
       
-      if (response.status === 404) {
-        // Provider might not support /models endpoint, but we don't want to fail the test completely
-        return [];
-      }
+      if (modelsResponse.status === 404) return [];
       
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error?.message || `Chave ${provider} inválida ou provedor não suportado`);
+      const data = await modelsResponse.json().catch(() => ({}));
+      if (!modelsResponse.ok) throw new Error(data.error?.message || `Chave ${provider} inválida`);
       return data.data?.map((m: any) => m.id) || [];
     }
   }
@@ -306,8 +420,13 @@ async function startServer() {
       const models = await testApiKey(provider, key);
       res.json({ success: true, models });
     } catch (error: any) {
-      console.error('Erro no teste de API:', error);
-      res.status(400).json({ error: error.message || 'Erro de conexão com o provedor' });
+      const errMsg = error.message || '';
+      if (errMsg.includes('QUOTA_EXCEEDED') || errMsg.includes('ACCESS_DENIED')) {
+        console.warn(`[API Test] ${provider}: ${errMsg}`);
+      } else {
+        console.error(`[API Test] ${provider} Error:`, error);
+      }
+      res.status(400).json({ error: errMsg || 'Erro de conexão com o provedor' });
     }
   });
 

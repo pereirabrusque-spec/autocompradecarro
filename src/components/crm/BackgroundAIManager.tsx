@@ -172,22 +172,28 @@ export const BackgroundAIManager = () => {
         const uid = currentUserIdRef.current;
         if (!uid) return;
 
-        // Só processa se a mensagem for para o admin logado (receiver_id === uid ou null)
-        const isForMe = payload.receiver_id === uid || (!payload.receiver_id && uid);
+        // Só processa se a mensagem for para o admin logado ou para o ID genérico de suporte
+        const isForMe = payload.receiver_id === uid || 
+                        payload.receiver_id === '00000000-0000-0000-0000-000000000000' || 
+                        (!payload.receiver_id && uid);
         
+        console.log(`[BackgroundAIManager] Mensagem ${payload.id} recebida. isForMe: ${isForMe}, sender_id: ${payload.sender_id}, uid: ${uid}`);
+
         // Só responde se a mensagem não for minha
         if (isForMe && payload.sender_id !== uid) {
             const senderId = payload.sender_id;
             const messageId = payload.id;
 
-            console.log(`[BackgroundAIManager] IA Global processando mensagem interna (${messageId}) de ${senderId}`);
+            console.log(`[BackgroundAIManager] 🤖 IA processando mensagem interna (${messageId}) de ${senderId}.`);
             
-            // Verifica se o comprador específico tem a IA ligada
-            const { data: buyerProfile } = await supabase
+            // Verifica se o remetente é um comprador ou vendedor
+            const { data: senderProfile } = await supabase
                 .from('profiles')
-                .select('is_ai_enabled, role')
+                .select('is_ai_enabled, role, full_name')
                 .eq('id', senderId)
-                .single();
+                .maybeSingle();
+            
+            console.log(`[BackgroundAIManager] Perfil do remetente (${senderId}):`, senderProfile);
             
             // Verifica se já existe um lead (veículo) para este remetente (se for vendedor)
             const { data: existingLead } = await supabase
@@ -196,13 +202,18 @@ export const BackgroundAIManager = () => {
                 .eq('user_id', senderId)
                 .maybeSingle();
 
-            const isBuyer = buyerProfile?.role?.toLowerCase().includes('buyer') || (payload.lead_id && payload.lead_id !== 'null' && payload.lead_id !== '');
-            const isSeller = buyerProfile?.role?.toLowerCase().includes('seller') || (!isBuyer && !!existingLead);
+            const isBuyer = senderProfile?.role?.toLowerCase().includes('buyer') || (payload.lead_id && payload.lead_id !== 'null' && payload.lead_id !== '');
+            const isSeller = senderProfile?.role?.toLowerCase().includes('seller') || (!isBuyer && !!existingLead);
             
-            console.log(`[BackgroundAIManager] isBuyer: ${isBuyer}, isSeller: ${isSeller}, payload.lead_id: ${payload.lead_id}, sender: ${senderId}`);
+            const finalIsBuyer = isBuyer || (payload.lead_id ? true : false);
+            const finalIsSeller = !finalIsBuyer && (isSeller || senderProfile?.role === 'user');
+
+            console.log(`[BackgroundAIManager] Detecção de papel - isBuyer: ${finalIsBuyer}, isSeller: ${finalIsSeller}, lead_id: ${payload.lead_id}`);
 
             const isGlobalAiEnabled = isAiEnabledRef.current;
-            const conversationAiState = buyerProfile?.is_ai_enabled;
+            const conversationAiState = senderProfile?.is_ai_enabled;
+
+            console.log(`[BackgroundAIManager] Configurações de IA - Global: ${isGlobalAiEnabled}, Conversa: ${conversationAiState}`);
 
             let shouldRespond = false;
             if (isGlobalAiEnabled) {
@@ -212,7 +223,7 @@ export const BackgroundAIManager = () => {
             }
 
             if (!shouldRespond) {
-                console.log(`[BackgroundAIManager] IA não deve responder (Global: ${isGlobalAiEnabled}, Conversa: ${conversationAiState}). Ignorando.`);
+                console.log(`[BackgroundAIManager] ⏭️ IA ignorando resposta (shouldRespond: false).`);
                 return;
             }
 
@@ -229,21 +240,21 @@ export const BackgroundAIManager = () => {
                 return;
             }
 
-            // Pequeno delay aleatório para evitar que múltiplos admins respondam ao mesmo tempo
-            const delay = Math.floor(Math.random() * 1000) + 500;
+            // Pequeno delay aleatório maior para evitar que múltiplos admins respondam ao mesmo tempo
+            const delay = Math.floor(Math.random() * 10000) + 5000; // 5-15 segundos
             await new Promise(resolve => setTimeout(resolve, delay));
 
-            // Verifica se JÁ existe uma resposta de ADMIN para ESTA mensagem específica
+            // Verifica se JÁ existe uma resposta de QUALQUER ADMIN para ESTA mensagem específica
             const { data: recentAdminMsg } = await supabase
                 .from('internal_messages')
                 .select('id')
-                .eq('sender_id', uid)
                 .eq('receiver_id', senderId)
+                .neq('sender_id', senderId) // Alguém que não é o remetente original respondeu
                 .gt('created_at', payload.created_at)
                 .limit(1);
 
             if (recentAdminMsg && recentAdminMsg.length > 0) {
-                console.log(`[BackgroundAIManager] Já existe uma resposta posterior para a mensagem interna ${messageId}. Pulando.`);
+                console.log(`[BackgroundAIManager] Outro admin ou IA já respondeu para a mensagem interna ${messageId}. Pulando.`);
                 return;
             }
 
@@ -460,6 +471,12 @@ REGRAS GERAIS:
         const uid = currentUserIdRef.current;
         if (!uid) return;
 
+        // Skip messages already handled by the chat widget or that have specific metadata
+        if (payload.metadata?.from_chat_widget || payload.metadata?.ai_handled) {
+            console.log(`[BackgroundAIManager] Mensagem ${payload.id} já marcada como processada. Pulando.`);
+            return;
+        }
+
         // Só responde se a mensagem for do cliente
         if (payload.remetente === 'cliente') {
             const leadId = payload.lead_id;
@@ -486,8 +503,8 @@ REGRAS GERAIS:
                 return;
             }
 
-            // Aguarda delay menor (5s) para ser mais responsivo
-            const delay = 5000; 
+            // Aguarda delay maior (10-20s) para evitar colisões e dar tempo ao humano
+            const delay = Math.floor(Math.random() * 10000) + 10000; 
             await new Promise(resolve => setTimeout(resolve, delay));
 
             // Verifica se JÁ existe uma resposta de ADMIN ou BOT para ESTA mensagem
@@ -739,8 +756,8 @@ REGRAS GERAIS:
         // Escaneia ao montar
         scanForOpenMessages();
 
-        // Escaneia periodicamente a cada 5 minutos para ser mais responsivo
-        const interval = setInterval(scanForOpenMessages, 300000);
+        // Escaneia periodicamente a cada 15 minutos para economizar créditos
+        const interval = setInterval(scanForOpenMessages, 900000);
 
         const channelName = `bg_ai_messages_${currentUserId}`;
         console.log(`[BackgroundAIManager] Iniciando monitoramento global: ${channelName}`);

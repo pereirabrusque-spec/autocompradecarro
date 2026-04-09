@@ -708,10 +708,23 @@ DADOS DO VEÍCULO ATUAL (LEAD):
           conteudo: textToShow
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao gerar resposta da IA:", error);
       playNotificationSound();
-      setMessages(prev => [...prev, { role: 'bot', text: 'Desculpe, estou com dificuldades técnicas no momento. Por favor, tente novamente em breve ou aguarde um consultor humano.' }]);
+      
+      let errorMsg = 'Desculpe, estou com dificuldades técnicas no momento. Por favor, tente novamente em breve ou aguarde um consultor humano.';
+      const lowerError = error.message?.toLowerCase() || '';
+      
+      if (lowerError.includes('quota') || lowerError.includes('limit') || lowerError.includes('429')) {
+        errorMsg = '⚠️ **Limite de API atingido.** Nossas chaves de IA estão temporariamente sem saldo ou com limite excedido. Por favor, tente novamente em alguns minutos ou aguarde um consultor.';
+      } else if (lowerError.includes('excedido número máximo de tentativas')) {
+        errorMsg = '⚠️ **Todas as chaves de IA falharam.** Estamos com instabilidade nos provedores. Por favor, tente novamente em instantes.';
+      }
+
+      setMessages(prev => [...prev, { 
+        role: 'bot', 
+        text: errorMsg
+      }]);
     } finally {
       setIsLoading(false);
     }

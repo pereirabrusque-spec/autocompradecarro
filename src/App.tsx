@@ -57,10 +57,12 @@ function AppContent() {
   const [purchasingContext, setPurchasingContext] = useState<string>('Chat de Compras');
 
   useEffect(() => {
-    // Inicia o teste periódico de conexões da IA
-    const stopTesting = AIService.startPeriodicTesting();
-    return () => stopTesting();
-  }, []);
+    // Inicia o teste periódico de conexões da IA apenas para administradores
+    if (isAdmin) {
+      const stopTesting = AIService.startPeriodicTesting();
+      return () => stopTesting();
+    }
+  }, [isAdmin]);
 
   const showChat = (primaryContact === 'chat' || (specialistButtonEnabled && specialistAction === 'chat')) && chatEnabled;
   const showWhatsApp = (primaryContact === 'whatsapp' || (specialistButtonEnabled && specialistAction === 'whatsapp')) && whatsappEnabled;

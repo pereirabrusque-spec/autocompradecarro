@@ -13,6 +13,7 @@ export class AIService {
   private static lastSuccessfulKeyId: string | null = typeof window !== 'undefined' ? localStorage.getItem('ai_last_successful_key_id') : null;
   private static cachedKeys: any[] = [];
   private static lastFetchTime: number = 0;
+  private static lastTestTime: number = 0;
   private static isTesting: boolean = false;
 
   private static async getActiveKeys(forceRefresh: boolean = false): Promise<any[]> {
@@ -110,15 +111,22 @@ export class AIService {
   static async generateContent(prompt: string, systemInstruction: string, image?: string): Promise<AIResponse> {
     let keys = await this.getActiveKeys();
     let attempts = 0;
-    const maxAttempts = Math.max(keys.length * 2, 5);
+    const maxAttempts = keys.length + 1;
 
     while (attempts < maxAttempts) {
       const availableKeys = keys.filter(k => k.status === 'ok');
       
       if (availableKeys.length === 0) {
-        console.warn('[AIService] Nenhuma API "OK" encontrada. Forçando teste de todas as conexões...');
-        await this.testConnections();
-        keys = await this.getActiveKeys(true);
+        const now = Date.now();
+        // Only force test if we haven't tested in the last 2 minutes
+        if (now - this.lastTestTime > 120000) {
+          console.warn('[AIService] Nenhuma API "OK" encontrada. Forçando teste de todas as conexões...');
+          await this.testConnections();
+          keys = await this.getActiveKeys(true);
+        } else {
+          console.warn('[AIService] Nenhuma API "OK" encontrada e teste recente realizado. Usando fallback...');
+        }
+        
         if (keys.filter(k => k.status === 'ok').length === 0) {
           // Fallback to env key if exists
           if (process.env.GEMINI_API_KEY) {
@@ -153,10 +161,12 @@ export class AIService {
         
         if (errMsg.includes('failed to fetch') || errMsg.includes('err_name_not_resolved')) {
           newStatus = 'disconnected';
-        } else if (errMsg.includes('429') || errMsg.includes('too many requests') || errMsg.includes('quota')) {
+        } else if (errMsg.includes('429') || errMsg.includes('too many requests') || errMsg.includes('quota_exceeded')) {
           newStatus = 'rate_limited';
-        } else if (errMsg.includes('credit') || errMsg.includes('balance') || errMsg.includes('limit')) {
+        } else if (errMsg.includes('credit') || errMsg.includes('balance') || errMsg.includes('insufficient') || errMsg.includes('billing') || errMsg.includes('quota')) {
           newStatus = 'no_credit';
+        } else if (errMsg.includes('key') || errMsg.includes('invalid') || errMsg.includes('unauthorized') || errMsg.includes('permission') || errMsg.includes('denied access') || errMsg.includes('suspended')) {
+          newStatus = 'disconnected';
         }
 
         await this.updateKeyStatus(apiKey.id, newStatus, (apiKey.error_count || 0) + 1);
@@ -172,6 +182,7 @@ export class AIService {
   static async testConnections(): Promise<void> {
     if (this.isTesting) return;
     this.isTesting = true;
+    this.lastTestTime = Date.now();
     
     console.log('[AIService] Iniciando teste de conexões das APIs para manter todas prontas...');
     let { data: allKeys } = await supabase.from('api_keys').select('*');
@@ -182,6 +193,12 @@ export class AIService {
     }
 
     const testPromises = allKeys.filter(k => k.provider !== 'grod').map(async (apiKey) => {
+      // Skip testing if key is already OK and was used/tested in the last 30 minutes
+      const lastUsed = apiKey.last_used ? new Date(apiKey.last_used).getTime() : 0;
+      if (apiKey.status === 'ok' && (Date.now() - lastUsed < 1800000)) {
+        return;
+      }
+
       try {
         const timeoutPromise = new Promise<never>((_, reject) => {
           setTimeout(() => reject(new Error('TIMEOUT')), 15000);
@@ -206,10 +223,12 @@ export class AIService {
         const errMsg = error.message?.toLowerCase() || '';
         let newStatus: 'ok' | 'no_credit' | 'disconnected' | 'rate_limited' = 'disconnected';
         
-        if (errMsg.includes('429') || errMsg.includes('too many requests')) {
+        if (errMsg.includes('429') || errMsg.includes('too many requests') || errMsg.includes('quota_exceeded')) {
           newStatus = 'rate_limited';
-        } else if (errMsg.includes('credit') || errMsg.includes('quota') || errMsg.includes('limit') || errMsg.includes('balance')) {
+        } else if (errMsg.includes('credit') || errMsg.includes('balance') || errMsg.includes('insufficient') || errMsg.includes('billing') || errMsg.includes('quota')) {
           newStatus = 'no_credit';
+        } else if (errMsg.includes('key') || errMsg.includes('invalid') || errMsg.includes('unauthorized') || errMsg.includes('permission') || errMsg.includes('denied access') || errMsg.includes('suspended')) {
+          newStatus = 'disconnected';
         }
         
         await this.updateKeyStatus(apiKey.id, newStatus, (apiKey.error_count || 0) + 1);
@@ -222,7 +241,7 @@ export class AIService {
   }
 
   // Inicia um loop de teste periódico para manter as APIs prontas
-  static startPeriodicTesting(intervalMs: number = 300000) { // 5 minutos por padrão
+  static startPeriodicTesting(intervalMs: number = 900000) { // 15 minutos por padrão
     this.testConnections();
     const interval = setInterval(() => {
       this.testConnections();
@@ -235,9 +254,10 @@ class AIClientManager {
   private static clients: Map<string, any> = new Map();
 
   static async execute(apiKey: any, prompt: string, systemInstruction: string, image?: string): Promise<AIResponse> {
-    let modelName = apiKey.service || (apiKey.provider === 'gemini' ? 'gemini-3-flash-preview' : 'gpt-4o-mini');
-    if (modelName === 'gemini-1.5-flash' || modelName === 'gemini-pro' || modelName === 'gemini-1.5-pro') {
-      modelName = 'gemini-3-flash-preview';
+    let modelName = apiKey.service || (apiKey.provider === 'gemini' ? 'gemini-1.5-flash' : 'gpt-4o-mini');
+    if (modelName === 'gemini-3-flash-preview' || modelName === 'gemini-pro' || modelName === 'gemini-1.5-pro') {
+      // Use gemini-1.5-flash as default for better reliability unless specifically overridden
+      if (!apiKey.service) modelName = 'gemini-1.5-flash';
     }
 
     const timeoutPromise = new Promise<never>((_, reject) => {
