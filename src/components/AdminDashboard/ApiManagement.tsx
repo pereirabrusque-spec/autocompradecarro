@@ -70,6 +70,22 @@ export const ApiManagement = ({
     }
   };
 
+  const sortedApiKeys = [...apiKeys].sort((a, b) => {
+    const statusOrder: Record<string, number> = {
+      'ok': 0,
+      'no_credit': 1,
+      'rate_limited': 1,
+      'disconnected': 2,
+      'error': 2
+    };
+    
+    const orderA = statusOrder[a.status] ?? 3;
+    const orderB = statusOrder[b.status] ?? 3;
+    
+    if (orderA !== orderB) return orderA - orderB;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+
   return (
     <div className="space-y-8">
       <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm w-full">
@@ -154,7 +170,7 @@ export const ApiManagement = ({
         )}
 
         <div className="space-y-4">
-          {apiKeys.map((key: any) => (
+          {sortedApiKeys.map((key: any) => (
             <div 
               key={key.id} 
               className={`p-4 bg-white border rounded-xl shadow-sm transition-all ${editingApiKey === key.id ? 'border-slate-900 ring-1 ring-slate-900' : 'border-slate-100'}`}

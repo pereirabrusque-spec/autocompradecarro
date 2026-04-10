@@ -185,6 +185,7 @@ export const BackgroundAIManager = () => {
             const messageId = payload.id;
 
             console.log(`[BackgroundAIManager] 🤖 IA processando mensagem interna (${messageId}) de ${senderId}.`);
+            // addLog removido por não estar definido neste escopo
             
             // Verifica se o remetente é um comprador ou vendedor
             const { data: senderProfile } = await supabase
@@ -447,11 +448,13 @@ REGRAS GERAIS:
 3. Responda como um consultor de vendas especializado em compradores.
 `;
 
+                console.log("[BackgroundAIManager] Generating internal response for prompt length:", fullPrompt.length);
                 const response = await AIService.generateContent(
                     fullPrompt,
                     "Você é um especialista de vendas altamente preciso. Responda estritamente com base nos dados técnicos do veículo fornecidos no contexto. Se a informação não estiver nos dados, não invente. Seja direto, profissional e persuasivo. NUNCA mencione ser uma IA ou que haverá contato humano posterior, você é o especialista responsável.",
                     imageBase64 || undefined
                 );
+                console.log("[BackgroundAIManager] Internal AI Response received:", response ? "SUCCESS" : "NULL/EMPTY");
 
                 if (response && response.text) {
                     await supabase.from('internal_messages').insert({
@@ -464,13 +467,22 @@ REGRAS GERAIS:
                     // Marca a mensagem original como lida já que a IA respondeu
                     const readCol = payload.is_read !== undefined ? 'is_read' : 'read';
                     await supabase.from('internal_messages')
-                        .update({ [readCol]: true })
+                        .update({ 
+                            [readCol]: true,
+                            metadata: { ...(payload.metadata || {}), ai_handled: true }
+                        })
                         .eq('id', payload.id);
 
                     console.log('[BackgroundAIManager] Resposta automática enviada para interna');
                 }
             } catch (err) {
                 console.error('[BackgroundAIManager] Erro ao processar resposta interna:', err);
+                // Marca como falha para não tentar novamente no scan
+                await supabase.from('internal_messages')
+                    .update({ 
+                        metadata: { ...(payload.metadata || {}), ai_failed: true, ai_error: String(err) } 
+                    })
+                    .eq('id', payload.id);
             }
         }
     };
@@ -680,43 +692,66 @@ REGRAS GERAIS:
 5. NÃO envie mensagens duplicadas. Se a última mensagem do histórico já responde o que o cliente perguntou, não responda novamente.
 `;
 
+                console.log("[BackgroundAIManager] Generating lead response for prompt length:", fullPrompt.length);
                 const response = await AIService.generateContent(
                     fullPrompt,
                     "Você é um especialista de vendas altamente preciso. Responda estritamente com base nos dados técnicos do veículo fornecidos no contexto. Se a informação não estiver nos dados, não invente. Seja direto, profissional e persuasivo. NUNCA mencione ser uma IA ou que haverá contato humano posterior, você é o especialista responsável.",
                     imageBase64 || undefined
                 );
+                console.log("[BackgroundAIManager] Lead AI Response received:", response ? "SUCCESS" : "NULL/EMPTY");
 
                 if (response && response.text) {
-                    await supabase.from('mensagens').insert({
+                    console.log("[BackgroundAIManager] Sending lead message to Supabase...");
+                    const { error: sendError } = await supabase.from('mensagens').insert({
                         lead_id: leadId,
                         conteudo: response.text,
-                        remetente: 'bot'
+                        remetente: 'bot',
+                        metadata: { ai_handled: true, original_message_id: payload.id }
                     });
+
+                    if (sendError) {
+                        console.error("[BackgroundAIManager] Error sending lead AI message:", sendError);
+                    } else {
+                        console.log("[BackgroundAIManager] Lead AI message sent successfully");
+                    }
 
                     // Marca a mensagem original como lida/processada
                     await supabase.from('mensagens')
-                        .update({ lida: true })
+                        .update({ 
+                            lida: true,
+                            metadata: { ...(payload.metadata || {}), ai_handled: true }
+                        })
                         .eq('id', payload.id);
 
                     console.log('[BackgroundAIManager] Resposta automática enviada para lead');
+                } else {
+                    console.warn("[BackgroundAIManager] No lead response generated by AI Service.");
                 }
             } catch (err) {
                 console.error('[BackgroundAIManager] Erro ao processar resposta para lead:', err);
+                // Marca como falha para não tentar novamente no scan
+                await supabase.from('mensagens')
+                    .update({ 
+                        metadata: { ...(payload.metadata || {}), ai_failed: true, ai_error: String(err) } 
+                    })
+                    .eq('id', payload.id);
             }
         }
     };
 
     const scanForOpenMessages = async () => {
         const uid = currentUserIdRef.current;
-        if (!uid) return;
+        if (!uid || !isAiEnabledRef.current) return;
 
-        console.log('[BackgroundAIManager] Escaneando mensagens em aberto...');
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        console.log('[BackgroundAIManager] Escaneando mensagens em aberto (últimas 24h)...');
 
         // 1. Escaneia mensagens internas (Compradores)
         const { data: openInternal } = await supabase
             .from('internal_messages')
             .select('*')
-            .or(`receiver_id.eq.${uid},receiver_id.is.null`)
+            .eq('receiver_id', uid)
+            .gt('created_at', oneDayAgo)
             .order('created_at', { ascending: false })
             .limit(50);
 
@@ -729,7 +764,8 @@ REGRAS GERAIS:
 
             const conversationsArray = Array.from(conversations.entries()).slice(0, 5); // Limita a 5 conversas por scan
             for (const [senderId, lastMsg] of conversationsArray) {
-                if (lastMsg.sender_id !== uid) {
+                const readCol = lastMsg.is_read !== undefined ? 'is_read' : 'read';
+                if (!lastMsg[readCol] && !lastMsg.metadata?.ai_handled && !lastMsg.metadata?.ai_failed) {
                     // Verifica se já passou tempo suficiente (ex: 5 minutos) para considerar abandonado/parado
                     const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
                     if (timeDiff > 300000) { // 5 minutos
@@ -743,6 +779,7 @@ REGRAS GERAIS:
         const { data: openPublic } = await supabase
             .from('mensagens')
             .select('*')
+            .gt('created_at', oneDayAgo)
             .order('created_at', { ascending: false })
             .limit(100);
 
@@ -754,7 +791,7 @@ REGRAS GERAIS:
 
             const leadsArray = Array.from(leads.entries()).slice(0, 5); // Limita a 5 leads por scan
             for (const [leadId, lastMsg] of leadsArray) {
-                if (lastMsg.remetente === 'cliente') {
+                if (lastMsg.remetente === 'cliente' && !lastMsg.metadata?.ai_handled && !lastMsg.metadata?.ai_failed) {
                     const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
                     if (timeDiff > 120000) { // 2 minutos (mais rápido)
                         handlePublicMessage(lastMsg);

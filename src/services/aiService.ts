@@ -198,7 +198,8 @@ export class AIService {
 
     // Executa sequencialmente para evitar limites de taxa simultâneos e garantir estabilidade
     for (const apiKey of allKeys) {
-      if (apiKey.provider === 'grod') continue;
+      const provider = apiKey.provider?.toLowerCase().trim();
+      if (provider === 'groq' && !apiKey.key) continue; // Skip if no key
       
       try {
         const timeoutPromise = new Promise<never>((_, reject) => {
@@ -295,12 +296,14 @@ class AIClientManager {
       } else {
         // OpenAI-compatible providers (OpenAI, Grok, etc.)
         let baseUrl = '';
-        const p = apiKey.provider?.toLowerCase();
+        const p = apiKey.provider?.toLowerCase().trim();
         
         if (p === 'openai') {
           baseUrl = 'https://api.openai.com/v1';
         } else if (p === 'grok' || p === 'xai') {
           baseUrl = 'https://api.x.ai/v1';
+        } else if (p === 'groq') {
+          baseUrl = 'https://api.groq.com/openai/v1';
         } else {
           baseUrl = `https://api.${p}.com/v1`;
         }

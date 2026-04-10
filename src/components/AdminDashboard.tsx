@@ -26,12 +26,14 @@ export default function AdminDashboard() {
   const [leads, setLeads] = useState<any[]>([]);
   const [dbAssets, setDbAssets] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'leads' | 'hero' | 'assets' | 'footer' | 'settings' | 'ai' | 'apis' | 'crm' | 'messages' | 'buyers' | 'tags' | 'users' | 'cooperatives' | 'logs' | 'crm_chat'>('dashboard');
-  const [messageTab, setMessageTab] = useState<'leads' | 'internal'>('leads');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'leads' | 'hero' | 'assets' | 'footer' | 'settings' | 'ai' | 'apis' | 'crm' | 'messages' | 'buyers' | 'tags' | 'users' | 'cooperatives' | 'logs' | 'crm_chat' | 'chat_settings'>('dashboard');
+  const [messageTab, setMessageTab] = useState<'leads' | 'internal' | 'buyers'>('leads');
   const [internalConversations, setInternalConversations] = useState<any[]>([]);
-  // const [compradoresConversations, setCompradoresConversations] = useState<any[]>([]); // Frozen for performance
+  const [compradoresConversations, setCompradoresConversations] = useState<any[]>([]);
   const [selectedInternalChat, setSelectedInternalChat] = useState<string | null>(null);
+  const [selectedCompradorChat, setSelectedCompradorChat] = useState<string | null>(null);
   const [internalChatMessages, setInternalChatMessages] = useState<any[]>([]);
+  const [compradorChatMessages, setCompradorChatMessages] = useState<any[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [googleAnalyticsId, setGoogleAnalyticsId] = useState('');
   const [googleAdsId, setGoogleAdsId] = useState('');
@@ -780,7 +782,17 @@ export default function AdminDashboard() {
       setBanks(banksData || []);
       setRepairCosts(repairData || []);
       setFipeRules(fipeData || []);
-      setApiKeys(apiKeysData || []);
+      
+      // Sort API keys: ok > no_credit/rate_limited > disconnected
+      const sortedApiKeys = (apiKeysData || []).sort((a: any, b: any) => {
+        const statusOrder: Record<string, number> = { 'ok': 0, 'no_credit': 1, 'rate_limited': 1, 'disconnected': 2 };
+        const orderA = statusOrder[a.status] ?? 3;
+        const orderB = statusOrder[b.status] ?? 3;
+        if (orderA !== orderB) return orderA - orderB;
+        return a.provider.localeCompare(b.provider);
+      });
+      
+      setApiKeys(sortedApiKeys);
       setProviders(providersData || []);
       setUsers(profilesData || []);
       setInterestedBuyers(buyersData || []);
@@ -850,6 +862,58 @@ export default function AdminDashboard() {
       }
       console.log("Conversas internas agrupadas:", groupedInternal);
       setInternalConversations(groupedInternal);
+
+      // Group buyer conversations
+      const groupedCompradores: any[] = [];
+      const compradorIds = new Set();
+
+      if (internalMessagesData && userProfileRef.current) {
+        internalMessagesData.forEach((msg: any) => {
+          const otherId = msg.sender_id === userProfileRef.current.id ? msg.receiver_id : msg.sender_id;
+          if (otherId && !compradorIds.has(otherId) && !internalIds.has(otherId)) {
+            const otherProfile = (profilesData || []).find((u: any) => u.id === otherId);
+            if (otherProfile && otherProfile.role?.toLowerCase().includes('buyer')) {
+              compradorIds.add(otherId);
+              const unreadCount = internalMessagesData.filter((m: any) => 
+                m.sender_id === otherId && m.receiver_id === userProfileRef.current.id && !m.is_read
+              ).length;
+              const isOnline = otherProfile.last_login ? (new Date().getTime() - new Date(otherProfile.last_login).getTime()) < 300000 : false;
+              groupedCompradores.push({
+                id: otherId,
+                profile: otherProfile,
+                last_message: msg.content,
+                last_time: msg.created_at,
+                last_message_at: msg.created_at,
+                unread: unreadCount,
+                is_online: isOnline
+              });
+            }
+          }
+        });
+      }
+
+      // Add other buyers who haven't messaged yet
+      if (profilesData && userProfileRef.current) {
+        profilesData.forEach((p: any) => {
+          if (p.id !== userProfileRef.current.id && p.role?.toLowerCase().includes('buyer') && !compradorIds.has(p.id)) {
+            compradorIds.add(p.id);
+            const isOnline = p.last_login ? (new Date().getTime() - new Date(p.last_login).getTime()) < 300000 : false;
+            groupedCompradores.push({
+              id: p.id,
+              profile: p,
+              last_message: 'Nenhuma mensagem ainda',
+              last_time: p.created_at,
+              last_message_at: p.created_at,
+              unread: 0,
+              is_online: isOnline
+            });
+          }
+        });
+      }
+      
+      // Sort by last_message_at
+      groupedCompradores.sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime());
+      setCompradoresConversations(groupedCompradores);
       
       // Atualiza o lead selecionado se houver um
       if (selectedLeadRef.current) {
@@ -4856,9 +4920,13 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 messageTab={messageTab}
                 setMessageTab={setMessageTab}
                 internalConversations={internalConversations}
+                compradoresConversations={compradoresConversations}
                 selectedInternalChat={selectedInternalChat}
                 setSelectedInternalChat={setSelectedInternalChat}
+                selectedCompradorChat={selectedCompradorChat}
+                setSelectedCompradorChat={setSelectedCompradorChat}
                 internalChatMessages={internalChatMessages}
+                compradorChatMessages={compradorChatMessages}
                 isGlobalAiEnabled={isGlobalAiEnabled}
                 toggleGlobalAi={toggleGlobalAi}
                 autoProposalEnabled={autoProposalEnabled}
@@ -4866,6 +4934,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 isUpdatingAi={isUpdatingAi}
                 fetchChatMessages={fetchChatMessages}
                 fetchInternalMessages={fetchInternalMessages}
+                fetchCompradorMessages={fetchInternalMessages} // Reusing internal fetch logic for now as it's the same table
+
                 users={users}
                 leads={leads}
                 setProposalCalculator={setProposalCalculator}

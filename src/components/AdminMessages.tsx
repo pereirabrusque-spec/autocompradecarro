@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { MessageCircle, Send, Search, Mail, User, Users, ImageIcon, ShieldCheck, DollarSign, UserCheck, Loader2, Trash2, Copy } from 'lucide-react';
+import { MessageCircle, Send, Search, Mail, User, Users, ImageIcon, ShieldCheck, DollarSign, UserCheck, Loader2, Trash2, Copy, Check, CheckCircle } from 'lucide-react';
 
 interface AdminMessagesProps {
   conversations: any[];
@@ -18,8 +18,8 @@ interface AdminMessagesProps {
   onCloneLead: (lead: any) => void;
   setSelectedLead: (lead: any) => void;
   setToast?: (toast: any) => void;
-  messageTab: 'leads' | 'internal';
-  setMessageTab: (tab: 'leads' | 'internal') => void;
+  messageTab: 'leads' | 'internal' | 'buyers';
+  setMessageTab: (tab: 'leads' | 'internal' | 'buyers') => void;
   internalConversations: any[];
   selectedInternalChat: string | null;
   setSelectedInternalChat: (id: string | null) => void;
@@ -38,6 +38,11 @@ interface AdminMessagesProps {
   calculateProposal: (lead: any) => any;
   supabase: any;
   setConversations: React.Dispatch<React.SetStateAction<any[]>>;
+  compradoresConversations: any[];
+  selectedCompradorChat: string | null;
+  setSelectedCompradorChat: (id: string | null) => void;
+  compradorChatMessages: any[];
+  fetchCompradorMessages: (otherId: string) => void;
 }
 
 export default function AdminMessages({
@@ -74,12 +79,17 @@ export default function AdminMessages({
   setProposalCalculator,
   calculateProposal,
   supabase,
-  setConversations
+  setConversations,
+  compradoresConversations,
+  selectedCompradorChat,
+  setSelectedCompradorChat,
+  compradorChatMessages,
+  fetchCompradorMessages
 }: AdminMessagesProps) {
   const [searchTerm, setSearchTerm] = React.useState('');
   const leadsScrollRef = useRef<HTMLDivElement>(null);
 
-  const filteredConversations = conversations
+  const filteredConversations = (conversations || [])
     .filter(conv => 
       conv.lead?.cliente_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       conv.lead?.vehicle_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -87,12 +97,19 @@ export default function AdminMessages({
     )
     .sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime());
 
-  const filteredInternalConversations = internalConversations
+  const filteredInternalConversations = (internalConversations || [])
     .filter(conv =>
       conv.profile?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       conv.last_message?.toLowerCase().includes(searchTerm.toLowerCase())
     )
-    .sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime());
+    .sort((a, b) => new Date(b.last_message_at || b.last_time).getTime() - new Date(a.last_message_at || a.last_time).getTime());
+
+  const filteredCompradoresConversations = (compradoresConversations || [])
+    .filter(conv =>
+      conv.profile?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      conv.last_message?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => new Date(b.last_message_at || b.last_time).getTime() - new Date(a.last_message_at || a.last_time).getTime());
 
   useEffect(() => {
     if (leadsScrollRef.current) {
@@ -178,14 +195,21 @@ export default function AdminMessages({
               className={`flex-1 py-2 rounded-xl text-[10px] font-black transition-all flex items-center justify-center gap-1 ${messageTab === 'leads' ? 'bg-slate-900 text-white shadow-md' : 'bg-slate-100 text-slate-600'}`}
             >
               <Users className="w-3 h-3" />
-              VENDEDORES (LEADS)
+              VENDEDORES
             </button>
             <button 
               onClick={() => setMessageTab('internal')}
               className={`flex-1 py-2 rounded-xl text-[10px] font-black transition-all flex items-center justify-center gap-1 ${messageTab === 'internal' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-600'}`}
             >
               <ShieldCheck className="w-3 h-3" />
-              COMPRADORES (CRM)
+              EQUIPE
+            </button>
+            <button 
+              onClick={() => setMessageTab('buyers')}
+              className={`flex-1 py-2 rounded-xl text-[10px] font-black transition-all flex items-center justify-center gap-1 ${messageTab === 'buyers' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 text-slate-600'}`}
+            >
+              <DollarSign className="w-3 h-3" />
+              COMPRADORES
             </button>
           </div>
           
@@ -231,6 +255,8 @@ export default function AdminMessages({
               key={conv.conversation_key}
               onClick={() => {
                 setSelectedConversation(conv);
+                setSelectedInternalChat(null);
+                setSelectedCompradorChat(null);
                 fetchChatMessages(conv.lead_ids);
                 const lead = leads.find(l => l.id === conv.lead_ids[0]);
                 if (lead) {
@@ -326,12 +352,14 @@ export default function AdminMessages({
               </div>
             </div>
           ))
-        ) : (
+        ) : messageTab === 'internal' ? (
             filteredInternalConversations.map((conv) => (
               <div 
                 key={conv.id}
                 onClick={() => {
                   setSelectedInternalChat(conv.id);
+                  setSelectedConversation(null);
+                  setSelectedCompradorChat(null);
                   fetchInternalMessages(conv.id);
                 }}
                 className={`py-2 px-3 flex items-center gap-3 cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 relative ${selectedInternalChat === conv.id ? 'bg-slate-50 border-l-4 border-l-indigo-600' : ''} ${conv.unread > 0 ? 'bg-indigo-50/50' : ''}`}
@@ -363,6 +391,48 @@ export default function AdminMessages({
                     </div>
                   </div>
                   <p className={`text-xs truncate ${conv.unread > 0 ? 'text-indigo-700 font-medium' : 'text-slate-500'}`}>{conv.last_message}</p>
+                </div>
+              </div>
+            ))
+          ) : (
+            filteredCompradoresConversations.map((conv) => (
+              <div 
+                key={conv.id}
+                onClick={() => {
+                  setSelectedCompradorChat(conv.id);
+                  setSelectedConversation(null);
+                  setSelectedInternalChat(null);
+                  fetchCompradorMessages(conv.id);
+                }}
+                className={`py-2 px-3 flex items-center gap-3 cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 relative ${selectedCompradorChat === conv.id ? 'bg-slate-50 border-l-4 border-l-emerald-600' : ''} ${conv.unread > 0 ? 'bg-emerald-50/50' : ''}`}
+              >
+                <div className="relative">
+                  <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                    {conv.profile?.avatar_url ? (
+                      <img src={conv.profile.avatar_url} alt={conv.profile.full_name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    ) : (
+                      <User className="w-6 h-6 text-slate-400" />
+                    )}
+                  </div>
+                  {conv.is_online && (
+                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-start">
+                    <h4 className={`text-sm font-bold truncate ${conv.unread > 0 ? 'text-emerald-900' : 'text-slate-900'}`}>
+                      {conv.profile?.full_name || 'Comprador'}
+                    </h4>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="text-[10px] text-slate-400 whitespace-nowrap">{new Date(conv.last_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      {conv.unread > 0 && (
+                        <span className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full animate-pulse">
+                          NÃO VISUALIZADA
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <p className={`text-xs truncate ${conv.unread > 0 ? 'text-emerald-700 font-medium' : 'text-slate-500'}`}>{conv.last_message}</p>
                 </div>
               </div>
             ))
@@ -616,8 +686,17 @@ export default function AdminMessages({
                         {msg.conteudo}
                       </Markdown>
                     </div>
-                    <span className={`text-[9px] mt-1 block opacity-70`}>
-                      {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    <span className={`text-[9px] mt-1 flex items-center gap-1 opacity-70`}>
+                      {new Date(msg.created_at).toLocaleDateString([], { day: '2-digit', month: '2-digit' })} {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {(msg.remetente === 'admin' || msg.remetente === 'bot') && (
+                        <div className="flex items-center ml-1">
+                          {msg.lida ? (
+                            <CheckCircle className="w-2.5 h-2.5 text-blue-400" />
+                          ) : (
+                            <Check className="w-2.5 h-2.5 text-slate-400" />
+                          )}
+                        </div>
+                      )}
                     </span>
                   </div>
                 </div>
@@ -810,8 +889,17 @@ export default function AdminMessages({
                         : 'bg-white border border-slate-200 text-slate-900 rounded-tl-none'
                     }`}>
                       <p className="whitespace-pre-wrap">{msg.content}</p>
-                      <span className={`text-[9px] mt-1 block opacity-70`}>
-                        {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      <span className={`text-[9px] mt-1 flex items-center gap-1 opacity-70`}>
+                        {new Date(msg.created_at).toLocaleDateString([], { day: '2-digit', month: '2-digit' })} {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {msg.sender_id !== selectedInternalChat && (
+                          <div className="flex items-center ml-1">
+                            {msg.read ? (
+                              <CheckCircle className="w-2.5 h-2.5 text-blue-400" />
+                            ) : (
+                              <Check className="w-2.5 h-2.5 text-slate-400" />
+                            )}
+                          </div>
+                        )}
                       </span>
                     </div>
                   </div>

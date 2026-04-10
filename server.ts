@@ -253,7 +253,8 @@ async function startServer() {
       if (!modelsResponse.ok) {
         const errMsg = modelsData.error?.message || 'Chave Gemini inválida';
         const lowerMsg = errMsg.toLowerCase();
-        if (lowerMsg.includes('quota') || lowerMsg.includes('limit') || lowerMsg.includes('credit') || modelsResponse.status === 429) {
+        // Only mark as quota exceeded if it's explicitly about quota, billing, or 429
+        if (lowerMsg.includes('quota') || lowerMsg.includes('insufficient') || lowerMsg.includes('billing') || modelsResponse.status === 429) {
           throw new Error('QUOTA_EXCEEDED: ' + errMsg);
         }
         if (lowerMsg.includes('denied access') || lowerMsg.includes('suspended') || lowerMsg.includes('disabled')) {
@@ -291,7 +292,7 @@ async function startServer() {
         const testData = await testResponse.json();
         const errMsg = testData.error?.message || `Erro ao testar modelo ${testModel}`;
         const lowerMsg = errMsg.toLowerCase();
-        if (lowerMsg.includes('quota') || lowerMsg.includes('limit') || lowerMsg.includes('credit') || testResponse.status === 429) {
+        if (lowerMsg.includes('quota') || lowerMsg.includes('insufficient') || lowerMsg.includes('billing') || testResponse.status === 429) {
           throw new Error('QUOTA_EXCEEDED: ' + errMsg);
         }
         if (lowerMsg.includes('denied access') || lowerMsg.includes('suspended') || lowerMsg.includes('disabled')) {
@@ -319,7 +320,8 @@ async function startServer() {
       const data = await response.json();
       if (!response.ok) {
         const errMsg = data.error?.message || 'Chave OpenAI inválida';
-        if (errMsg.toLowerCase().includes('quota') || errMsg.toLowerCase().includes('billing') || errMsg.toLowerCase().includes('limit') || response.status === 429) {
+        const lowerMsg = errMsg.toLowerCase();
+        if (lowerMsg.includes('quota') || lowerMsg.includes('insufficient') || lowerMsg.includes('billing') || response.status === 429) {
           throw new Error('QUOTA_EXCEEDED: ' + errMsg);
         }
         throw new Error(errMsg);
@@ -367,6 +369,36 @@ async function startServer() {
       const modelsData = await modelsResponse.json();
       return modelsData.data
         ?.filter((m: any) => m.id.includes('grok'))
+        .map((m: any) => m.id) || [];
+    } else if (p === 'groq') {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${trimmedKey}` 
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: [{ role: 'user', content: 'hi' }],
+          max_tokens: 1
+        })
+      });
+      
+      const data = await response.json();
+      if (!response.ok) {
+        const errMsg = data.error?.message || 'Chave Groq inválida';
+        if (errMsg.toLowerCase().includes('quota') || response.status === 429) {
+          throw new Error('QUOTA_EXCEEDED: ' + errMsg);
+        }
+        throw new Error(errMsg);
+      }
+
+      const modelsResponse = await fetch('https://api.groq.com/openai/v1/models', {
+        headers: { 'Authorization': `Bearer ${trimmedKey}` }
+      });
+      const modelsData = await modelsResponse.json();
+      return modelsData.data
+        ?.filter((m: any) => m.id.includes('llama') || m.id.includes('mixtral') || m.id.includes('gemma'))
         .map((m: any) => m.id) || [];
     } else {
       // Fallback for other OpenAI-compatible providers
