@@ -265,7 +265,7 @@ export const BackgroundAIManager = () => {
                     .select('*')
                     .or(`sender_id.eq.${senderId},receiver_id.eq.${senderId}`)
                     .order('created_at', { ascending: false })
-                    .limit(15);
+                    .limit(30);
 
                 const history = (historyData || []).reverse().map(m => 
                     `${m.sender_id === uid ? 'Admin' : 'Cliente'}: ${m.content} ${m.lead_id ? `(Ref: ${m.lead_id})` : ''}`
@@ -459,6 +459,13 @@ REGRAS GERAIS:
                         sender_id: uid,
                         lead_id: currentLeadId
                     });
+                    
+                    // Marca a mensagem original como lida já que a IA respondeu
+                    const readCol = payload.is_read !== undefined ? 'is_read' : 'read';
+                    await supabase.from('internal_messages')
+                        .update({ [readCol]: true })
+                        .eq('id', payload.id);
+
                     console.log('[BackgroundAIManager] Resposta automática enviada para interna');
                 }
             } catch (err) {
@@ -528,7 +535,7 @@ REGRAS GERAIS:
                     .select('*')
                     .eq('lead_id', leadId)
                     .order('created_at', { ascending: false })
-                    .limit(15);
+                    .limit(30);
 
                 const history = (historyData || []).reverse().map(m => 
                     `${m.remetente === 'cliente' ? 'Cliente' : 'Vendedor'}: ${m.conteudo}`
@@ -684,6 +691,12 @@ REGRAS GERAIS:
                         conteudo: response.text,
                         remetente: 'bot'
                     });
+
+                    // Marca a mensagem original como lida/processada
+                    await supabase.from('mensagens')
+                        .update({ lida: true })
+                        .eq('id', payload.id);
+
                     console.log('[BackgroundAIManager] Resposta automática enviada para lead');
                 }
             } catch (err) {

@@ -57,8 +57,15 @@ function AppContent() {
   const [purchasingContext, setPurchasingContext] = useState<string>('Chat de Compras');
 
   useEffect(() => {
-    // Teste periódico removido a pedido do usuário para economizar créditos.
-    // O sistema agora só troca de API se a atual falhar durante o uso real.
+    // Trigger initial check and setup interval for 6-hour health check
+    // The logic for 6h check is inside getActiveKeys
+    const checkAPIs = () => {
+      AIService.getActiveKeys().catch(console.error);
+    };
+    
+    checkAPIs();
+    const interval = setInterval(checkAPIs, 60 * 60 * 1000); // Check every hour
+    return () => clearInterval(interval);
   }, []);
 
   const showChat = (primaryContact === 'chat' || (specialistButtonEnabled && specialistAction === 'chat')) && chatEnabled;

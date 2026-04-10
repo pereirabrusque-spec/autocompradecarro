@@ -11,13 +11,26 @@ export interface AIResponse {
 
 export class AIService {
   private static lastSuccessfulKeyId: string | null = typeof window !== 'undefined' ? localStorage.getItem('ai_last_successful_key_id') : null;
+  private static lastHealthCheck: number = typeof window !== 'undefined' ? parseInt(localStorage.getItem('ai_last_health_check') || '0') : 0;
   private static cachedKeys: any[] = [];
   private static lastFetchTime: number = 0;
   private static lastTestTime: number = 0;
   private static isTesting: boolean = false;
 
-  private static async getActiveKeys(forceRefresh: boolean = false): Promise<any[]> {
+  public static async getActiveKeys(forceRefresh: boolean = false): Promise<any[]> {
     const now = Date.now();
+    
+    // Check if we need a scheduled health check (every 6 hours)
+    const SIX_HOURS = 6 * 60 * 60 * 1000;
+    if (now - this.lastHealthCheck > SIX_HOURS && !this.isTesting) {
+      console.log('[AIService] Iniciando health check agendado (6h)...');
+      this.testConnections().catch(console.error);
+      this.lastHealthCheck = now;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('ai_last_health_check', now.toString());
+      }
+    }
+
     // Cache keys for 30 seconds unless forced
     if (!forceRefresh && this.cachedKeys.length > 0 && (now - this.lastFetchTime < 30000)) {
       return this.cachedKeys;
@@ -35,9 +48,7 @@ export class AIService {
     // Filter out known invalid providers like 'grod'
     const filteredData = (data || []).filter(k => {
       const provider = k.provider?.trim().toLowerCase();
-      if (provider === 'grod') {
-        return false;
-      }
+      if (provider === 'grod') return false;
       return true;
     });
 
@@ -50,21 +61,14 @@ export class AIService {
       
       if (orderA !== orderB) return orderA - orderB;
       
-      // If both are 'ok', prioritize the last successful one
-      if (a.status === 'ok') {
-        if (a.id === this.lastSuccessfulKeyId) return -1;
-        if (b.id === this.lastSuccessfulKeyId) return 1;
-        
-        // Otherwise newest first
-        const lastUsedA = a.last_used ? new Date(a.last_used).getTime() : 0;
-        const lastUsedB = b.last_used ? new Date(b.last_used).getTime() : 0;
-        return lastUsedB - lastUsedA;
-      }
+      // If both have the same status, prioritize the last successful one
+      if (a.id === this.lastSuccessfulKeyId) return -1;
+      if (b.id === this.lastSuccessfulKeyId) return 1;
       
-      // Otherwise oldest first (retry queue)
+      // Otherwise newest first
       const lastUsedA = a.last_used ? new Date(a.last_used).getTime() : 0;
       const lastUsedB = b.last_used ? new Date(b.last_used).getTime() : 0;
-      return lastUsedA - lastUsedB;
+      return lastUsedB - lastUsedA;
     });
 
     this.cachedKeys = sorted;
@@ -75,6 +79,8 @@ export class AIService {
   private static async updateKeyStatus(id: string, status: 'ok' | 'no_credit' | 'disconnected' | 'rate_limited', errorCount: number = 0) {
     if (id === 'env-key') return;
     
+    const now = new Date().toISOString();
+    
     if (status === 'ok') {
       if (this.lastSuccessfulKeyId !== id) {
         console.log(`[AIService] Nova API principal selecionada: ${id}`);
@@ -84,7 +90,7 @@ export class AIService {
         localStorage.setItem('ai_last_successful_key_id', id);
       }
     } else if (id === this.lastSuccessfulKeyId) {
-      console.warn(`[AIService] API principal (${id}) falhou. Trocando para a próxima disponível...`);
+      console.warn(`[AIService] API principal (${id}) falhou com status: ${status}. Trocando para a próxima disponível...`);
       this.lastSuccessfulKeyId = null;
       if (typeof window !== 'undefined') {
         localStorage.removeItem('ai_last_successful_key_id');
@@ -97,12 +103,12 @@ export class AIService {
         .update({ 
           status, 
           error_count: errorCount,
-          last_used: new Date().toISOString()
+          last_used: now
         })
         .eq('id', id);
       
       // Update cache
-      this.cachedKeys = this.cachedKeys.map(k => k.id === id ? { ...k, status, error_count: errorCount, last_used: new Date().toISOString() } : k);
+      this.cachedKeys = this.cachedKeys.map(k => k.id === id ? { ...k, status, error_count: errorCount, last_used: now } : k);
     } catch (e) {
       console.error('Error updating key status:', e);
     }
@@ -110,22 +116,33 @@ export class AIService {
 
   static async generateContent(prompt: string, systemInstruction: string, image?: string): Promise<AIResponse> {
     let keys = await this.getActiveKeys();
-    let attempts = 0;
     
     // Filtra apenas chaves que não estão marcadas como 'disconnected' permanentemente
     // Mas permite tentar 'rate_limited' ou 'no_credit' se não houver 'ok'
     const candidateKeys = keys.filter(k => k.status !== 'disconnected');
-    const maxAttempts = Math.min(candidateKeys.length, 5);
+    
+    // Se temos uma chave de sucesso anterior que ainda é candidata, ela já está no topo pelo sort
+    // Mas vamos garantir que tentamos ela primeiro se ela estiver 'ok'
+    
+    let attempts = 0;
+    const maxAttempts = Math.min(candidateKeys.length, 3); // Tenta no máximo 3 chaves diferentes por requisição
 
     while (attempts < maxAttempts) {
       const apiKey = candidateKeys[attempts];
       if (!apiKey) break;
       
+      // Se a chave não estiver 'ok', só tentamos se for a única opção ou se as 'ok' falharam
+      if (apiKey.status !== 'ok' && attempts === 0 && candidateKeys.some(k => k.status === 'ok')) {
+        // Pula para a primeira 'ok'
+        attempts++;
+        continue;
+      }
+
       try {
         const result = await AIClientManager.execute(apiKey, prompt, systemInstruction, image);
         
         // Se funcionou e não estava 'ok', atualiza para 'ok'
-        if (apiKey.status !== 'ok') {
+        if (apiKey.status !== 'ok' || apiKey.id !== this.lastSuccessfulKeyId) {
           await this.updateKeyStatus(apiKey.id, 'ok', 0);
         }
         return result;
@@ -147,6 +164,11 @@ export class AIService {
 
         await this.updateKeyStatus(apiKey.id, newStatus, (apiKey.error_count || 0) + 1);
         attempts++;
+        
+        // Se a falha foi por quota ou crédito, vamos forçar uma atualização da lista para a próxima tentativa
+        if (newStatus === 'no_credit' || newStatus === 'rate_limited') {
+          keys = await this.getActiveKeys(true);
+        }
       }
     }
 

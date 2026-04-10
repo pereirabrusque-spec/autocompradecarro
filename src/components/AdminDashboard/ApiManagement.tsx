@@ -23,6 +23,7 @@ export const ApiManagement = ({
   const [editModel, setEditModel] = useState('');
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
   const [testingKeyId, setTestingKeyId] = useState<string | null>(null);
+  const lastSuccessfulKeyId = typeof window !== 'undefined' ? localStorage.getItem('ai_last_successful_key_id') : null;
 
   const toggleShowKey = (id: string) => {
     setShowKeys(prev => ({ ...prev, [id]: !prev[id] }));
@@ -181,8 +182,13 @@ export const ApiManagement = ({
                         {key.status === 'ok' ? 'Conectada' :
                          (key.status === 'no_credit' || key.status === 'rate_limited') ? 'Sem Saldo' : 'Corrompida'}
                       </span>
+                      {key.id === lastSuccessfulKeyId && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-black uppercase bg-blue-600 text-white animate-pulse shadow-sm shadow-blue-200">
+                          Em Uso
+                        </span>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
                       <p className="text-xs text-slate-500 font-mono">
                         {showKeys[key.id] ? key.key : `****${key.key.slice(-4)}`}
                       </p>
@@ -192,6 +198,11 @@ export const ApiManagement = ({
                       >
                         {showKeys[key.id] ? 'Ocultar' : 'Visualizar'}
                       </button>
+                      {key.last_used && (
+                        <span className="text-[9px] text-slate-400 font-medium">
+                          Último uso: {new Date(key.last_used).toLocaleString()}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
