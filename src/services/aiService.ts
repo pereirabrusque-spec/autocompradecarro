@@ -111,51 +111,27 @@ export class AIService {
   static async generateContent(prompt: string, systemInstruction: string, image?: string): Promise<AIResponse> {
     let keys = await this.getActiveKeys();
     let attempts = 0;
-    const maxAttempts = keys.length + 1;
+    
+    // Filtra apenas chaves que não estão marcadas como 'disconnected' permanentemente
+    // Mas permite tentar 'rate_limited' ou 'no_credit' se não houver 'ok'
+    const candidateKeys = keys.filter(k => k.status !== 'disconnected');
+    const maxAttempts = Math.min(candidateKeys.length, 5);
 
     while (attempts < maxAttempts) {
-      const availableKeys = keys.filter(k => k.status === 'ok');
-      
-      if (availableKeys.length === 0) {
-        const now = Date.now();
-        // Only force test if we haven't tested in the last 2 minutes
-        if (now - this.lastTestTime > 120000) {
-          console.warn('[AIService] Nenhuma API "OK" encontrada. Forçando teste de todas as conexões...');
-          await this.testConnections();
-          keys = await this.getActiveKeys(true);
-        } else {
-          console.warn('[AIService] Nenhuma API "OK" encontrada e teste recente realizado. Usando fallback...');
-        }
-        
-        if (keys.filter(k => k.status === 'ok').length === 0) {
-          // Fallback to env key if exists
-          if (process.env.GEMINI_API_KEY) {
-            console.log('[AIService] Usando chave de ambiente como fallback final.');
-            return await AIClientManager.execute({
-              id: 'env-key',
-              provider: 'gemini',
-              key: process.env.GEMINI_API_KEY,
-              service: 'gemini-3-flash-preview'
-            }, prompt, systemInstruction, image);
-          }
-          throw new Error('Nenhuma API disponível e funcional no momento.');
-        }
-        continue;
-      }
-
-      // Se temos uma chave que funcionou por último e ela está OK, ela será a primeira da lista devido ao sort
-      const apiKey = availableKeys[0];
+      const apiKey = candidateKeys[attempts];
+      if (!apiKey) break;
       
       try {
         const result = await AIClientManager.execute(apiKey, prompt, systemInstruction, image);
-        // Se funcionou, garante que o status está OK e mantém como a última de sucesso
+        
+        // Se funcionou e não estava 'ok', atualiza para 'ok'
         if (apiKey.status !== 'ok') {
           await this.updateKeyStatus(apiKey.id, 'ok', 0);
         }
         return result;
       } catch (error: any) {
         const errMsg = error.message?.toLowerCase() || '';
-        console.error(`[AIService] Falha na API ${apiKey.provider} (${apiKey.id}). Motivo: ${errMsg}. Trocando...`);
+        console.error(`[AIService] Falha na API ${apiKey.provider} (${apiKey.id}). Motivo: ${errMsg}.`);
         
         let newStatus: 'ok' | 'no_credit' | 'disconnected' | 'rate_limited' = 'disconnected';
         
@@ -170,21 +146,30 @@ export class AIService {
         }
 
         await this.updateKeyStatus(apiKey.id, newStatus, (apiKey.error_count || 0) + 1);
-        
-        // Força refresh das chaves para pegar a próxima melhor
-        keys = await this.getActiveKeys(true);
         attempts++;
       }
     }
-    throw new Error('Excedido número máximo de tentativas de API.');
+
+    // Fallback final para chave de ambiente se tudo falhar
+    if (process.env.GEMINI_API_KEY) {
+      console.log('[AIService] Usando chave de ambiente como fallback final.');
+      return await AIClientManager.execute({
+        id: 'env-key',
+        provider: 'gemini',
+        key: process.env.GEMINI_API_KEY,
+        service: 'gemini-3-flash-preview'
+      }, prompt, systemInstruction, image);
+    }
+
+    throw new Error('Todas as APIs disponíveis falharam ou estão fora de serviço.');
   }
 
+  // O teste de conexões agora é apenas manual via painel administrativo
   static async testConnections(): Promise<void> {
     if (this.isTesting) return;
     this.isTesting = true;
-    this.lastTestTime = Date.now();
     
-    console.log('[AIService] Iniciando teste de conexões das APIs para manter todas prontas...');
+    console.log('[AIService] Iniciando teste manual de conexões das APIs...');
     let { data: allKeys } = await supabase.from('api_keys').select('*');
     
     if (!allKeys || allKeys.length === 0) {
@@ -193,12 +178,6 @@ export class AIService {
     }
 
     const testPromises = allKeys.filter(k => k.provider !== 'grod').map(async (apiKey) => {
-      // Skip testing if key is already OK and was used/tested in the last 30 minutes
-      const lastUsed = apiKey.last_used ? new Date(apiKey.last_used).getTime() : 0;
-      if (apiKey.status === 'ok' && (Date.now() - lastUsed < 1800000)) {
-        return;
-      }
-
       try {
         const timeoutPromise = new Promise<never>((_, reject) => {
           setTimeout(() => reject(new Error('TIMEOUT')), 15000);
@@ -237,16 +216,7 @@ export class AIService {
 
     await Promise.allSettled(testPromises);
     this.isTesting = false;
-    console.log('[AIService] Teste de conexões concluído. APIs verdes estão prontas.');
-  }
-
-  // Inicia um loop de teste periódico para manter as APIs prontas
-  static startPeriodicTesting(intervalMs: number = 900000) { // 15 minutos por padrão
-    this.testConnections();
-    const interval = setInterval(() => {
-      this.testConnections();
-    }, intervalMs);
-    return () => clearInterval(interval);
+    console.log('[AIService] Teste manual concluído.');
   }
 }
 

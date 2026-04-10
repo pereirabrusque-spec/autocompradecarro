@@ -753,11 +753,9 @@ REGRAS GERAIS:
     useEffect(() => {
         if (!currentUserId) return;
 
-        // Escaneia ao montar
-        scanForOpenMessages();
-
-        // Escaneia periodicamente a cada 15 minutos para economizar créditos
-        const interval = setInterval(scanForOpenMessages, 900000);
+        // Escaneamento periódico removido para economizar créditos.
+        // O sistema agora depende 100% de eventos em tempo real (Realtime).
+        // scanForOpenMessages(); 
 
         const channelName = `bg_ai_messages_${currentUserId}`;
         console.log(`[BackgroundAIManager] Iniciando monitoramento global: ${channelName}`);
@@ -787,7 +785,6 @@ REGRAS GERAIS:
             .subscribe();
 
         return () => {
-            clearInterval(interval);
             supabase.removeChannel(internalMessageSubscription);
             supabase.removeChannel(publicMessageSubscription);
         };

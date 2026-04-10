@@ -57,12 +57,9 @@ function AppContent() {
   const [purchasingContext, setPurchasingContext] = useState<string>('Chat de Compras');
 
   useEffect(() => {
-    // Inicia o teste periódico de conexões da IA apenas para administradores
-    if (isAdmin) {
-      const stopTesting = AIService.startPeriodicTesting();
-      return () => stopTesting();
-    }
-  }, [isAdmin]);
+    // Teste periódico removido a pedido do usuário para economizar créditos.
+    // O sistema agora só troca de API se a atual falhar durante o uso real.
+  }, []);
 
   const showChat = (primaryContact === 'chat' || (specialistButtonEnabled && specialistAction === 'chat')) && chatEnabled;
   const showWhatsApp = (primaryContact === 'whatsapp' || (specialistButtonEnabled && specialistAction === 'whatsapp')) && whatsappEnabled;
