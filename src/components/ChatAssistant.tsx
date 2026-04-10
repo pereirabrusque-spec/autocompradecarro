@@ -734,6 +734,9 @@ DADOS DO VEÍCULO ATUAL (LEAD):
   const chatWidth = settings['CHAT_WIDTH'] || '360';
   const chatColor = settings['CHAT_COLOR'] || '#F27D26';
   const chatAvatarUrl = settings['CHAT_AVATAR_URL'] || '';
+  const chatAttendantAvatar = settings['CHAT_ATTENDANT_AVATAR'] || '';
+
+  const finalAvatarUrl = chatAttendantAvatar || chatAvatarUrl || "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?q=80&w=100&h=100&auto=format&fit=crop";
 
   return (
     <>
@@ -752,15 +755,7 @@ DADOS DO VEÍCULO ATUAL (LEAD):
             <div className="p-6 bg-slate-900 text-white flex justify-between items-center">
               <div className="flex items-center gap-3">
                 <div style={{ backgroundColor: chatColor }} className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden">
-                  {chatAvatarUrl ? (
-                    <img src={chatAvatarUrl} alt="Atendente" className="w-full h-full object-cover" />
-                  ) : (
-                    <img 
-                      src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?q=80&w=100&h=100&auto=format&fit=crop" 
-                      alt="Atendente" 
-                      className="w-full h-full object-cover" 
-                    />
-                  )}
+                  <img src={finalAvatarUrl} alt="Atendente" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 </div>
                 <div>
                   <h3 className="font-display font-bold text-lg">Atendimento AUTO COMPRA</h3>
@@ -813,14 +808,8 @@ DADOS DO VEÍCULO ATUAL (LEAD):
                     }`} style={msg.role === 'user' ? { backgroundColor: chatColor, color: 'white' } : {}}>
                       {msg.role === 'user' ? (
                         <User className="w-5 h-5" />
-                      ) : chatAvatarUrl ? (
-                        <img src={chatAvatarUrl} alt="Bot" className="w-full h-full object-cover" />
                       ) : (
-                        <img 
-                          src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?q=80&w=100&h=100&auto=format&fit=crop" 
-                          alt="Bot" 
-                          className="w-full h-full object-cover" 
-                        />
+                        <img src={finalAvatarUrl} alt="Bot" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       )}
                     </div>
                     <div className="space-y-2">
@@ -948,34 +937,6 @@ DADOS DO VEÍCULO ATUAL (LEAD):
                 </div>
               )}
               <div className="flex items-center gap-3">
-                <button 
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="p-3 bg-slate-50 text-slate-400 rounded-2xl hover:bg-slate-100 hover:text-accent transition-all"
-                >
-                  <Camera className="w-6 h-6" />
-                </button>
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  onChange={handleImageSelect} 
-                  accept="image/*" 
-                  className="hidden" 
-                />
-                <button 
-                  type="button"
-                  onClick={() => videoInputRef.current?.click()}
-                  className="p-3 bg-slate-50 text-slate-400 rounded-2xl hover:bg-slate-100 hover:text-accent transition-all"
-                >
-                  <Video className="w-6 h-6" />
-                </button>
-                <input 
-                  type="file" 
-                  ref={videoInputRef} 
-                  onChange={handleVideoSelect} 
-                  accept="video/*" 
-                  className="hidden" 
-                />
                 <div className="relative flex-1">
                   <input
                     type="text"

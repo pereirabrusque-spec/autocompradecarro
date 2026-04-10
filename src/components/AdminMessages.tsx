@@ -79,16 +79,20 @@ export default function AdminMessages({
   const [searchTerm, setSearchTerm] = React.useState('');
   const leadsScrollRef = useRef<HTMLDivElement>(null);
 
-  const filteredConversations = conversations.filter(conv => 
-    conv.lead?.cliente_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    conv.lead?.vehicle_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    conv.last_message?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredConversations = conversations
+    .filter(conv => 
+      conv.lead?.cliente_nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      conv.lead?.vehicle_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      conv.last_message?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime());
 
-  const filteredInternalConversations = internalConversations.filter(conv =>
-    conv.profile?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    conv.last_message?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredInternalConversations = internalConversations
+    .filter(conv =>
+      conv.profile?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      conv.last_message?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime());
 
   useEffect(() => {
     if (leadsScrollRef.current) {

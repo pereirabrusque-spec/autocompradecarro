@@ -144,6 +144,7 @@ export default function AdminDashboard() {
     proposalModeEnabledRef.current = proposalModeEnabled;
   }, [proposalModeEnabled]);
   const [chatAvatarUrl, setChatAvatarUrl] = useState('');
+  const [chatAttendantAvatar, setChatAttendantAvatar] = useState('');
   const [bannerHeight, setBannerHeight] = useState('100vh');
   const [profitMarginPercentage, setProfitMarginPercentage] = useState(20);
   const [savingSettings, setSavingSettings] = useState(false);
@@ -995,6 +996,9 @@ export default function AdminDashboard() {
 
         const chatAvatarSetting = settingsData.find((s: any) => s.key === 'CHAT_AVATAR_URL');
         if (chatAvatarSetting) setChatAvatarUrl(chatAvatarSetting.value);
+
+        const chatAttendantAvatarSetting = settingsData.find((s: any) => s.key === 'CHAT_ATTENDANT_AVATAR');
+        if (chatAttendantAvatarSetting) setChatAttendantAvatar(chatAttendantAvatarSetting.value);
 
         const bannerHeightSetting = settingsData.find((s: any) => s.key === 'BANNER_HEIGHT');
         if (bannerHeightSetting) setBannerHeight(bannerHeightSetting.value);
@@ -2214,6 +2218,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
         { key: 'CHAT_COLOR', value: chatColor },
         { key: 'AUTO_PROPOSAL_ENABLED', value: autoProposalEnabled ? 'true' : 'false' },
         { key: 'CHAT_AVATAR_URL', value: chatAvatarUrl },
+        { key: 'CHAT_ATTENDANT_AVATAR', value: chatAttendantAvatar },
         { key: 'BANNER_HEIGHT', value: bannerHeight },
         { key: 'PROFIT_MARGIN_PERCENTAGE', value: profitMarginPercentage.toString() },
         { key: 'BUYER_VIEW_PERMISSIONS', value: JSON.stringify(buyerPermissions) },
@@ -2716,6 +2721,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 { id: 'users', label: 'Equipe & CRM', icon: Users, roles: ['admin'] },
                 { id: 'settings', label: 'Config', icon: Settings, roles: ['admin'] },
                 { id: 'apis', label: 'APIs', icon: Key, roles: ['admin'] },
+                { id: 'chat_settings', label: 'Chat Config', icon: MessageCircle, roles: ['admin'] },
                 { id: 'ai', label: 'IA', icon: Bot, roles: ['admin'] },
                 { id: 'cooperatives', label: 'Cooperativas', icon: Wallet, roles: ['admin'] },
                 { id: 'tags', label: 'Marketing', icon: BarChart3, roles: ['admin'] },
@@ -5268,6 +5274,117 @@ Podemos prosseguir com o agendamento da vistoria?`;
             newApiModel={newApiModel}
             fetchData={fetchData}
           />
+        )}
+
+        {activeTab === 'chat_settings' && (
+          <div className="space-y-8">
+            <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm">
+              <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+                <MessageCircle className="w-6 h-6 text-accent" />
+                Configurações do Chat
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-slate-700">Foto do Atendente (URL)</label>
+                    <div className="flex gap-4 items-center">
+                      <div className="w-16 h-16 rounded-full overflow-hidden bg-slate-100 border-2 border-slate-200 flex-shrink-0">
+                        {chatAttendantAvatar ? (
+                          <img src={chatAttendantAvatar} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-slate-400">
+                            <User className="w-8 h-8" />
+                          </div>
+                        )}
+                      </div>
+                      <input 
+                        type="text" 
+                        value={chatAttendantAvatar}
+                        onChange={(e) => setChatAttendantAvatar(e.target.value)}
+                        placeholder="https://..."
+                        className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent/20"
+                      />
+                    </div>
+                    <p className="text-[10px] text-slate-400 italic">Esta foto aparecerá para o cliente no chat como sendo o atendente real.</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-slate-700">Avatar da IA (URL)</label>
+                    <div className="flex gap-4 items-center">
+                      <div className="w-16 h-16 rounded-full overflow-hidden bg-slate-100 border-2 border-slate-200 flex-shrink-0">
+                        {chatAvatarUrl ? (
+                          <img src={chatAvatarUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-slate-400">
+                            <Bot className="w-8 h-8" />
+                          </div>
+                        )}
+                      </div>
+                      <input 
+                        type="text" 
+                        value={chatAvatarUrl}
+                        onChange={(e) => setChatAvatarUrl(e.target.value)}
+                        placeholder="https://..."
+                        className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent/20"
+                      />
+                    </div>
+                    <p className="text-[10px] text-slate-400 italic">Avatar usado pela IA quando ela responde automaticamente.</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-slate-700">Cor Principal do Chat</label>
+                    <div className="flex gap-3">
+                      <input 
+                        type="color" 
+                        value={chatColor}
+                        onChange={(e) => setChatColor(e.target.value)}
+                        className="w-12 h-12 rounded-xl cursor-pointer border-none p-0 bg-transparent"
+                      />
+                      <input 
+                        type="text" 
+                        value={chatColor}
+                        onChange={(e) => setChatColor(e.target.value)}
+                        className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-slate-700">Largura (px)</label>
+                      <input 
+                        type="text" 
+                        value={chatWidth}
+                        onChange={(e) => setChatWidth(e.target.value)}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-slate-700">Altura (px)</label>
+                      <input 
+                        type="text" 
+                        value={chatHeight}
+                        onChange={(e) => setChatHeight(e.target.value)}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <button 
+                onClick={handleSaveSettings}
+                disabled={savingSettings}
+                className="mt-8 w-full py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-accent transition-all disabled:opacity-50 shadow-lg shadow-slate-900/10"
+              >
+                {savingSettings ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                Salvar Configurações do Chat
+              </button>
+            </div>
+          </div>
         )}
         {activeTab === 'footer' && (
           <div className="space-y-8">

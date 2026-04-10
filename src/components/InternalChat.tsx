@@ -16,6 +16,15 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle, hide
 
   const [unreadCount, setUnreadCount] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [attendantAvatar, setAttendantAvatar] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchAttendantAvatar = async () => {
+      const { data } = await supabase.from('settings').select('value').eq('key', 'CHAT_ATTENDANT_AVATAR').maybeSingle();
+      if (data?.value) setAttendantAvatar(data.value);
+    };
+    fetchAttendantAvatar();
+  }, []);
 
   useEffect(() => {
     // Request notification permission
@@ -247,9 +256,18 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle, hide
       {isOpen && (
         <div className="fixed bottom-24 right-6 w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden z-50 h-[500px] animate-in slide-in-from-bottom-10 duration-300">
           <div className="bg-slate-900 p-4 flex justify-between items-center text-white">
-            <div>
-              <h3 className="font-bold">Suporte Administrativo</h3>
-              {leadTitle && <p className="text-xs opacity-70 truncate max-w-[200px]">Ref: {leadTitle}</p>}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center overflow-hidden border-2 border-white/20">
+                {attendantAvatar ? (
+                  <img src={attendantAvatar} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                ) : (
+                  <MessageCircle className="w-6 h-6" />
+                )}
+              </div>
+              <div>
+                <h3 className="font-bold">Suporte Administrativo</h3>
+                {leadTitle && <p className="text-xs opacity-70 truncate max-w-[200px]">Ref: {leadTitle}</p>}
+              </div>
             </div>
             <button type="button" onClick={() => setIsOpen(false)} className="hover:bg-white/10 p-1 rounded-full transition-colors">
               <X className="w-5 h-5" />
@@ -265,9 +283,10 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle, hide
                   <div className={`max-w-[80%] p-3 rounded-2xl text-sm shadow-sm flex items-end gap-2 ${msg.sender_id === user?.id ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-slate-800 text-white rounded-tl-none'}`}>
                     {msg.sender_id !== user?.id && (
                       <img 
-                        src={msg.profiles?.avatar_url || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=100&h=100&auto=format&fit=crop'} 
+                        src={msg.profiles?.avatar_url || attendantAvatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=100&h=100&auto=format&fit=crop'} 
                         alt="Avatar" 
                         className="w-6 h-6 rounded-full object-cover border border-white/20" 
+                        referrerPolicy="no-referrer"
                       />
                     )}
                     <div>
