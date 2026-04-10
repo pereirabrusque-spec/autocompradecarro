@@ -15,6 +15,7 @@ export const ApiManagement = ({
   handleDeleteApiKey,
   handleSaveApiKey,
   handleUpdateApiKey,
+  fetchData,
   newApiKey,
   newApiProvider,
   newApiModel
@@ -43,9 +44,9 @@ export const ApiManagement = ({
       
       if (!response.ok) {
         const errMsg = data.error?.toLowerCase() || '';
-        if (errMsg.includes('quota') || errMsg.includes('limit') || errMsg.includes('credit') || errMsg.includes('balance') || errMsg.includes('insufficient') || errMsg.includes('billing')) {
+        if (errMsg.includes('quota') || errMsg.includes('limit') || errMsg.includes('credit') || errMsg.includes('balance') || errMsg.includes('insufficient') || errMsg.includes('billing') || errMsg.includes('429')) {
           newStatus = 'no_credit';
-        } else if (errMsg.includes('denied access') || errMsg.includes('suspended') || errMsg.includes('disabled') || errMsg.includes('access_denied')) {
+        } else if (errMsg.includes('denied access') || errMsg.includes('suspended') || errMsg.includes('disabled') || errMsg.includes('access_denied') || errMsg.includes('invalid') || errMsg.includes('key')) {
           newStatus = 'disconnected';
         } else {
           newStatus = 'disconnected';
@@ -82,6 +83,7 @@ export const ApiManagement = ({
                   try {
                     const { AIService } = await import('../../services/aiService');
                     await AIService.testConnections();
+                    if (fetchData) await fetchData();
                     alert('Varredura completa concluída! O status de todas as APIs foi atualizado.');
                   } catch (err: any) {
                     alert('Erro ao testar APIs: ' + err.message);

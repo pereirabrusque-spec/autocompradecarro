@@ -196,7 +196,10 @@ export class AIService {
       return;
     }
 
-    const testPromises = allKeys.filter(k => k.provider !== 'grod').map(async (apiKey) => {
+    // Executa sequencialmente para evitar limites de taxa simultâneos e garantir estabilidade
+    for (const apiKey of allKeys) {
+      if (apiKey.provider === 'grod') continue;
+      
       try {
         const timeoutPromise = new Promise<never>((_, reject) => {
           setTimeout(() => reject(new Error('TIMEOUT')), 15000);
@@ -221,19 +224,21 @@ export class AIService {
         const errMsg = error.message?.toLowerCase() || '';
         let newStatus: 'ok' | 'no_credit' | 'disconnected' | 'rate_limited' = 'disconnected';
         
-        if (errMsg.includes('429') || errMsg.includes('too many requests') || errMsg.includes('quota_exceeded')) {
-          newStatus = 'rate_limited';
-        } else if (errMsg.includes('credit') || errMsg.includes('balance') || errMsg.includes('insufficient') || errMsg.includes('billing') || errMsg.includes('quota')) {
-          newStatus = 'no_credit';
-        } else if (errMsg.includes('key') || errMsg.includes('invalid') || errMsg.includes('unauthorized') || errMsg.includes('permission') || errMsg.includes('denied access') || errMsg.includes('suspended')) {
+        // Detecção mais robusta baseada nas mensagens de erro do servidor
+        if (errMsg.includes('quota_exceeded') || errMsg.includes('rate_limit') || errMsg.includes('429') || errMsg.includes('too many requests')) {
+          newStatus = 'no_credit'; // Marcamos como Amarelo (sem crédito/quota)
+        } else if (errMsg.includes('access_denied') || errMsg.includes('invalid') || errMsg.includes('key') || errMsg.includes('unauthorized') || errMsg.includes('permission') || errMsg.includes('suspended')) {
+          newStatus = 'disconnected'; // Marcamos como Vermelho (corrompida/sem acesso)
+        } else if (errMsg.includes('timeout') || errMsg.includes('fetch') || errMsg.includes('network')) {
+          // Se for erro de rede/timeout, mantemos o status anterior ou marcamos como instável
+          // Para simplificar, vamos manter como desconectada se falhar o teste
           newStatus = 'disconnected';
         }
         
         await this.updateKeyStatus(apiKey.id, newStatus, (apiKey.error_count || 0) + 1);
       }
-    });
+    }
 
-    await Promise.allSettled(testPromises);
     this.isTesting = false;
     console.log('[AIService] Teste manual concluído.');
   }

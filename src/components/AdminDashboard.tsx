@@ -5266,6 +5266,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
             newApiKey={newApiKey}
             newApiProvider={newApiProvider}
             newApiModel={newApiModel}
+            fetchData={fetchData}
           />
         )}
         {activeTab === 'footer' && (
