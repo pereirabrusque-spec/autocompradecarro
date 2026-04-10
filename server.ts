@@ -242,7 +242,9 @@ async function startServer() {
 
   async function testApiKey(provider: string, key: string) {
     const trimmedKey = key?.trim();
-    if (provider === 'gemini') {
+    const p = provider?.toLowerCase();
+    
+    if (p === 'gemini') {
       // 1. Fetch models first to see what's available and if the key is valid
       // Try v1beta as it's the most common for testing
       const modelsResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${trimmedKey}`);
@@ -299,7 +301,7 @@ async function startServer() {
       }
       
       return availableModels;
-    } else if (provider === 'openai') {
+    } else if (p === 'openai') {
       // Test with a minimal chat completion call
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -336,7 +338,7 @@ async function startServer() {
           !m.id.includes('vision')
         )
         .map((m: any) => m.id) || [];
-    } else if (provider === 'grok') {
+    } else if (p === 'grok' || p === 'xai') {
       const response = await fetch('https://api.x.ai/v1/chat/completions', {
         method: 'POST',
         headers: { 
@@ -368,7 +370,7 @@ async function startServer() {
         .map((m: any) => m.id) || [];
     } else {
       // Fallback for other OpenAI-compatible providers
-      const baseUrl = `https://api.${provider}.com/v1`;
+      const baseUrl = `https://api.${p}.com/v1`;
       
       // Minimal test call
       try {
@@ -387,7 +389,7 @@ async function startServer() {
         
         if (!response.ok) {
           const data = await response.json().catch(() => ({}));
-          const errMsg = data.error?.message || `Erro na API ${provider}`;
+          const errMsg = data.error?.message || `Erro na API ${p}`;
           if (errMsg.toLowerCase().includes('quota') || response.status === 429) {
             throw new Error('QUOTA_EXCEEDED: ' + errMsg);
           }
@@ -409,7 +411,7 @@ async function startServer() {
       if (modelsResponse.status === 404) return [];
       
       const data = await modelsResponse.json().catch(() => ({}));
-      if (!modelsResponse.ok) throw new Error(data.error?.message || `Chave ${provider} inválida`);
+      if (!modelsResponse.ok) throw new Error(data.error?.message || `Chave ${p} inválida`);
       return data.data?.map((m: any) => m.id) || [];
     }
   }
@@ -422,9 +424,10 @@ async function startServer() {
     } catch (error: any) {
       const errMsg = error.message || '';
       if (errMsg.includes('QUOTA_EXCEEDED') || errMsg.includes('ACCESS_DENIED')) {
-        console.warn(`[API Test] ${provider}: ${errMsg}`);
+        // Log as info/warn instead of error to avoid cluttering logs with known external status
+        console.info(`[API Status] ${provider}: ${errMsg}`);
       } else {
-        console.error(`[API Test] ${provider} Error:`, error);
+        console.error(`[API Test Error] ${provider}:`, error.message || error);
       }
       res.status(400).json({ error: errMsg || 'Erro de conexão com o provedor' });
     }

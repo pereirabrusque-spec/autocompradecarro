@@ -117,12 +117,9 @@ export class AIService {
   static async generateContent(prompt: string, systemInstruction: string, image?: string): Promise<AIResponse> {
     let keys = await this.getActiveKeys();
     
-    // Filtra apenas chaves que não estão marcadas como 'disconnected' permanentemente
-    // Mas permite tentar 'rate_limited' ou 'no_credit' se não houver 'ok'
-    const candidateKeys = keys.filter(k => k.status !== 'disconnected');
-    
-    // Se temos uma chave de sucesso anterior que ainda é candidata, ela já está no topo pelo sort
-    // Mas vamos garantir que tentamos ela primeiro se ela estiver 'ok'
+    // Filtra apenas chaves que estão marcadas como 'ok' (Verde)
+    // Isso evita tentar chaves que já sabemos que estão sem crédito ou limitadas
+    const candidateKeys = keys.filter(k => k.status === 'ok');
     
     let attempts = 0;
     const maxAttempts = Math.min(candidateKeys.length, 3); // Tenta no máximo 3 chaves diferentes por requisição
@@ -293,17 +290,14 @@ class AIClientManager {
       } else {
         // OpenAI-compatible providers (OpenAI, Grok, etc.)
         let baseUrl = '';
-        if (apiKey.provider === 'openai') {
+        const p = apiKey.provider?.toLowerCase();
+        
+        if (p === 'openai') {
           baseUrl = 'https://api.openai.com/v1';
-        } else if (apiKey.provider === 'grok') {
+        } else if (p === 'grok' || p === 'xai') {
           baseUrl = 'https://api.x.ai/v1';
-        } else if (apiKey.provider === 'grod') {
-          // Fix: Assuming grod is a typo for grok or a custom provider that needs a valid URL
-          // If it's a custom provider, the user should have provided a base URL.
-          // For now, let's assume it's a typo for grok or just block it if it's invalid.
-          throw new Error('Provedor "grod" inválido. Verifique o cadastro da API.');
         } else {
-          baseUrl = `https://api.${apiKey.provider}.com/v1`;
+          baseUrl = `https://api.${p}.com/v1`;
         }
 
         const content: any[] = [
