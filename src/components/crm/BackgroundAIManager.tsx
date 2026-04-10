@@ -259,13 +259,13 @@ export const BackgroundAIManager = () => {
             }
 
             try {
-                // Busca histórico recente para contexto
+                // Busca histórico recente para contexto (aumentado para 50 mensagens para pegar o início da conversa)
                 const { data: historyData } = await supabase
                     .from('internal_messages')
                     .select('*')
                     .or(`sender_id.eq.${senderId},receiver_id.eq.${senderId}`)
                     .order('created_at', { ascending: false })
-                    .limit(30);
+                    .limit(50);
 
                 const history = (historyData || []).reverse().map(m => 
                     `${m.sender_id === uid ? 'Admin' : 'Cliente'}: ${m.content} ${m.lead_id ? `(Ref: ${m.lead_id})` : ''}`
@@ -403,6 +403,7 @@ SUA MISSÃO:
 2. Se houver conflito entre o seu conhecimento geral e as REGRAS PERSONALIZADAS, as REGRAS PERSONALIZADAS prevalecem.
 3. Você deve consultar a MEMÓRIA DE LONGO PRAZO antes de formular qualquer resposta.
 4. **ISOLAMENTO:** Nunca utilize regras ou dados de vendedores neste chat de comprador.
+5. **HISTÓRICO COMPLETO:** Analise todo o histórico de mensagens fornecido (desde o início da conversa) para entender o contexto, o que já foi acordado, dúvidas anteriores e o perfil do cliente. Aja de forma consistente com o que já foi falado.
 
 ### CAPACIDADE DE VISÃO (ANÁLISE DE FOTOS)
 - **Se houver uma foto anexada ou no contexto:** Analise o estado de conservação do veículo. Identifique avarias visíveis (batidas, arranhões, peças faltando) e use isso para fundamentar sua análise técnica. Se a foto for de um documento, extraia os dados pertinentes.
@@ -510,8 +511,8 @@ REGRAS GERAIS:
                 return;
             }
 
-            // Aguarda delay maior (10-20s) para evitar colisões e dar tempo ao humano
-            const delay = Math.floor(Math.random() * 10000) + 10000; 
+            // Aguarda delay mínimo (1-3s) para ser extremamente rápido
+            const delay = Math.floor(Math.random() * 2000) + 1000; 
             await new Promise(resolve => setTimeout(resolve, delay));
 
             // Verifica se JÁ existe uma resposta de ADMIN ou BOT para ESTA mensagem
@@ -529,13 +530,13 @@ REGRAS GERAIS:
             }
 
             try {
-                // Busca histórico recente
+                // Busca histórico recente (aumentado para 50 mensagens)
                 const { data: historyData } = await supabase
                     .from('mensagens')
                     .select('*')
                     .eq('lead_id', leadId)
                     .order('created_at', { ascending: false })
-                    .limit(30);
+                    .limit(50);
 
                 const history = (historyData || []).reverse().map(m => 
                     `${m.remetente === 'cliente' ? 'Cliente' : 'Vendedor'}: ${m.conteudo}`
@@ -755,7 +756,7 @@ REGRAS GERAIS:
             for (const [leadId, lastMsg] of leadsArray) {
                 if (lastMsg.remetente === 'cliente') {
                     const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
-                    if (timeDiff > 300000) { // 5 minutos
+                    if (timeDiff > 120000) { // 2 minutos (mais rápido)
                         handlePublicMessage(lastMsg);
                     }
                 }
@@ -766,10 +767,10 @@ REGRAS GERAIS:
     useEffect(() => {
         if (!currentUserId) return;
 
-        // Escaneamento periódico para recuperação de chats abandonados (a cada 15 minutos)
+        // Escaneamento periódico para recuperação de chats abandonados (a cada 2 minutos)
         // Isso garante a continuidade do atendimento conforme solicitado.
         scanForOpenMessages(); 
-        const interval = setInterval(scanForOpenMessages, 900000); // 15 minutos
+        const interval = setInterval(scanForOpenMessages, 120000); // 2 minutos
 
         const channelName = `bg_ai_messages_${currentUserId}`;
         console.log(`[BackgroundAIManager] Iniciando monitoramento global: ${channelName}`);
