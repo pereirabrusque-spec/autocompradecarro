@@ -171,15 +171,17 @@ export default function AdminMessages({
           <div className="flex gap-2 mb-4">
             <button 
               onClick={() => setMessageTab('leads')}
-              className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${messageTab === 'leads' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}
+              className={`flex-1 py-2 rounded-xl text-[10px] font-black transition-all flex items-center justify-center gap-1 ${messageTab === 'leads' ? 'bg-slate-900 text-white shadow-md' : 'bg-slate-100 text-slate-600'}`}
             >
-              Leads
+              <Users className="w-3 h-3" />
+              VENDEDORES (LEADS)
             </button>
             <button 
               onClick={() => setMessageTab('internal')}
-              className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${messageTab === 'internal' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}
+              className={`flex-1 py-2 rounded-xl text-[10px] font-black transition-all flex items-center justify-center gap-1 ${messageTab === 'internal' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-600'}`}
             >
-              Equipe
+              <ShieldCheck className="w-3 h-3" />
+              COMPRADORES (CRM)
             </button>
           </div>
           
@@ -232,10 +234,10 @@ export default function AdminMessages({
                   setProposalCalculator(calculateProposal(lead));
                 }
               }}
-              className={`py-1 px-2 flex items-center gap-2 cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 ${selectedConversation?.conversation_key === conv.conversation_key ? 'bg-slate-50' : ''}`}
+              className={`py-2 px-3 flex items-center gap-3 cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 relative ${selectedConversation?.conversation_key === conv.conversation_key ? 'bg-slate-50 border-l-4 border-l-slate-900' : ''} ${conv.unread > 0 ? 'bg-blue-50/50' : ''}`}
             >
               <div className="relative">
-                <div className="w-8 h-8 rounded-full bg-slate-100 overflow-hidden flex-shrink-0">
+                <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden flex-shrink-0">
                   {(() => {
                     const profile = conv.customer_email ? users.find(u => u.email === conv.customer_email) : null;
                     const avatarUrl = profile?.avatar_url || (conv.lead?.fotos && conv.lead.fotos[0]);
@@ -256,7 +258,7 @@ export default function AdminMessages({
                 <div className="flex justify-between items-start">
                   <div className="flex flex-col min-w-0">
                     <div className="flex items-center gap-2">
-                      <h4 className="font-bold text-slate-900 truncate">
+                      <h4 className={`text-sm font-bold truncate ${conv.unread > 0 ? 'text-blue-900' : 'text-slate-900'}`}>
                         {(() => {
                           const profile = conv.customer_email ? users.find(u => u.email === conv.customer_email) : null;
                           return profile?.full_name || conv.lead?.cliente_nome || 'Cliente';
@@ -310,13 +312,13 @@ export default function AdminMessages({
                     </div>
                     <span className="text-[10px] text-slate-400 whitespace-nowrap">{new Date(conv.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     {conv.unread > 0 && (
-                      <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                        {conv.unread}
+                      <span className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full animate-pulse">
+                        NÃO VISUALIZADA
                       </span>
                     )}
                   </div>
                 </div>
-                <p className="text-xs text-slate-500 truncate">{conv.last_message}</p>
+                <p className={`text-xs truncate ${conv.unread > 0 ? 'text-blue-700 font-medium' : 'text-slate-500'}`}>{conv.last_message}</p>
               </div>
             </div>
           ))
@@ -328,10 +330,10 @@ export default function AdminMessages({
                   setSelectedInternalChat(conv.id);
                   fetchInternalMessages(conv.id);
                 }}
-                className={`py-1 px-2 flex items-center gap-2 cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 ${selectedInternalChat === conv.id ? 'bg-slate-50' : ''}`}
+                className={`py-2 px-3 flex items-center gap-3 cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 relative ${selectedInternalChat === conv.id ? 'bg-slate-50 border-l-4 border-l-indigo-600' : ''} ${conv.unread > 0 ? 'bg-indigo-50/50' : ''}`}
               >
                 <div className="relative">
-                  <div className="w-8 h-8 rounded-full bg-slate-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
                     {conv.profile?.avatar_url ? (
                       <img src={conv.profile.avatar_url} alt={conv.profile.full_name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
@@ -344,15 +346,19 @@ export default function AdminMessages({
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-start">
-                    <h4 className="font-bold text-slate-900 truncate">{conv.profile?.full_name || 'Usuário'}</h4>
-                    <span className="text-[10px] text-slate-400 whitespace-nowrap">{new Date(conv.last_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    <h4 className={`text-sm font-bold truncate ${conv.unread > 0 ? 'text-indigo-900' : 'text-slate-900'}`}>
+                      {conv.profile?.full_name || 'Usuário'}
+                    </h4>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="text-[10px] text-slate-400 whitespace-nowrap">{new Date(conv.last_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      {conv.unread > 0 && (
+                        <span className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full animate-pulse">
+                          NÃO VISUALIZADA
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <p className="text-xs text-slate-500 truncate">{conv.last_message}</p>
-                  {conv.unread > 0 && (
-                    <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                      {conv.unread}
-                    </span>
-                  )}
+                  <p className={`text-xs truncate ${conv.unread > 0 ? 'text-indigo-700 font-medium' : 'text-slate-500'}`}>{conv.last_message}</p>
                 </div>
               </div>
             ))

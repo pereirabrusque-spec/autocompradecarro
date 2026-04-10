@@ -716,9 +716,9 @@ REGRAS GERAIS:
             const conversationsArray = Array.from(conversations.entries()).slice(0, 5); // Limita a 5 conversas por scan
             for (const [senderId, lastMsg] of conversationsArray) {
                 if (lastMsg.sender_id !== uid) {
-                    // Verifica se já passou tempo suficiente (ex: 1 minuto) para não atropelar o tempo real
+                    // Verifica se já passou tempo suficiente (ex: 5 minutos) para considerar abandonado/parado
                     const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
-                    if (timeDiff > 60000) {
+                    if (timeDiff > 300000) { // 5 minutos
                         handleInternalMessage(lastMsg);
                     }
                 }
@@ -742,7 +742,7 @@ REGRAS GERAIS:
             for (const [leadId, lastMsg] of leadsArray) {
                 if (lastMsg.remetente === 'cliente') {
                     const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
-                    if (timeDiff > 60000) {
+                    if (timeDiff > 300000) { // 5 minutos
                         handlePublicMessage(lastMsg);
                     }
                 }
@@ -753,9 +753,10 @@ REGRAS GERAIS:
     useEffect(() => {
         if (!currentUserId) return;
 
-        // Escaneamento periódico removido para economizar créditos.
-        // O sistema agora depende 100% de eventos em tempo real (Realtime).
-        // scanForOpenMessages(); 
+        // Escaneamento periódico para recuperação de chats abandonados (a cada 15 minutos)
+        // Isso garante a continuidade do atendimento conforme solicitado.
+        scanForOpenMessages(); 
+        const interval = setInterval(scanForOpenMessages, 900000); // 15 minutos
 
         const channelName = `bg_ai_messages_${currentUserId}`;
         console.log(`[BackgroundAIManager] Iniciando monitoramento global: ${channelName}`);
@@ -785,6 +786,7 @@ REGRAS GERAIS:
             .subscribe();
 
         return () => {
+            clearInterval(interval);
             supabase.removeChannel(internalMessageSubscription);
             supabase.removeChannel(publicMessageSubscription);
         };
