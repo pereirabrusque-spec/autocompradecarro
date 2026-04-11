@@ -747,13 +747,14 @@ REGRAS GERAIS:
         console.log('[BackgroundAIManager] Escaneando mensagens em aberto (últimas 24h)...');
 
         // 1. Escaneia mensagens internas (Compradores)
+        // Inclui mensagens para o usuário atual e para o ID genérico de suporte
         const { data: openInternal } = await supabase
             .from('internal_messages')
             .select('*')
-            .eq('receiver_id', uid)
+            .or(`receiver_id.eq.${uid},receiver_id.eq.00000000-0000-0000-0000-000000000000`)
             .gt('created_at', oneDayAgo)
             .order('created_at', { ascending: false })
-            .limit(50);
+            .limit(100);
 
         if (openInternal) {
             // Agrupa por sender_id e pega a última

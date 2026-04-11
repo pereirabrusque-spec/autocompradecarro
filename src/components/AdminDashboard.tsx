@@ -800,10 +800,14 @@ export default function AdminDashboard() {
       setSentLeads(sentData || []);
       
       // Group internal messages and populate internalConversations
+      // Optimized: Fetch only messages from the last 30 days to improve agility
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
       const { data: internalMessagesData } = await supabase
         .from('internal_messages')
         .select('*')
-        .order('created_at', { ascending: false });
+        .gt('created_at', thirtyDaysAgo)
+        .order('created_at', { ascending: false })
+        .limit(1000);
 
       const groupedInternal: any[] = [];
       const internalIds = new Set();
@@ -2521,6 +2525,20 @@ Podemos prosseguir com o agendamento da vistoria?`;
     }
     setIsSavingBuyer(true);
     try {
+      // Check for duplication before saving
+      const { data: existing } = await supabase
+        .from('interested_buyers')
+        .select('id')
+        .or(`email.eq.${newBuyer.email},phone.eq.${newBuyer.phone}`)
+        .maybeSingle();
+
+      if (existing) {
+        if (!confirm('Já existe um comprador com este e-mail ou telefone. Deseja cadastrar mesmo assim?')) {
+          setIsSavingBuyer(false);
+          return;
+        }
+      }
+
       const buyerData: any = {
         ...newBuyer,
         email: newBuyer.email.trim() === '' ? null : newBuyer.email.trim(),
@@ -2780,6 +2798,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 { id: 'assets', label: 'Fotos', icon: Maximize2, roles: ['admin'] },
                 { id: 'footer', label: 'Rodapé', icon: Info, roles: ['admin'] },
                 { id: 'leads', label: 'Leads', icon: Car, roles: ['admin', 'buyer_premium', 'buyer_master', 'user', 'seller'] },
+                { id: 'crm', label: 'CRM Compradores', icon: UserPlus, roles: ['admin'] },
                 { id: 'messages', label: 'Mensagens', icon: MessageCircle, badge: conversations.reduce((acc, curr) => acc + (curr.unread || 0), 0), roles: ['admin', 'user', 'seller'] },
                 { id: 'crm_chat', label: 'CRM Chat', icon: MessageCircle, roles: ['admin', 'buyer', 'buyer_premium', 'buyer_master'] },
                 { id: 'users', label: 'Equipe & CRM', icon: Users, roles: ['admin'] },
