@@ -159,7 +159,6 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
             await supabase
               .from('leads_veiculos')
               .update({ 
-                updated_at: new Date().toISOString(),
                 cliente_nome: user.user_metadata?.full_name || profile?.full_name || 'Cliente',
                 user_id: user.id
               })
@@ -630,8 +629,10 @@ DADOS DO VEÍCULO ATUAL (LEAD):
           if (data.notifications_authorized) {
             if ('Notification' in window) {
               Notification.requestPermission().then(permission => {
-                if (permission === 'granted') {
-                  supabase.from('leads_veiculos').update({ notifications_enabled: true }).eq('id', leadId);
+                if (permission === 'granted' && leadId) {
+                  supabase.from('leads_veiculos').update({ notifications_enabled: true }).eq('id', leadId).then(({ error }) => {
+                    if (error) console.error("[ChatAssistant] Error updating notifications_enabled:", error);
+                  });
                   playNotificationSound();
                   setMessages(prev => [...prev, 
                     ...(textToShow ? [{ role: 'bot' as const, text: textToShow }] : []),
@@ -646,6 +647,11 @@ DADOS DO VEÍCULO ATUAL (LEAD):
           // Handle Lead Submission
           const leadData = data;
           
+          if (!leadId) {
+            console.error("[ChatAssistant] Cannot save lead data: leadId is null");
+            return;
+          }
+
           // Determine status based on data
           let status = 'frio';
           if (leadData.proposal_value) status = 'morno';
@@ -714,13 +720,16 @@ DADOS DO VEÍCULO ATUAL (LEAD):
       console.error("Erro ao gerar resposta da IA:", error);
       playNotificationSound();
       
-      let errorMsg = 'Desculpe, estou com dificuldades técnicas no momento. Por favor, tente novamente em breve ou aguarde um consultor humano.';
+      // Mensagem amigável padrão solicitada pelo usuário
+      let errorMsg = 'Um consultor técnico já foi notificado e irá te responder em breve. Por favor, aguarde um momento.';
+      
       const lowerError = error.message?.toLowerCase() || '';
       
+      // Log interno detalhado para o admin (visível no console)
       if (lowerError.includes('quota') || lowerError.includes('limit') || lowerError.includes('429')) {
-        errorMsg = '⚠️ **Limite de API atingido.** Nossas chaves de IA estão temporariamente sem saldo ou com limite excedido. Por favor, tente novamente em alguns minutos ou aguarde um consultor.';
+        console.warn('⚠️ Limite de API atingido nas chaves configuradas.');
       } else if (lowerError.includes('excedido número máximo de tentativas')) {
-        errorMsg = '⚠️ **Todas as chaves de IA falharam.** Estamos com instabilidade nos provedores. Por favor, tente novamente em instantes.';
+        console.warn('⚠️ Todas as chaves de IA falharam ou estão offline.');
       }
 
       setMessages(prev => [...prev, { 

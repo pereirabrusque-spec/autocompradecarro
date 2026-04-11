@@ -31,8 +31,8 @@ export class AIService {
       }
     }
 
-    // Cache keys for 30 seconds unless forced
-    if (!forceRefresh && this.cachedKeys.length > 0 && (now - this.lastFetchTime < 30000)) {
+    // Cache keys for 60 seconds unless forced (increased from 30s)
+    if (!forceRefresh && this.cachedKeys.length > 0 && (now - this.lastFetchTime < 60000)) {
       return this.cachedKeys;
     }
 
@@ -98,17 +98,18 @@ export class AIService {
     }
     
     try {
+      const updateData: any = { status, error_count: errorCount };
+      if (status === 'ok') {
+        updateData.last_used = now;
+      }
+
       await supabase
         .from('api_keys')
-        .update({ 
-          status, 
-          error_count: errorCount,
-          last_used: now
-        })
+        .update(updateData)
         .eq('id', id);
       
       // Update cache
-      this.cachedKeys = this.cachedKeys.map(k => k.id === id ? { ...k, status, error_count: errorCount, last_used: now } : k);
+      this.cachedKeys = this.cachedKeys.map(k => k.id === id ? { ...k, ...updateData } : k);
     } catch (e) {
       console.error('Error updating key status:', e);
     }
@@ -118,8 +119,17 @@ export class AIService {
     let keys = await this.getActiveKeys();
     
     // Filtra apenas chaves que estão marcadas como 'ok' (Verde)
-    // Isso evita tentar chaves que já sabemos que estão sem crédito ou limitadas
-    const candidateKeys = keys.filter(k => k.status === 'ok');
+    // Ou chaves que estão 'no_credit' mas não foram testadas há mais de 24 horas
+    const now = new Date().getTime();
+    const candidateKeys = keys.filter(k => {
+      if (k.status === 'ok' || k.id === 'env-key') return true;
+      if (k.status === 'no_credit' || k.status === 'rate_limited') {
+        const lastUsed = k.last_used ? new Date(k.last_used).getTime() : 0;
+        const hoursSinceLastUse = (now - lastUsed) / (1000 * 60 * 60);
+        return hoursSinceLastUse > 1; // Tenta novamente após 1h (reduzido de 24h)
+      }
+      return false;
+    });
     
     let attempts = 0;
     const maxAttempts = Math.min(candidateKeys.length, 3); // Tenta no máximo 3 chaves diferentes por requisição
@@ -157,6 +167,9 @@ export class AIService {
         } else if (errMsg.includes('quota') || errMsg.includes('credit') || errMsg.includes('balance') || errMsg.includes('insufficient') || errMsg.includes('billing')) {
           newStatus = 'no_credit';
           console.warn(`[AIService] Chave ${apiKey.id} está sem saldo ou quota excedida.`);
+        } else if (errMsg.includes('model') || errMsg.includes('not found') || errMsg.includes('exist')) {
+          newStatus = 'disconnected';
+          console.error(`[AIService] Modelo inválido para a chave ${apiKey.id}: ${apiKey.service}`);
         } else if (errMsg.includes('key') || errMsg.includes('invalid') || errMsg.includes('unauthorized') || errMsg.includes('permission') || errMsg.includes('denied access') || errMsg.includes('suspended')) {
           newStatus = 'disconnected';
         }
@@ -255,7 +268,39 @@ class AIClientManager {
   private static clients: Map<string, any> = new Map();
 
   static async execute(apiKey: any, prompt: string, systemInstruction: string, image?: string): Promise<AIResponse> {
-    let modelName = apiKey.service || (apiKey.provider === 'gemini' ? 'gemini-1.5-flash' : 'gpt-4o-mini');
+    // Clean model name: remove provider prefix if present (e.g., "openai - gpt-4o-mini" -> "gpt-4o-mini")
+    let rawModel = apiKey.service || (apiKey.provider === 'gemini' ? 'gemini-1.5-flash' : 'gpt-4o-mini');
+    let modelName = rawModel;
+    
+    if (rawModel.includes(' - ')) {
+      const parts = rawModel.split(' - ');
+      modelName = parts[parts.length - 1].trim();
+    } else if (rawModel.includes(':')) {
+      const parts = rawModel.split(':');
+      modelName = parts[parts.length - 1].trim();
+    }
+
+    // Mapeamento de nomes amigáveis para IDs reais
+    const lowerModel = modelName.toLowerCase().trim();
+    console.log(`[AIService] Modelo original: "${rawModel}" -> Limpo: "${modelName}"`);
+
+    if (apiKey.provider === 'groq') {
+      if (lowerModel.includes('llama 3.3') || lowerModel.includes('llama-3.3')) modelName = 'llama-3.3-70b-versatile';
+      else if (lowerModel.includes('llama 3') || lowerModel.includes('llama3')) modelName = 'llama3-8b-8192';
+      else if (lowerModel.includes('mixtral')) modelName = 'mixtral-8x7b-32768';
+      else if (lowerModel.includes('gemma')) modelName = 'gemma2-9b-it';
+    } else if (apiKey.provider === 'openai') {
+      if (lowerModel.includes('gpt-4o-mini') || lowerModel.includes('gpt-4o mini')) modelName = 'gpt-4o-mini';
+      else if (lowerModel.includes('gpt-4o') || lowerModel.includes('gpt4o')) modelName = 'gpt-4o';
+      else if (lowerModel.includes('gpt-4') || lowerModel.includes('gpt4')) modelName = 'gpt-4';
+      else if (lowerModel.includes('gpt-3.5') || lowerModel.includes('gpt3.5')) modelName = 'gpt-3.5-turbo';
+    } else if (apiKey.provider === 'gemini') {
+      if (lowerModel.includes('flash')) modelName = 'gemini-1.5-flash';
+      else if (lowerModel.includes('pro')) modelName = 'gemini-1.5-pro';
+    }
+
+    console.log(`[AIService] Modelo mapeado final: "${modelName}" para provedor: ${apiKey.provider}`);
+
     if (modelName === 'gemini-3-flash-preview' || modelName === 'gemini-pro' || modelName === 'gemini-1.5-pro') {
       // Use gemini-1.5-flash as default for better reliability unless specifically overridden
       if (!apiKey.service) modelName = 'gemini-1.5-flash';
