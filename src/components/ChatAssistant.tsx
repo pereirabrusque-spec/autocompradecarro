@@ -424,9 +424,11 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
 
     setIsLoading(true);
 
-    // Se a IA estiver desativada para este lead, não responde automaticamente
-    if (isAiDisabled) {
-      console.log("[ChatAssistant] AI is disabled for this lead, skipping response.");
+    const isGlobalAiEnabled = settings['AI_CRM_ENABLED'] === 'true';
+
+    // Se a IA estiver desativada globalmente ou para este lead, não responde automaticamente
+    if (!isGlobalAiEnabled || isAiDisabled) {
+      console.log(`[ChatAssistant] AI response skipped. Global: ${isGlobalAiEnabled}, Lead Disabled: ${isAiDisabled}`);
       setIsLoading(false);
       return;
     }

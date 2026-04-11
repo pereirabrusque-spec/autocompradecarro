@@ -168,23 +168,29 @@ export const BackgroundAIManager = () => {
         };
     }, []);
 
-    const handleInternalMessage = async (payload: any) => {
+    const handleInternalMessage = async (payload: any, isFollowUp = false) => {
         const uid = currentUserIdRef.current;
         if (!uid) return;
 
-        // Só processa se a mensagem for para o admin logado ou para o ID genérico de suporte
-        const isForMe = payload.receiver_id === uid || 
-                        payload.receiver_id === '00000000-0000-0000-0000-000000000000' || 
-                        (!payload.receiver_id && uid);
+        // Se for follow-up, o payload é a última mensagem enviada pelo ADMIN
+        // Se não for follow-up, o payload é a mensagem recebida do CLIENTE
+        const senderId = isFollowUp ? payload.receiver_id : payload.sender_id;
+        const messageId = payload.id;
+
+        // Só processa se a mensagem for para o admin logado ou para o ID genérico de suporte (se não for follow-up)
+        if (!isFollowUp) {
+            const isForMe = payload.receiver_id === uid || 
+                            payload.receiver_id === '00000000-0000-0000-0000-000000000000' || 
+                            (!payload.receiver_id && uid);
+            
+            if (!isForMe || payload.sender_id === uid) return;
+        }
         
-        console.log(`[BackgroundAIManager] Mensagem ${payload.id} recebida. isForMe: ${isForMe}, sender_id: ${payload.sender_id}, uid: ${uid}`);
+        console.log(`[BackgroundAIManager] Processando mensagem interna. isFollowUp: ${isFollowUp}, sender_id: ${senderId}`);
 
-        // Só responde se a mensagem não for minha
-        if (isForMe && payload.sender_id !== uid) {
-            const senderId = payload.sender_id;
-            const messageId = payload.id;
-
-            console.log(`[BackgroundAIManager] 🤖 IA processando mensagem interna (${messageId}) de ${senderId}.`);
+        // Só responde se a mensagem não for minha (ou se for follow-up)
+        if (isFollowUp || (payload.sender_id !== uid)) {
+            console.log(`[BackgroundAIManager] 🤖 IA processando mensagem interna (${messageId}) de/para ${senderId}.`);
             // addLog removido por não estar definido neste escopo
             
             // Verifica se o remetente é um comprador ou vendedor
@@ -224,7 +230,7 @@ export const BackgroundAIManager = () => {
             }
 
             if (!shouldRespond) {
-                console.log(`[BackgroundAIManager] ⏭️ IA ignorando resposta (shouldRespond: false).`);
+                console.log(`[BackgroundAIManager] ⏭️ IA ignorando resposta para ${senderId} (Global: ${isGlobalAiEnabled}, Conversa: ${conversationAiState}).`);
                 return;
             }
 
@@ -255,7 +261,7 @@ export const BackgroundAIManager = () => {
                 .limit(1);
 
             if (recentAdminMsg && recentAdminMsg.length > 0) {
-                console.log(`[BackgroundAIManager] Outro admin ou IA já respondeu para a mensagem interna ${messageId}. Pulando.`);
+                console.log(`[BackgroundAIManager] 🛑 Outro admin ou IA já respondeu para a mensagem interna ${messageId}. Abortando para evitar duplicidade.`);
                 return;
             }
 
@@ -296,7 +302,7 @@ export const BackgroundAIManager = () => {
                 const { data: sellerInventory } = await supabase
                     .from('leads_veiculos')
                     .select('id, marca, modelo, ano_modelo, preco_cliente, situacao_financeira, cor, quilometragem')
-                    .eq('user_id', uid)
+                    .eq('user_id', senderId)
                     .neq('id', currentLeadId)
                     .limit(15);
 
@@ -382,6 +388,17 @@ DETALHES COMPLETOS DO VEÍCULO EM FOCO:
                 const isFormFilled = !!(specificLead && specificLead.marca && specificLead.modelo);
                 const isBuyerContext = isBuyer || !!payload.lead_id;
 
+                const followUpContext = isFollowUp 
+                    ? `\n[MODO FOLLOW-UP ATIVADO]
+O cliente visualizou sua última mensagem mas não respondeu. 
+**MISSÃO:** Tente re-engajar o cliente usando GATILHOS DE ${isBuyerContext ? 'VENDA' : 'COMPRA'}.
+**GATILHOS RECOMENDADOS:**
+${isBuyerContext ? 
+    '- ESCASSEZ: "Temos outros interessados neste modelo."\n- OPORTUNIDADE: "Essa condição é exclusiva para esta semana."\n- SEGURANÇA: "Veículo com laudo cautelar aprovado e garantia."' : 
+    '- CONVENIÊNCIA: "Resolvemos toda a burocracia para você."\n- AGILIDADE: "Pagamento à vista via PIX assim que aprovado."\n- VALORIZAÇÃO: "Nossa análise técnica valoriza os opcionais do seu carro."'}
+Seja amigável mas incisivo. Verifique se a conversa não foi finalizada antes de enviar.`
+                    : "";
+
                 const formStatusContext = isBuyerContext
                     ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**CONTEXTO DE COMPRA:** O cliente é um COMPRADOR interessado no veículo ${specificLead?.marca} ${specificLead?.modelo}. \n**AÇÃO:** Seja um vendedor persuasivo. Fale sobre as qualidades deste veículo específico, condições de pagamento e incentive o fechamento. NÃO peça para preencher formulário de venda.`
                     : (isFormFilled 
@@ -392,6 +409,7 @@ DETALHES COMPLETOS DO VEÍCULO EM FOCO:
 [SISTEMA DE CONTROLE DE AGENTES E MEMÓRIA — AUTOCOMPRA.ONLINE]
 IDENTIFICAÇÃO DO PERFIL: ${isBuyerContext ? 'COMPRADOR (INTERESSADO EM ESTOQUE)' : 'VENDEDOR (QUERENDO VENDEDOR VEÍCULO)'}
 OBJETIVO: Roteamento inteligente e uso estrito de memórias/regras.
+${followUpContext}
 
 ### 1. CONTEXTO: CHAT DO SITE — COMPRADOR (CRM)
 - **AMBIENTE:** ADMIN > CRM > MENSAGENS
@@ -461,7 +479,8 @@ REGRAS GERAIS:
                         receiver_id: senderId,
                         content: response.text,
                         sender_id: uid,
-                        lead_id: currentLeadId
+                        lead_id: currentLeadId,
+                        metadata: { is_follow_up: isFollowUp }
                     });
                     
                     // Marca a mensagem original como lida já que a IA respondeu
@@ -469,11 +488,11 @@ REGRAS GERAIS:
                     await supabase.from('internal_messages')
                         .update({ 
                             [readCol]: true,
-                            metadata: { ...(payload.metadata || {}), ai_handled: true }
+                            metadata: { ...(payload.metadata || {}), ai_handled: true, followed_up: isFollowUp }
                         })
                         .eq('id', payload.id);
 
-                    console.log('[BackgroundAIManager] Resposta automática enviada para interna');
+                    console.log(`[BackgroundAIManager] Resposta automática enviada para interna (FollowUp: ${isFollowUp})`);
                 }
             } catch (err) {
                 console.error('[BackgroundAIManager] Erro ao processar resposta interna:', err);
@@ -487,22 +506,22 @@ REGRAS GERAIS:
         }
     };
 
-    const handlePublicMessage = async (payload: any) => {
+    const handlePublicMessage = async (payload: any, isFollowUp = false) => {
         const uid = currentUserIdRef.current;
         if (!uid) return;
 
-        // Skip messages already handled by the chat widget or that have specific metadata
-        if (payload.metadata?.from_chat_widget || payload.metadata?.ai_handled) {
-            console.log(`[BackgroundAIManager] Mensagem ${payload.id} já marcada como processada. Pulando.`);
+        // Skip messages already handled or that have specific metadata
+        if (payload.metadata?.ai_handled && !isFollowUp) {
+            console.log(`[BackgroundAIManager] Mensagem ${payload.id} já marcada como processada pela IA. Pulando.`);
             return;
         }
 
-        // Só responde se a mensagem for do cliente
-        if (payload.remetente === 'cliente') {
+        // Só responde se a mensagem for do cliente (ou se for follow-up)
+        if (payload.remetente === 'cliente' || isFollowUp) {
             const leadId = payload.lead_id;
             const messageId = payload.id;
 
-            console.log(`[BackgroundAIManager] IA Global processando mensagem de lead (${messageId}) para lead ${leadId}`);
+            console.log(`[BackgroundAIManager] IA Global processando mensagem de lead (${messageId}). isFollowUp: ${isFollowUp}`);
             
             // Verifica se a IA está habilitada globalmente
             const isGlobalAiEnabled = isAiEnabledRef.current;
@@ -537,7 +556,7 @@ REGRAS GERAIS:
                 .limit(1);
 
             if (recentMsg && recentMsg.length > 0) {
-                console.log(`[BackgroundAIManager] Já existe uma resposta posterior para o lead ${leadId}. Pulando.`);
+                console.log(`[BackgroundAIManager] 🛑 Já existe uma resposta posterior para o lead ${leadId}. Abortando para evitar duplicidade.`);
                 return;
             }
 
@@ -628,6 +647,17 @@ VEÍCULO EM NEGOCIAÇÃO:
                 }
 
                 const isFormFilled = !!(vehicle && vehicle.marca && vehicle.modelo);
+                const followUpContext = isFollowUp 
+                    ? `\n[MODO FOLLOW-UP ATIVADO]
+O cliente visualizou sua última mensagem mas não respondeu. 
+**MISSÃO:** Tente re-engajar o cliente usando GATILHOS DE COMPRA (persuasão para ele vender para nós).
+**GATILHOS RECOMENDADOS:**
+- CONVENIÊNCIA: "Resolvemos toda a burocracia e transferência."
+- AGILIDADE: "Dinheiro na conta hoje mesmo via PIX."
+- VALORIZAÇÃO: "Conseguimos cobrir ofertas se o carro estiver impecável."
+Seja amigável mas incisivo. Verifique se a conversa não foi finalizada antes de enviar.`
+                    : "";
+
                 const formStatusContext = isFormFilled 
                     ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente JÁ PREENCHEU o formulário com os dados do veículo. \n**AÇÃO:** Fale sobre o veículo dele, demonstre interesse técnico e informe que a proposta oficial está sendo analisada pela nossa equipe técnica e será enviada em breve. NÃO peça para preencher o formulário novamente. Foque em manter o cliente engajado enquanto aguarda.`
                     : `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente AINDA NÃO preencheu o formulário com os dados do veículo. \n**AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação.`;
@@ -636,6 +666,7 @@ VEÍCULO EM NEGOCIAÇÃO:
 [SISTEMA DE CONTROLE DE AGENTES E MEMÓRIA — AUTOCOMPRA.ONLINE]
 IDENTIFICAÇÃO DO PERFIL: VENDEDOR (QUERENDO VENDER VEÍCULO)
 OBJETIVO: Roteamento inteligente e uso estrito de memórias/regras.
+${followUpContext}
 
 ### 1. CONTEXTO: CHAT DO SITE — VENDEDOR (LEADS)
 - **AMBIENTE:** ADMIN > MENSAGENS
@@ -706,7 +737,7 @@ REGRAS GERAIS:
                         lead_id: leadId,
                         conteudo: response.text,
                         remetente: 'bot',
-                        metadata: { ai_handled: true, original_message_id: payload.id }
+                        metadata: { ai_handled: true, original_message_id: payload.id, is_follow_up: isFollowUp }
                     });
 
                     if (sendError) {
@@ -719,11 +750,11 @@ REGRAS GERAIS:
                     await supabase.from('mensagens')
                         .update({ 
                             lida: true,
-                            metadata: { ...(payload.metadata || {}), ai_handled: true }
+                            metadata: { ...(payload.metadata || {}), ai_handled: true, followed_up: isFollowUp }
                         })
                         .eq('id', payload.id);
 
-                    console.log('[BackgroundAIManager] Resposta automática enviada para lead');
+                    console.log(`[BackgroundAIManager] Resposta automática enviada para lead (FollowUp: ${isFollowUp})`);
                 } else {
                     console.warn("[BackgroundAIManager] No lead response generated by AI Service.");
                 }
@@ -741,61 +772,72 @@ REGRAS GERAIS:
 
     const scanForOpenMessages = async () => {
         const uid = currentUserIdRef.current;
-        if (!uid || !isAiEnabledRef.current) return;
+        if (!uid) return;
+        if (!isAiEnabledRef.current) return;
 
         const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-        console.log('[BackgroundAIManager] Escaneando mensagens em aberto (últimas 24h)...');
+        console.log('[BackgroundAIManager] Escaneando mensagens em aberto e follow-ups...');
 
         // 1. Escaneia mensagens internas (Compradores)
-        // Inclui mensagens para o usuário atual e para o ID genérico de suporte
-        const { data: openInternal } = await supabase
+        const { data: allInternal } = await supabase
             .from('internal_messages')
             .select('*')
-            .or(`receiver_id.eq.${uid},receiver_id.eq.00000000-0000-0000-0000-000000000000`)
+            .or(`receiver_id.eq.${uid},sender_id.eq.${uid},receiver_id.eq.00000000-0000-0000-0000-000000000000`)
             .gt('created_at', oneDayAgo)
-            .order('created_at', { ascending: false })
-            .limit(100);
+            .order('created_at', { ascending: false });
 
-        if (openInternal) {
-            // Agrupa por sender_id e pega a última
-            const conversations = new Map();
-            openInternal.forEach(m => {
-                if (!conversations.has(m.sender_id)) conversations.set(m.sender_id, m);
+        if (allInternal) {
+            const convs = new Map();
+            allInternal.forEach(m => {
+                const otherId = m.sender_id === uid ? m.receiver_id : m.sender_id;
+                if (!convs.has(otherId)) convs.set(otherId, m);
             });
 
-            const conversationsArray = Array.from(conversations.entries()).slice(0, 5); // Limita a 5 conversas por scan
-            for (const [senderId, lastMsg] of conversationsArray) {
+            for (const [otherId, lastMsg] of convs.entries()) {
                 const readCol = lastMsg.is_read !== undefined ? 'is_read' : 'read';
-                if (!lastMsg[readCol] && !lastMsg.metadata?.ai_handled && !lastMsg.metadata?.ai_failed) {
-                    // Verifica se já passou tempo suficiente (ex: 5 minutos) para considerar abandonado/parado
-                    const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
-                    if (timeDiff > 300000) { // 5 minutos
+                const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
+
+                // Caso 1: Mensagem recebida e não respondida (última mensagem é do cliente)
+                if (lastMsg.sender_id !== uid && !lastMsg.metadata?.ai_handled && !lastMsg.metadata?.ai_failed) {
+                    if (timeDiff > 300000) { // 5 min
                         handleInternalMessage(lastMsg);
+                    }
+                }
+                // Caso 2: Follow-up (Nós enviamos, ele leu mas não respondeu)
+                else if (lastMsg.sender_id === uid && lastMsg[readCol] && !lastMsg.metadata?.followed_up) {
+                    if (timeDiff > 7200000) { // 2 horas para follow-up
+                        handleInternalMessage(lastMsg, true);
                     }
                 }
             }
         }
 
         // 2. Escaneia mensagens públicas (Vendedores)
-        const { data: openPublic } = await supabase
+        const { data: allPublic } = await supabase
             .from('mensagens')
             .select('*')
             .gt('created_at', oneDayAgo)
-            .order('created_at', { ascending: false })
-            .limit(100);
+            .order('created_at', { ascending: false });
 
-        if (openPublic) {
+        if (allPublic) {
             const leads = new Map();
-            openPublic.forEach(m => {
+            allPublic.forEach(m => {
                 if (!leads.has(m.lead_id)) leads.set(m.lead_id, m);
             });
 
-            const leadsArray = Array.from(leads.entries()).slice(0, 5); // Limita a 5 leads por scan
-            for (const [leadId, lastMsg] of leadsArray) {
+            for (const [leadId, lastMsg] of leads.entries()) {
+                const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
+
+                // Caso 1: Cliente mandou e não respondemos (última mensagem é do cliente)
                 if (lastMsg.remetente === 'cliente' && !lastMsg.metadata?.ai_handled && !lastMsg.metadata?.ai_failed) {
-                    const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
-                    if (timeDiff > 120000) { // 2 minutos (mais rápido)
+                    if (timeDiff > 120000) { // 2 min
                         handlePublicMessage(lastMsg);
+                    }
+                }
+                // Caso 2: Follow-up (Bot mandou, cliente leu mas não respondeu)
+                else if (lastMsg.remetente !== 'cliente' && lastMsg.lida && !lastMsg.metadata?.followed_up) {
+                    if (timeDiff > 7200000) { // 2 horas
+                        handlePublicMessage(lastMsg, true);
                     }
                 }
             }

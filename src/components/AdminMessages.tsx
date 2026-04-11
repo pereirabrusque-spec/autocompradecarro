@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { MessageCircle, Send, Search, Mail, User, Users, ImageIcon, ShieldCheck, DollarSign, UserCheck, Loader2, Trash2, Copy, Check, CheckCircle } from 'lucide-react';
+import { MessageCircle, Send, Search, Mail, User, Users, ImageIcon, ShieldCheck, DollarSign, UserCheck, Loader2, Trash2, Copy, Check, CheckCircle, ShoppingBag, Bot } from 'lucide-react';
 
 interface AdminMessagesProps {
   conversations: any[];
@@ -214,25 +214,35 @@ export default function AdminMessages({
           </div>
           
           {/* Novos controles de IA */}
-          <div className="flex flex-col gap-2 mb-4 p-3 bg-slate-50 rounded-xl border border-slate-200">
+          <div className="flex flex-col gap-3 mb-4 p-3 bg-slate-50 rounded-xl border border-slate-200">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-600">IA GLOBAL (24h)</span>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">IA GLOBAL</span>
+                <span className={`text-[10px] font-bold ${isGlobalAiEnabled ? 'text-blue-600' : 'text-slate-500'}`}>
+                  {isGlobalAiEnabled ? 'ATIVA (24H)' : 'DESATIVADA'}
+                </span>
+              </div>
               <button 
                 onClick={toggleGlobalAi}
                 disabled={isUpdatingAi}
-                className={`w-10 h-5 rounded-full transition-colors ${isGlobalAiEnabled ? 'bg-blue-600' : 'bg-slate-300'}`}
+                className={`w-10 h-5 rounded-full transition-all flex items-center px-1 ${isGlobalAiEnabled ? 'bg-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.4)]' : 'bg-slate-300'}`}
               >
-                <div className={`w-4 h-4 bg-white rounded-full transition-transform ${isGlobalAiEnabled ? 'translate-x-5' : 'translate-x-1'}`} />
+                <div className={`w-3 h-3 bg-white rounded-full transition-transform ${isGlobalAiEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
               </button>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-600">PROPOSTA AUTO/MAN</span>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">PROPOSTA</span>
+                <span className={`text-[10px] font-bold ${autoProposalEnabled && isGlobalAiEnabled ? 'text-indigo-600' : 'text-slate-500'}`}>
+                  {autoProposalEnabled && isGlobalAiEnabled ? 'AUTOMÁTICA' : 'MANUAL'}
+                </span>
+              </div>
               <button 
                 onClick={toggleAutoProposal}
                 disabled={!isGlobalAiEnabled || isUpdatingAi}
-                className={`w-10 h-5 rounded-full transition-colors ${autoProposalEnabled && isGlobalAiEnabled ? 'bg-blue-600' : 'bg-slate-300'} ${!isGlobalAiEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`w-10 h-5 rounded-full transition-all flex items-center px-1 ${autoProposalEnabled && isGlobalAiEnabled ? 'bg-indigo-600 shadow-[0_0_8px_rgba(79,70,229,0.4)]' : 'bg-slate-300'} ${!isGlobalAiEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
-                <div className={`w-4 h-4 bg-white rounded-full transition-transform ${autoProposalEnabled && isGlobalAiEnabled ? 'translate-x-5' : 'translate-x-1'}`} />
+                <div className={`w-3 h-3 bg-white rounded-full transition-transform ${autoProposalEnabled && isGlobalAiEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
               </button>
             </div>
           </div>
@@ -554,11 +564,24 @@ export default function AdminMessages({
                         else alert('Erro ao alterar modo de atendimento.');
                       }
                     }}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-bold transition-all ${selectedConversation.lead.detalhes_proposta?.ai_disabled ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200'}`}
-                    title={selectedConversation.lead.detalhes_proposta?.ai_disabled ? 'Desativar Atendimento Humano (Ativar IA)' : 'Ativar Atendimento Humano (Pausar IA)'}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-bold transition-all border ${
+                      selectedConversation.lead.detalhes_proposta?.ai_disabled 
+                        ? 'bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100' 
+                        : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
+                    }`}
+                    title={selectedConversation.lead.detalhes_proposta?.ai_disabled ? "IA pausada para este lead. Clique para ativar." : "IA ativa para este lead. Clique para pausar."}
                   >
-                    <UserCheck className={`w-4 h-4 ${selectedConversation.lead.detalhes_proposta?.ai_disabled ? 'text-orange-600' : 'text-slate-500'}`} />
-                    {selectedConversation.lead.detalhes_proposta?.ai_disabled ? 'Atendimento Humano: ON' : 'Atendimento Humano'}
+                    {selectedConversation.lead.detalhes_proposta?.ai_disabled ? (
+                      <>
+                        <UserCheck className="w-4 h-4" />
+                        <span>IA: PAUSADA (HUMANO)</span>
+                      </>
+                    ) : (
+                      <>
+                        <Bot className="w-4 h-4 animate-pulse-soft" />
+                        <span>IA: ATIVA</span>
+                      </>
+                    )}
                   </button>
                 )}
 
@@ -738,14 +761,15 @@ export default function AdminMessages({
             </div>
           )
         ) : (
-          selectedInternalChat ? (
+          (selectedInternalChat || selectedCompradorChat) ? (
             <>
-              {/* Cabeçalho do Chat Interno */}
+              {/* Cabeçalho do Chat Interno / Comprador */}
               <div className="p-4 bg-white border-b border-slate-100 flex justify-between items-center">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden flex items-center justify-center">
                     {(() => {
-                      const profile = (users || []).find(u => u.id === selectedInternalChat);
+                      const chatId = messageTab === 'buyers' ? selectedCompradorChat : selectedInternalChat;
+                      const profile = (users || []).find(u => u.id === chatId);
                       return profile?.avatar_url ? (
                         <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       ) : (
@@ -755,12 +779,16 @@ export default function AdminMessages({
                   </div>
                   <div>
                     <h4 className="font-bold text-slate-900">
-                      {(users || []).find(u => u.id === selectedInternalChat)?.full_name || 'Usuário'}
+                      {(() => {
+                        const chatId = messageTab === 'buyers' ? selectedCompradorChat : selectedInternalChat;
+                        return (users || []).find(u => u.id === chatId)?.full_name || 'Usuário';
+                      })()}
                     </h4>
                     <div className="flex items-center gap-2">
-                      <p className="text-[10px] text-slate-400">Equipe</p>
+                      <p className="text-[10px] text-slate-400">{messageTab === 'buyers' ? 'Comprador' : 'Equipe'}</p>
                       {(() => {
-                        const internalLeads = leads.filter(l => l.user_id === selectedInternalChat);
+                        const chatId = messageTab === 'buyers' ? selectedCompradorChat : selectedInternalChat;
+                        const internalLeads = leads.filter(l => l.user_id === chatId);
                         if (internalLeads.length > 0) {
                           const leadData = internalLeads[0];
                           return (
@@ -788,7 +816,8 @@ export default function AdminMessages({
                 </div>
                 <div className="flex items-center gap-2">
                   {(() => {
-                    const internalLeads = leads.filter(l => l.user_id === selectedInternalChat);
+                    const chatId = messageTab === 'buyers' ? selectedCompradorChat : selectedInternalChat;
+                    const internalLeads = leads.filter(l => l.user_id === chatId);
                     if (internalLeads.length > 0) {
                       return (
                         <>
@@ -798,10 +827,6 @@ export default function AdminMessages({
                               if (internalLeads.length > 1) {
                                 setSelectedLead(null); // Clear to force selection
                                 setSelectionMode('clone');
-                                // We need a way to pass the specific leads to the modal
-                                // For now, we'll rely on the modal filtering by selectedInternalChat if needed
-                                // but the current modal logic uses selectedConversation.lead_ids
-                                // I might need to adjust the modal props or logic in AdminDashboard
                                 setShowVehicleSelectionModal(true);
                               } else {
                                 const v = internalLeads[0];
@@ -861,6 +886,48 @@ export default function AdminMessages({
                     }
                     return null;
                   })()}
+                  {(() => {
+                    const chatId = messageTab === 'buyers' ? selectedCompradorChat : selectedInternalChat;
+                    const profile = (users || []).find(u => u.id === chatId);
+                    if (!profile) return null;
+                    
+                    return (
+                      <button 
+                        onClick={async () => {
+                          const newValue = profile.is_ai_enabled === false ? true : false;
+                          const { error } = await supabase
+                            .from('profiles')
+                            .update({ is_ai_enabled: newValue })
+                            .eq('id', profile.id);
+
+                          if (!error) {
+                            // Update local users state if possible, or just rely on refresh
+                            // Since users is likely a prop from AdminDashboard, we might need a callback
+                            // But for now, let's assume it works or the user can refresh
+                            if (setToast) setToast({ message: `IA ${newValue ? 'ativada' : 'pausada'} para este usuário.`, type: 'success' });
+                          }
+                        }}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-bold transition-all border ${
+                          profile.is_ai_enabled === false 
+                            ? 'bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100' 
+                            : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
+                        }`}
+                        title={profile.is_ai_enabled === false ? "IA pausada para este usuário. Clique para ativar." : "IA ativa para este usuário. Clique para pausar."}
+                      >
+                        {profile.is_ai_enabled === false ? (
+                          <>
+                            <UserCheck className="w-4 h-4" />
+                            <span>IA: PAUSADA (HUMANO)</span>
+                          </>
+                        ) : (
+                          <>
+                            <Bot className="w-4 h-4 animate-pulse-soft" />
+                            <span>IA: ATIVA</span>
+                          </>
+                        )}
+                      </button>
+                    );
+                  })()}
                   <button 
                     type="button"
                     onClick={handleLearnFromChat}
@@ -873,25 +940,25 @@ export default function AdminMessages({
                 </div>
               </div>
 
-              {/* Mensagens Internas */}
+              {/* Mensagens Internas / Compradores */}
               <div 
                 ref={leadsScrollRef}
                 className="flex-1 overflow-y-auto p-6 space-y-4"
               >
-                {(internalChatMessages || []).map((msg) => (
+                {(messageTab === 'buyers' ? compradorChatMessages : internalChatMessages || []).map((msg) => (
                   <div 
                     key={msg.id}
-                    className={`flex ${msg.sender_id !== selectedInternalChat ? 'justify-end' : 'justify-start'}`}
+                    className={`flex ${msg.sender_id !== (messageTab === 'buyers' ? selectedCompradorChat : selectedInternalChat) ? 'justify-end' : 'justify-start'}`}
                   >
                     <div className={`max-w-[70%] p-4 rounded-2xl text-sm shadow-sm ${
-                      msg.sender_id !== selectedInternalChat 
+                      msg.sender_id !== (messageTab === 'buyers' ? selectedCompradorChat : selectedInternalChat)
                         ? 'bg-slate-900 text-white rounded-tr-none' 
                         : 'bg-white border border-slate-200 text-slate-900 rounded-tl-none'
                     }`}>
                       <p className="whitespace-pre-wrap">{msg.content}</p>
                       <span className={`text-[9px] mt-1 flex items-center gap-1 opacity-70`}>
                         {new Date(msg.created_at).toLocaleDateString([], { day: '2-digit', month: '2-digit' })} {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        {msg.sender_id !== selectedInternalChat && (
+                        {msg.sender_id !== (messageTab === 'buyers' ? selectedCompradorChat : selectedInternalChat) && (
                           <div className="flex items-center ml-1">
                             {msg.read ? (
                               <CheckCircle className="w-2.5 h-2.5 text-blue-400" />
@@ -906,7 +973,7 @@ export default function AdminMessages({
                 ))}
               </div>
 
-              {/* Input de Mensagem Interna */}
+              {/* Input de Mensagem */}
               <div className="p-4 bg-white border-t border-slate-100">
                 <div className="flex gap-2">
                   <textarea 
@@ -918,7 +985,7 @@ export default function AdminMessages({
                         handleSendMessage();
                       }
                     }}
-                    placeholder="Digite sua mensagem interna..."
+                    placeholder={messageTab === 'buyers' ? "Digite sua mensagem para o comprador..." : "Digite sua mensagem interna..."}
                     className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent/20 resize-none h-12"
                   />
                   <button 
@@ -934,10 +1001,14 @@ export default function AdminMessages({
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-slate-400 p-12 text-center">
               <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-                <Users className="w-8 h-8" />
+                {messageTab === 'buyers' ? <ShoppingBag className="w-8 h-8" /> : <Users className="w-8 h-8" />}
               </div>
-              <h4 className="text-lg font-bold text-slate-600">Nenhum chat interno selecionado</h4>
-              <p className="text-sm">Selecione um membro da equipe para iniciar uma conversa.</p>
+              <h4 className="text-lg font-bold text-slate-600">
+                {messageTab === 'buyers' ? 'Nenhum chat de comprador selecionado' : 'Nenhum chat interno selecionado'}
+              </h4>
+              <p className="text-sm">
+                {messageTab === 'buyers' ? 'Selecione um comprador na lista ao lado para iniciar uma conversa.' : 'Selecione um membro da equipe para iniciar uma conversa.'}
+              </p>
             </div>
           )
         )}

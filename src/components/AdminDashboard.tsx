@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AIService } from '../services/aiService';
 import { createClient } from '@supabase/supabase-js';
@@ -72,6 +72,15 @@ export default function AdminDashboard() {
   const [testedModels, setTestedModels] = useState<Record<string, string[]>>({});
   const [editingApiKey, setEditingApiKey] = useState<string | null>(null);
   const [testingKey, setTestingKey] = useState<string | null>(null);
+
+  const hasQuotaIssues = useMemo(() => {
+    return apiKeys.some(k => k.status === 'no_credit' || k.status === 'rate_limited');
+  }, [apiKeys]);
+
+  const hasWorkingKeys = useMemo(() => {
+    return apiKeys.length > 0 && apiKeys.some(k => k.status === 'ok');
+  }, [apiKeys]);
+
   const [aiSystemPrompt, setAiSystemPrompt] = useState('');
   const [aiMemory, setAiMemory] = useState('');
   const [aiCrmPrompt, setAiCrmPrompt] = useState('');
@@ -186,6 +195,41 @@ export default function AdminDashboard() {
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+
+  const filteredLeads = useMemo(() => {
+    return leads
+      .filter(l => {
+        if (activeLeadTab === 'todos') return true;
+        if (activeLeadTab === 'frio') return l.status === 'frio';
+        if (activeLeadTab === 'reservado') return l.status === 'reservado';
+        if (activeLeadTab === 'proposta_enviada') return l.status === 'proposta_enviada' || l.status === 'novo' || l.status === 'em_contato';
+        return l.status === activeLeadTab;
+      })
+      .filter(l => !searchCode || (l.vehicle_code && l.vehicle_code.includes(searchCode)))
+      .filter(l => !filterBrand || l.marca === filterBrand)
+      .filter(l => !filterYear || l.ano_modelo === parseInt(filterYear))
+      .filter(l => !filterMinPrice || (l.preco_cliente || 0) >= parseFloat(filterMinPrice))
+      .filter(l => !filterMaxPrice || (l.preco_cliente || 0) <= parseFloat(filterMaxPrice))
+      .filter(l => {
+        if (!filterStartDate && !filterEndDate) return true;
+        const leadDate = new Date(l.created_at);
+        leadDate.setHours(0, 0, 0, 0);
+        
+        if (filterStartDate) {
+          const start = new Date(filterStartDate);
+          start.setHours(0, 0, 0, 0);
+          start.setMinutes(start.getMinutes() + start.getTimezoneOffset());
+          if (leadDate < start) return false;
+        }
+        if (filterEndDate) {
+          const end = new Date(filterEndDate);
+          end.setHours(0, 0, 0, 0);
+          end.setMinutes(end.getMinutes() + end.getTimezoneOffset());
+          if (leadDate > end) return false;
+        }
+        return true;
+      });
+  }, [leads, activeLeadTab, searchCode, filterBrand, filterYear, filterMinPrice, filterMaxPrice, filterStartDate, filterEndDate]);
   const [showWhatsAppBuyerModal, setShowWhatsAppBuyerModal] = useState(false);
   const [leadToWhatsApp, setLeadToWhatsApp] = useState<any>(null);
   const [selectedBuyers, setSelectedBuyers] = useState<string[]>([]);
@@ -398,7 +442,7 @@ export default function AdminDashboard() {
   const isFetchingRef = useRef(false);
 
   const handleCleanupDuplicates = async () => {
-    if (!confirm('Deseja realmente limpar leads duplicados sem formulário? Isso manterá apenas o registro mais recente para cada e-mail.')) return;
+    if (!confirm('Deseja realmente limpar leads duplicados? Isso manterá apenas o registro mais recente para cada e-mail (para leads sem formulário) ou para cada combinação de e-mail e veículo (para leads com formulário).')) return;
     
     setIsCleaningDuplicates(true);
     addLog('Iniciando limpeza de duplicados...', 'info');
@@ -412,35 +456,47 @@ export default function AdminDashboard() {
 
       if (error) throw error;
 
-      // 2. Filtra leads sem formulário (frios)
-      const coldLeads = allLeads.filter(l => !l.marca && !l.modelo);
+      // 2. Agrupa por e-mail e veículo
+      const emailGroups: Record<string, string[]> = {}; // Para leads frios (sem marca/modelo)
+      const vehicleGroups: Record<string, string[]> = {}; // Para leads com formulário (email + marca + modelo)
       
-      // 3. Agrupa por e-mail
-      const emailGroups: Record<string, string[]> = {};
-      coldLeads.forEach(lead => {
+      allLeads.forEach(lead => {
         if (!lead.email) return;
-        if (!emailGroups[lead.email]) {
-          emailGroups[lead.email] = [];
+        
+        if (!lead.marca && !lead.modelo) {
+          // Lead frio
+          if (!emailGroups[lead.email]) emailGroups[lead.email] = [];
+          emailGroups[lead.email].push(lead.id);
+        } else {
+          // Lead com formulário
+          const key = `${lead.email.toLowerCase()}_${(lead.marca || '').toLowerCase()}_${(lead.modelo || '').toLowerCase()}`;
+          if (!vehicleGroups[key]) vehicleGroups[key] = [];
+          vehicleGroups[key].push(lead.id);
         }
-        emailGroups[lead.email].push(lead.id);
       });
 
-      // 4. Identifica IDs para excluir (todos exceto o primeiro de cada grupo, que é o mais recente)
+      // 3. Identifica IDs para excluir
       const idsToDelete: string[] = [];
+      
+      // Limpa duplicados frios
       Object.values(emailGroups).forEach(ids => {
-        if (ids.length > 1) {
-          idsToDelete.push(...ids.slice(1));
-        }
+        if (ids.length > 1) idsToDelete.push(...ids.slice(1));
+      });
+      
+      // Limpa duplicados com formulário (mesmo email + mesmo carro)
+      Object.values(vehicleGroups).forEach(ids => {
+        if (ids.length > 1) idsToDelete.push(...ids.slice(1));
       });
 
       if (idsToDelete.length === 0) {
         alert('Nenhum duplicado encontrado.');
+        setIsCleaningDuplicates(false);
         return;
       }
 
       addLog(`Excluindo ${idsToDelete.length} leads duplicados...`, 'info');
 
-      // 5. Exclui em lotes (Supabase limit ou para evitar erros de timeout)
+      // 4. Exclui em lotes
       const batchSize = 50;
       for (let i = 0; i < idsToDelete.length; i += batchSize) {
         const batch = idsToDelete.slice(i, i + batchSize);
@@ -675,6 +731,11 @@ export default function AdminDashboard() {
       const { data: apiKeysData } = await supabase.from('api_keys').select('*').order('created_at', { ascending: false });
       const { data: providersData } = await supabase.from('providers').select('*').order('name');
       
+      const profileMap = new Map();
+      profilesData?.forEach(p => {
+        if (p.email) profileMap.set(p.email, p);
+      });
+
       console.log('Profiles buscados:', profilesData);
 
       const { data: buyersData, error: buyersError } = await supabase.from('interested_buyers').select('*').order('created_at', { ascending: false });
@@ -682,10 +743,15 @@ export default function AdminDashboard() {
       else console.log('Buyers buscados:', buyersData);
       const { data: authsData } = await supabase.from('buyer_crm_permissions').select('*');
       const { data: sentData } = await supabase.from('sent_leads').select('*');
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
       const { data: messagesData } = await supabase
         .from('mensagens')
         .select('*, leads_veiculos(*)')
-        .order('created_at', { ascending: false });
+        .gte('created_at', thirtyDaysAgo.toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1000);
       
       // Group messages by email or name+phone to create conversation list
       const groupedConversations: any[] = [];
@@ -702,7 +768,7 @@ export default function AdminDashboard() {
           if (key && !conversationKeys.has(key)) {
             // Check if this lead is a buyer
             const email = lead?.email;
-            const leadProfile = email ? (profilesData || []).find((u: any) => u.email === email) : null;
+            const leadProfile = email ? profileMap.get(email) : null;
             const isBuyer = leadProfile?.role?.toLowerCase().includes('buyer');
             
             if (isBuyer) return; // Skip buyers in the Leads tab
@@ -741,7 +807,7 @@ export default function AdminDashboard() {
           const key = lead.email || lead.telefone || lead.id;
           if (key && !conversationKeys.has(key)) {
             // Check if this lead is a buyer
-            const leadProfile = lead.email ? (profilesData || []).find((u: any) => u.email === lead.email) : null;
+            const leadProfile = lead.email ? profileMap.get(lead.email) : null;
             const isBuyer = leadProfile?.role?.toLowerCase().includes('buyer') || lead.role?.toLowerCase().includes('buyer');
             
             if (isBuyer) return; // Skip buyers in the Leads tab
@@ -801,11 +867,10 @@ export default function AdminDashboard() {
       
       // Group internal messages and populate internalConversations
       // Optimized: Fetch only messages from the last 30 days to improve agility
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
       const { data: internalMessagesData } = await supabase
         .from('internal_messages')
         .select('*')
-        .gt('created_at', thirtyDaysAgo)
+        .gt('created_at', thirtyDaysAgo.toISOString())
         .order('created_at', { ascending: false })
         .limit(1000);
 
@@ -1405,6 +1470,36 @@ export default function AdminDashboard() {
     }
   };
 
+  const fetchCompradorMessages = async (otherId: string) => {
+    if (!userProfile) return;
+    console.log('Fetching comprador messages with:', otherId);
+    
+    const { data, error } = await supabase
+      .from('internal_messages')
+      .select('*')
+      .or(`and(sender_id.eq.${userProfile.id},receiver_id.eq.${otherId}),and(sender_id.eq.${otherId},receiver_id.eq.${userProfile.id})`)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching comprador messages:', error);
+    } else {
+      setCompradorChatMessages(data || []);
+      
+      // Mark as read
+      await supabase
+        .from('internal_messages')
+        .update({ is_read: true })
+        .eq('sender_id', otherId)
+        .eq('receiver_id', userProfile.id)
+        .eq('is_read', false);
+        
+      // Update unread count in local state
+      setCompradoresConversations(prev => prev.map(c => 
+        c.id === otherId ? { ...c, unread: 0 } : c
+      ));
+    }
+  };
+
   useEffect(() => {
     const hasExpired = leads.some(l => l.status === 'reservado_expirado');
     setShowExpiredReservationAlert(hasExpired);
@@ -1556,6 +1651,12 @@ export default function AdminDashboard() {
       return;
     }
 
+    if (messageTab === 'buyers') {
+      if (!selectedCompradorChat) return;
+      handleSendCompradorMessage();
+      return;
+    }
+
     if (messageTab !== 'leads') {
       console.log("Ignorando envio de mensagem: aba não é 'leads'.");
       return;
@@ -1699,6 +1800,50 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleSendCompradorMessage = async () => {
+    if (!adminMessage.trim() || !selectedCompradorChat || !userProfile) return;
+
+    const messageContent = adminMessage.trim();
+    setAdminMessage('');
+    setIsSendingMessage(true);
+
+    const newMessage = {
+      id: `temp-${Date.now()}`,
+      sender_id: userProfile.id,
+      receiver_id: selectedCompradorChat,
+      content: messageContent,
+      created_at: new Date().toISOString(),
+      is_read: false
+    };
+
+    // Optimistic update
+    setCompradorChatMessages(prev => [...prev, newMessage]);
+
+    try {
+      console.log("Enviando mensagem para comprador:", newMessage);
+      const { error } = await supabase
+        .from('internal_messages')
+        .insert({
+          sender_id: userProfile.id,
+          receiver_id: selectedCompradorChat,
+          content: messageContent
+        });
+
+      if (error) {
+        console.error('Erro ao enviar mensagem para comprador:', error);
+        throw error;
+      }
+      console.log("Mensagem enviada com sucesso");
+    } catch (error) {
+      console.error('Error sending comprador message:', error);
+      // Rollback
+      setCompradorChatMessages(prev => prev.filter(m => m !== newMessage));
+      setAdminMessage(messageContent);
+    } finally {
+      setIsSendingMessage(false);
+    }
+  };
+
   const handleSendProposalFromChat = async () => {
     if (!selectedLead || !proposalCalculator) return;
 
@@ -1824,12 +1969,14 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
   const handleLearnFromChat = async () => {
     const isLeads = messageTab === 'leads';
-    const messages = isLeads ? chatMessages : internalChatMessages;
+    const isBuyers = messageTab === 'buyers';
+    const messages = isLeads ? chatMessages : (isBuyers ? compradorChatMessages : internalChatMessages);
     const currentMemory = isLeads ? aiMemory : aiCrmMemory;
     const memoryKey = isLeads ? 'AI_MEMORY' : 'AI_CRM_MEMORY';
     
     if (isLeads && (!selectedConversation || messages.length === 0)) return;
-    if (!isLeads && (!selectedInternalChat || messages.length === 0)) return;
+    if (isBuyers && (!selectedCompradorChat || messages.length === 0)) return;
+    if (!isLeads && !isBuyers && (!selectedInternalChat || messages.length === 0)) return;
 
     try {
       const chatHistory = messages.map(m => {
@@ -2839,6 +2986,21 @@ Podemos prosseguir com o agendamento da vistoria?`;
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            {hasQuotaIssues && isAdmin && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                onClick={() => setActiveTab('apis')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-lg ${
+                  !hasWorkingKeys 
+                    ? 'bg-red-500 text-white shadow-red-500/20 animate-pulse' 
+                    : 'bg-amber-500 text-white shadow-amber-500/20'
+                }`}
+              >
+                <AlertTriangle className="w-3.5 h-3.5" />
+                {!hasWorkingKeys ? 'IA Desativada (Quota)' : 'Quota Baixa'}
+              </motion.button>
+            )}
              <button 
               onClick={() => window.location.href = '/'}
               className="p-2.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"
@@ -4062,38 +4224,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm relative overflow-hidden flex-grow flex flex-col min-h-0">
                   {leadsViewMode === 'grid' ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6 overflow-y-auto flex-grow scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
-                      {leads
-                        .filter(l => {
-                          if (activeLeadTab === 'todos') return true;
-                          if (activeLeadTab === 'frio') return l.status === 'frio';
-                          if (activeLeadTab === 'reservado') return l.status === 'reservado';
-                          if (activeLeadTab === 'proposta_enviada') return l.status === 'proposta_enviada' || l.status === 'novo' || l.status === 'em_contato';
-                          return l.status === activeLeadTab;
-                        })
-                        .filter(l => !searchCode || (l.vehicle_code && l.vehicle_code.includes(searchCode)))
-                        .filter(l => !filterBrand || l.marca === filterBrand)
-                        .filter(l => !filterYear || l.ano_modelo === parseInt(filterYear))
-                        .filter(l => !filterMinPrice || (l.preco_cliente || 0) >= parseFloat(filterMinPrice))
-                        .filter(l => !filterMaxPrice || (l.preco_cliente || 0) <= parseFloat(filterMaxPrice))
-                        .filter(l => {
-                          if (!filterStartDate && !filterEndDate) return true;
-                          const leadDate = new Date(l.created_at);
-                          leadDate.setHours(0, 0, 0, 0);
-                          
-                          if (filterStartDate) {
-                            const start = new Date(filterStartDate);
-                            start.setHours(0, 0, 0, 0);
-                            start.setMinutes(start.getMinutes() + start.getTimezoneOffset());
-                            if (leadDate < start) return false;
-                          }
-                          if (filterEndDate) {
-                            const end = new Date(filterEndDate);
-                            end.setHours(0, 0, 0, 0);
-                            end.setMinutes(end.getMinutes() + end.getTimezoneOffset());
-                            if (leadDate > end) return false;
-                          }
-                          return true;
-                        })
+                      {filteredLeads
                         .map((lead) => (
                           <LeadCard 
                             key={lead.id} 
@@ -4883,6 +5014,18 @@ Podemos prosseguir com o agendamento da vistoria?`;
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-2">
                                 <button 
+                                  onClick={() => {
+                                    setMessageTab('buyers');
+                                    setSelectedCompradorChat(buyer.user_id || buyer.id);
+                                    setActiveTab('messages');
+                                    if (buyer.user_id) fetchCompradorMessages(buyer.user_id);
+                                  }}
+                                  className="p-2 text-slate-400 hover:text-emerald-500 transition-colors"
+                                  title="Abrir Chat"
+                                >
+                                  <MessageCircle className="w-4 h-4" />
+                                </button>
+                                <button 
                                   onClick={async () => {
                                     const { error } = await supabase
                                       .from('interested_buyers')
@@ -4953,7 +5096,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 isUpdatingAi={isUpdatingAi}
                 fetchChatMessages={fetchChatMessages}
                 fetchInternalMessages={fetchInternalMessages}
-                fetchCompradorMessages={fetchInternalMessages} // Reusing internal fetch logic for now as it's the same table
+                fetchCompradorMessages={fetchCompradorMessages}
 
                 users={users}
                 leads={leads}
@@ -4967,23 +5110,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
             {activeTab === 'hero' && (
               <div className="space-y-6">
-        <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm mb-8">
-              <h3 className="text-xl font-bold mb-4">Configurações de Automação</h3>
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <label className="text-sm font-bold text-slate-700">IA Automática (Sem revisão humana)</label>
-                  <p className="text-xs text-slate-500">Quando ativado, a IA envia propostas diretamente ao cliente.</p>
-                </div>
-                <button 
-                  onClick={toggleAutoProposal}
-                  disabled={isUpdatingAi}
-                  className={`w-16 h-8 rounded-full transition-colors flex items-center px-1 ${autoProposalEnabled ? 'bg-green-500' : 'bg-slate-200'}`}
-                >
-                  <div className={`w-6 h-6 bg-white rounded-full transition-transform ${autoProposalEnabled ? 'translate-x-8' : 'translate-x-0'}`} />
-                </button>
-              </div>
-            </div>
-
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold">Banners do Carrossel</h2>
               <button 

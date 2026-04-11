@@ -198,7 +198,7 @@ export const ApiManagement = ({
                         'bg-red-100 text-red-700'
                       }`}>
                         {key.status === 'ok' ? 'Conectada' :
-                         (key.status === 'no_credit' || key.status === 'rate_limited') ? 'Sem Saldo' : 'Corrompida'}
+                         (key.status === 'no_credit' || key.status === 'rate_limited') ? 'Quota Excedida / Sem Saldo' : 'Corrompida / Erro'}
                       </span>
                       {key.id === lastSuccessfulKeyId && (
                         <span className="text-[10px] px-2 py-0.5 rounded-full font-black uppercase bg-blue-600 text-white animate-pulse shadow-sm shadow-blue-200">

@@ -151,10 +151,12 @@ export class AIService {
         
         if (errMsg.includes('failed to fetch') || errMsg.includes('err_name_not_resolved')) {
           newStatus = 'disconnected';
-        } else if (errMsg.includes('429') || errMsg.includes('too many requests') || errMsg.includes('quota_exceeded')) {
+        } else if (errMsg.includes('429') || errMsg.includes('too many requests') || errMsg.includes('rate_limit')) {
           newStatus = 'rate_limited';
-        } else if (errMsg.includes('credit') || errMsg.includes('balance') || errMsg.includes('insufficient') || errMsg.includes('billing') || errMsg.includes('quota')) {
+          console.warn(`[AIService] Chave ${apiKey.id} atingiu limite de taxa (429).`);
+        } else if (errMsg.includes('quota') || errMsg.includes('credit') || errMsg.includes('balance') || errMsg.includes('insufficient') || errMsg.includes('billing')) {
           newStatus = 'no_credit';
+          console.warn(`[AIService] Chave ${apiKey.id} está sem saldo ou quota excedida.`);
         } else if (errMsg.includes('key') || errMsg.includes('invalid') || errMsg.includes('unauthorized') || errMsg.includes('permission') || errMsg.includes('denied access') || errMsg.includes('suspended')) {
           newStatus = 'disconnected';
         }
@@ -171,16 +173,20 @@ export class AIService {
 
     // Fallback final para chave de ambiente se tudo falhar
     if (process.env.GEMINI_API_KEY) {
-      console.log('[AIService] Usando chave de ambiente como fallback final.');
-      return await AIClientManager.execute({
-        id: 'env-key',
-        provider: 'gemini',
-        key: process.env.GEMINI_API_KEY,
-        service: 'gemini-3-flash-preview'
-      }, prompt, systemInstruction, image);
+      console.log('[AIService] Tentando fallback final com chave de ambiente...');
+      try {
+        return await AIClientManager.execute({
+          id: 'env-key',
+          provider: 'gemini',
+          key: process.env.GEMINI_API_KEY,
+          service: 'gemini-1.5-flash' // Use flash for fallback as it's more likely to have quota
+        }, prompt, systemInstruction, image);
+      } catch (fallbackError: any) {
+        console.error('[AIService] Fallback final também falhou:', fallbackError.message);
+      }
     }
 
-    throw new Error('Todas as APIs disponíveis falharam ou estão fora de serviço.');
+    throw new Error('Todas as APIs disponíveis falharam ou estão com quota excedida. Por favor, adicione uma nova chave API no painel administrativo.');
   }
 
   // O teste de conexões agora é apenas manual via painel administrativo
