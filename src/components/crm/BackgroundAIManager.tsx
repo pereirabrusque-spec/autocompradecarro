@@ -114,11 +114,13 @@ export const BackgroundAIManager = () => {
     }, [currentUserId]);
 
     useEffect(() => {
+        console.log("[BackgroundAIManager] Componente montado. Buscando configurações...");
         // Load initial settings
         supabase.from('settings').select('key, value').in('key', [
             'AI_SYSTEM_PROMPT', 'AI_CRM_PROMPT', 'AI_CRM_ENABLED', 'AI_MEMORY', 'AI_CRM_MEMORY', 'AUTO_PROPOSAL_ENABLED',
             'COOPERATIVE_DISCOUNT_PERCENTAGE', 'PROFIT_MARGIN_PERCENTAGE', 'JUROS_ATRASO'
         ]).then(({ data }) => {
+            console.log("[BackgroundAIManager] Configurações carregadas:", data?.length || 0, "itens.");
             if (data) {
                 const prompt = data.find(s => s.key === 'AI_SYSTEM_PROMPT');
                 const crmPrompt = data.find(s => s.key === 'AI_CRM_PROMPT');
@@ -132,7 +134,10 @@ export const BackgroundAIManager = () => {
 
                 if (prompt) setAiPrompt(prompt.value);
                 if (crmPrompt) setAiCrmPrompt(crmPrompt.value);
-                if (enabled) setIsAiEnabled(enabled.value === 'true');
+                if (enabled) {
+                    console.log("[BackgroundAIManager] IA Global status:", enabled.value);
+                    setIsAiEnabled(enabled.value === 'true');
+                }
                 if (autoProposal) setAutoProposalEnabled(autoProposal.value === 'true');
                 if (memory) setAiMemory(memory.value);
                 if (crmMemory) setAiCrmMemory(crmMemory.value);
@@ -157,7 +162,12 @@ export const BackgroundAIManager = () => {
 
         // Get current user
         supabase.auth.getUser().then(({ data: { user } }) => {
-            if (user) setCurrentUserId(user.id);
+            if (user) {
+                console.log("[BackgroundAIManager] Usuário autenticado encontrado:", user.id);
+                setCurrentUserId(user.id);
+            } else {
+                console.warn("[BackgroundAIManager] Nenhum usuário autenticado encontrado via getUser().");
+            }
         });
 
         // Listen for settings changes
@@ -552,7 +562,8 @@ REGRAS GERAIS:
         }
 
         // Só responde se a mensagem for do cliente (ou se for follow-up)
-        if (payload.remetente === 'cliente' || isFollowUp) {
+        const remetente = (payload.remetente || '').toLowerCase();
+        if (remetente === 'cliente' || isFollowUp) {
             const leadId = payload.lead_id;
             const messageId = payload.id;
 
@@ -576,6 +587,8 @@ REGRAS GERAIS:
                 .maybeSingle();
             
             const leadAiDisabled = leadData?.detalhes_proposta?.ai_disabled || false;
+            console.log(`[BackgroundAIManager] Lead ${leadId} AI Disabled: ${leadAiDisabled}`);
+            
             if (leadAiDisabled) {
                 console.log(`[BackgroundAIManager] ⏭️ IA desativada para este lead específico (${leadId}).`);
                 return;
@@ -595,7 +608,7 @@ REGRAS GERAIS:
                 .limit(1);
 
             if (recentMsg && recentMsg.length > 0) {
-                console.log(`[BackgroundAIManager] 🛑 Já existe uma resposta posterior para o lead ${leadId}. Abortando para evitar duplicidade.`);
+                console.log(`[BackgroundAIManager] 🛑 Já existe uma resposta posterior (ID: ${recentMsg[0].id}) para o lead ${leadId}. Abortando para evitar duplicidade.`);
                 return;
             }
 
@@ -810,22 +823,26 @@ REGRAS GERAIS:
     };
 
     const scanForOpenMessages = async () => {
-        if (!isAiEnabledRef.current) return;
-        
         const uid = currentUserIdRef.current;
-        if (!uid) return;
-        // Scan sempre ativo para automação total
-        // if (!isAiEnabledRef.current) return;
+        if (!uid) {
+            console.log("[BackgroundAIManager] Scan abortado: UID não disponível.");
+            return;
+        }
 
-        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-        console.log('[BackgroundAIManager] Escaneando mensagens em aberto e follow-ups...');
+        const isEnabled = isAiEnabledRef.current;
+        console.log(`[BackgroundAIManager] Iniciando scan. IA Global Ativa: ${isEnabled}`);
+        
+        if (!isEnabled) return;
+
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        console.log(`[BackgroundAIManager] Escaneando mensagens desde: ${sevenDaysAgo}`);
 
         // 1. Escaneia mensagens internas (Compradores)
         const { data: allInternal } = await supabase
             .from('internal_messages')
             .select('*')
             .or(`receiver_id.eq.${uid},sender_id.eq.${uid},receiver_id.eq.00000000-0000-0000-0000-000000000000`)
-            .gt('created_at', oneDayAgo)
+            .gt('created_at', sevenDaysAgo)
             .order('created_at', { ascending: false });
 
         if (allInternal) {
@@ -863,7 +880,7 @@ REGRAS GERAIS:
         const { data: allPublic } = await supabase
             .from('mensagens')
             .select('*')
-            .gt('created_at', oneDayAgo)
+            .gt('created_at', sevenDaysAgo)
             .order('created_at', { ascending: false });
 
         if (allPublic) {
@@ -877,10 +894,11 @@ REGRAS GERAIS:
 
             for (const [leadId, lastMsg] of leads.entries()) {
                 const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
-                console.log(`[BackgroundAIManager] Analisando lead ${leadId}. Última msg remetente: ${lastMsg.remetente}, timeDiff: ${Math.floor(timeDiff/1000)}s`);
+                const remetente = (lastMsg.remetente || '').toLowerCase();
+                console.log(`[BackgroundAIManager] Analisando lead ${leadId}. Última msg: "${lastMsg.conteudo.substring(0, 20)}...", remetente: ${remetente}, ai_handled: ${lastMsg.metadata?.ai_handled}, timeDiff: ${Math.floor(timeDiff/1000)}s`);
 
                 // Caso 1: Cliente mandou e não respondemos (última mensagem é do cliente)
-                if (lastMsg.remetente === 'cliente' && !lastMsg.metadata?.ai_handled && !lastMsg.metadata?.ai_failed) {
+                if (remetente === 'cliente' && !lastMsg.metadata?.ai_handled && !lastMsg.metadata?.ai_failed) {
                     if (timeDiff > 120000) { // 2 min
                         console.log(`[BackgroundAIManager] Lead ${leadId} precisa de resposta (timeDiff > 2min). Chamando handlePublicMessage.`);
                         handlePublicMessage(lastMsg);
