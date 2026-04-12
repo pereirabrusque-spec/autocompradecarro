@@ -213,39 +213,37 @@ export default function AdminMessages({
             </button>
           </div>
           
-          {/* Novos controles de IA */}
-          <div className="flex flex-col gap-3 mb-4 p-3 bg-slate-50 rounded-xl border border-slate-200">
+          {/* Controles de IA */}
+          <div className="flex flex-col gap-2 mb-4 p-3 bg-slate-50 rounded-2xl border border-slate-100">
             <div className="flex items-center justify-between">
-              <div className="flex flex-col">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">IA GLOBAL</span>
-                <span className={`text-[10px] font-bold ${isGlobalAiEnabled ? 'text-blue-600' : 'text-slate-500'}`}>
-                  {isGlobalAiEnabled ? 'ATIVA (24H)' : 'DESATIVADA'}
-                </span>
+              <div className="flex items-center gap-2">
+                <Bot className={`w-4 h-4 ${isGlobalAiEnabled ? 'text-indigo-600' : 'text-slate-400'}`} />
+                <span className="text-[10px] font-black text-slate-700">IA GLOBAL</span>
               </div>
               <button 
                 onClick={toggleGlobalAi}
                 disabled={isUpdatingAi}
-                className={`w-10 h-5 rounded-full transition-all flex items-center px-1 ${isGlobalAiEnabled ? 'bg-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.4)]' : 'bg-slate-300'}`}
+                className={`px-3 py-1 rounded-lg text-[9px] font-black transition-all ${isGlobalAiEnabled ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-200 text-slate-500'}`}
               >
-                <div className={`w-3 h-3 bg-white rounded-full transition-transform ${isGlobalAiEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                {isGlobalAiEnabled ? 'ATIVA (24H)' : 'DESATIVADA'}
               </button>
             </div>
+            
             <div className="flex items-center justify-between">
-              <div className="flex flex-col">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">PROPOSTA</span>
-                <span className={`text-[10px] font-bold ${autoProposalEnabled && isGlobalAiEnabled ? 'text-indigo-600' : 'text-slate-500'}`}>
-                  {autoProposalEnabled && isGlobalAiEnabled ? 'AUTOMÁTICA' : 'MANUAL'}
-                </span>
+              <div className="flex items-center gap-2">
+                <ShieldCheck className={`w-4 h-4 ${autoProposalEnabled ? 'text-emerald-600' : 'text-slate-400'}`} />
+                <span className="text-[10px] font-black text-slate-700">PROPOSTA</span>
               </div>
               <button 
                 onClick={toggleAutoProposal}
-                disabled={!isGlobalAiEnabled || isUpdatingAi}
-                className={`w-10 h-5 rounded-full transition-all flex items-center px-1 ${autoProposalEnabled && isGlobalAiEnabled ? 'bg-indigo-600 shadow-[0_0_8px_rgba(79,70,229,0.4)]' : 'bg-slate-300'} ${!isGlobalAiEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                disabled={isUpdatingAi || !isGlobalAiEnabled}
+                className={`px-3 py-1 rounded-lg text-[9px] font-black transition-all ${autoProposalEnabled && isGlobalAiEnabled ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-200 text-slate-500'}`}
               >
-                <div className={`w-3 h-3 bg-white rounded-full transition-transform ${autoProposalEnabled && isGlobalAiEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                {autoProposalEnabled && isGlobalAiEnabled ? 'AUTOMÁTICA' : 'MANUAL'}
               </button>
             </div>
           </div>
+
           <h3 className="text-xl font-bold mb-4">Conversas</h3>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -535,56 +533,62 @@ export default function AdminMessages({
                   </a>
                 )}
                 
+                {/* Botão de toggle de IA para este lead */}
                 {selectedConversation.lead && (
                   <button 
                     onClick={async () => {
-                      const newValue = !selectedConversation.lead.detalhes_proposta?.ai_disabled;
-                      const newDetalhes = { ...(selectedConversation.lead.detalhes_proposta || {}), ai_disabled: newValue };
-                      try {
-                        const { error } = await supabase
-                          .from('leads_veiculos')
-                          .update({ detalhes_proposta: newDetalhes })
-                          .eq('id', selectedConversation.lead.id);
-                        
-                        if (error) throw error;
-                        
-                        // Update local state
-                        setConversations(prev => prev.map(c => 
-                          c.lead_id === selectedConversation.lead_id 
-                            ? { ...c, lead: { ...c.lead, detalhes_proposta: newDetalhes } } 
-                            : c
-                        ));
-                        setSelectedConversation({
-                          ...selectedConversation,
-                          lead: { ...selectedConversation.lead, detalhes_proposta: newDetalhes }
-                        });
-                      } catch (err) {
-                        console.error(err);
-                        if (setToast) setToast({ message: 'Erro ao alterar modo de atendimento.', type: 'error' });
-                        else alert('Erro ao alterar modo de atendimento.');
+                      const currentStatus = selectedConversation.lead?.detalhes_proposta?.ai_disabled || false;
+                      const { error } = await supabase
+                        .from('leads_veiculos')
+                        .update({ 
+                          detalhes_proposta: { 
+                            ...selectedConversation.lead?.detalhes_proposta,
+                            ai_disabled: !currentStatus 
+                          } 
+                        })
+                        .eq('id', selectedConversation.lead.id);
+
+                      if (error) {
+                        if (setToast) setToast({ message: 'Erro ao atualizar status da IA.', type: 'error' });
+                      } else {
+                        // Atualizar localmente
+                        setConversations(prev => prev.map(c => {
+                          if (c.conversation_key === selectedConversation.conversation_key) {
+                            return {
+                              ...c,
+                              lead: {
+                                ...c.lead,
+                                detalhes_proposta: {
+                                  ...c.lead?.detalhes_proposta,
+                                  ai_disabled: !currentStatus
+                                }
+                              }
+                            };
+                          }
+                          return c;
+                        }));
+                        setSelectedConversation(prev => ({
+                          ...prev,
+                          lead: {
+                            ...prev.lead,
+                            detalhes_proposta: {
+                              ...prev.lead?.detalhes_proposta,
+                              ai_disabled: !currentStatus
+                            }
+                          }
+                        }));
                       }
                     }}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-bold transition-all border ${
-                      selectedConversation.lead.detalhes_proposta?.ai_disabled 
-                        ? 'bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100' 
-                        : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
-                    }`}
-                    title={selectedConversation.lead.detalhes_proposta?.ai_disabled ? "IA pausada para este lead. Clique para ativar." : "IA ativa para este lead. Clique para pausar."}
+                    className={`p-2 rounded-lg transition-colors flex items-center gap-2 ${selectedConversation.lead?.detalhes_proposta?.ai_disabled ? 'bg-red-100 text-red-600' : 'bg-indigo-100 text-indigo-600'}`}
+                    title={selectedConversation.lead?.detalhes_proposta?.ai_disabled ? "Ativar IA para este Lead" : "Desativar IA para este Lead"}
                   >
-                    {selectedConversation.lead.detalhes_proposta?.ai_disabled ? (
-                      <>
-                        <UserCheck className="w-4 h-4" />
-                        <span>IA: PAUSADA (HUMANO)</span>
-                      </>
-                    ) : (
-                      <>
-                        <Bot className="w-4 h-4 animate-pulse-soft" />
-                        <span>IA: ATIVA</span>
-                      </>
-                    )}
+                    <Bot className="w-4 h-4" />
+                    <span className="text-[10px] font-bold uppercase tracking-tighter">
+                      {selectedConversation.lead?.detalhes_proposta?.ai_disabled ? 'IA OFF' : 'IA ON'}
+                    </span>
                   </button>
                 )}
-
+                
                 <div className="h-6 w-px bg-slate-200 mx-2" />
                 <button 
                   type="button"

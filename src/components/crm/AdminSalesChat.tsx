@@ -438,14 +438,7 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead, onOpenLead
             <ShieldCheck className="w-4 h-4" />
             Ver Proposta
           </button>
-          <button 
-            type="button"
-            onClick={() => toggleAiMode(!isAiMode)}
-            disabled={isUpdatingAi}
-            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${!isAiMode ? 'bg-red-600 text-white' : 'bg-slate-200 text-slate-700'}`}
-          >
-            {!isAiMode ? 'Atendimento Humano: ON' : 'Atendimento Humano: OFF'}
-          </button>
+          {/* Botão de Atendimento Humano removido conforme solicitado - sistema agora é 100% automatizado */}
 
           {showProposalModal && (
             <ChatActionModal

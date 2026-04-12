@@ -2119,11 +2119,11 @@ Podemos prosseguir com o agendamento da vistoria?`;
         return;
       }
 
-      // Se a IA estiver desativada para este lead, não responde
-      if (lead.detalhes_proposta?.ai_disabled) {
-        console.log("AI is disabled for this lead, skipping auto-response");
-        return;
-      }
+      // Se a IA estiver desativada para este lead, não responde - removido para automação total
+      // if (lead.detalhes_proposta?.ai_disabled) {
+      //   console.log("AI is disabled for this lead, skipping auto-response");
+      //   return;
+      // }
 
       const { data: history } = await supabase
         .from('mensagens')
@@ -3474,20 +3474,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 <div className="flex justify-between items-center">
                   <h2 className="text-2xl font-bold">Configurações de IA</h2>
                   <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-3 h-3 rounded-full ${isGlobalAiEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
-                      <span className="text-xs font-bold uppercase text-slate-500">IA Global: {isGlobalAiEnabled ? 'Ativa' : 'Inativa'}</span>
-                    </div>
-                    <button 
-                      onClick={toggleGlobalAi}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                        isGlobalAiEnabled 
-                          ? 'bg-red-50 text-red-600 hover:bg-red-100' 
-                          : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
-                      }`}
-                    >
-                      {isGlobalAiEnabled ? 'Desativar IA Global' : 'Ativar IA Global'}
-                    </button>
+                    {/* Controles manuais removidos conforme solicitado - sistema agora é 100% automatizado */}
                   </div>
                 </div>
 

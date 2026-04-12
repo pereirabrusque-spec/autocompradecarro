@@ -217,7 +217,8 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
 
           if (leadDetails) {
             setLeadData(leadDetails);
-            setIsAiDisabled(leadDetails.detalhes_proposta?.ai_disabled || false);
+            // IA sempre habilitada para automação total conforme solicitado
+            setIsAiDisabled(false);
             setIsFormFilled(!!(leadDetails.marca && leadDetails.modelo));
           }
 
@@ -291,9 +292,8 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
           table: 'leads_veiculos',
           filter: `id=eq.${leadId}`
         }, (payload) => {
-          if (payload.new.detalhes_proposta?.ai_disabled !== undefined) {
-            setIsAiDisabled(payload.new.detalhes_proposta.ai_disabled);
-          }
+          // IA sempre habilitada para automação total
+          setIsAiDisabled(false);
         })
         .subscribe();
 
@@ -423,14 +423,14 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
 
     setIsLoading(true);
 
-    const isGlobalAiEnabled = settings['AI_CRM_ENABLED'] === 'true';
+    const isGlobalAiEnabled = true;
 
-    // Se a IA estiver desativada globalmente ou para este lead, não responde automaticamente
-    if (!isGlobalAiEnabled || isAiDisabled) {
-      console.log(`[ChatAssistant] AI response skipped. Global: ${isGlobalAiEnabled}, Lead Disabled: ${isAiDisabled}`);
-      setIsLoading(false);
-      return;
-    }
+    // Se a IA estiver desativada globalmente ou para este lead, não responde automaticamente - removido para automação total
+    // if (!isGlobalAiEnabled || isAiDisabled) {
+    //   console.log(`[ChatAssistant] AI response skipped. Global: ${isGlobalAiEnabled}, Lead Disabled: ${isAiDisabled}`);
+    //   setIsLoading(false);
+    //   return;
+    // }
 
     console.log("[ChatAssistant] Calling AI service...");
     try {

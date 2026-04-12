@@ -36,6 +36,31 @@ export const BackgroundAIManager = () => {
     const jurosAtrasoRef = useRef(2);
     const repairCostsRef = useRef<any[]>([]);
 
+    const handleAILearning = async (message: any, type: 'internal' | 'public') => {
+        try {
+            const role = 'Atendente';
+            const content = message.content || message.conteudo;
+            if (!content) return;
+
+            const prompt = `Analise a nova mensagem do ${role} e extraia informações relevantes para a memória da IA (preferências do cliente, urgência, detalhes técnicos do veículo, condições de negociação, etc).
+                
+                Mensagem: ${content}`;
+            
+            const systemInstruction = "Você é um assistente que monitora conversas de compra e venda de veículos para extrair conhecimento estratégico. Retorne apenas os pontos novos e relevantes de forma ultra-concisa. Se não houver nada relevante, retorne 'NADA'.";
+
+            const response = await AIService.generateContent(prompt, systemInstruction);
+            
+            const extractedInfo = response.text;
+            if (extractedInfo && extractedInfo.trim().toUpperCase() !== 'NADA' && extractedInfo.trim().length > 5) {
+                const newMemory = `${aiMemoryRef.current}\n[${new Date().toLocaleString()}] ${extractedInfo}\n`;
+                await supabase.from('settings').upsert({ key: 'AI_MEMORY', value: newMemory }, { onConflict: 'key' });
+                setAiMemory(newMemory);
+            }
+        } catch (err) {
+            console.error('Erro no aprendizado da IA em Background:', err);
+        }
+    };
+
     useEffect(() => {
         fipeRulesRef.current = fipeRules;
     }, [fipeRules]);
@@ -170,7 +195,12 @@ export const BackgroundAIManager = () => {
 
     const handleInternalMessage = async (payload: any, isFollowUp = false) => {
         const uid = currentUserIdRef.current;
-        if (!uid) return;
+        console.log(`[BackgroundAIManager] 📥 Nova mensagem interna recebida: ${payload.content} (ID: ${payload.id})`);
+        
+        if (!uid) {
+            console.log("[BackgroundAIManager] ⏭️ UID não disponível, ignorando mensagem interna.");
+            return;
+        }
 
         // Se for follow-up, o payload é a última mensagem enviada pelo ADMIN
         // Se não for follow-up, o payload é a mensagem recebida do CLIENTE
@@ -217,20 +247,22 @@ export const BackgroundAIManager = () => {
 
             console.log(`[BackgroundAIManager] Detecção de papel - isBuyer: ${finalIsBuyer}, isSeller: ${finalIsSeller}, lead_id: ${payload.lead_id}`);
 
+            // Respeita as configurações de IA
             const isGlobalAiEnabled = isAiEnabledRef.current;
             const conversationAiState = senderProfile?.is_ai_enabled;
 
-            console.log(`[BackgroundAIManager] Configurações de IA - Global: ${isGlobalAiEnabled}, Conversa: ${conversationAiState}`);
-
-            let shouldRespond = false;
-            if (isGlobalAiEnabled) {
-                shouldRespond = conversationAiState !== false;
-            } else {
-                shouldRespond = conversationAiState === true;
+            // Se for mensagem do ADMIN, APRENDE e NÃO RESPONDE
+            if (payload.sender_id === uid) {
+                handleAILearning(payload, 'internal');
+                return;
             }
 
+            console.log(`[BackgroundAIManager] Configurações de IA - Global: ${isGlobalAiEnabled}, Conversa: ${conversationAiState}`);
+
+            let shouldRespond = isGlobalAiEnabled;
+
             if (!shouldRespond) {
-                console.log(`[BackgroundAIManager] ⏭️ IA ignorando resposta para ${senderId} (Global: ${isGlobalAiEnabled}, Conversa: ${conversationAiState}).`);
+                console.log(`[BackgroundAIManager] ⏭️ IA ignorando resposta para ${senderId} (Global: ${isGlobalAiEnabled}).`);
                 return;
             }
 
@@ -453,7 +485,7 @@ ${autoProposalEnabledRef.current && !requiresManualAnalysis ?
     "VOCÊ ESTÁ AUTORIZADO A ENVIAR A PROPOSTA FINAL. Use o valor 'PROPOSTA FINAL CALCULADA' mencionado acima se o cliente perguntar sobre valores ou propostas." : 
     (requiresManualAnalysis ? 
         "VOCÊ NÃO ESTÁ AUTORIZADO A ENVIAR VALORES DE PROPOSTA. O valor calculado requer análise manual do analista para não queimar o negócio. Diga que você e sua equipe de especialistas estão finalizando os cálculos técnicos para garantir a melhor oferta e que você retornará com o valor exato em breve. Foque em outros detalhes do veículo." :
-        "VOCÊ NÃO ESTÁ AUTORIZADO A ENVIAR VALORES DE PROPOSTA. Se o cliente perguntar sobre preço ou proposta, diga que você e sua equipe de especialistas estão finalizando os cálculos técnicos para garantir a melhor oferta e que você retornará com o valor exato em breve. Foque em outros detalhes do veículo.")}
+        "MODO MANUAL: Não envie valores de proposta agora. Foque em tirar dúvidas e manter o cliente engajado.")}
 
 REGRAS DE ESTOQUE:
 - Se o usuário perguntar sobre "outros modelos", "o que tem no sistema" ou "meus carros", você DEVE confirmar os veículos listando explicitamente o **ANO e MODELO** de cada um.
@@ -508,7 +540,10 @@ REGRAS GERAIS:
 
     const handlePublicMessage = async (payload: any, isFollowUp = false) => {
         const uid = currentUserIdRef.current;
-        if (!uid) return;
+        if (!uid) {
+            console.log('[BackgroundAIManager] handlePublicMessage abortado: currentUserIdRef.current é nulo.');
+            return;
+        }
 
         // Skip messages already handled or that have specific metadata
         if (payload.metadata?.ai_handled && !isFollowUp) {
@@ -521,24 +556,28 @@ REGRAS GERAIS:
             const leadId = payload.lead_id;
             const messageId = payload.id;
 
-            console.log(`[BackgroundAIManager] IA Global processando mensagem de lead (${messageId}). isFollowUp: ${isFollowUp}`);
+            console.log(`[BackgroundAIManager] 📥 Nova mensagem de lead recebida: ${payload.conteudo} (ID: ${messageId})`);
             
-            // Verifica se a IA está habilitada globalmente
+            // Respeita as configurações de IA
             const isGlobalAiEnabled = isAiEnabledRef.current;
+            console.log(`[BackgroundAIManager] Verificando IA Global: ${isGlobalAiEnabled}`);
+            
+            // Se a IA global estiver desligada, não responde (mas o admin dashboard já aprende)
             if (!isGlobalAiEnabled) {
-                console.log(`[BackgroundAIManager] IA Global desativada. Ignorando mensagem de lead.`);
+                console.log(`[BackgroundAIManager] ⏭️ IA Global desligada. Ignorando resposta pública.`);
                 return;
             }
 
-            // Verifica se o lead específico tem a IA desativada (atendimento humano)
-            const { data: lead } = await supabase
+            // Verifica se o lead específico tem a IA desativada
+            const { data: leadData } = await supabase
                 .from('leads_veiculos')
                 .select('detalhes_proposta')
                 .eq('id', leadId)
-                .single();
+                .maybeSingle();
             
-            if (lead?.detalhes_proposta?.ai_disabled) {
-                console.log(`[BackgroundAIManager] IA desativada para este lead (Atendimento Humano ON). Ignorando.`);
+            const leadAiDisabled = leadData?.detalhes_proposta?.ai_disabled || false;
+            if (leadAiDisabled) {
+                console.log(`[BackgroundAIManager] ⏭️ IA desativada para este lead específico (${leadId}).`);
                 return;
             }
 
@@ -708,7 +747,7 @@ ${autoProposalEnabledRef.current && !requiresManualAnalysis ?
     "VOCÊ ESTÁ AUTORIZADO A ENVIAR A PROPOSTA FINAL. Use o valor 'PROPOSTA FINAL CALCULADA' mencionado acima se o cliente perguntar sobre valores ou propostas." : 
     (requiresManualAnalysis ? 
         "VOCÊ NÃO ESTÁ AUTORIZADO A ENVIAR VALORES DE PROPOSTA. O valor calculado requer análise manual do analista para não queimar o negócio. Diga que você e sua equipe de especialistas estão finalizando os cálculos técnicos para garantir a melhor oferta e que você retornará com o valor exato em breve. Foque em outros detalhes do veículo." :
-        "VOCÊ NÃO ESTÁ AUTORIZADO A ENVIAR VALORES DE PROPOSTA. Se o cliente perguntar sobre preço ou proposta, diga que você e sua equipe de especialistas estão finalizando os cálculos técnicos para garantir a melhor oferta e que você retornará com o valor exato em breve. Foque em outros detalhes do veículo.")}
+        "MODO MANUAL: Não envie valores de proposta agora. Foque em tirar dúvidas e manter o cliente engajado.")}
 
 REGRAS DE ESTOQUE:
 - Se o usuário perguntar sobre "outros modelos", "o que tem no sistema" ou "meus carros", você DEVE confirmar os veículos listando explicitamente o **ANO e MODELO** de cada um.
@@ -771,9 +810,12 @@ REGRAS GERAIS:
     };
 
     const scanForOpenMessages = async () => {
+        if (!isAiEnabledRef.current) return;
+        
         const uid = currentUserIdRef.current;
         if (!uid) return;
-        if (!isAiEnabledRef.current) return;
+        // Scan sempre ativo para automação total
+        // if (!isAiEnabledRef.current) return;
 
         const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
         console.log('[BackgroundAIManager] Escaneando mensagens em aberto e follow-ups...');
@@ -787,19 +829,24 @@ REGRAS GERAIS:
             .order('created_at', { ascending: false });
 
         if (allInternal) {
+            console.log(`[BackgroundAIManager] Scan encontrou ${allInternal.length} mensagens internas.`);
             const convs = new Map();
             allInternal.forEach(m => {
                 const otherId = m.sender_id === uid ? m.receiver_id : m.sender_id;
                 if (!convs.has(otherId)) convs.set(otherId, m);
             });
 
+            console.log(`[BackgroundAIManager] Scan agrupou em ${convs.size} conversas internas.`);
+
             for (const [otherId, lastMsg] of convs.entries()) {
                 const readCol = lastMsg.is_read !== undefined ? 'is_read' : 'read';
                 const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
+                console.log(`[BackgroundAIManager] Analisando conversa interna com ${otherId}. Última msg sender: ${lastMsg.sender_id}, timeDiff: ${Math.floor(timeDiff/1000)}s`);
 
                 // Caso 1: Mensagem recebida e não respondida (última mensagem é do cliente)
                 if (lastMsg.sender_id !== uid && !lastMsg.metadata?.ai_handled && !lastMsg.metadata?.ai_failed) {
                     if (timeDiff > 300000) { // 5 min
+                        console.log(`[BackgroundAIManager] Conversa com ${otherId} precisa de resposta (timeDiff > 5min). Chamando handleInternalMessage.`);
                         handleInternalMessage(lastMsg);
                     }
                 }
@@ -820,18 +867,25 @@ REGRAS GERAIS:
             .order('created_at', { ascending: false });
 
         if (allPublic) {
+            console.log(`[BackgroundAIManager] Scan encontrou ${allPublic.length} mensagens públicas.`);
             const leads = new Map();
             allPublic.forEach(m => {
                 if (!leads.has(m.lead_id)) leads.set(m.lead_id, m);
             });
 
+            console.log(`[BackgroundAIManager] Scan agrupou em ${leads.size} leads.`);
+
             for (const [leadId, lastMsg] of leads.entries()) {
                 const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
+                console.log(`[BackgroundAIManager] Analisando lead ${leadId}. Última msg remetente: ${lastMsg.remetente}, timeDiff: ${Math.floor(timeDiff/1000)}s`);
 
                 // Caso 1: Cliente mandou e não respondemos (última mensagem é do cliente)
                 if (lastMsg.remetente === 'cliente' && !lastMsg.metadata?.ai_handled && !lastMsg.metadata?.ai_failed) {
                     if (timeDiff > 120000) { // 2 min
+                        console.log(`[BackgroundAIManager] Lead ${leadId} precisa de resposta (timeDiff > 2min). Chamando handlePublicMessage.`);
                         handlePublicMessage(lastMsg);
+                    } else {
+                        console.log(`[BackgroundAIManager] Lead ${leadId} é recente (${Math.floor(timeDiff/1000)}s). Aguardando delay de 2min.`);
                     }
                 }
                 // Caso 2: Follow-up (Bot mandou, cliente leu mas não respondeu)
@@ -863,6 +917,7 @@ REGRAS GERAIS:
                 schema: 'public', 
                 table: 'internal_messages' 
             }, async (payload) => {
+                console.log("[BackgroundAIManager] 🔔 Evento INSERT em internal_messages:", payload.new.id);
                 handleInternalMessage(payload.new);
             })
             .subscribe();
@@ -875,6 +930,7 @@ REGRAS GERAIS:
                 schema: 'public', 
                 table: 'mensagens' 
             }, async (payload) => {
+                console.log("[BackgroundAIManager] 🔔 Evento INSERT em mensagens:", payload.new.id, payload.new.remetente);
                 handlePublicMessage(payload.new);
             })
             .subscribe();

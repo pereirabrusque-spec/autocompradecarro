@@ -116,7 +116,9 @@ export class AIService {
   }
 
   static async generateContent(prompt: string, systemInstruction: string, image?: string): Promise<AIResponse> {
+    console.log('[AIService] generateContent chamado. Prompt length:', prompt.length);
     let keys = await this.getActiveKeys();
+    console.log('[AIService] Chaves ativas encontradas:', keys.length);
     
     // Filtra apenas chaves que estão marcadas como 'ok' (Verde)
     // Ou chaves que estão 'no_credit' mas não foram testadas há mais de 24 horas
@@ -130,7 +132,13 @@ export class AIService {
       }
       return false;
     });
+    console.log('[AIService] Chaves candidatas após filtro:', candidateKeys.length);
     
+    if (candidateKeys.length === 0) {
+      console.warn('[AIService] Nenhuma chave de API disponível para processar a requisição.');
+      throw new Error('Todas as chaves de IA falharam ou estão offline.');
+    }
+
     let attempts = 0;
     const maxAttempts = Math.min(candidateKeys.length, 3); // Tenta no máximo 3 chaves diferentes por requisição
 
