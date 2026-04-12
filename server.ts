@@ -251,8 +251,17 @@ async function startServer() {
     
     if (p === 'gemini') {
       // 1. Fetch models first (Cheaper/Free check)
-      const modelsResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${trimmedKey}`);
-      const modelsData = await modelsResponse.json();
+      // Try v1 first as it's more stable for standard models
+      let apiVersion = 'v1';
+      let modelsResponse = await fetch(`https://generativelanguage.googleapis.com/${apiVersion}/models?key=${trimmedKey}`);
+      let modelsData = await modelsResponse.json();
+      
+      if (!modelsResponse.ok) {
+        // Fallback to v1beta if v1 fails
+        apiVersion = 'v1beta';
+        modelsResponse = await fetch(`https://generativelanguage.googleapis.com/${apiVersion}/models?key=${trimmedKey}`);
+        modelsData = await modelsResponse.json();
+      }
       
       if (!modelsResponse.ok) {
         const errMsg = modelsData.error?.message || 'Chave Gemini inválida';
@@ -274,7 +283,7 @@ async function startServer() {
       // 2. Only test generation if explicitly requested (Saves credits)
       if (fullTest) {
         const testModel = availableModels.find(m => m.includes('flash')) || availableModels[0];
-        const testResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${testModel}:generateContent?key=${trimmedKey}`, {
+        const testResponse = await fetch(`https://generativelanguage.googleapis.com/${apiVersion}/models/${testModel}:generateContent?key=${trimmedKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -285,7 +294,11 @@ async function startServer() {
 
         if (!testResponse.ok) {
           const testData = await testResponse.json();
-          throw new Error(testData.error?.message || `Erro ao testar geração`);
+          const errMsg = testData.error?.message || `Erro ao testar geração`;
+          if (testResponse.status === 429 || errMsg.toLowerCase().includes('quota')) {
+            throw new Error('QUOTA_EXCEEDED: ' + errMsg);
+          }
+          throw new Error(errMsg);
         }
       }
       

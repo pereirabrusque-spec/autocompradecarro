@@ -73,6 +73,7 @@ export class AIService {
       return lastUsedB - lastUsedA;
     });
 
+    console.log('[AIService] Chaves ordenadas por status:', sorted.map(k => `${k.id}(${k.status})`).join(', '));
     this.cachedKeys = sorted;
     this.lastFetchTime = now;
     return sorted;
@@ -127,50 +128,55 @@ export class AIService {
     const now = new Date().getTime();
     const candidateKeys = keys.filter(k => {
       if (k.status === 'ok' || k.id === 'env-key') return true;
+      
+      // Se a chave estiver com erro, só tentamos se não houver NENHUMA chave 'ok'
+      const hasAnyOk = keys.some(key => key.status === 'ok');
+      if (hasAnyOk) return false; // Se tem verde, ignora todas as outras que estão em amarelo/vermelho
+
       if (k.status === 'no_credit' || k.status === 'rate_limited' || k.status === 'disconnected') {
         const lastUsed = k.last_used ? new Date(k.last_used).getTime() : 0;
         const minutesSinceLastUse = (now - lastUsed) / (1000 * 60);
         
-        // Tenta novamente chaves "ruins" mais rápido se não houver chaves "ok"
-        const hasAnyOk = keys.some(key => key.status === 'ok');
-        if (!hasAnyOk) return minutesSinceLastUse > 5; // Se tudo falhou, tenta a cada 5 min
-        
-        return minutesSinceLastUse > 60; // Caso contrário, espera 1h
+        // Se tudo falhou, tenta a cada 5 min chaves que podem ter resetado quota
+        return minutesSinceLastUse > 5;
       }
       return false;
     });
-    console.log('[AIService] Chaves candidatas após filtro:', candidateKeys.length);
+    console.log('[AIService] Chaves candidatas após filtro rigoroso:', candidateKeys.length, candidateKeys.map(k => `${k.id}(${k.status})`).join(', '));
     
     if (candidateKeys.length === 0) {
       console.warn('[AIService] Nenhuma chave de API disponível para processar a requisição.');
-      throw new Error('Todas as chaves de IA falharam ou estão offline.');
+      // Tenta forçar um refresh do banco para ver se algo mudou
+      keys = await this.getActiveKeys(true);
+      if (!keys.some(k => k.status === 'ok')) {
+        throw new Error('Todas as chaves de IA falharam ou estão offline. Adicione novas chaves no painel.');
+      }
     }
 
     let attempts = 0;
-    const maxAttempts = Math.min(candidateKeys.length, 3); // Tenta no máximo 3 chaves diferentes por requisição
+    const maxAttempts = Math.min(candidateKeys.length, 5); // Tenta até 5 chaves se necessário
 
     while (attempts < maxAttempts) {
       const apiKey = candidateKeys[attempts];
       if (!apiKey) break;
       
-      // Se a chave não estiver 'ok', só tentamos se for a única opção ou se as 'ok' falharam
-      if (apiKey.status !== 'ok' && attempts === 0 && candidateKeys.some(k => k.status === 'ok')) {
-        // Pula para a primeira 'ok'
-        attempts++;
-        continue;
-      }
+      console.log(`[AIService] 🚀 Tentativa ${attempts + 1}/${maxAttempts} usando chave: ${apiKey.id} (${apiKey.provider})`);
 
       try {
         const result = await AIClientManager.execute(apiKey, prompt, systemInstruction, image);
         
         // Se funcionou e não estava 'ok', atualiza para 'ok'
-        if (apiKey.status !== 'ok' || apiKey.id !== this.lastSuccessfulKeyId) {
+        if (apiKey.status !== 'ok') {
+          console.log(`[AIService] ✅ Chave ${apiKey.id} voltou a funcionar! Atualizando status para OK.`);
           await this.updateKeyStatus(apiKey.id, 'ok', 0);
+        } else {
+          // Apenas atualiza o last_used se já estava ok
+          this.updateKeyStatus(apiKey.id, 'ok', 0).catch(() => {});
         }
         return result;
       } catch (error: any) {
         const errMsg = error.message?.toLowerCase() || '';
-        console.error(`[AIService] Falha na API ${apiKey.provider} (${apiKey.id}). Motivo: ${errMsg}.`);
+        console.error(`[AIService] ❌ Falha na API ${apiKey.provider} (${apiKey.id}). Motivo: ${errMsg}.`);
         
         let newStatus: 'ok' | 'no_credit' | 'disconnected' | 'rate_limited' = 'disconnected';
         
@@ -178,22 +184,21 @@ export class AIService {
           newStatus = 'disconnected';
         } else if (errMsg.includes('429') || errMsg.includes('too many requests') || errMsg.includes('rate_limit')) {
           newStatus = 'rate_limited';
-          console.warn(`[AIService] Chave ${apiKey.id} atingiu limite de taxa (429).`);
         } else if (errMsg.includes('quota') || errMsg.includes('credit') || errMsg.includes('balance') || errMsg.includes('insufficient') || errMsg.includes('billing')) {
           newStatus = 'no_credit';
-          console.warn(`[AIService] Chave ${apiKey.id} está sem saldo ou quota excedida.`);
         } else if (errMsg.includes('model') || errMsg.includes('not found') || errMsg.includes('exist')) {
           newStatus = 'disconnected';
-          console.error(`[AIService] Modelo inválido para a chave ${apiKey.id}: ${apiKey.service}`);
         } else if (errMsg.includes('key') || errMsg.includes('invalid') || errMsg.includes('unauthorized') || errMsg.includes('permission') || errMsg.includes('denied access') || errMsg.includes('suspended')) {
           newStatus = 'disconnected';
         }
 
+        console.warn(`[AIService] ⚠️ Marcando chave ${apiKey.id} como ${newStatus} e pulando para a próxima...`);
         await this.updateKeyStatus(apiKey.id, newStatus, (apiKey.error_count || 0) + 1);
         attempts++;
         
         // Se a falha foi por quota ou crédito, vamos forçar uma atualização da lista para a próxima tentativa
         if (newStatus === 'no_credit' || newStatus === 'rate_limited') {
+          console.log('[AIService] Quota excedida detectada. Forçando refresh das chaves para tentar a próxima disponível...');
           keys = await this.getActiveKeys(true);
         }
       }
