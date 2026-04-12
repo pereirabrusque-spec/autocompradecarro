@@ -355,18 +355,26 @@ export default function ChatWidget() {
             sender_id: user.id,
             receiver_id: null, // To be picked up by admin
             content: messageText,
+            is_read: false,
             lead_id: activeLead.id !== user.id ? activeLead.id : null
           }]);
-        if (error) throw error;
+        if (error) {
+          console.error('[ChatWidget] Erro ao enviar mensagem interna:', error);
+          throw error;
+        }
       } else {
         const { error } = await supabase
           .from('mensagens')
           .insert([{
             lead_id: currentLeadId,
             remetente: 'cliente',
-            conteudo: messageText
+            conteudo: messageText,
+            lida: false
           }]);
-        if (error) throw error;
+        if (error) {
+          console.error('[ChatWidget] Erro ao enviar mensagem pública:', error);
+          throw error;
+        }
       }
     } catch (error) {
       console.error('Error sending message:', error);

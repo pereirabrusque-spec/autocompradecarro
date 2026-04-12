@@ -1447,7 +1447,7 @@ export default function AdminDashboard() {
     const { data, error } = await supabase
       .from('internal_messages')
       .select('*')
-      .or(`and(sender_id.eq.${userProfile.id},receiver_id.eq.${otherId}),and(sender_id.eq.${otherId},receiver_id.eq.${userProfile.id})`)
+      .or(`and(sender_id.eq.${userProfile.id},receiver_id.eq.${otherId}),and(sender_id.eq.${otherId},receiver_id.eq.${userProfile.id}),and(sender_id.eq.${otherId},receiver_id.is.null)`)
       .order('created_at', { ascending: true });
 
     if (error) {
@@ -1477,7 +1477,7 @@ export default function AdminDashboard() {
     const { data, error } = await supabase
       .from('internal_messages')
       .select('*')
-      .or(`and(sender_id.eq.${userProfile.id},receiver_id.eq.${otherId}),and(sender_id.eq.${otherId},receiver_id.eq.${userProfile.id})`)
+      .or(`and(sender_id.eq.${userProfile.id},receiver_id.eq.${otherId}),and(sender_id.eq.${otherId},receiver_id.eq.${userProfile.id}),and(sender_id.eq.${otherId},receiver_id.is.null)`)
       .order('created_at', { ascending: true });
 
     if (error) {

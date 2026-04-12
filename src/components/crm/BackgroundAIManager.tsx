@@ -119,9 +119,14 @@ export const BackgroundAIManager = () => {
         supabase.from('settings').select('key, value').in('key', [
             'AI_SYSTEM_PROMPT', 'AI_CRM_PROMPT', 'AI_CRM_ENABLED', 'AI_MEMORY', 'AI_CRM_MEMORY', 'AUTO_PROPOSAL_ENABLED',
             'COOPERATIVE_DISCOUNT_PERCENTAGE', 'PROFIT_MARGIN_PERCENTAGE', 'JUROS_ATRASO'
-        ]).then(({ data }) => {
+        ]).then(({ data, error }) => {
+            if (error) {
+                console.error("[BackgroundAIManager] ❌ Erro ao carregar configurações:", error);
+                return;
+            }
             console.log("[BackgroundAIManager] Configurações carregadas:", data?.length || 0, "itens.");
             if (data) {
+                console.log("[BackgroundAIManager] RAW Settings:", JSON.stringify(data));
                 const prompt = data.find(s => s.key === 'AI_SYSTEM_PROMPT');
                 const crmPrompt = data.find(s => s.key === 'AI_CRM_PROMPT');
                 const enabled = data.find(s => s.key === 'AI_CRM_ENABLED');
@@ -135,8 +140,10 @@ export const BackgroundAIManager = () => {
                 if (prompt) setAiPrompt(prompt.value);
                 if (crmPrompt) setAiCrmPrompt(crmPrompt.value);
                 if (enabled) {
-                    console.log("[BackgroundAIManager] IA Global status:", enabled.value);
-                    setIsAiEnabled(enabled.value === 'true');
+                    const isEnabled = enabled.value === 'true';
+                    console.log("[BackgroundAIManager] IA Global status no banco:", enabled.value, "->", isEnabled);
+                    setIsAiEnabled(isEnabled);
+                    isAiEnabledRef.current = isEnabled; // Update ref immediately
                 }
                 if (autoProposal) setAutoProposalEnabled(autoProposal.value === 'true');
                 if (memory) setAiMemory(memory.value);
@@ -204,11 +211,16 @@ export const BackgroundAIManager = () => {
     }, []);
 
     const handleInternalMessage = async (payload: any, isFollowUp = false) => {
+        console.log('[BackgroundAIManager] 📩 Nova mensagem interna recebida para processamento:', payload);
         const uid = currentUserIdRef.current;
-        console.log(`[BackgroundAIManager] 📥 Nova mensagem interna recebida: ${payload.content} (ID: ${payload.id})`);
         
         if (!uid) {
-            console.log("[BackgroundAIManager] ⏭️ UID não disponível, ignorando mensagem interna.");
+            console.log("[BackgroundAIManager] ⚠️ UID não disponível, ignorando mensagem interna.");
+            return;
+        }
+
+        if (!isAiEnabledRef.current) {
+            console.log('[BackgroundAIManager] ⚠️ IA Global desativada (AI_CRM_ENABLED=false). Ignorando mensagem interna.');
             return;
         }
 
@@ -223,7 +235,14 @@ export const BackgroundAIManager = () => {
                             payload.receiver_id === '00000000-0000-0000-0000-000000000000' || 
                             (!payload.receiver_id && uid);
             
-            if (!isForMe || payload.sender_id === uid) return;
+            if (!isForMe) {
+                console.log(`[BackgroundAIManager] Mensagem interna ignorada: não é para este usuário (${uid}). Receiver: ${payload.receiver_id}`);
+                return;
+            }
+            if (payload.sender_id === uid) {
+                console.log('[BackgroundAIManager] Mensagem interna ignorada: enviada por mim mesmo.');
+                return;
+            }
         }
         
         console.log(`[BackgroundAIManager] Processando mensagem interna. isFollowUp: ${isFollowUp}, sender_id: ${senderId}`);
@@ -549,9 +568,10 @@ REGRAS GERAIS:
     };
 
     const handlePublicMessage = async (payload: any, isFollowUp = false) => {
+        console.log('[BackgroundAIManager] 📩 Nova mensagem pública recebida para processamento:', payload);
         const uid = currentUserIdRef.current;
         if (!uid) {
-            console.log('[BackgroundAIManager] handlePublicMessage abortado: currentUserIdRef.current é nulo.');
+            console.log('[BackgroundAIManager] ⚠️ handlePublicMessage abortado: currentUserIdRef.current é nulo. O Admin precisa estar logado para a IA responder.');
             return;
         }
 
@@ -575,7 +595,7 @@ REGRAS GERAIS:
             
             // Se a IA global estiver desligada, não responde (mas o admin dashboard já aprende)
             if (!isGlobalAiEnabled) {
-                console.log(`[BackgroundAIManager] ⏭️ IA Global desligada. Ignorando resposta pública.`);
+                console.log(`[BackgroundAIManager] ⚠️ IA Global desligada (AI_CRM_ENABLED=false). Ignorando resposta pública.`);
                 return;
             }
 

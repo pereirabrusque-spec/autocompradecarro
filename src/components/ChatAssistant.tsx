@@ -149,6 +149,10 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
             .eq('email', user.email)
             .order('created_at', { ascending: false });
             
+          if (fetchError) {
+            console.error("[ChatAssistant] Erro ao buscar leads do usuário:", fetchError);
+          }
+
           if (userLeads && userLeads.length > 0) {
             // Se já tem leads, usa o mais recente (independente de ser frio ou quente)
             const existingLead = userLeads[0];
@@ -156,13 +160,24 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
             currentLeadId = existingLead.id;
             
             // Atualiza apenas o timestamp e nome
-            await supabase
+            console.log("[ChatAssistant] Updating existing lead:", currentLeadId);
+            const updateData: any = { 
+              cliente_nome: user.user_metadata?.full_name || profile?.full_name || 'Cliente',
+              updated_at: new Date().toISOString()
+            };
+            
+            if (user.id) {
+              updateData.user_id = user.id;
+            }
+
+            const { error: updateError } = await supabase
               .from('leads_veiculos')
-              .update({ 
-                cliente_nome: user.user_metadata?.full_name || profile?.full_name || 'Cliente',
-                user_id: user.id
-              })
+              .update(updateData)
               .eq('id', currentLeadId);
+            
+            if (updateError) {
+              console.error("[ChatAssistant] Erro ao atualizar lead existente:", updateError);
+            }
           } else {
             // REALMENTE não existe nenhum lead para este e-mail
             console.log("[ChatAssistant] No lead found for user email, creating unique cold lead...");
@@ -385,6 +400,27 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
     }
   };
 
+  const [isAiEnabled, setIsAiEnabled] = useState(true);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('settings')
+          .select('value')
+          .eq('key', 'AI_CRM_ENABLED')
+          .maybeSingle();
+        
+        if (data) {
+          setIsAiEnabled(data.value === 'true');
+        }
+      } catch (err) {
+        console.error("[ChatAssistant] Erro ao buscar configurações de IA:", err);
+      }
+    };
+    fetchSettings();
+  }, []);
+
   const handleSend = async (overrideText?: string) => {
     if (!overrideText && !input.trim() && !selectedImage || isLoading) return;
 
@@ -402,35 +438,57 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
     
     // Salvar mensagem do usuário
     if (leadIdRef.current) {
-      console.log("[ChatAssistant] Saving user message to Supabase:", userText);
-      const { error } = await supabase.from('mensagens').insert({
-        lead_id: leadIdRef.current,
-        remetente: 'cliente',
-        conteudo: userText,
-        metadata: { from_chat_widget: true }
-      });
-      if (error) {
-        console.error("[ChatAssistant] Erro ao salvar mensagem:", error);
-        setMessages(prev => prev.filter(m => m.text !== userText)); // Remove optimistic message
-        alert("Erro ao enviar mensagem. Tente novamente.");
+      console.log("[ChatAssistant] Saving user message to Supabase. LeadID:", leadIdRef.current, "Content:", userText);
+      
+      // Verifica se o lead ainda existe antes de tentar inserir a mensagem
+      const { data: leadCheck } = await supabase
+        .from('leads_veiculos')
+        .select('id')
+        .eq('id', leadIdRef.current)
+        .maybeSingle();
+
+      if (!leadCheck) {
+        console.error("[ChatAssistant] Lead não encontrado no banco de dados. Tentando recriar...");
+        // Força a reinicialização do chat para criar um novo lead
+        localStorage.removeItem('chat_lead_id');
+        window.location.reload();
         return;
-      } else {
-        console.log("[ChatAssistant] Message saved successfully.");
       }
+
+        const { error } = await supabase.from('mensagens').insert({
+            lead_id: leadIdRef.current,
+            remetente: 'cliente',
+            conteudo: userText,
+            lida: false,
+            metadata: { from_chat_widget: true, timestamp: new Date().toISOString() }
+        });
+        if (error) {
+            console.error("[ChatAssistant] Erro CRÍTICO ao salvar mensagem:", error);
+            console.error("[ChatAssistant] Detalhes do erro (JSON):", JSON.stringify(error));
+            console.error("[ChatAssistant] Dados que tentamos inserir:", {
+                lead_id: leadIdRef.current,
+                remetente: 'cliente',
+                conteudo: userText,
+                lida: false
+            });
+            setMessages(prev => prev.filter(m => m.text !== userText)); // Remove optimistic message
+            alert(`Erro ao enviar mensagem: ${error.message || 'Erro desconhecido'}. Por favor, recarregue a página.`);
+            return;
+        } else {
+            console.log("[ChatAssistant] Mensagem salva com sucesso no Supabase.");
+        }
     } else {
       console.warn("[ChatAssistant] Cannot save message: leadId is missing");
     }
 
     setIsLoading(true);
 
-    const isGlobalAiEnabled = true;
-
-    // Se a IA estiver desativada globalmente ou para este lead, não responde automaticamente - removido para automação total
-    // if (!isGlobalAiEnabled || isAiDisabled) {
-    //   console.log(`[ChatAssistant] AI response skipped. Global: ${isGlobalAiEnabled}, Lead Disabled: ${isAiDisabled}`);
-    //   setIsLoading(false);
-    //   return;
-    // }
+    // Se a IA estiver desativada globalmente ou para este lead, não responde automaticamente
+    if (!isAiEnabled || isAiDisabled) {
+      console.log(`[ChatAssistant] AI response skipped. Global: ${isAiEnabled}, Lead Disabled: ${isAiDisabled}`);
+      setIsLoading(false);
+      return;
+    }
 
     console.log("[ChatAssistant] Calling AI service...");
     try {
