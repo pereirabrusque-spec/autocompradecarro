@@ -114,7 +114,15 @@ export const BackgroundAIManager = () => {
     }, [currentUserId]);
 
     useEffect(() => {
-        console.log("[BackgroundAIManager] Componente montado. Buscando configurações...");
+        console.log("[BackgroundAIManager] 🚀 Componente montado. Buscando configurações...");
+        console.log("[BackgroundAIManager] 👤 Current User ID (Ref):", currentUserIdRef.current);
+        console.log("[BackgroundAIManager] 🤖 IA Enabled (Ref):", isAiEnabledRef.current);
+        
+        // Heartbeat to confirm it's alive
+        const heartbeat = setInterval(() => {
+            console.log("[BackgroundAIManager] ❤️ Heartbeat - IA is alive. Enabled:", isAiEnabledRef.current, "User:", currentUserIdRef.current);
+        }, 30000);
+
         // Load initial settings
         supabase.from('settings').select('key, value').in('key', [
             'AI_SYSTEM_PROMPT', 'AI_CRM_PROMPT', 'AI_CRM_ENABLED', 'AI_MEMORY', 'AI_CRM_MEMORY', 'AUTO_PROPOSAL_ENABLED',
@@ -167,15 +175,24 @@ export const BackgroundAIManager = () => {
         };
         loadProposalData();
 
-        // Get current user
-        supabase.auth.getUser().then(({ data: { user } }) => {
-            if (user) {
-                console.log("[BackgroundAIManager] Usuário autenticado encontrado:", user.id);
-                setCurrentUserId(user.id);
-            } else {
-                console.warn("[BackgroundAIManager] Nenhum usuário autenticado encontrado via getUser().");
+        // Get current user with retry
+        const getUserWithRetry = async (retries = 3) => {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (user) {
+                        console.log("[BackgroundAIManager] 👤 Usuário autenticado encontrado:", user.id);
+                        setCurrentUserId(user.id);
+                        return;
+                    }
+                } catch (e) {
+                    console.error(`[BackgroundAIManager] Erro ao buscar usuário (tentativa ${i+1}):`, e);
+                }
+                await new Promise(resolve => setTimeout(resolve, 2000));
             }
-        });
+            console.warn("[BackgroundAIManager] ⚠️ Falha ao obter usuário após várias tentativas.");
+        };
+        getUserWithRetry();
 
         // Listen for settings changes
         const settingsSubscription = supabase
@@ -205,6 +222,7 @@ export const BackgroundAIManager = () => {
             .subscribe();
 
         return () => {
+            clearInterval(heartbeat);
             supabase.removeChannel(settingsSubscription);
             supabase.removeChannel(dataSubscription);
         };
@@ -915,22 +933,25 @@ REGRAS GERAIS:
             for (const [leadId, lastMsg] of leads.entries()) {
                 const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
                 const remetente = (lastMsg.remetente || '').toLowerCase();
-                console.log(`[BackgroundAIManager] Analisando lead ${leadId}. Última msg: "${lastMsg.conteudo.substring(0, 20)}...", remetente: ${remetente}, ai_handled: ${lastMsg.metadata?.ai_handled}, timeDiff: ${Math.floor(timeDiff/1000)}s`);
+                console.log(`[BackgroundAIManager] 🔍 Scan Lead ${leadId}: "${lastMsg.conteudo.substring(0, 20)}...", remetente: ${remetente}, ai_handled: ${lastMsg.metadata?.ai_handled}, timeDiff: ${Math.floor(timeDiff/1000)}s`);
 
                 // Caso 1: Cliente mandou e não respondemos (última mensagem é do cliente)
                 if (remetente === 'cliente' && !lastMsg.metadata?.ai_handled && !lastMsg.metadata?.ai_failed) {
                     if (timeDiff > 120000) { // 2 min
-                        console.log(`[BackgroundAIManager] Lead ${leadId} precisa de resposta (timeDiff > 2min). Chamando handlePublicMessage.`);
+                        console.log(`[BackgroundAIManager] ✅ Lead ${leadId} precisa de resposta (timeDiff > 2min). Chamando handlePublicMessage.`);
                         handlePublicMessage(lastMsg);
                     } else {
-                        console.log(`[BackgroundAIManager] Lead ${leadId} é recente (${Math.floor(timeDiff/1000)}s). Aguardando delay de 2min.`);
+                        console.log(`[BackgroundAIManager] ⏳ Lead ${leadId} é recente (${Math.floor(timeDiff/1000)}s). Aguardando delay de 2min.`);
                     }
                 }
                 // Caso 2: Follow-up (Bot mandou, cliente leu mas não respondeu)
                 else if (lastMsg.remetente !== 'cliente' && lastMsg.lida && !lastMsg.metadata?.followed_up) {
                     if (timeDiff > 7200000) { // 2 horas
+                        console.log(`[BackgroundAIManager] 📢 Lead ${leadId} precisa de follow-up. Chamando handlePublicMessage.`);
                         handlePublicMessage(lastMsg, true);
                     }
+                } else {
+                    console.log(`[BackgroundAIManager] ⏭️ Lead ${leadId} NÃO precisa de resposta imediata. Motivo: remetente=${remetente}, ai_handled=${lastMsg.metadata?.ai_handled}`);
                 }
             }
         }
@@ -948,6 +969,7 @@ REGRAS GERAIS:
         console.log(`[BackgroundAIManager] Iniciando monitoramento global: ${channelName}`);
 
         // Listen for internal messages
+        console.log("[BackgroundAIManager] 📡 Configurando subscrições Realtime...");
         const internalMessageSubscription = supabase
             .channel(channelName)
             .on('postgres_changes', { 
@@ -955,10 +977,12 @@ REGRAS GERAIS:
                 schema: 'public', 
                 table: 'internal_messages' 
             }, async (payload) => {
-                console.log("[BackgroundAIManager] 🔔 Evento INSERT em internal_messages:", payload.new.id);
+                console.log("[BackgroundAIManager] 🔔 Evento INSERT em internal_messages recebido!", payload.new.id);
                 handleInternalMessage(payload.new);
             })
-            .subscribe();
+            .subscribe((status) => {
+                console.log(`[BackgroundAIManager] Status subscrição internal_messages: ${status}`);
+            });
 
         // Listen for public messages (leads)
         const publicMessageSubscription = supabase
@@ -968,12 +992,15 @@ REGRAS GERAIS:
                 schema: 'public', 
                 table: 'mensagens' 
             }, async (payload) => {
-                console.log("[BackgroundAIManager] 🔔 Evento INSERT em mensagens:", payload.new.id, payload.new.remetente);
+                console.log("[BackgroundAIManager] 🔔 Evento INSERT em mensagens recebido!", payload.new.id, "Remetente:", payload.new.remetente);
                 handlePublicMessage(payload.new);
             })
-            .subscribe();
+            .subscribe((status) => {
+                console.log(`[BackgroundAIManager] Status subscrição mensagens: ${status}`);
+            });
 
         return () => {
+            console.log("[BackgroundAIManager] 🛑 Desmontando componente e limpando subscrições.");
             clearInterval(interval);
             supabase.removeChannel(internalMessageSubscription);
             supabase.removeChannel(publicMessageSubscription);

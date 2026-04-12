@@ -31,9 +31,11 @@ export class AIService {
       }
     }
 
-    // Cache keys for 60 seconds unless forced (increased from 30s)
+    // Cache keys for 60 seconds unless forced
     if (!forceRefresh && this.cachedKeys.length > 0 && (now - this.lastFetchTime < 60000)) {
-      return this.cachedKeys;
+      // Se todas as chaves no cache estiverem ruins, forçamos um refresh
+      const hasAnyOk = this.cachedKeys.some(k => k.status === 'ok');
+      if (hasAnyOk) return this.cachedKeys;
     }
 
     const { data, error } = await supabase
@@ -116,19 +118,24 @@ export class AIService {
   }
 
   static async generateContent(prompt: string, systemInstruction: string, image?: string): Promise<AIResponse> {
-    console.log('[AIService] generateContent chamado. Prompt length:', prompt.length);
+    console.log('[AIService] generateContent chamado. Prompt length:', prompt.length, 'System length:', systemInstruction.length);
     let keys = await this.getActiveKeys();
-    console.log('[AIService] Chaves ativas encontradas:', keys.length);
+    console.log('[AIService] Chaves ativas encontradas:', keys.length, 'IDs:', keys.map(k => k.id).join(', '));
     
     // Filtra apenas chaves que estão marcadas como 'ok' (Verde)
     // Ou chaves que estão 'no_credit' mas não foram testadas há mais de 24 horas
     const now = new Date().getTime();
     const candidateKeys = keys.filter(k => {
       if (k.status === 'ok' || k.id === 'env-key') return true;
-      if (k.status === 'no_credit' || k.status === 'rate_limited') {
+      if (k.status === 'no_credit' || k.status === 'rate_limited' || k.status === 'disconnected') {
         const lastUsed = k.last_used ? new Date(k.last_used).getTime() : 0;
-        const hoursSinceLastUse = (now - lastUsed) / (1000 * 60 * 60);
-        return hoursSinceLastUse > 1; // Tenta novamente após 1h (reduzido de 24h)
+        const minutesSinceLastUse = (now - lastUsed) / (1000 * 60);
+        
+        // Tenta novamente chaves "ruins" mais rápido se não houver chaves "ok"
+        const hasAnyOk = keys.some(key => key.status === 'ok');
+        if (!hasAnyOk) return minutesSinceLastUse > 5; // Se tudo falhou, tenta a cada 5 min
+        
+        return minutesSinceLastUse > 60; // Caso contrário, espera 1h
       }
       return false;
     });
@@ -211,11 +218,11 @@ export class AIService {
   }
 
   // O teste de conexões agora é apenas manual via painel administrativo
-  static async testConnections(): Promise<void> {
+  static async testConnections(fullTest: boolean = false): Promise<void> {
     if (this.isTesting) return;
     this.isTesting = true;
     
-    console.log('[AIService] Iniciando teste manual de conexões das APIs...');
+    console.log(`[AIService] Iniciando teste manual de conexões das APIs (Full: ${fullTest})...`);
     let { data: allKeys } = await supabase.from('api_keys').select('*');
     
     if (!allKeys || allKeys.length === 0) {
@@ -230,14 +237,14 @@ export class AIService {
       
       try {
         const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('TIMEOUT')), 15000);
+          setTimeout(() => reject(new Error('TIMEOUT')), 20000);
         });
 
         const apiCallPromise = async () => {
           const response = await fetch('/api/test-api-key', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ provider: apiKey.provider, key: apiKey.key })
+            body: JSON.stringify({ provider: apiKey.provider, key: apiKey.key, fullTest })
           });
           const data = await response.json();
           if (!response.ok || !data.success) {
@@ -253,13 +260,11 @@ export class AIService {
         let newStatus: 'ok' | 'no_credit' | 'disconnected' | 'rate_limited' = 'disconnected';
         
         // Detecção mais robusta baseada nas mensagens de erro do servidor
-        if (errMsg.includes('quota_exceeded') || errMsg.includes('rate_limit') || errMsg.includes('429') || errMsg.includes('too many requests')) {
+        if (errMsg.includes('quota_exceeded') || errMsg.includes('rate_limit') || errMsg.includes('429') || errMsg.includes('too many requests') || errMsg.includes('insufficient_quota')) {
           newStatus = 'no_credit'; // Marcamos como Amarelo (sem crédito/quota)
         } else if (errMsg.includes('access_denied') || errMsg.includes('invalid') || errMsg.includes('key') || errMsg.includes('unauthorized') || errMsg.includes('permission') || errMsg.includes('suspended')) {
           newStatus = 'disconnected'; // Marcamos como Vermelho (corrompida/sem acesso)
-        } else if (errMsg.includes('timeout') || errMsg.includes('fetch') || errMsg.includes('network')) {
-          // Se for erro de rede/timeout, mantemos o status anterior ou marcamos como instável
-          // Para simplificar, vamos manter como desconectada se falhar o teste
+        } else {
           newStatus = 'disconnected';
         }
         
@@ -268,6 +273,7 @@ export class AIService {
     }
 
     this.isTesting = false;
+    this.lastHealthCheck = new Date().getTime();
     console.log('[AIService] Teste manual concluído.');
   }
 }
@@ -294,7 +300,8 @@ class AIClientManager {
 
     if (apiKey.provider === 'groq') {
       if (lowerModel.includes('llama 3.3') || lowerModel.includes('llama-3.3')) modelName = 'llama-3.3-70b-versatile';
-      else if (lowerModel.includes('llama 3') || lowerModel.includes('llama3')) modelName = 'llama3-8b-8192';
+      else if (lowerModel.includes('llama 3.1') || lowerModel.includes('llama-3.1')) modelName = 'llama-3.1-8b-instant';
+      else if (lowerModel.includes('llama 3') || lowerModel.includes('llama3')) modelName = 'llama-3.1-8b-instant'; // Update from deprecated llama3-8b-8192
       else if (lowerModel.includes('mixtral')) modelName = 'mixtral-8x7b-32768';
       else if (lowerModel.includes('gemma')) modelName = 'gemma2-9b-it';
     } else if (apiKey.provider === 'openai') {
@@ -321,9 +328,13 @@ class AIClientManager {
     const apiCallPromise = async () => {
       if (apiKey.provider === 'gemini') {
         if (!this.clients.has(apiKey.id)) {
-          this.clients.set(apiKey.id, new GoogleGenAI({ apiKey: apiKey.key }));
+          this.clients.set(apiKey.id, new GoogleGenAI(apiKey.key));
         }
-        const ai = this.clients.get(apiKey.id);
+        const genAI = this.clients.get(apiKey.id);
+        const model = genAI.getGenerativeModel({ 
+          model: modelName,
+          systemInstruction: systemInstruction 
+        });
         
         const parts: any[] = [];
         if (prompt) parts.push({ text: prompt });
@@ -336,17 +347,14 @@ class AIClientManager {
           });
         }
 
-        const response = await ai.models.generateContent({
-          model: modelName,
-          contents: [{ role: 'user', parts }],
-          config: { 
-            systemInstruction
-          }
+        const result = await model.generateContent({
+          contents: [{ role: 'user', parts }]
         });
         
-        if (response.text) {
+        const text = result.response.text();
+        if (text) {
           return {
-            text: response.text,
+            text: text,
             provider: 'gemini',
             model: modelName
           };

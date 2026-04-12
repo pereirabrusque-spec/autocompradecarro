@@ -98,7 +98,7 @@ export const ApiManagement = ({
                   setTestingKeyId('all');
                   try {
                     const { AIService } = await import('../../services/aiService');
-                    await AIService.testConnections();
+                    await AIService.testConnections(true);
                     if (fetchData) await fetchData();
                     alert('Varredura completa concluída! O status de todas as APIs foi atualizado.');
                   } catch (err: any) {

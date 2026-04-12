@@ -30,7 +30,10 @@ async function startServer() {
   // Secure File Upload Endpoint (Bypasses RLS)
   app.post('/api/upload', upload.single('file'), async (req, res) => {
     try {
+      console.log('[API Upload] Recebendo arquivo:', req.file?.originalname, 'Tamanho:', req.file?.size);
+      
       if (!supabaseAdmin) {
+        console.error('[API Upload] Erro: supabaseAdmin não inicializado (falta service role key)');
         return res.status(500).json({ error: 'Configuração de servidor incompleta.' });
       }
 
@@ -45,6 +48,7 @@ async function startServer() {
       const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
       const filePath = `${folder}/${fileName}`;
 
+      console.log('[API Upload] Fazendo upload para bucket banners, path:', filePath);
       const { data, error } = await supabaseAdmin.storage
         .from('banners')
         .upload(filePath, file.buffer, {
@@ -53,7 +57,7 @@ async function startServer() {
         });
 
       if (error) {
-        console.error('Erro detalhado do Supabase Storage:', JSON.stringify(error, null, 2));
+        console.error('[API Upload] Erro do Supabase Storage:', JSON.stringify(error, null, 2));
         return res.status(500).json({ 
           error: error.message || 'Erro no upload do storage',
           details: error
@@ -64,9 +68,10 @@ async function startServer() {
         .from('banners')
         .getPublicUrl(filePath);
 
+      console.log('[API Upload] Sucesso! URL pública:', publicUrl);
       res.json({ success: true, publicUrl, filePath });
     } catch (error: any) {
-      console.error('Erro no upload via API:', error);
+      console.error('[API Upload] Erro interno:', error);
       res.status(500).json({ error: error.message || 'Erro interno ao fazer upload.' });
     }
   });

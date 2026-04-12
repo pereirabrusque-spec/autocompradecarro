@@ -2937,6 +2937,36 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
             <div className="h-8 w-px bg-white/10 hidden md:block"></div>
             
+            {/* AI Status Indicator */}
+            <div className="hidden lg:flex items-center gap-3 px-3 py-1.5 bg-white/5 rounded-xl border border-white/10">
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${isGlobalAiEnabled ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-slate-500'}`} />
+                <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">
+                  IA {isGlobalAiEnabled ? 'Ativa' : 'Inativa'}
+                </span>
+              </div>
+              <div className="w-px h-4 bg-white/10"></div>
+              <button 
+                onClick={async () => {
+                  try {
+                    const { AIService } = await import('../services/aiService');
+                    await AIService.testConnections(true);
+                    await fetchData();
+                    alert('Varredura de APIs concluída!');
+                  } catch (err) {
+                    console.error('Erro na varredura:', err);
+                  }
+                }}
+                className="text-[9px] font-black text-amber-500 hover:text-amber-400 uppercase tracking-tighter flex items-center gap-1 transition-colors"
+                title="Forçar teste de todas as APIs agora"
+              >
+                <ShieldCheck className="w-3 h-3" />
+                Forçar Varredura
+              </button>
+            </div>
+
+            <div className="h-8 w-px bg-white/10 hidden md:block"></div>
+            
             {/* Navigation Menu */}
             <nav className="flex flex-wrap items-center gap-x-1.5 gap-y-1 py-1 overflow-y-auto no-scrollbar max-h-[72px] flex-1">
               {[
@@ -3020,7 +3050,11 @@ Podemos prosseguir com o agendamento da vistoria?`;
       </header>
 
       <main className="flex-grow overflow-hidden px-4 sm:px-6 lg:px-8 py-4">
-          {(isAdmin || userProfile?.role === 'user' || userProfile?.role === 'seller') && <BackgroundAIManager />}
+          {(() => {
+            const shouldRenderAI = (isAdmin || userProfile?.role === 'user' || userProfile?.role === 'seller');
+            console.log('[AdminDashboard] Should render BackgroundAIManager:', shouldRenderAI, { isAdmin, role: userProfile?.role });
+            return shouldRenderAI && <BackgroundAIManager />;
+          })()}
           <motion.div
             key={activeTab}
             initial={{ opacity: 0, y: 10 }}

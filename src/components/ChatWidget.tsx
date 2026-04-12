@@ -502,6 +502,9 @@ export default function ChatWidget() {
                             components={{
                               a: ({ node, ...props }) => (
                                 <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline" />
+                              ),
+                              img: ({ node, ...props }) => (
+                                <img {...props} className="max-w-full rounded-lg my-2 shadow-md" referrerPolicy="no-referrer" />
                               )
                             }}
                           >
