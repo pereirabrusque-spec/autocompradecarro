@@ -1224,6 +1224,11 @@ export default function AdminDashboard() {
     selectedInternalChatRef.current = selectedInternalChat;
   }, [selectedInternalChat]);
 
+  const selectedCompradorChatRef = useRef(selectedCompradorChat);
+  useEffect(() => {
+    selectedCompradorChatRef.current = selectedCompradorChat;
+  }, [selectedCompradorChat]);
+
   const userProfileRef = useRef(userProfile);
   useEffect(() => {
     userProfileRef.current = userProfile;
@@ -1363,6 +1368,16 @@ export default function AdminDashboard() {
             selectedInternalChatRef.current === payload.new.receiver_id) {
           console.log("[AdminDashboard] Updating internal chat messages state");
           setInternalChatMessages(prev => {
+            if (prev.find(m => m.id === payload.new.id)) return prev;
+            return [...prev, payload.new];
+          });
+        }
+
+        // Atualiza chat de comprador se estiver aberto para este usuário
+        if (selectedCompradorChatRef.current === payload.new.sender_id || 
+            selectedCompradorChatRef.current === payload.new.receiver_id) {
+          console.log("[AdminDashboard] Updating comprador chat messages state");
+          setCompradorChatMessages(prev => {
             if (prev.find(m => m.id === payload.new.id)) return prev;
             return [...prev, payload.new];
           });

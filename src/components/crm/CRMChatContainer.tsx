@@ -43,30 +43,36 @@ export const CRMChatContainer = ({ role, onOpenLead, onCloneLead, setToast }: { 
       
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('id, full_name, email, avatar_url, role')
+        .select('id, full_name, email, avatar_url, role, created_at')
         .in('role', ['buyer', 'buyer_premium', 'buyer_master'])
         .order('created_at', { ascending: false });
       
       if (profiles) {
-        // Para cada perfil, tenta buscar o lead_id mais recente nas mensagens
+        // Para cada perfil, tenta buscar o lead_id mais recente nas mensagens e a data da última mensagem
         const enrichedProfiles = await Promise.all(profiles.map(async (profile) => {
           const { data: lastMsg } = await supabase
             .from('internal_messages')
-            .select('lead_id')
+            .select('lead_id, created_at')
             .or(`sender_id.eq.${profile.id},receiver_id.eq.${profile.id}`)
-            .not('lead_id', 'is', null)
             .order('created_at', { ascending: false })
             .limit(1);
           
           let lead = null;
-          if (lastMsg && lastMsg.length > 0 && lastMsg[0].lead_id) {
-            const { data: leadData } = await supabase
-              .from('leads_veiculos')
-              .select('*')
-              .eq('id', lastMsg[0].lead_id)
-              .single();
-            lead = leadData;
-          } else {
+          let lastMessageAt = profile.created_at; // Fallback para data de criação do perfil
+
+          if (lastMsg && lastMsg.length > 0) {
+            lastMessageAt = lastMsg[0].created_at;
+            if (lastMsg[0].lead_id) {
+              const { data: leadData } = await supabase
+                .from('leads_veiculos')
+                .select('*')
+                .eq('id', lastMsg[0].lead_id)
+                .single();
+              lead = leadData;
+            }
+          }
+
+          if (!lead) {
             // Fallback: busca qualquer lead vinculado ao user_id
             const { data: leadData } = await supabase
               .from('leads_veiculos')
@@ -77,10 +83,15 @@ export const CRMChatContainer = ({ role, onOpenLead, onCloneLead, setToast }: { 
             if (leadData && leadData.length > 0) lead = leadData[0];
           }
 
-          return { ...profile, lead };
+          return { ...profile, lead, lastMessageAt };
         }));
 
-        setConversations(enrichedProfiles);
+        // Ordena por data da última mensagem (mais recente no topo)
+        const sortedProfiles = enrichedProfiles.sort((a, b) => {
+          return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime();
+        });
+
+        setConversations(sortedProfiles);
         
         // Busca contadores APENAS para mensagens destinadas ao admin logado
         if (uid) {

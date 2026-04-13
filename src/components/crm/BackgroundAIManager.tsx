@@ -202,8 +202,14 @@ export const BackgroundAIManager = () => {
                     const { key, value } = payload.new as any;
                     if (key === 'AI_SYSTEM_PROMPT') setAiPrompt(value);
                     if (key === 'AI_CRM_PROMPT') setAiCrmPrompt(value);
-                    if (key === 'AI_CRM_ENABLED') setIsAiEnabled(value === 'true');
-                    if (key === 'AUTO_PROPOSAL_ENABLED') setAutoProposalEnabled(value === 'true');
+                    if (key === 'AI_CRM_ENABLED') {
+                        setIsAiEnabled(value === 'true');
+                        isAiEnabledRef.current = value === 'true';
+                    }
+                    if (key === 'AUTO_PROPOSAL_ENABLED') {
+                        setAutoProposalEnabled(value === 'true');
+                        autoProposalEnabledRef.current = value === 'true';
+                    }
                     if (key === 'AI_MEMORY') setAiMemory(value);
                     if (key === 'AI_CRM_MEMORY') setAiCrmMemory(value);
                     if (key === 'COOPERATIVE_DISCOUNT_PERCENTAGE') setCooperativeDiscount(Number(value) || 5);
@@ -285,9 +291,11 @@ export const BackgroundAIManager = () => {
             const finalIsBuyer = isBuyer || (payload.lead_id ? true : false);
             const finalIsSeller = !finalIsBuyer && (isSeller || senderProfile?.role === 'user');
 
-            console.log(`[BackgroundAIManager] Detecção de papel - isBuyer: ${finalIsBuyer}, isSeller: ${finalIsSeller}, lead_id: ${payload.lead_id}`);
+            console.log(`[BackgroundAIManager] 🔍 Processando mensagem interna (${messageId}). isBuyer: ${finalIsBuyer}, isSeller: ${finalIsSeller}, lead_id: ${payload.lead_id}`);
+            console.log(`[BackgroundAIManager] 👤 Perfil do remetente:`, senderProfile?.full_name, 'Role:', senderProfile?.role);
 
             const isGlobalAiEnabled = isAiEnabledRef.current;
+            console.log(`[BackgroundAIManager] 🤖 IA Global: ${isGlobalAiEnabled}`);
 
             if (payload.sender_id === uid) {
                 handleAILearning(payload, 'internal');
@@ -531,7 +539,7 @@ REGRAS GERAIS:
                     "Você é um especialista de vendas altamente preciso. Responda estritamente com base nos dados técnicos do veículo fornecidos no contexto. Se a informação não estiver nos dados, não invente. Seja direto, profissional e persuasivo. NUNCA mencione ser uma IA ou que haverá contato humano posterior, você é o especialista responsável.",
                     imageBase64 || undefined
                 );
-                console.log("[BackgroundAIManager] Internal AI Response received:", response ? "SUCCESS" : "NULL/EMPTY");
+                console.log("[BackgroundAIManager] Internal AI Response received:", response ? "SUCCESS" : "NULL/EMPTY", response?.text?.substring(0, 50) + "...");
 
                 if (response && response.text) {
                     await supabase.from('internal_messages').insert({
@@ -584,6 +592,7 @@ REGRAS GERAIS:
             console.log(`[BackgroundAIManager] 📥 Nova mensagem de lead recebida: ${payload.conteudo} (ID: ${messageId})`);
             
             const isGlobalAiEnabled = isAiEnabledRef.current;
+            console.log(`[BackgroundAIManager] 🤖 IA Global (Pública): ${isGlobalAiEnabled}`);
             
             if (!isGlobalAiEnabled) {
                 console.log(`[BackgroundAIManager] ⚠️ IA Global desligada (AI_CRM_ENABLED=false). Ignorando resposta pública.`);
@@ -592,12 +601,13 @@ REGRAS GERAIS:
 
             const { data: leadData } = await supabase
                 .from('leads_veiculos')
-                .select('detalhes_proposta')
+                .select('detalhes_proposta, cliente_nome')
                 .eq('id', leadId)
                 .maybeSingle();
             
-            const leadAiDisabled = leadData?.detalhes_proposta?.ai_disabled || false;
+            console.log(`[BackgroundAIManager] 📄 Dados do lead (${leadId}):`, leadData?.cliente_nome);
             
+            const leadAiDisabled = leadData?.detalhes_proposta?.ai_disabled || false;
             if (leadAiDisabled) {
                 console.log(`[BackgroundAIManager] ⏭️ IA desativada para este lead específico (${leadId}).`);
                 return;

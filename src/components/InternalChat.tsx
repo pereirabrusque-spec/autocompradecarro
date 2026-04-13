@@ -186,18 +186,23 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle, hide
   }, [messages]);
 
   const fetchMessages = async () => {
-    console.log('[InternalChat] Fetching messages for user:', user?.id, 'leadId:', leadId);
-    const { data, error } = await supabase
-      .from('internal_messages')
-      .select('*, profiles:sender_id(full_name, avatar_url, role)')
-      .or(`sender_id.eq.${user?.id},receiver_id.eq.${user?.id}`)
-      .order('created_at', { ascending: false }); // Mudado para false para flex-col-reverse
+    if (!user?.id) return;
+    console.log('[InternalChat] 🔍 Buscando mensagens para o usuário:', user.id, 'leadId:', leadId);
+    try {
+      const { data, error } = await supabase
+        .from('internal_messages')
+        .select('*, profiles:sender_id(full_name, avatar_url, role)')
+        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('[InternalChat] Error fetching messages:', error);
-    } else {
-      console.log('[InternalChat] Messages fetched:', data);
-      setMessages(data || []);
+      if (error) {
+        console.error('[InternalChat] ❌ Erro ao buscar mensagens:', error);
+      } else {
+        console.log('[InternalChat] ✅ Mensagens buscadas com sucesso:', data?.length || 0);
+        setMessages(data || []);
+      }
+    } catch (err) {
+      console.error('[InternalChat] 💥 Exceção em fetchMessages:', err);
     }
   };
 
@@ -210,30 +215,30 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle, hide
     }
 
     setLoading(true);
-    console.log('[InternalChat] Sending message:', newMessage, 'User ID:', user.id, 'Lead ID:', leadId);
+    console.log('[InternalChat] 📤 Enviando mensagem:', newMessage, 'User ID:', user.id, 'Lead ID:', leadId);
     try {
-      const { error } = await supabase.from('internal_messages').insert({
+      const { data, error } = await supabase.from('internal_messages').insert({
         sender_id: user.id,
         content: newMessage,
-        lead_id: leadId || null, // Ensure it's null if undefined
-        // receiver_id is NULL for messages to admin
-      });
+        lead_id: leadId || null,
+      }).select();
 
       if (error) {
-        console.error('[InternalChat] Error sending message to Supabase:', error);
-        console.error('[InternalChat] Error details:', JSON.stringify(error, null, 2));
+        console.error('[InternalChat] ❌ Erro ao enviar mensagem para o Supabase:', error);
         throw error;
       }
-      console.log('[InternalChat] Message sent successfully');
+      console.log('[InternalChat] ✅ Mensagem enviada com sucesso:', data);
       setNewMessage('');
     } catch (error) {
-      console.error('[InternalChat] Exception sending message:', error);
+      console.error('[InternalChat] 💥 Exceção ao enviar mensagem:', error);
     } finally {
       setLoading(false);
     }
   };
 
     const showFloatingButton = !hideFloatingButton;
+
+    console.log('[InternalChat] Renderizando. isOpen:', isOpen, 'messages:', messages.length, 'user:', user?.id);
 
     return (
     <>
