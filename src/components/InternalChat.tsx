@@ -189,17 +189,42 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle, hide
     if (!user?.id) return;
     console.log('[InternalChat] 🔍 Buscando mensagens para o usuário:', user.id, 'leadId:', leadId);
     try {
-      const { data, error } = await supabase
+      // Primeiro busca as mensagens sem o join que está dando erro
+      const { data: msgs, error: msgsError } = await supabase
         .from('internal_messages')
-        .select('*, profiles:sender_id(full_name, avatar_url, role)')
+        .select('*')
         .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('[InternalChat] ❌ Erro ao buscar mensagens:', error);
+      if (msgsError) {
+        console.error('[InternalChat] ❌ Erro ao buscar mensagens:', msgsError);
+        return;
+      }
+
+      if (!msgs || msgs.length === 0) {
+        setMessages([]);
+        return;
+      }
+
+      // Agora busca os perfis dos remetentes para preencher os dados
+      const senderIds = [...new Set(msgs.map(m => m.sender_id))];
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url, role')
+        .in('id', senderIds);
+
+      if (profilesError) {
+        console.error('[InternalChat] ❌ Erro ao buscar perfis dos remetentes:', profilesError);
+        // Ainda assim define as mensagens, mas sem os dados do perfil
+        setMessages(msgs);
       } else {
-        console.log('[InternalChat] ✅ Mensagens buscadas com sucesso:', data?.length || 0);
-        setMessages(data || []);
+        const profileMap = new Map(profiles.map(p => [p.id, p]));
+        const msgsWithProfiles = msgs.map(m => ({
+          ...m,
+          profiles: profileMap.get(m.sender_id)
+        }));
+        console.log('[InternalChat] ✅ Mensagens e perfis buscados com sucesso:', msgsWithProfiles.length);
+        setMessages(msgsWithProfiles);
       }
     } catch (err) {
       console.error('[InternalChat] 💥 Exceção em fetchMessages:', err);

@@ -512,8 +512,8 @@ ${history}
 MENSAGEM ATUAL: ${payload.content}
 
 [REGRAS E MEMÓRIA DO MENU IA]
-${aiCrmPromptRef.current}
-${aiCrmMemoryRef.current ? `\nMEMÓRIA APRENDIDA (CONSULTE ANTES DE RESPONDER):\n${aiCrmMemoryRef.current}` : ''}
+${isBuyerContext ? aiCrmPromptRef.current : aiPromptRef.current}
+${(isBuyerContext ? aiCrmMemoryRef.current : aiMemoryRef.current) ? `\nMEMÓRIA APRENDIDA (CONSULTE ANTES DE RESPONDER):\n${isBuyerContext ? aiCrmMemoryRef.current : aiMemoryRef.current}` : ''}
 
 REGRAS DE PROPOSTA:
 ${autoProposalEnabledRef.current && !requiresManualAnalysis ? 

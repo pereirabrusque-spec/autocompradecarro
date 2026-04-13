@@ -880,7 +880,13 @@ export default function AdminDashboard() {
       // First, add people we have messages with
       if (internalMessagesData && userProfileRef.current) {
         internalMessagesData.forEach((msg: any) => {
-          const otherId = msg.sender_id === userProfileRef.current.id ? msg.receiver_id : msg.sender_id;
+          let otherId = msg.sender_id === userProfileRef.current.id ? msg.receiver_id : msg.sender_id;
+          
+          // Caso especial: mensagem enviada para ninguém (receiver_id null) por outra pessoa
+          if (!otherId && msg.sender_id !== userProfileRef.current.id) {
+            otherId = msg.sender_id;
+          }
+
           if (otherId && !internalIds.has(otherId)) {
             internalIds.add(otherId);
             const otherProfile = (profilesData || []).find((u: any) => u.id === otherId);
@@ -890,7 +896,7 @@ export default function AdminDashboard() {
               // Exclude buyers even if they somehow have admin role (safety check)
               if (otherProfile.role?.includes('buyer')) return;
               const unreadCount = internalMessagesData.filter((m: any) => 
-                m.sender_id === otherId && m.receiver_id === userProfileRef.current.id && !m.is_read
+                m.sender_id === otherId && m.receiver_id === userProfileRef.current.id && !m.read
               ).length;
               
               const isOnline = otherProfile.last_login ? (new Date().getTime() - new Date(otherProfile.last_login).getTime()) < 300000 : false;
@@ -930,6 +936,8 @@ export default function AdminDashboard() {
         });
       }
       console.log("Conversas internas agrupadas:", groupedInternal);
+      // Sort internal conversations by last message time descending
+      groupedInternal.sort((a, b) => new Date(b.last_time).getTime() - new Date(a.last_time).getTime());
       setInternalConversations(groupedInternal);
 
       // Group buyer conversations
@@ -938,13 +946,19 @@ export default function AdminDashboard() {
 
       if (internalMessagesData && userProfileRef.current) {
         internalMessagesData.forEach((msg: any) => {
-          const otherId = msg.sender_id === userProfileRef.current.id ? msg.receiver_id : msg.sender_id;
+          let otherId = msg.sender_id === userProfileRef.current.id ? msg.receiver_id : msg.sender_id;
+          
+          // Caso especial: mensagem enviada para ninguém (receiver_id null) por outra pessoa
+          if (!otherId && msg.sender_id !== userProfileRef.current.id) {
+            otherId = msg.sender_id;
+          }
+
           if (otherId && !compradorIds.has(otherId) && !internalIds.has(otherId)) {
             const otherProfile = (profilesData || []).find((u: any) => u.id === otherId);
             if (otherProfile && otherProfile.role?.toLowerCase().includes('buyer')) {
               compradorIds.add(otherId);
               const unreadCount = internalMessagesData.filter((m: any) => 
-                m.sender_id === otherId && m.receiver_id === userProfileRef.current.id && !m.is_read
+                m.sender_id === otherId && m.receiver_id === userProfileRef.current.id && !m.read
               ).length;
               const isOnline = otherProfile.last_login ? (new Date().getTime() - new Date(otherProfile.last_login).getTime()) < 300000 : false;
               groupedCompradores.push({
@@ -3523,7 +3537,16 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 <div className="flex justify-between items-center">
                   <h2 className="text-2xl font-bold">Configurações de IA</h2>
                   <div className="flex items-center gap-4">
-                    {/* Controles manuais removidos conforme solicitado - sistema agora é 100% automatizado */}
+                    <div className="flex items-center gap-3 px-4 py-2 bg-slate-50 rounded-2xl border border-slate-100">
+                      <Bot className={`w-5 h-5 ${isGlobalAiEnabled ? 'text-accent' : 'text-slate-300'}`} />
+                      <span className="text-sm font-bold text-slate-700">IA Global</span>
+                      <button
+                        onClick={() => setIsGlobalAiEnabled(!isGlobalAiEnabled)}
+                        className={`w-12 h-6 rounded-full transition-all relative ${isGlobalAiEnabled ? 'bg-accent' : 'bg-slate-300'}`}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${isGlobalAiEnabled ? 'left-7' : 'left-1'}`} />
+                      </button>
+                    </div>
                   </div>
                 </div>
 

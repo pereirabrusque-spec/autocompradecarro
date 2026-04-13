@@ -115,7 +115,7 @@ export default function AdminMessages({
     if (leadsScrollRef.current) {
       leadsScrollRef.current.scrollTop = leadsScrollRef.current.scrollHeight;
     }
-  }, [chatMessages, internalChatMessages]);
+  }, [chatMessages, internalChatMessages, compradorChatMessages]);
 
   useEffect(() => {
     if (messageTab === 'leads' && !selectedConversation && conversations.length > 0) {

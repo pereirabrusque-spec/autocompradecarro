@@ -126,7 +126,7 @@ export class AIService {
     // Filtra apenas chaves que estão marcadas como 'ok' (Verde)
     // Ou chaves que estão 'no_credit' mas não foram testadas há mais de 24 horas
     const now = new Date().getTime();
-    const candidateKeys = keys.filter(k => {
+    let candidateKeys = keys.filter(k => {
       if (k.status === 'ok' || k.id === 'env-key') return true;
       
       // Se a chave estiver com erro, só tentamos se não houver NENHUMA chave 'ok'
@@ -148,9 +148,24 @@ export class AIService {
       console.warn('[AIService] Nenhuma chave de API disponível para processar a requisição.');
       // Tenta forçar um refresh do banco para ver se algo mudou
       keys = await this.getActiveKeys(true);
-      if (!keys.some(k => k.status === 'ok')) {
+      
+      // RE-CALCULA candidateKeys após o refresh
+      const refreshedCandidateKeys = keys.filter(k => {
+        if (k.status === 'ok' || k.id === 'env-key') return true;
+        const hasAnyOk = keys.some(key => key.status === 'ok');
+        if (hasAnyOk) return false;
+        if (k.status === 'no_credit' || k.status === 'rate_limited' || k.status === 'disconnected') {
+          const lastUsed = k.last_used ? new Date(k.last_used).getTime() : 0;
+          const minutesSinceLastUse = (Date.now() - lastUsed) / (1000 * 60);
+          return minutesSinceLastUse > 5;
+        }
+        return false;
+      });
+      
+      if (refreshedCandidateKeys.length === 0) {
         throw new Error('Todas as chaves de IA falharam ou estão offline. Adicione novas chaves no painel.');
       }
+      candidateKeys = refreshedCandidateKeys;
     }
 
     let attempts = 0;
@@ -194,13 +209,14 @@ export class AIService {
 
         console.warn(`[AIService] ⚠️ Marcando chave ${apiKey.id} como ${newStatus} e pulando para a próxima...`);
         await this.updateKeyStatus(apiKey.id, newStatus, (apiKey.error_count || 0) + 1);
-        attempts++;
         
-        // Se a falha foi por quota ou crédito, vamos forçar uma atualização da lista para a próxima tentativa
+        // Se a falha foi por quota ou crédito, vamos forçar uma atualização no banco
+        // Mas não re-filtramos a lista local para não quebrar o índice do loop
         if (newStatus === 'no_credit' || newStatus === 'rate_limited') {
-          console.log('[AIService] Quota excedida detectada. Forçando refresh das chaves para tentar a próxima disponível...');
-          keys = await this.getActiveKeys(true);
+          console.log('[AIService] Quota excedida detectada. Marcando no banco e seguindo para a próxima chave da lista atual.');
         }
+        
+        attempts++;
       }
     }
 
