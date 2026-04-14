@@ -20,19 +20,16 @@ export class AIService {
   public static async getActiveKeys(forceRefresh: boolean = false): Promise<any[]> {
     const now = Date.now();
     
-    // Check if we need a scheduled health check (every 6 hours)
-    const SIX_HOURS = 6 * 60 * 60 * 1000;
-    if (now - this.lastHealthCheck > SIX_HOURS && !this.isTesting) {
-      console.log('[AIService] Iniciando health check agendado (6h)...');
-      this.testConnections().catch(console.error);
-      this.lastHealthCheck = now;
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('ai_last_health_check', now.toString());
-      }
+    // Check if we need a scheduled health check (every 15 minutes for non-ok keys)
+    const FIFTEEN_MINUTES = 15 * 60 * 1000;
+    if (now - this.lastTestTime > FIFTEEN_MINUTES && !this.isTesting) {
+      this.lastTestTime = now;
+      // We only trigger automatic test if there are non-ok keys or if all are bad
+      this.testConnections(false, true).catch(console.error);
     }
 
-    // Cache keys for 60 seconds unless forced
-    if (!forceRefresh && this.cachedKeys.length > 0 && (now - this.lastFetchTime < 60000)) {
+    // Cache keys for 30 seconds unless forced
+    if (!forceRefresh && this.cachedKeys.length > 0 && (now - this.lastFetchTime < 30000)) {
       // Se todas as chaves no cache estiverem ruins, forçamos um refresh
       const hasAnyOk = this.cachedKeys.some(k => k.status === 'ok');
       if (hasAnyOk) return this.cachedKeys;
@@ -53,6 +50,13 @@ export class AIService {
       if (provider === 'grod') return false;
       return true;
     });
+
+    // If all keys are bad, force a test immediately
+    const hasAnyOk = filteredData.some(k => k.status === 'ok');
+    if (!hasAnyOk && filteredData.length > 0 && !this.isTesting) {
+      console.warn('[AIService] 🚨 Nenhuma chave OK encontrada. Forçando teste de conexão...');
+      this.testConnections(true).catch(console.error);
+    }
 
     // Prioritize 'ok' status (green). 
     // Among 'ok' keys, we want to stick to the last successful one.
@@ -238,12 +242,12 @@ export class AIService {
     throw new Error('Todas as APIs disponíveis falharam ou estão com quota excedida. Por favor, adicione uma nova chave API no painel administrativo.');
   }
 
-  // O teste de conexões agora é apenas manual via painel administrativo
-  static async testConnections(fullTest: boolean = false): Promise<void> {
+  // O teste de conexões agora é automático e manual
+  static async testConnections(fullTest: boolean = false, autoOnlyNonOk: boolean = false): Promise<void> {
     if (this.isTesting) return;
     this.isTesting = true;
     
-    console.log(`[AIService] Iniciando teste manual de conexões das APIs (Full: ${fullTest})...`);
+    console.log(`[AIService] Iniciando teste de conexões das APIs (Full: ${fullTest}, AutoOnlyNonOk: ${autoOnlyNonOk})...`);
     let { data: allKeys } = await supabase.from('api_keys').select('*');
     
     if (!allKeys || allKeys.length === 0) {
@@ -253,9 +257,14 @@ export class AIService {
 
     // Executa sequencialmente para evitar limites de taxa simultâneos e garantir estabilidade
     for (const apiKey of allKeys) {
+      // Se for autoOnlyNonOk, pula chaves que já estão 'ok'
+      if (autoOnlyNonOk && apiKey.status === 'ok') continue;
+
       const provider = apiKey.provider?.toLowerCase().trim();
       if (provider === 'groq' && !apiKey.key) continue; // Skip if no key
       
+      console.log(`[AIService] 🧪 Testando chave: ${apiKey.id} (${apiKey.provider}) - Status atual: ${apiKey.status}`);
+
       try {
         const timeoutPromise = new Promise<never>((_, reject) => {
           setTimeout(() => reject(new Error('TIMEOUT')), 20000);
@@ -275,15 +284,18 @@ export class AIService {
         };
 
         await Promise.race([apiCallPromise(), timeoutPromise]);
+        console.log(`[AIService] ✅ Chave ${apiKey.id} validada com sucesso.`);
         await this.updateKeyStatus(apiKey.id, 'ok', 0);
       } catch (error: any) {
         const errMsg = error.message?.toLowerCase() || '';
+        console.warn(`[AIService] ❌ Falha no teste da chave ${apiKey.id}: ${errMsg}`);
+
         let newStatus: 'ok' | 'no_credit' | 'disconnected' | 'rate_limited' = 'disconnected';
         
         // Detecção mais robusta baseada nas mensagens de erro do servidor
-        if (errMsg.includes('quota_exceeded') || errMsg.includes('rate_limit') || errMsg.includes('429') || errMsg.includes('too many requests') || errMsg.includes('insufficient_quota')) {
+        if (errMsg.includes('quota') || errMsg.includes('limit') || errMsg.includes('429') || errMsg.includes('too many requests') || errMsg.includes('insufficient') || errMsg.includes('credit') || errMsg.includes('balance')) {
           newStatus = 'no_credit'; // Marcamos como Amarelo (sem crédito/quota)
-        } else if (errMsg.includes('access_denied') || errMsg.includes('invalid') || errMsg.includes('key') || errMsg.includes('unauthorized') || errMsg.includes('permission') || errMsg.includes('suspended')) {
+        } else if (errMsg.includes('access_denied') || errMsg.includes('invalid') || errMsg.includes('key') || errMsg.includes('unauthorized') || errMsg.includes('permission') || errMsg.includes('suspended') || errMsg.includes('disabled')) {
           newStatus = 'disconnected'; // Marcamos como Vermelho (corrompida/sem acesso)
         } else {
           newStatus = 'disconnected';
@@ -291,11 +303,15 @@ export class AIService {
         
         await this.updateKeyStatus(apiKey.id, newStatus, (apiKey.error_count || 0) + 1);
       }
+      
+      // Pequeno delay entre testes para não sobrecarregar
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
     this.isTesting = false;
-    this.lastHealthCheck = new Date().getTime();
-    console.log('[AIService] Teste manual concluído.');
+    this.lastTestTime = Date.now();
+    this.lastHealthCheck = Date.now();
+    console.log('[AIService] Teste de conexões concluído.');
   }
 }
 

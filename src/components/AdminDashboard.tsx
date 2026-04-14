@@ -1212,6 +1212,18 @@ export default function AdminDashboard() {
     if (userProfile) {
       fetchData();
 
+      // Forçar teste de APIs não-OK ao carregar o dashboard
+      const checkApiHealth = async () => {
+        try {
+          const { AIService } = await import('../services/aiService');
+          await AIService.testConnections(false, true);
+          fetchData(); // Atualiza a lista após o teste
+        } catch (e) {
+          console.error('[AdminDashboard] Erro no health check inicial:', e);
+        }
+      };
+      checkApiHealth();
+
       // Real-time subscription for settings to keep AI toggle and other configs in sync
       const settingsSubscription = supabase
         .channel('admin_settings_changes')

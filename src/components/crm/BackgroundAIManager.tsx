@@ -594,50 +594,54 @@ REGRAS GERAIS:
     };
 
     const handlePublicMessage = async (payload: any, isFollowUp = false) => {
-        console.log('[BackgroundAIManager] 📩 handlePublicMessage START:', { 
-            id: payload.id, 
+        const messageId = payload.id;
+        console.log(`[BackgroundAIManager] 📩 handlePublicMessage START [ID: ${messageId}]:`, { 
             content: payload.conteudo, 
             remetente: payload.remetente, 
             isFollowUp,
+            metadata: payload.metadata,
             timestamp: new Date().toISOString()
         });
         const uid = currentUserIdRef.current;
         if (!uid) {
-            console.log('[BackgroundAIManager] ⚠️ handlePublicMessage ABORT: UID nulo (currentUserIdRef é nulo).');
+            console.log(`[BackgroundAIManager] ⚠️ handlePublicMessage ABORT [ID: ${messageId}]: UID nulo (currentUserIdRef é nulo).`);
             return;
         }
 
         if (payload.metadata?.ai_handled && !isFollowUp) {
-            console.log(`[BackgroundAIManager] handlePublicMessage ABORT: Já processada (ai_handled: true).`);
+            console.log(`[BackgroundAIManager] handlePublicMessage ABORT [ID: ${messageId}]: Já processada (ai_handled: true).`);
             return;
         }
 
         const remetente = (payload.remetente || '').toLowerCase();
         if (remetente === 'cliente' || isFollowUp) {
             const leadId = payload.lead_id;
-            const messageId = payload.id;
 
-            console.log(`[BackgroundAIManager] 📥 Processando mensagem de lead: "${payload.conteudo}" (ID: ${messageId})`);
+            console.log(`[BackgroundAIManager] 📥 Processando mensagem de lead [ID: ${messageId}]: "${payload.conteudo}"`);
             
             const isGlobalAiEnabled = isAiEnabledRef.current;
-            console.log(`[BackgroundAIManager] handlePublicMessage check IA Global: ${isGlobalAiEnabled}`);
+            console.log(`[BackgroundAIManager] handlePublicMessage check IA Global [ID: ${messageId}]: ${isGlobalAiEnabled}`);
             
             if (!isGlobalAiEnabled) {
-                console.log(`[BackgroundAIManager] handlePublicMessage ABORT: IA Global desligada no Ref.`);
+                console.log(`[BackgroundAIManager] handlePublicMessage ABORT [ID: ${messageId}]: IA Global desligada no Ref.`);
                 return;
             }
 
-            const { data: leadData } = await supabase
+            const { data: leadData, error: leadError } = await supabase
                 .from('leads_veiculos')
                 .select('detalhes_proposta, cliente_nome')
                 .eq('id', leadId)
                 .maybeSingle();
             
-            console.log(`[BackgroundAIManager] 📄 Dados do lead (${leadId}):`, leadData?.cliente_nome);
+            if (leadError) {
+                console.error(`[BackgroundAIManager] handlePublicMessage ERROR [ID: ${messageId}]: Erro ao buscar lead:`, leadError);
+            }
+            
+            console.log(`[BackgroundAIManager] 📄 Dados do lead [ID: ${messageId}] (${leadId}):`, leadData?.cliente_nome);
             
             const leadAiDisabled = leadData?.detalhes_proposta?.ai_disabled || false;
             if (leadAiDisabled) {
-                console.log(`[BackgroundAIManager] ⏭️ IA desativada para este lead específico (${leadId}).`);
+                console.log(`[BackgroundAIManager] ⏭️ IA desativada para este lead específico [ID: ${messageId}] (${leadId}).`);
                 return;
             }
 
@@ -653,11 +657,12 @@ REGRAS GERAIS:
                 .limit(1);
 
             if (recentMsg && recentMsg.length > 0) {
-                console.log(`[BackgroundAIManager] 🛑 Já existe uma resposta posterior para o lead ${leadId}. Abortando.`);
+                console.log(`[BackgroundAIManager] 🛑 Já existe uma resposta posterior para o lead [ID: ${messageId}] (${leadId}). Abortando.`);
                 return;
             }
 
             try {
+                console.log(`[BackgroundAIManager] 🧠 Iniciando geração de resposta IA para [ID: ${messageId}]...`);
                 const { data: historyData } = await supabase
                     .from('mensagens')
                     .select('*')
@@ -863,18 +868,19 @@ REGRAS GERAIS:
         const uid = currentUserIdRef.current;
         const isEnabled = isAiEnabledRef.current;
         
-        console.log("[BackgroundAIManager] 🔍 scanForOpenMessages START. Enabled:", isEnabled, "UID:", uid);
+        console.log("[BackgroundAIManager] 🔍 scanForOpenMessages START. Enabled:", isEnabled, "UID:", uid, "Timestamp:", new Date().toISOString());
         
         if (!uid) {
-            console.log("[BackgroundAIManager] 🔍 scanForOpenMessages ABORT: UID nulo.");
+            console.log("[BackgroundAIManager] 🔍 scanForOpenMessages ABORT: UID nulo (usuário não autenticado no ref).");
             return;
         }
         if (!isEnabled) {
-            console.log("[BackgroundAIManager] 🔍 scanForOpenMessages ABORT: IA Global desligada.");
+            console.log("[BackgroundAIManager] 🔍 scanForOpenMessages ABORT: IA Global desligada no Ref.");
             return;
         }
 
         const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        console.log("[BackgroundAIManager] 🔍 scanForOpenMessages: Buscando mensagens desde", sevenDaysAgo);
 
         // 1. Escaneia mensagens internas (Compradores)
         const { data: allInternal } = await supabase
