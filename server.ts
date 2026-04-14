@@ -263,6 +263,8 @@ async function startServer() {
         if (lowerModel.includes('gpt-4o')) return 'gpt-4o';
         if (lowerModel.includes('gpt-4')) return 'gpt-4';
       } else if (p === 'gemini') {
+        if (lowerModel.includes('flash-thinking')) return 'gemini-2.0-flash-thinking-exp';
+        if (lowerModel.includes('2.0-flash')) return 'gemini-2.0-flash-exp';
         if (lowerModel.includes('flash')) return 'gemini-1.5-flash';
         if (lowerModel.includes('pro')) return 'gemini-1.5-pro';
       }
@@ -483,7 +485,9 @@ async function startServer() {
         else if (lowerModel.includes('gpt-4o')) modelName = 'gpt-4o';
         else if (lowerModel.includes('gpt-4')) modelName = 'gpt-4';
       } else if (provider === 'gemini') {
-        if (lowerModel.includes('flash')) modelName = 'gemini-1.5-flash';
+        if (lowerModel.includes('flash-thinking')) modelName = 'gemini-2.0-flash-thinking-exp';
+        else if (lowerModel.includes('2.0-flash')) modelName = 'gemini-2.0-flash-exp';
+        else if (lowerModel.includes('flash')) modelName = 'gemini-1.5-flash';
         else if (lowerModel.includes('pro')) modelName = 'gemini-1.5-pro';
       }
 
@@ -561,11 +565,17 @@ async function startServer() {
           })
         });
 
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error?.message || `Erro ${provider} API`);
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          const errMsg = data.error?.message || data.error || `Erro ${provider} API (${response.status})`;
+          throw new Error(errMsg);
+        }
 
         const text = data.choices?.[0]?.message?.content;
-        if (!text) throw new Error(`Resposta vazia de ${provider}`);
+        if (!text) {
+          console.error(`[AI Proxy] Resposta inválida de ${provider}:`, JSON.stringify(data));
+          throw new Error(`Resposta vazia ou inválida de ${provider}`);
+        }
 
         res.json({ text, provider, model: modelName });
       }

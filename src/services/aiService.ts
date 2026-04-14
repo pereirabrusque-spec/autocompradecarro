@@ -21,19 +21,9 @@ export class AIService {
   public static async getActiveKeys(forceRefresh: boolean = false): Promise<any[]> {
     const now = Date.now();
     
-    // Check if we need a scheduled health check (every 15 minutes for non-ok keys)
-    const FIFTEEN_MINUTES = 15 * 60 * 1000;
-    if (now - this.lastTestTime > FIFTEEN_MINUTES && !this.isTesting) {
-      this.lastTestTime = now;
-      // We only trigger automatic test if there are non-ok keys or if all are bad
-      this.testConnections(false, true).catch(console.error);
-    }
-
     // Cache keys for 5 seconds unless forced
     if (!forceRefresh && this.cachedKeys.length > 0 && (now - this.lastFetchTime < 5000)) {
-      // Se todas as chaves no cache estiverem ruins, forçamos um refresh
-      const hasAnyOk = this.cachedKeys.some(k => k.status === 'ok');
-      if (hasAnyOk) return this.cachedKeys;
+      return this.cachedKeys;
     }
 
     const { data, error } = await supabase
@@ -52,11 +42,11 @@ export class AIService {
       return true;
     });
 
-    // If all keys are bad, force a test immediately
+    // If all keys are bad, we don't force a test here anymore to save credits.
+    // The background interval in ApiManagement.tsx will handle re-testing failed keys.
     const hasAnyOk = filteredData.some(k => k.status === 'ok');
-    if (!hasAnyOk && filteredData.length > 0 && !this.isTesting) {
-      console.warn('[AIService] 🚨 Nenhuma chave OK encontrada. Forçando teste de conexão...');
-      this.testConnections(true).catch(console.error);
+    if (!hasAnyOk && filteredData.length > 0) {
+      console.warn('[AIService] 🚨 Nenhuma chave OK encontrada no momento.');
     }
 
     // Prioritize 'ok' status (green). 
@@ -74,10 +64,7 @@ export class AIService {
         if (b.id === this.lastSuccessfulKeyId) return 1;
       }
       
-      // Otherwise newest first
-      const lastUsedA = a.last_used ? new Date(a.last_used).getTime() : 0;
-      const lastUsedB = b.last_used ? new Date(b.last_used).getTime() : 0;
-      return lastUsedB - lastUsedA;
+      return 0;
     });
 
     console.log('[AIService] Chaves ordenadas por status:', sorted.map(k => `${k.id}(${k.status})`).join(', '));
@@ -285,7 +272,14 @@ export class AIService {
 
     // Executa sequencialmente para evitar limites de taxa simultâneos e garantir estabilidade
     for (const apiKey of allKeys) {
-      // Se for autoOnlyNonOk, pula chaves que já estão 'ok'
+      // REGRA: Se a chave está verde (ok) e não foi solicitado um teste forçado (fullTest), PULA.
+      // Isso evita gastar crédito com chaves que já estão funcionando.
+      if (apiKey.status === 'ok' && !fullTest) {
+        console.log(`[AIService] 🟢 Chave ${apiKey.id} está OK. Pulando teste automático.`);
+        continue;
+      }
+
+      // Se autoOnlyNonOk for true, pula chaves que já estão 'ok'
       if (autoOnlyNonOk && apiKey.status === 'ok') continue;
 
       const provider = apiKey.provider?.toLowerCase().trim();
@@ -375,13 +369,15 @@ class AIClientManager {
       else if (lowerModel.includes('gpt-4') || lowerModel.includes('gpt4')) modelName = 'gpt-4';
       else if (lowerModel.includes('gpt-3.5') || lowerModel.includes('gpt3.5')) modelName = 'gpt-3.5-turbo';
     } else if (apiKey.provider === 'gemini') {
-      if (lowerModel.includes('flash')) modelName = 'gemini-1.5-flash';
+      if (lowerModel.includes('flash-thinking')) modelName = 'gemini-2.0-flash-thinking-exp';
+      else if (lowerModel.includes('2.0-flash')) modelName = 'gemini-2.0-flash-exp';
+      else if (lowerModel.includes('flash')) modelName = 'gemini-1.5-flash';
       else if (lowerModel.includes('pro')) modelName = 'gemini-1.5-pro';
     }
 
     console.log(`[AIService] Modelo mapeado final: "${modelName}" para provedor: ${apiKey.provider}`);
 
-    if (modelName === 'gemini-3-flash-preview' || modelName === 'gemini-pro' || modelName === 'gemini-1.5-pro') {
+    if (modelName === 'gemini-pro' || modelName === 'gemini-1.0-pro') {
       // Use gemini-1.5-flash as default for better reliability unless specifically overridden
       if (!apiKey.service) modelName = 'gemini-1.5-flash';
     }
@@ -398,54 +394,16 @@ class AIClientManager {
           body: JSON.stringify({ apiKey, prompt, systemInstruction, image })
         });
 
+        const data = await response.json().catch(() => ({}));
+
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `${apiKey.provider} Proxy Error`);
+          const errMsg = data.error || `${apiKey.provider} Proxy Error`;
+          throw new Error(errMsg);
         }
 
-        return await response.json();
+        return data;
       } catch (error: any) {
-        // Se falhar o proxy por algum motivo (ex: servidor fora), tentamos fallback direto para Gemini se for o caso
-        if (apiKey.provider === 'gemini' && apiKey.key) {
-          console.warn('[AIService] Proxy falhou, tentando chamada direta para Gemini...');
-          try {
-            if (!this.clients.has(apiKey.id)) {
-              this.clients.set(apiKey.id, new GoogleGenAI(apiKey.key));
-            }
-            const genAI = this.clients.get(apiKey.id);
-            const model = genAI.getGenerativeModel({ 
-              model: modelName,
-              systemInstruction: systemInstruction 
-            });
-            
-            const parts: any[] = [];
-            if (prompt) parts.push({ text: prompt });
-            if (image) {
-              parts.push({
-                inlineData: {
-                  data: image.split(',')[1],
-                  mimeType: 'image/jpeg'
-                }
-              });
-            }
-
-            const result = await model.generateContent({
-              contents: [{ role: 'user', parts }]
-            });
-            
-            const text = result.response.text();
-            if (text) {
-              return {
-                text: text,
-                provider: 'gemini',
-                model: modelName
-              };
-            }
-          } catch (directError: any) {
-            console.error('[AIService] Chamada direta para Gemini também falhou:', directError.message);
-            throw directError;
-          }
-        }
+        console.error('[AIService] Erro na chamada do Proxy:', error.message);
         throw error;
       }
     };

@@ -28,6 +28,30 @@ export const ApiManagement = ({
     typeof window !== 'undefined' ? localStorage.getItem('ai_last_successful_key_id') : null
   );
 
+  const providerModels: Record<string, string[]> = {
+    'gemini': ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-exp', 'gemini-2.0-flash-thinking-exp'],
+    'openai': ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo', 'gpt-4', 'o1-mini', 'o1-preview'],
+    'groq': ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'llama-3.1-70b-versatile', 'mixtral-8x7b-32768', 'gemma2-9b-it'],
+    'xai': ['grok-beta', 'grok-vision-beta'],
+    'deepseek': ['deepseek-chat', 'deepseek-coder']
+  };
+
+  useEffect(() => {
+    // Background re-test for failed keys every 15 minutes
+    const interval = setInterval(async () => {
+      const failedKeys = apiKeys.filter((k: any) => k.status !== 'ok');
+      if (failedKeys.length > 0) {
+        console.log('[ApiManagement] 🔄 Iniciando re-teste automático de chaves falhas (15min)...');
+        const { AIService } = await import('../../services/aiService');
+        // TestConnections(false) will only test non-ok keys by default if we adjust AIService
+        await AIService.testConnections(false);
+        if (fetchData) await fetchData();
+      }
+    }, 15 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [apiKeys, fetchData]);
+
   useEffect(() => {
     const handleStorageChange = () => {
       const id = localStorage.getItem('ai_last_successful_key_id');
@@ -157,23 +181,33 @@ export const ApiManagement = ({
           <div className="p-6 bg-slate-50 rounded-2xl border border-slate-200 mb-6 space-y-4">
             <h3 className="font-bold text-slate-900">Configurar Nova Chave</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <input 
-                type="text" 
-                placeholder="Provedor (ex: gemini, openai)" 
+              <select 
                 value={newApiProvider} 
-                onChange={(e) => setNewApiProvider(e.target.value)}
-                className="p-3 rounded-xl border border-slate-200 text-sm"
-              />
-              <input 
-                type="text" 
-                placeholder="Modelo (ex: gemini-1.5-flash)" 
+                onChange={(e) => {
+                  const p = e.target.value;
+                  setNewApiProvider(p);
+                  if (providerModels[p]) setNewApiModel(providerModels[p][0]);
+                }}
+                className="p-3 rounded-xl border border-slate-200 text-sm bg-white"
+              >
+                <option value="gemini">Gemini (Google)</option>
+                <option value="openai">OpenAI (ChatGPT)</option>
+                <option value="groq">Groq (Llama/Gemma)</option>
+                <option value="xai">xAI (Grok)</option>
+                <option value="deepseek">DeepSeek</option>
+              </select>
+              <select 
                 value={newApiModel} 
                 onChange={(e) => setNewApiModel(e.target.value)}
-                className="p-3 rounded-xl border border-slate-200 text-sm"
-              />
+                className="p-3 rounded-xl border border-slate-200 text-sm bg-white"
+              >
+                {providerModels[newApiProvider]?.map(m => (
+                  <option key={m} value={m}>{m}</option>
+                )) || <option value={newApiModel}>{newApiModel}</option>}
+              </select>
               <input 
                 type="password" 
-                placeholder="Chave API" 
+                placeholder="Cole sua Chave API aqui" 
                 value={newApiKey} 
                 onChange={(e) => setNewApiKey(e.target.value)}
                 className="p-3 rounded-xl border border-slate-200 text-sm"
@@ -279,20 +313,30 @@ export const ApiManagement = ({
                     </button>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input 
-                      type="text" 
+                    <select 
                       value={editProvider}
-                      onChange={(e) => setEditProvider(e.target.value)}
-                      className="p-3 rounded-xl border border-slate-200 text-sm"
-                      placeholder="Provedor"
-                    />
-                    <input 
-                      type="text" 
+                      onChange={(e) => {
+                        const p = e.target.value;
+                        setEditProvider(p);
+                        if (providerModels[p]) setEditModel(providerModels[p][0]);
+                      }}
+                      className="p-3 rounded-xl border border-slate-200 text-sm bg-white"
+                    >
+                      <option value="gemini">Gemini</option>
+                      <option value="openai">OpenAI</option>
+                      <option value="groq">Groq</option>
+                      <option value="xai">xAI</option>
+                      <option value="deepseek">DeepSeek</option>
+                    </select>
+                    <select 
                       value={editModel}
                       onChange={(e) => setEditModel(e.target.value)}
-                      className="p-3 rounded-xl border border-slate-200 text-sm"
-                      placeholder="Modelo"
-                    />
+                      className="p-3 rounded-xl border border-slate-200 text-sm bg-white"
+                    >
+                      {providerModels[editProvider]?.map(m => (
+                        <option key={m} value={m}>{m}</option>
+                      )) || <option value={editModel}>{editModel}</option>}
+                    </select>
                   </div>
                   <button 
                     onClick={() => handleUpdateApiKey(key.id, editProvider, editModel)}
