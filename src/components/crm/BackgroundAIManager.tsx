@@ -1,7 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, memo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { AIService } from '../../services/aiService';
 import { calculateProposal } from '../../lib/proposalUtils';
+import { logToStorage } from '../../lib/logger';
 
 export const BackgroundAIManager = () => {
     console.log("[BackgroundAIManager] 🏗️ Renderizando componente...");
@@ -624,6 +625,7 @@ REGRAS GERAIS:
             
             if (!isGlobalAiEnabled) {
                 console.log(`[BackgroundAIManager] handlePublicMessage ABORT [ID: ${messageId}]: IA Global desligada no Ref.`);
+                logToStorage(`IA Global desligada. Ignorando mensagem ${messageId}`, 'debug');
                 return;
             }
 
@@ -642,6 +644,7 @@ REGRAS GERAIS:
             const leadAiDisabled = leadData?.detalhes_proposta?.ai_disabled || false;
             if (leadAiDisabled) {
                 console.log(`[BackgroundAIManager] ⏭️ IA desativada para este lead específico [ID: ${messageId}] (${leadId}).`);
+                logToStorage(`IA desativada para o lead ${leadId}. Ignorando mensagem ${messageId}`, 'debug');
                 return;
             }
 
@@ -823,6 +826,7 @@ REGRAS GERAIS:
 
                 console.log("[BackgroundAIManager] Generating lead response for prompt length:", fullPrompt.length);
                 console.log("[BackgroundAIManager] Generating public response for prompt length:", fullPrompt.length);
+                logToStorage(`Gerando resposta IA para lead ${leadId} (Mensagem: ${payload.conteudo})`, 'info');
                 const response = await AIService.generateContent(
                     fullPrompt,
                     "Você é um especialista de vendas altamente preciso. Responda estritamente com base nos dados técnicos do veículo fornecidos no contexto. Se a informação não estiver nos dados, não invente. Seja direto, profissional e persuasivo. NUNCA mencione ser uma IA ou que haverá contato humano posterior, você é o especialista responsável.",
@@ -832,6 +836,7 @@ REGRAS GERAIS:
                 console.log("[BackgroundAIManager] Public AI Response received:", response ? "SUCCESS" : "NULL/EMPTY", response?.text?.substring(0, 50) + "...");
 
                 if (response && response.text) {
+                    logToStorage(`Resposta IA gerada com sucesso para lead ${leadId}`, 'info');
                     await supabase.from('mensagens').insert({
                         lead_id: leadId,
                         conteudo: response.text,
@@ -869,6 +874,7 @@ REGRAS GERAIS:
         const isEnabled = isAiEnabledRef.current;
         
         console.log("[BackgroundAIManager] 🔍 scanForOpenMessages START. Enabled:", isEnabled, "UID:", uid, "Timestamp:", new Date().toISOString());
+        logToStorage(`Varredura de mensagens iniciada (IA: ${isEnabled ? 'ON' : 'OFF'})`, 'debug');
         
         if (!uid) {
             console.log("[BackgroundAIManager] 🔍 scanForOpenMessages ABORT: UID nulo (usuário não autenticado no ref).");

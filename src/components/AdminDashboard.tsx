@@ -1220,7 +1220,7 @@ export default function AdminDashboard() {
         try {
           const { AIService } = await import('../services/aiService');
           await AIService.testConnections(false, true);
-          fetchData(); // Atualiza a lista após o teste
+          // fetchData(); // REMOVIDO para evitar loop infinito de re-renders
         } catch (e) {
           console.error('[AdminDashboard] Erro no health check inicial:', e);
         }

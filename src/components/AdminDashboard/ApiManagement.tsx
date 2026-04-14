@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Loader2, Plus, Trash2, Upload, ShieldCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -24,7 +24,23 @@ export const ApiManagement = ({
   const [editModel, setEditModel] = useState('');
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
   const [testingKeyId, setTestingKeyId] = useState<string | null>(null);
-  const lastSuccessfulKeyId = typeof window !== 'undefined' ? localStorage.getItem('ai_last_successful_key_id') : null;
+  const [currentInUseKeyId, setCurrentInUseKeyId] = useState<string | null>(
+    typeof window !== 'undefined' ? localStorage.getItem('ai_last_successful_key_id') : null
+  );
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const id = localStorage.getItem('ai_last_successful_key_id');
+      console.log('[ApiManagement] 🔄 Detectada mudança na chave em uso:', id);
+      setCurrentInUseKeyId(id);
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    // Também verifica periodicamente ou quando apiKeys mudam
+    handleStorageChange();
+
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [apiKeys]);
 
   const toggleShowKey = (id: string) => {
     setShowKeys(prev => ({ ...prev, [id]: !prev[id] }));
@@ -197,11 +213,12 @@ export const ApiManagement = ({
                         (key.status === 'no_credit' || key.status === 'rate_limited') ? 'bg-amber-100 text-amber-700' : 
                         'bg-red-100 text-red-700'
                       }`}>
-                        {key.status === 'ok' ? 'Conectada' :
-                         (key.status === 'no_credit' || key.status === 'rate_limited') ? 'Quota Excedida / Sem Saldo' : 'Corrompida / Erro'}
+                        {key.status === 'ok' ? 'Conectada (Online)' :
+                         (key.status === 'no_credit' || key.status === 'rate_limited') ? 'Sem Crédito / Quota' : 'Desconectada / Erro'}
                       </span>
-                      {key.id === lastSuccessfulKeyId && (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full font-black uppercase bg-blue-600 text-white animate-pulse shadow-sm shadow-blue-200">
+                      {key.id === currentInUseKeyId && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-black uppercase bg-blue-600 text-white animate-pulse shadow-sm shadow-blue-200 flex items-center gap-1">
+                          <div className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
                           Em Uso
                         </span>
                       )}

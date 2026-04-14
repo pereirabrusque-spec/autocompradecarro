@@ -1,5 +1,6 @@
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { supabase } from "../lib/supabase";
+import { logToStorage } from "../lib/logger";
 
 export type AIProvider = string;
 
@@ -10,7 +11,7 @@ export interface AIResponse {
 }
 
 export class AIService {
-  private static lastSuccessfulKeyId: string | null = typeof window !== 'undefined' ? localStorage.getItem('ai_last_successful_key_id') : null;
+  public static lastSuccessfulKeyId: string | null = typeof window !== 'undefined' ? localStorage.getItem('ai_last_successful_key_id') : null;
   private static lastHealthCheck: number = typeof window !== 'undefined' ? parseInt(localStorage.getItem('ai_last_health_check') || '0') : 0;
   private static cachedKeys: any[] = [];
   private static lastFetchTime: number = 0;
@@ -91,18 +92,28 @@ export class AIService {
     const now = new Date().toISOString();
     
     if (status === 'ok') {
-      if (this.lastSuccessfulKeyId !== id) {
-        console.log(`[AIService] Nova API principal selecionada: ${id}`);
-      }
-      this.lastSuccessfulKeyId = id;
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('ai_last_successful_key_id', id);
+      // Só troca a chave principal se não houver uma atual ou se a atual não for 'ok'
+      // Isso garante que pegamos a "primeira que ficou verde" e mantemos ela.
+      const shouldUpdate = !this.lastSuccessfulKeyId;
+      
+      if (shouldUpdate || this.lastSuccessfulKeyId === id) {
+        if (this.lastSuccessfulKeyId !== id) {
+          console.log(`[AIService] 🎯 Nova API principal selecionada e persistida: ${id}`);
+          logToStorage(`Nova API principal selecionada: ${id}`, 'info');
+          this.lastSuccessfulKeyId = id;
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('ai_last_successful_key_id', id);
+            window.dispatchEvent(new Event('storage'));
+          }
+        }
       }
     } else if (id === this.lastSuccessfulKeyId) {
-      console.warn(`[AIService] API principal (${id}) falhou com status: ${status}. Trocando para a próxima disponível...`);
+      console.warn(`[AIService] ⚠️ API principal (${id}) falhou com status: ${status}. Trocando para a próxima disponível...`);
+      logToStorage(`API principal (${id}) falhou com status: ${status}`, 'error');
       this.lastSuccessfulKeyId = null;
       if (typeof window !== 'undefined') {
         localStorage.removeItem('ai_last_successful_key_id');
+        window.dispatchEvent(new Event('storage'));
       }
     }
     
