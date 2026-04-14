@@ -52,7 +52,12 @@ export const ApiManagement = ({
       const response = await fetch('/api/test-api-key', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider: key.provider, key: key.key })
+        body: JSON.stringify({ 
+          provider: key.provider, 
+          key: key.key,
+          service: key.service,
+          fullTest: true // Teste completo para garantir que tem quota real
+        })
       });
       
       const data = await response.json();

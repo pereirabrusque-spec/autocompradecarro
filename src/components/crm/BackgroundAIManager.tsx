@@ -908,7 +908,7 @@ REGRAS GERAIS:
                 const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
                 const isAiFailed = lastMsg.metadata?.ai_failed;
                 const lastFailedTime = lastMsg.metadata?.failed_at ? new Date(lastMsg.metadata.failed_at).getTime() : 0;
-                const shouldRetry = isAiFailed && (Date.now() - lastFailedTime > 600000); // Retry após 10 min
+                const shouldRetry = isAiFailed && (Date.now() - lastFailedTime > 300000); // Retry após 5 min
 
                 if (lastMsg.sender_id !== uid && !lastMsg.metadata?.ai_handled && (!isAiFailed || shouldRetry)) {
                     if (timeDiff > 60000) { 
@@ -948,10 +948,10 @@ REGRAS GERAIS:
                 const remetente = (lastMsg.remetente || '').toLowerCase();
                 const isAiFailed = lastMsg.metadata?.ai_failed;
                 const lastFailedTime = lastMsg.metadata?.failed_at ? new Date(lastMsg.metadata.failed_at).getTime() : 0;
-                const shouldRetry = isAiFailed && (Date.now() - lastFailedTime > 600000); // Retry após 10 min
+                const shouldRetry = isAiFailed && (Date.now() - lastFailedTime > 300000); // Retry após 5 min
 
                 if (remetente === 'cliente' && !lastMsg.metadata?.ai_handled && (!isAiFailed || shouldRetry)) {
-                    if (timeDiff > 30000) { 
+                    if (timeDiff > 5000) { 
                         console.log(`[BackgroundAIManager] 🔍 scanForOpenMessages: Detectada mensagem pública não respondida do lead ${leadId}. ${shouldRetry ? '(RETRY)' : ''} Processando...`);
                         handlePublicMessage(lastMsg);
                     }
@@ -975,7 +975,7 @@ REGRAS GERAIS:
         if (!currentUserId) return;
 
         scanForOpenMessages(); 
-        const interval = setInterval(scanForOpenMessages, 120000); // 2 minutos
+        const interval = setInterval(scanForOpenMessages, 30000); // 30 segundos
 
         const channelName = `bg_ai_messages_${currentUserId}`;
         

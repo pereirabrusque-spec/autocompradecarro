@@ -125,6 +125,7 @@ export class AIService {
       const updateData: any = { status, error_count: errorCount };
       if (status === 'ok') {
         updateData.last_used = now;
+        updateData.error_count = 0; // Reseta erros se ficou OK
       }
 
       await supabase
@@ -132,8 +133,9 @@ export class AIService {
         .update(updateData)
         .eq('id', id);
       
-      // Update cache
-      this.cachedKeys = this.cachedKeys.map(k => k.id === id ? { ...k, ...updateData } : k);
+      // Limpa o cache para forçar recarregamento na próxima chamada
+      this.cachedKeys = [];
+      this.lastFetchTime = 0;
     } catch (e) {
       console.error('Error updating key status:', e);
     }
