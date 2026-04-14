@@ -29,8 +29,8 @@ export class AIService {
       this.testConnections(false, true).catch(console.error);
     }
 
-    // Cache keys for 30 seconds unless forced
-    if (!forceRefresh && this.cachedKeys.length > 0 && (now - this.lastFetchTime < 30000)) {
+    // Cache keys for 5 seconds unless forced
+    if (!forceRefresh && this.cachedKeys.length > 0 && (now - this.lastFetchTime < 5000)) {
       // Se todas as chaves no cache estiverem ruins, forçamos um refresh
       const hasAnyOk = this.cachedKeys.some(k => k.status === 'ok');
       if (hasAnyOk) return this.cachedKeys;
@@ -86,7 +86,7 @@ export class AIService {
     return sorted;
   }
 
-  private static async updateKeyStatus(id: string, status: 'ok' | 'no_credit' | 'disconnected' | 'rate_limited', errorCount: number = 0) {
+  public static async updateKeyStatus(id: string, status: 'ok' | 'no_credit' | 'disconnected' | 'rate_limited', errorCount: number = 0) {
     if (id === 'env-key') return;
     
     const now = new Date().toISOString();
@@ -94,9 +94,10 @@ export class AIService {
     if (status === 'ok') {
       // Só troca a chave principal se não houver uma atual ou se a atual não for 'ok'
       // Isso garante que pegamos a "primeira que ficou verde" e mantemos ela.
-      const shouldUpdate = !this.lastSuccessfulKeyId;
+      const currentId = typeof window !== 'undefined' ? localStorage.getItem('ai_last_successful_key_id') : this.lastSuccessfulKeyId;
+      const shouldUpdate = !currentId;
       
-      if (shouldUpdate || this.lastSuccessfulKeyId === id) {
+      if (shouldUpdate || currentId === id) {
         if (this.lastSuccessfulKeyId !== id) {
           console.log(`[AIService] 🎯 Nova API principal selecionada e persistida: ${id}`);
           logToStorage(`Nova API principal selecionada: ${id}`, 'info');
@@ -107,9 +108,12 @@ export class AIService {
           }
         }
       }
-    } else if (id === this.lastSuccessfulKeyId) {
-      console.warn(`[AIService] ⚠️ API principal (${id}) falhou com status: ${status}. Trocando para a próxima disponível...`);
-      logToStorage(`API principal (${id}) falhou com status: ${status}`, 'error');
+    } else if (status === 'disconnected' && (id === this.lastSuccessfulKeyId || (typeof window !== 'undefined' && id === localStorage.getItem('ai_last_successful_key_id')))) {
+      // Só remove o selo "Em Uso" se a chave estiver realmente desconectada (Vermelho)
+      // Se for apenas quota (Amarelo), mantemos o selo para indicar que era a preferida, 
+      // mas o generateContent irá pular ela automaticamente se o status não for 'ok'.
+      console.warn(`[AIService] ⚠️ API principal (${id}) foi desconectada. Removendo selo "Em Uso"...`);
+      logToStorage(`API principal (${id}) desconectada`, 'error');
       this.lastSuccessfulKeyId = null;
       if (typeof window !== 'undefined') {
         localStorage.removeItem('ai_last_successful_key_id');
@@ -143,19 +147,16 @@ export class AIService {
     // Filtra apenas chaves que estão marcadas como 'ok' (Verde)
     // Ou chaves que estão 'no_credit' mas não foram testadas há mais de 24 horas
     const now = new Date().getTime();
+    // Filtro inicial: Prioriza 'ok', mas permite outras se não houver nenhuma 'ok'
     let candidateKeys = keys.filter(k => {
       if (k.status === 'ok' || k.id === 'env-key') return true;
       
-      // Se a chave estiver com erro, só tentamos se não houver NENHUMA chave 'ok'
+      // Se não tem nenhuma 'ok', permite tentar as outras que não estão 'disconnected'
       const hasAnyOk = keys.some(key => key.status === 'ok');
-      if (hasAnyOk) return false; // Se tem verde, ignora todas as outras que estão em amarelo/vermelho
-
-      if (k.status === 'no_credit' || k.status === 'rate_limited' || k.status === 'disconnected') {
+      if (!hasAnyOk && k.status !== 'disconnected') {
         const lastUsed = k.last_used ? new Date(k.last_used).getTime() : 0;
         const minutesSinceLastUse = (now - lastUsed) / (1000 * 60);
-        
-        // Se tudo falhou, tenta a cada 5 min chaves que podem ter resetado quota
-        return minutesSinceLastUse > 5;
+        return minutesSinceLastUse > 2; // Tenta a cada 2 min se tudo estiver ruim
       }
       return false;
     });
@@ -170,11 +171,10 @@ export class AIService {
       const refreshedCandidateKeys = keys.filter(k => {
         if (k.status === 'ok' || k.id === 'env-key') return true;
         const hasAnyOk = keys.some(key => key.status === 'ok');
-        if (hasAnyOk) return false;
-        if (k.status === 'no_credit' || k.status === 'rate_limited' || k.status === 'disconnected') {
+        if (!hasAnyOk && k.status !== 'disconnected') {
           const lastUsed = k.last_used ? new Date(k.last_used).getTime() : 0;
           const minutesSinceLastUse = (Date.now() - lastUsed) / (1000 * 60);
-          return minutesSinceLastUse > 5;
+          return minutesSinceLastUse > 2;
         }
         return false;
       });
@@ -391,39 +391,44 @@ class AIClientManager {
         return await response.json();
       } catch (error: any) {
         // Se falhar o proxy por algum motivo (ex: servidor fora), tentamos fallback direto para Gemini se for o caso
-        if (apiKey.provider === 'gemini') {
+        if (apiKey.provider === 'gemini' && apiKey.key) {
           console.warn('[AIService] Proxy falhou, tentando chamada direta para Gemini...');
-          if (!this.clients.has(apiKey.id)) {
-            this.clients.set(apiKey.id, new GoogleGenAI(apiKey.key));
-          }
-          const genAI = this.clients.get(apiKey.id);
-          const model = genAI.getGenerativeModel({ 
-            model: modelName,
-            systemInstruction: systemInstruction 
-          });
-          
-          const parts: any[] = [];
-          if (prompt) parts.push({ text: prompt });
-          if (image) {
-            parts.push({
-              inlineData: {
-                data: image.split(',')[1],
-                mimeType: 'image/jpeg'
-              }
+          try {
+            if (!this.clients.has(apiKey.id)) {
+              this.clients.set(apiKey.id, new GoogleGenAI(apiKey.key));
+            }
+            const genAI = this.clients.get(apiKey.id);
+            const model = genAI.getGenerativeModel({ 
+              model: modelName,
+              systemInstruction: systemInstruction 
             });
-          }
+            
+            const parts: any[] = [];
+            if (prompt) parts.push({ text: prompt });
+            if (image) {
+              parts.push({
+                inlineData: {
+                  data: image.split(',')[1],
+                  mimeType: 'image/jpeg'
+                }
+              });
+            }
 
-          const result = await model.generateContent({
-            contents: [{ role: 'user', parts }]
-          });
-          
-          const text = result.response.text();
-          if (text) {
-            return {
-              text: text,
-              provider: 'gemini',
-              model: modelName
-            };
+            const result = await model.generateContent({
+              contents: [{ role: 'user', parts }]
+            });
+            
+            const text = result.response.text();
+            if (text) {
+              return {
+                text: text,
+                provider: 'gemini',
+                model: modelName
+              };
+            }
+          } catch (directError: any) {
+            console.error('[AIService] Chamada direta para Gemini também falhou:', directError.message);
+            throw directError;
           }
         }
         throw error;

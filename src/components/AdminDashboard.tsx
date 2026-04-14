@@ -5569,7 +5569,13 @@ Podemos prosseguir com o agendamento da vistoria?`;
               console.log('Atualizando API Key:', { id, provider, service, status });
               try {
                 const updateData: any = { provider, service };
-                if (status) updateData.status = status;
+                if (status) {
+                  updateData.status = status;
+                  // Sincroniza com o AIService para atualizar o selo "Em Uso" se necessário
+                  if (status === 'ok' || status === 'no_credit' || status === 'disconnected' || status === 'rate_limited') {
+                    AIService.updateKeyStatus(id, status as any).catch(console.error);
+                  }
+                }
                 
                 const { error, data } = await supabase
                   .from('api_keys')
