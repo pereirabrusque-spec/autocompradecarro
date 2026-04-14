@@ -850,10 +850,18 @@ REGRAS GERAIS:
 
     const scanForOpenMessages = async () => {
         const uid = currentUserIdRef.current;
-        if (!uid) return;
-
         const isEnabled = isAiEnabledRef.current;
-        if (!isEnabled) return;
+        
+        console.log("[BackgroundAIManager] 🔍 scanForOpenMessages START. Enabled:", isEnabled, "UID:", uid);
+        
+        if (!uid) {
+            console.log("[BackgroundAIManager] 🔍 scanForOpenMessages ABORT: UID nulo.");
+            return;
+        }
+        if (!isEnabled) {
+            console.log("[BackgroundAIManager] 🔍 scanForOpenMessages ABORT: IA Global desligada.");
+            return;
+        }
 
         const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -877,7 +885,8 @@ REGRAS GERAIS:
                 const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
 
                 if (lastMsg.sender_id !== uid && !lastMsg.metadata?.ai_handled && !lastMsg.metadata?.ai_failed) {
-                    if (timeDiff > 300000) { // 5 min
+                    if (timeDiff > 60000) { // Reduzido para 1 min para maior responsividade
+                        console.log(`[BackgroundAIManager] 🔍 scanForOpenMessages: Detectada mensagem interna não respondida de ${otherId}. Processando...`);
                         handleInternalMessage(lastMsg);
                     }
                 }
@@ -907,7 +916,8 @@ REGRAS GERAIS:
                 const remetente = (lastMsg.remetente || '').toLowerCase();
 
                 if (remetente === 'cliente' && !lastMsg.metadata?.ai_handled && !lastMsg.metadata?.ai_failed) {
-                    if (timeDiff > 120000) { // 2 min
+                    if (timeDiff > 30000) { // Reduzido para 30 segundos para maior responsividade
+                        console.log(`[BackgroundAIManager] 🔍 scanForOpenMessages: Detectada mensagem pública não respondida do lead ${leadId}. Processando...`);
                         handlePublicMessage(lastMsg);
                     }
                 }

@@ -162,8 +162,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
             // Atualiza apenas o timestamp e nome
             console.log("[ChatAssistant] Updating existing lead:", currentLeadId);
             const updateData: any = { 
-              cliente_nome: user.user_metadata?.full_name || profile?.full_name || 'Cliente',
-              updated_at: new Date().toISOString()
+              cliente_nome: user.user_metadata?.full_name || profile?.full_name || 'Cliente'
             };
             
             if (user.id) {
@@ -188,8 +187,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
                 email: user.email,
                 user_id: user.id,
                 telefone: profile?.phone || user.user_metadata?.phone || '00000000000',
-                status: 'frio',
-                updated_at: new Date().toISOString()
+                status: 'frio'
               }])
               .select()
               .single();
@@ -206,8 +204,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
               cliente_nome: 'Visitante', 
               telefone: '00000000000',
               status: 'frio',
-              origem: 'chat',
-              updated_at: new Date().toISOString()
+              origem: 'chat'
             }])
             .select()
             .single();

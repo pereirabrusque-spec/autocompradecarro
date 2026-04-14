@@ -246,7 +246,6 @@ export default function SellModal() {
         data_negociacao: new Date().toISOString(),
         juros_atraso: 2,
         origem: 'formulario',
-        updated_at: new Date().toISOString(),
         media_urls: [...uploadedPhotos, ...uploadedVideos]
       };
 
