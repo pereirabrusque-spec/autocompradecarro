@@ -77,7 +77,9 @@ export default function AdminDashboard() {
   const [testingKey, setTestingKey] = useState<string | null>(null);
 
   const hasQuotaIssues = useMemo(() => {
-    return apiKeys.some(k => k.status === 'no_credit' || k.status === 'rate_limited');
+    // Só mostra o alerta de quota se NÃO houver nenhuma chave funcionando (ok)
+    // E houver chaves com problemas de quota.
+    return apiKeys.length > 0 && !apiKeys.some(k => k.status === 'ok') && apiKeys.some(k => k.status === 'no_credit' || k.status === 'rate_limited');
   }, [apiKeys]);
 
   const hasWorkingKeys = useMemo(() => {

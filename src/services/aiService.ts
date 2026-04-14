@@ -149,16 +149,26 @@ export class AIService {
     const now = new Date().getTime();
     // Filtro inicial: Prioriza 'ok', mas permite outras se não houver nenhuma 'ok'
     let candidateKeys = keys.filter(k => {
+      // Sempre permite 'ok' ou a chave do ambiente
       if (k.status === 'ok' || k.id === 'env-key') return true;
       
-      // Se não tem nenhuma 'ok', permite tentar as outras que não estão 'disconnected'
-      const hasAnyOk = keys.some(key => key.status === 'ok');
-      if (!hasAnyOk && k.status !== 'disconnected') {
+      // Se a chave não estiver 'disconnected', permite tentar como fallback
+      if (k.status !== 'disconnected') {
         const lastUsed = k.last_used ? new Date(k.last_used).getTime() : 0;
         const minutesSinceLastUse = (now - lastUsed) / (1000 * 60);
-        return minutesSinceLastUse > 2; // Tenta a cada 2 min se tudo estiver ruim
+        
+        // Se já passou mais de 1 minuto, tenta novamente (fallback agressivo para não deixar o usuário sem resposta)
+        return minutesSinceLastUse > 1;
       }
       return false;
+    });
+    
+    // Ordenação final para garantir que as 'ok' venham primeiro
+    candidateKeys.sort((a, b) => {
+      const statusOrder = { 'ok': 0, 'rate_limited': 1, 'no_credit': 2, 'disconnected': 3 };
+      const orderA = statusOrder[a.status as keyof typeof statusOrder] ?? 4;
+      const orderB = statusOrder[b.status as keyof typeof statusOrder] ?? 4;
+      return orderA - orderB;
     });
     console.log('[AIService] Chaves candidatas após filtro rigoroso:', candidateKeys.length, candidateKeys.map(k => `${k.id}(${k.status})`).join(', '));
     
@@ -170,13 +180,16 @@ export class AIService {
       // RE-CALCULA candidateKeys após o refresh
       const refreshedCandidateKeys = keys.filter(k => {
         if (k.status === 'ok' || k.id === 'env-key') return true;
-        const hasAnyOk = keys.some(key => key.status === 'ok');
-        if (!hasAnyOk && k.status !== 'disconnected') {
+        if (k.status !== 'disconnected') {
           const lastUsed = k.last_used ? new Date(k.last_used).getTime() : 0;
           const minutesSinceLastUse = (Date.now() - lastUsed) / (1000 * 60);
-          return minutesSinceLastUse > 2;
+          return minutesSinceLastUse > 1;
         }
         return false;
+      });
+      refreshedCandidateKeys.sort((a, b) => {
+        const statusOrder = { 'ok': 0, 'rate_limited': 1, 'no_credit': 2, 'disconnected': 3 };
+        return (statusOrder[a.status as keyof typeof statusOrder] ?? 4) - (statusOrder[b.status as keyof typeof statusOrder] ?? 4);
       });
       
       if (refreshedCandidateKeys.length === 0) {

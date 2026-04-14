@@ -245,10 +245,30 @@ async function startServer() {
     }
   });
 
-  async function testApiKey(provider: string, key: string, fullTest: boolean = false) {
+  async function testApiKey(provider: string, key: string, service?: string, fullTest: boolean = false) {
     const trimmedKey = key?.trim();
     const p = provider?.toLowerCase();
     
+    // Helper to map model names (same as AIService)
+    const getMappedModel = (p: string, model: string) => {
+      const lowerModel = model.toLowerCase().trim();
+      if (p === 'groq') {
+        if (lowerModel.includes('llama 3.3') || lowerModel.includes('llama-3.3')) return 'llama-3.3-70b-versatile';
+        if (lowerModel.includes('llama 3.1') || lowerModel.includes('llama-3.1')) return 'llama-3.1-8b-instant';
+        if (lowerModel.includes('llama 3') || lowerModel.includes('llama3')) return 'llama-3.1-8b-instant';
+        if (lowerModel.includes('mixtral')) return 'mixtral-8x7b-32768';
+        if (lowerModel.includes('gemma')) return 'gemma2-9b-it';
+      } else if (p === 'openai') {
+        if (lowerModel.includes('gpt-4o-mini')) return 'gpt-4o-mini';
+        if (lowerModel.includes('gpt-4o')) return 'gpt-4o';
+        if (lowerModel.includes('gpt-4')) return 'gpt-4';
+      } else if (p === 'gemini') {
+        if (lowerModel.includes('flash')) return 'gemini-1.5-flash';
+        if (lowerModel.includes('pro')) return 'gemini-1.5-pro';
+      }
+      return model;
+    };
+
     if (p === 'gemini') {
       // 1. Fetch models first (Cheaper/Free check)
       // Try v1 first as it's more stable for standard models
@@ -281,9 +301,9 @@ async function startServer() {
       }
 
       // 2. Only test generation if explicitly requested (Saves credits)
-      if (fullTest) {
-        const testModel = availableModels.find(m => m.includes('flash')) || availableModels[0];
-        const testResponse = await fetch(`https://generativelanguage.googleapis.com/${apiVersion}/models/${testModel}:generateContent?key=${trimmedKey}`, {
+      if (fullTest || service) {
+        const mappedModel = service ? getMappedModel('gemini', service) : (availableModels.find(m => m.includes('flash')) || availableModels[0]);
+        const testResponse = await fetch(`https://generativelanguage.googleapis.com/${apiVersion}/models/${mappedModel}:generateContent?key=${trimmedKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -323,8 +343,8 @@ async function startServer() {
         .map((m: any) => m.id) || [];
 
       // 2. Only test generation if explicitly requested
-      if (fullTest && availableModels.length > 0) {
-        const testModel = availableModels.includes('gpt-4o-mini') ? 'gpt-4o-mini' : availableModels[0];
+      if ((fullTest || service) && availableModels.length > 0) {
+        const mappedModel = service ? getMappedModel('openai', service) : (availableModels.includes('gpt-4o-mini') ? 'gpt-4o-mini' : availableModels[0]);
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: { 
@@ -332,7 +352,7 @@ async function startServer() {
             'Authorization': `Bearer ${trimmedKey}` 
           },
           body: JSON.stringify({
-            model: testModel,
+            model: mappedModel,
             messages: [{ role: 'user', content: 'hi' }],
             max_tokens: 1
           })
@@ -362,8 +382,8 @@ async function startServer() {
       const availableModels = modelsData.data?.map((m: any) => m.id) || [];
 
       // 2. Only test generation if explicitly requested
-      if (fullTest && availableModels.length > 0) {
-        const testModel = availableModels.find(m => m.includes('llama')) || availableModels[0];
+      if ((fullTest || service) && availableModels.length > 0) {
+        const mappedModel = service ? getMappedModel('groq', service) : (availableModels.find(m => m.includes('llama')) || availableModels[0]);
         const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
           headers: { 
@@ -371,7 +391,7 @@ async function startServer() {
             'Authorization': `Bearer ${trimmedKey}` 
           },
           body: JSON.stringify({
-            model: testModel,
+            model: mappedModel,
             messages: [{ role: 'user', content: 'hi' }],
             max_tokens: 1
           })
@@ -397,9 +417,9 @@ async function startServer() {
   }
 
   app.post('/api/test-api-key', async (req, res) => {
-    const { provider, key, fullTest } = req.body;
+    const { provider, key, service, fullTest } = req.body;
     try {
-      const models = await testApiKey(provider, key, fullTest);
+      const models = await testApiKey(provider, key, service, fullTest);
       res.json({ success: true, models });
     } catch (error: any) {
       const errMsg = error.message || '';
@@ -424,13 +444,31 @@ async function startServer() {
     try {
       const provider = apiKey.provider.toLowerCase();
       const trimmedKey = apiKey.key.trim();
-      let modelName = apiKey.service || (provider === 'gemini' ? 'gemini-1.5-flash' : 'gpt-4o-mini');
+      let rawModel = apiKey.service || (provider === 'gemini' ? 'gemini-1.5-flash' : 'gpt-4o-mini');
+      let modelName = rawModel;
 
       // Clean model name
-      if (modelName.includes(' - ')) {
-        modelName = modelName.split(' - ').pop().trim();
-      } else if (modelName.includes(':')) {
-        modelName = modelName.split(':').pop().trim();
+      if (rawModel.includes(' - ')) {
+        modelName = rawModel.split(' - ').pop().trim();
+      } else if (rawModel.includes(':')) {
+        modelName = rawModel.split(':').pop().trim();
+      }
+
+      // Mapeamento de nomes amigáveis para IDs reais (Sincronizado com AIService)
+      const lowerModel = modelName.toLowerCase().trim();
+      if (provider === 'groq') {
+        if (lowerModel.includes('llama 3.3') || lowerModel.includes('llama-3.3')) modelName = 'llama-3.3-70b-versatile';
+        else if (lowerModel.includes('llama 3.1') || lowerModel.includes('llama-3.1')) modelName = 'llama-3.1-8b-instant';
+        else if (lowerModel.includes('llama 3') || lowerModel.includes('llama3')) modelName = 'llama-3.1-8b-instant';
+        else if (lowerModel.includes('mixtral')) modelName = 'mixtral-8x7b-32768';
+        else if (lowerModel.includes('gemma')) modelName = 'gemma2-9b-it';
+      } else if (provider === 'openai') {
+        if (lowerModel.includes('gpt-4o-mini')) modelName = 'gpt-4o-mini';
+        else if (lowerModel.includes('gpt-4o')) modelName = 'gpt-4o';
+        else if (lowerModel.includes('gpt-4')) modelName = 'gpt-4';
+      } else if (provider === 'gemini') {
+        if (lowerModel.includes('flash')) modelName = 'gemini-1.5-flash';
+        else if (lowerModel.includes('pro')) modelName = 'gemini-1.5-pro';
       }
 
       console.log(`[AI Proxy] Gerando conteúdo com ${provider} (${modelName})...`);
