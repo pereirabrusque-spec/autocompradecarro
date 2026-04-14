@@ -908,7 +908,7 @@ REGRAS GERAIS:
                 const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
                 const isAiFailed = lastMsg.metadata?.ai_failed;
                 const lastFailedTime = lastMsg.metadata?.failed_at ? new Date(lastMsg.metadata.failed_at).getTime() : 0;
-                const shouldRetry = isAiFailed && (Date.now() - lastFailedTime > 300000); // Retry após 5 min
+                const shouldRetry = isAiFailed && (Date.now() - lastFailedTime > 60000); // Retry após 1 min
 
                 if (lastMsg.sender_id !== uid && !lastMsg.metadata?.ai_handled && (!isAiFailed || shouldRetry)) {
                     if (timeDiff > 60000) { 
@@ -948,7 +948,9 @@ REGRAS GERAIS:
                 const remetente = (lastMsg.remetente || '').toLowerCase();
                 const isAiFailed = lastMsg.metadata?.ai_failed;
                 const lastFailedTime = lastMsg.metadata?.failed_at ? new Date(lastMsg.metadata.failed_at).getTime() : 0;
-                const shouldRetry = isAiFailed && (Date.now() - lastFailedTime > 300000); // Retry após 5 min
+                const shouldRetry = isAiFailed && (Date.now() - lastFailedTime > 60000); // Retry após 1 min
+
+                console.log(`[BackgroundAIManager] 🔍 Verificando lead ${leadId}: Remetente="${remetente}", Handled=${!!lastMsg.metadata?.ai_handled}, Failed=${!!isAiFailed}, TimeDiff=${Math.round(timeDiff/1000)}s`);
 
                 if (remetente === 'cliente' && !lastMsg.metadata?.ai_handled && (!isAiFailed || shouldRetry)) {
                     if (timeDiff > 5000) { 

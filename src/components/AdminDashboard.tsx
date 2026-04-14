@@ -1221,7 +1221,8 @@ export default function AdminDashboard() {
       const checkApiHealth = async () => {
         try {
           const { AIService } = await import('../services/aiService');
-          await AIService.testConnections(false, true);
+          // On load, we do a full test to ensure accuracy of "ok" status
+          await AIService.testConnections(true, true);
           // fetchData(); // REMOVIDO para evitar loop infinito de re-renders
         } catch (e) {
           console.error('[AdminDashboard] Erro no health check inicial:', e);

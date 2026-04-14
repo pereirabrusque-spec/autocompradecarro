@@ -303,17 +303,33 @@ async function startServer() {
       // 2. Only test generation if explicitly requested (Saves credits)
       if (fullTest || service) {
         const mappedModel = service ? getMappedModel('gemini', service) : (availableModels.find(m => m.includes('flash')) || availableModels[0]);
-        const testResponse = await fetch(`https://generativelanguage.googleapis.com/${apiVersion}/models/${mappedModel}:generateContent?key=${trimmedKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: 'hi' }] }],
-            generationConfig: { maxOutputTokens: 1 }
-          })
-        });
+        
+        const tryGenerate = async (version: string) => {
+          const testResponse = await fetch(`https://generativelanguage.googleapis.com/${version}/models/${mappedModel}:generateContent?key=${trimmedKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: 'hi' }] }],
+              generationConfig: { maxOutputTokens: 1 }
+            })
+          });
+          return testResponse;
+        };
+
+        let testResponse = await tryGenerate(apiVersion);
+        
+        // Se falhou no v1 com erro de "not found" ou similar, tenta v1beta
+        if (!testResponse.ok && apiVersion === 'v1') {
+          const testData = await testResponse.json().catch(() => ({}));
+          const errMsg = testData.error?.message || '';
+          if (errMsg.toLowerCase().includes('not found') || errMsg.toLowerCase().includes('not supported')) {
+            console.log(`[API Test] Gemini v1 falhou para ${mappedModel}, tentando v1beta...`);
+            testResponse = await tryGenerate('v1beta');
+          }
+        }
 
         if (!testResponse.ok) {
-          const testData = await testResponse.json();
+          const testData = await testResponse.json().catch(() => ({}));
           const errMsg = testData.error?.message || `Erro ao testar geração`;
           if (testResponse.status === 429 || errMsg.toLowerCase().includes('quota')) {
             throw new Error('QUOTA_EXCEEDED: ' + errMsg);
@@ -474,29 +490,42 @@ async function startServer() {
       console.log(`[AI Proxy] Gerando conteúdo com ${provider} (${modelName})...`);
 
       if (provider === 'gemini') {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${trimmedKey}`;
-        const contents: any[] = [{ role: 'user', parts: [{ text: prompt }] }];
-        
-        if (image) {
-          contents[0].parts.push({
-            inlineData: {
-              data: image.split(',')[1],
-              mimeType: 'image/jpeg'
-            }
+        const tryGenerate = async (version: string) => {
+          const url = `https://generativelanguage.googleapis.com/${version}/models/${modelName}:generateContent?key=${trimmedKey}`;
+          const contents: any[] = [{ role: 'user', parts: [{ text: prompt }] }];
+          
+          if (image) {
+            contents[0].parts.push({
+              inlineData: {
+                data: image.split(',')[1],
+                mimeType: 'image/jpeg'
+              }
+            });
+          }
+
+          return await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              contents,
+              systemInstruction: { parts: [{ text: systemInstruction }] },
+              generationConfig: { temperature: 0.4 }
+            })
           });
+        };
+
+        let response = await tryGenerate('v1');
+        let data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          const errMsg = data.error?.message || '';
+          if (errMsg.toLowerCase().includes('not found') || errMsg.toLowerCase().includes('not supported')) {
+            console.log(`[AI Proxy] Gemini v1 falhou para ${modelName}, tentando v1beta...`);
+            response = await tryGenerate('v1beta');
+            data = await response.json().catch(() => ({}));
+          }
         }
 
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            contents,
-            systemInstruction: { parts: [{ text: systemInstruction }] },
-            generationConfig: { temperature: 0.4 }
-          })
-        });
-
-        const data = await response.json();
         if (!response.ok) throw new Error(data.error?.message || 'Erro Gemini API');
 
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
