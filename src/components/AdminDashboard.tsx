@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AIService } from '../services/aiService';
 import { createClient } from '@supabase/supabase-js';
@@ -21,6 +21,9 @@ import { ApiManagement } from './AdminDashboard/ApiManagement';
 import { TagsManagement } from './AdminDashboard/TagsManagement';
 
 import { calculateProposal } from '../lib/proposalUtils';
+
+// Memoize BackgroundAIManager to prevent unnecessary re-renders when parent re-renders
+const MemoizedBackgroundAIManager = memo(BackgroundAIManager);
 
 export default function AdminDashboard() {
   const [leads, setLeads] = useState<any[]>([]);
@@ -3120,11 +3123,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
       </header>
 
       <main className="flex-grow overflow-hidden px-4 sm:px-6 lg:px-8 py-4">
-          {(() => {
-            const shouldRenderAI = (isAdmin || userProfile?.role === 'user' || userProfile?.role === 'seller');
-            console.log('[AdminDashboard] Should render BackgroundAIManager:', shouldRenderAI, { isAdmin, role: userProfile?.role });
-            return shouldRenderAI && <BackgroundAIManager />;
-          })()}
+          {isAdmin || userProfile?.role === 'user' || userProfile?.role === 'seller' ? (
+            <MemoizedBackgroundAIManager />
+          ) : null}
           <motion.div
             key={activeTab}
             initial={{ opacity: 0, y: 10 }}

@@ -68,8 +68,10 @@ export class AIService {
       if (orderA !== orderB) return orderA - orderB;
       
       // If both have the same status, prioritize the last successful one
-      if (a.id === this.lastSuccessfulKeyId) return -1;
-      if (b.id === this.lastSuccessfulKeyId) return 1;
+      if (a.status === 'ok' && b.status === 'ok') {
+        if (a.id === this.lastSuccessfulKeyId) return -1;
+        if (b.id === this.lastSuccessfulKeyId) return 1;
+      }
       
       // Otherwise newest first
       const lastUsedA = a.last_used ? new Date(a.last_used).getTime() : 0;
@@ -179,7 +181,7 @@ export class AIService {
       const apiKey = candidateKeys[attempts];
       if (!apiKey) break;
       
-      console.log(`[AIService] 🚀 Tentativa ${attempts + 1}/${maxAttempts} usando chave: ${apiKey.id} (${apiKey.provider})`);
+      console.log(`[AIService] 🚀 Tentativa ${attempts + 1}/${maxAttempts} usando chave: ${apiKey.id} (${apiKey.provider} - ${apiKey.status})`);
 
       try {
         const result = await AIClientManager.execute(apiKey, prompt, systemInstruction, image);

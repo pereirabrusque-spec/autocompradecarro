@@ -126,7 +126,7 @@ export const BackgroundAIManager = () => {
         // Heartbeat to confirm it's alive
         const heartbeat = setInterval(() => {
             console.log("[BackgroundAIManager] ❤️ Heartbeat - IA is alive. Enabled:", isAiEnabledRef.current, "User:", currentUserIdRef.current);
-        }, 30000);
+        }, 60000); // 1 minuto
 
         // Load initial settings
         supabase.from('settings').select('key, value').in('key', [
