@@ -1211,6 +1211,31 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (userProfile) {
       fetchData();
+
+      // Real-time subscription for settings to keep AI toggle and other configs in sync
+      const settingsSubscription = supabase
+        .channel('admin_settings_changes')
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'settings' 
+        }, (payload) => {
+          if (payload.new && (payload.new as any).key) {
+            const { key, value } = payload.new as any;
+            if (key === 'AI_CRM_ENABLED') {
+              console.log('[AdminDashboard] AI Global status updated via Realtime:', value);
+              setIsGlobalAiEnabled(value === 'true');
+            }
+            if (key === 'AUTO_PROPOSAL_ENABLED') {
+              setAutoProposalEnabled(value === 'true');
+            }
+          }
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(settingsSubscription);
+      };
     }
   }, [userProfile]);
 
@@ -2968,12 +2993,16 @@ Podemos prosseguir com o agendamento da vistoria?`;
             
             {/* AI Status Indicator */}
             <div className="hidden lg:flex items-center gap-3 px-3 py-1.5 bg-white/5 rounded-xl border border-white/10">
-              <div className="flex items-center gap-2">
+              <button 
+                onClick={toggleGlobalAi}
+                disabled={isUpdatingAi}
+                className="flex items-center gap-2 hover:opacity-80 transition-opacity disabled:opacity-50"
+              >
                 <div className={`w-2 h-2 rounded-full ${isGlobalAiEnabled ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-slate-500'}`} />
                 <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">
                   IA {isGlobalAiEnabled ? 'Ativa' : 'Inativa'}
                 </span>
-              </div>
+              </button>
               <div className="w-px h-4 bg-white/10"></div>
               <button 
                 onClick={async () => {

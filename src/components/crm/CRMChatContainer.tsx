@@ -282,7 +282,19 @@ export const CRMChatContainer = ({ role, onOpenLead, onCloneLead, setToast }: { 
         <div className="p-4 border-b border-slate-100 font-bold flex justify-between items-center shrink-0">
             <div className="flex items-center gap-2">
                 Conversas
-                {/* Toggles de IA e Proposta removidos conforme solicitado - sistema agora é 100% automatizado */}
+                <button 
+                    onClick={toggleGlobalAi}
+                    disabled={isUpdatingAi}
+                    className={`ml-2 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all flex items-center gap-1.5 ${
+                        isAiEnabled 
+                        ? 'bg-emerald-500 text-white shadow-[0_0_10px_rgba(16,185,129,0.3)]' 
+                        : 'bg-slate-200 text-slate-500'
+                    }`}
+                    title={isAiEnabled ? "Agente 24h Ativo" : "Ativar Agente 24h"}
+                >
+                    <Bot className={`w-3 h-3 ${isAiEnabled ? 'animate-pulse' : ''}`} />
+                    {isAiEnabled ? 'Agente 24h: ON' : 'Agente 24h: OFF'}
+                </button>
             </div>
             <button 
                 onClick={() => setShowAiRules(true)}
@@ -341,6 +353,8 @@ export const CRMChatContainer = ({ role, onOpenLead, onCloneLead, setToast }: { 
             onOpenLead={onOpenLead}
             onCloneLead={(lead) => onCloneLead && onCloneLead(lead, selectedConversationId)}
             setToast={setToast}
+            isAiEnabled={isAiEnabled}
+            onToggleAi={toggleGlobalAi}
           />
         ) : (
           <div className="h-full flex items-center justify-center text-slate-400">

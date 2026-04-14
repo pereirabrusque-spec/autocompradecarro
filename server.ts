@@ -413,6 +413,101 @@ async function startServer() {
     }
   });
 
+  // AI Generation Proxy (Bypasses CORS)
+  app.post('/api/ai/generate', async (req, res) => {
+    const { apiKey, prompt, systemInstruction, image } = req.body;
+    
+    if (!apiKey || !apiKey.key || !apiKey.provider) {
+      return res.status(400).json({ error: 'Dados da API Key incompletos.' });
+    }
+
+    try {
+      const provider = apiKey.provider.toLowerCase();
+      const trimmedKey = apiKey.key.trim();
+      let modelName = apiKey.service || (provider === 'gemini' ? 'gemini-1.5-flash' : 'gpt-4o-mini');
+
+      // Clean model name
+      if (modelName.includes(' - ')) {
+        modelName = modelName.split(' - ').pop().trim();
+      } else if (modelName.includes(':')) {
+        modelName = modelName.split(':').pop().trim();
+      }
+
+      console.log(`[AI Proxy] Gerando conteúdo com ${provider} (${modelName})...`);
+
+      if (provider === 'gemini') {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${trimmedKey}`;
+        const contents: any[] = [{ role: 'user', parts: [{ text: prompt }] }];
+        
+        if (image) {
+          contents[0].parts.push({
+            inlineData: {
+              data: image.split(',')[1],
+              mimeType: 'image/jpeg'
+            }
+          });
+        }
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            contents,
+            systemInstruction: { parts: [{ text: systemInstruction }] },
+            generationConfig: { temperature: 0.4 }
+          })
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error?.message || 'Erro Gemini API');
+
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!text) throw new Error('Resposta vazia do Gemini');
+
+        res.json({ text, provider: 'gemini', model: modelName });
+      } else {
+        // OpenAI, Groq, xAI, etc.
+        let baseUrl = '';
+        if (provider === 'openai') baseUrl = 'https://api.openai.com/v1';
+        else if (provider === 'grok' || provider === 'xai') baseUrl = 'https://api.x.ai/v1';
+        else if (provider === 'groq') baseUrl = 'https://api.groq.com/openai/v1';
+        else baseUrl = `https://api.${provider}.com/v1`;
+
+        const messages = [
+          { role: 'system', content: systemInstruction },
+          { role: 'user', content: image ? [
+            { type: 'text', text: prompt },
+            { type: 'image_url', image_url: { url: image } }
+          ] : prompt }
+        ];
+
+        const response = await fetch(`${baseUrl}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${trimmedKey}`
+          },
+          body: JSON.stringify({
+            model: modelName,
+            messages,
+            temperature: 0.4
+          })
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error?.message || `Erro ${provider} API`);
+
+        const text = data.choices?.[0]?.message?.content;
+        if (!text) throw new Error(`Resposta vazia de ${provider}`);
+
+        res.json({ text, provider, model: modelName });
+      }
+    } catch (error: any) {
+      console.error('[AI Proxy Error]:', error.message);
+      res.status(500).json({ error: error.message || 'Erro interno na geração de IA' });
+    }
+  });
+
   // Health check
   async function runHealthCheck() {
     console.log('Running API health check...');

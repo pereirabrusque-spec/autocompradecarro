@@ -114,6 +114,10 @@ export const BackgroundAIManager = () => {
     }, [currentUserId]);
 
     useEffect(() => {
+        isAiEnabledRef.current = isAiEnabled;
+    }, [isAiEnabled]);
+
+    useEffect(() => {
         console.log("[BackgroundAIManager] 🚀 Componente montado. Buscando configurações...");
         console.log("[BackgroundAIManager] 👤 Current User ID (Ref):", currentUserIdRef.current);
         console.log("[BackgroundAIManager] 🤖 IA Enabled (Ref):", isAiEnabledRef.current);
@@ -235,16 +239,26 @@ export const BackgroundAIManager = () => {
     }, []);
 
     const handleInternalMessage = async (payload: any, isFollowUp = false) => {
-        console.log('[BackgroundAIManager] 📩 Nova mensagem interna recebida para processamento:', payload);
+        console.log('[BackgroundAIManager] 📩 handleInternalMessage START:', { 
+            id: payload.id, 
+            content: payload.content, 
+            sender: payload.sender_id, 
+            receiver: payload.receiver_id, 
+            isFollowUp,
+            timestamp: new Date().toISOString()
+        });
         const uid = currentUserIdRef.current;
         
         if (!uid) {
-            console.log("[BackgroundAIManager] ⚠️ UID não disponível, ignorando mensagem interna.");
+            console.log("[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: UID não disponível (currentUserIdRef é nulo).");
             return;
         }
 
-        if (!isAiEnabledRef.current) {
-            console.log('[BackgroundAIManager] ⚠️ IA Global desativada (AI_CRM_ENABLED=false). Ignorando mensagem interna.');
+        const isGlobalEnabled = isAiEnabledRef.current;
+        console.log(`[BackgroundAIManager] handleInternalMessage check IA Global: ${isGlobalEnabled}`);
+
+        if (!isGlobalEnabled) {
+            console.log('[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: IA Global desativada no Ref.');
             return;
         }
 
@@ -256,12 +270,14 @@ export const BackgroundAIManager = () => {
                             payload.receiver_id === '00000000-0000-0000-0000-000000000000' || 
                             (!payload.receiver_id && uid);
             
+            console.log(`[BackgroundAIManager] handleInternalMessage check isForMe: ${isForMe}, uid: ${uid}, receiver: ${payload.receiver_id}`);
+
             if (!isForMe) {
-                console.log(`[BackgroundAIManager] Mensagem interna ignorada: não é para este usuário (${uid}). Receiver: ${payload.receiver_id}`);
+                console.log(`[BackgroundAIManager] handleInternalMessage ABORT: não é para este usuário.`);
                 return;
             }
             if (payload.sender_id === uid) {
-                console.log('[BackgroundAIManager] Mensagem interna ignorada: enviada por mim mesmo.');
+                console.log('[BackgroundAIManager] handleInternalMessage ABORT: enviada por mim mesmo.');
                 return;
             }
         }
@@ -572,15 +588,21 @@ REGRAS GERAIS:
     };
 
     const handlePublicMessage = async (payload: any, isFollowUp = false) => {
-        console.log('[BackgroundAIManager] 📩 Nova mensagem pública recebida para processamento:', payload);
+        console.log('[BackgroundAIManager] 📩 handlePublicMessage START:', { 
+            id: payload.id, 
+            content: payload.conteudo, 
+            remetente: payload.remetente, 
+            isFollowUp,
+            timestamp: new Date().toISOString()
+        });
         const uid = currentUserIdRef.current;
         if (!uid) {
-            console.log('[BackgroundAIManager] ⚠️ handlePublicMessage abortado: currentUserIdRef.current é nulo.');
+            console.log('[BackgroundAIManager] ⚠️ handlePublicMessage ABORT: UID nulo (currentUserIdRef é nulo).');
             return;
         }
 
         if (payload.metadata?.ai_handled && !isFollowUp) {
-            console.log(`[BackgroundAIManager] Mensagem ${payload.id} já marcada como processada pela IA. Pulando.`);
+            console.log(`[BackgroundAIManager] handlePublicMessage ABORT: Já processada (ai_handled: true).`);
             return;
         }
 
@@ -589,13 +611,13 @@ REGRAS GERAIS:
             const leadId = payload.lead_id;
             const messageId = payload.id;
 
-            console.log(`[BackgroundAIManager] 📥 Nova mensagem de lead recebida: ${payload.conteudo} (ID: ${messageId})`);
+            console.log(`[BackgroundAIManager] 📥 Processando mensagem de lead: "${payload.conteudo}" (ID: ${messageId})`);
             
             const isGlobalAiEnabled = isAiEnabledRef.current;
-            console.log(`[BackgroundAIManager] 🤖 IA Global (Pública): ${isGlobalAiEnabled}`);
+            console.log(`[BackgroundAIManager] handlePublicMessage check IA Global: ${isGlobalAiEnabled}`);
             
             if (!isGlobalAiEnabled) {
-                console.log(`[BackgroundAIManager] ⚠️ IA Global desligada (AI_CRM_ENABLED=false). Ignorando resposta pública.`);
+                console.log(`[BackgroundAIManager] handlePublicMessage ABORT: IA Global desligada no Ref.`);
                 return;
             }
 
@@ -789,11 +811,14 @@ REGRAS GERAIS:
 `;
 
                 console.log("[BackgroundAIManager] Generating lead response for prompt length:", fullPrompt.length);
+                console.log("[BackgroundAIManager] Generating public response for prompt length:", fullPrompt.length);
                 const response = await AIService.generateContent(
                     fullPrompt,
                     "Você é um especialista de vendas altamente preciso. Responda estritamente com base nos dados técnicos do veículo fornecidos no contexto. Se a informação não estiver nos dados, não invente. Seja direto, profissional e persuasivo. NUNCA mencione ser uma IA ou que haverá contato humano posterior, você é o especialista responsável.",
                     imageBase64 || undefined
                 );
+                
+                console.log("[BackgroundAIManager] Public AI Response received:", response ? "SUCCESS" : "NULL/EMPTY", response?.text?.substring(0, 50) + "...");
 
                 if (response && response.text) {
                     await supabase.from('mensagens').insert({

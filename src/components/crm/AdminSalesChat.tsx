@@ -5,7 +5,25 @@ import { supabase } from '../../lib/supabase';
 import { Send, Bot, MessageCircle, Trash2, Loader2, Car, ShieldCheck } from 'lucide-react';
 import { ChatActionModal } from './ChatActionModal';
 
-export const AdminSalesChat = ({ conversationId, role, onMessageRead, onOpenLead, onCloneLead, setToast }: { conversationId: string, role: string, onMessageRead: () => void, onOpenLead?: (lead: any) => void, onCloneLead?: (lead: any) => void, setToast?: (toast: any) => void }) => {
+export const AdminSalesChat = ({ 
+  conversationId, 
+  role, 
+  onMessageRead, 
+  onOpenLead, 
+  onCloneLead, 
+  setToast,
+  isAiEnabled,
+  onToggleAi
+}: { 
+  conversationId: string, 
+  role: string, 
+  onMessageRead: () => void, 
+  onOpenLead?: (lead: any) => void, 
+  onCloneLead?: (lead: any) => void, 
+  setToast?: (toast: any) => void,
+  isAiEnabled?: boolean,
+  onToggleAi?: () => void
+}) => {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
   
@@ -408,6 +426,23 @@ export const AdminSalesChat = ({ conversationId, role, onMessageRead, onOpenLead
           >
             Clonar
           </button>
+          
+          {onToggleAi && (
+            <button
+              type="button"
+              onClick={onToggleAi}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
+                isAiEnabled 
+                  ? 'bg-emerald-50 text-emerald-600 border-emerald-200' 
+                  : 'bg-slate-50 text-slate-400 border-slate-200'
+              }`}
+              title={isAiEnabled ? 'Desativar Agente IA' : 'Ativar Agente IA'}
+            >
+              <Bot className={`w-3.5 h-3.5 ${isAiEnabled ? 'text-emerald-500' : 'text-slate-400'}`} />
+              {isAiEnabled ? 'Agente 24h: ON' : 'Agente 24h: OFF'}
+            </button>
+          )}
+
           <button 
             type="button"
             onClick={() => {

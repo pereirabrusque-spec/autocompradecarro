@@ -347,89 +347,57 @@ class AIClientManager {
     });
 
     const apiCallPromise = async () => {
-      if (apiKey.provider === 'gemini') {
-        if (!this.clients.has(apiKey.id)) {
-          this.clients.set(apiKey.id, new GoogleGenAI(apiKey.key));
-        }
-        const genAI = this.clients.get(apiKey.id);
-        const model = genAI.getGenerativeModel({ 
-          model: modelName,
-          systemInstruction: systemInstruction 
-        });
-        
-        const parts: any[] = [];
-        if (prompt) parts.push({ text: prompt });
-        if (image) {
-          parts.push({
-            inlineData: {
-              data: image.split(',')[1],
-              mimeType: 'image/jpeg'
-            }
-          });
-        }
-
-        const result = await model.generateContent({
-          contents: [{ role: 'user', parts }]
-        });
-        
-        const text = result.response.text();
-        if (text) {
-          return {
-            text: text,
-            provider: 'gemini',
-            model: modelName
-          };
-        }
-        throw new Error('Empty response from Gemini');
-      } else {
-        // OpenAI-compatible providers (OpenAI, Grok, etc.)
-        let baseUrl = '';
-        const p = apiKey.provider?.toLowerCase().trim();
-        
-        if (p === 'openai') {
-          baseUrl = 'https://api.openai.com/v1';
-        } else if (p === 'grok' || p === 'xai') {
-          baseUrl = 'https://api.x.ai/v1';
-        } else if (p === 'groq') {
-          baseUrl = 'https://api.groq.com/openai/v1';
-        } else {
-          baseUrl = `https://api.${p}.com/v1`;
-        }
-
-        const content: any[] = [
-          { type: 'text', text: prompt || 'Analise esta imagem.' }
-        ];
-        if (image) {
-          content.push({ type: 'image_url', image_url: { url: image } });
-        }
-
-        const response = await fetch(`${baseUrl}/chat/completions`, {
+      try {
+        const response = await fetch('/api/ai/generate', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey.key}`
-          },
-          body: JSON.stringify({
-            model: modelName,
-            messages: [
-              { role: 'system', content: systemInstruction },
-              { role: 'user', content }
-            ],
-            temperature: 0.4
-          })
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ apiKey, prompt, systemInstruction, image })
         });
-        
+
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error?.message || `${apiKey.provider} API Error`);
+          throw new Error(errorData.error || `${apiKey.provider} Proxy Error`);
         }
 
-        const data = await response.json();
-        return {
-          text: data.choices[0].message.content,
-          provider: apiKey.provider,
-          model: modelName
-        };
+        return await response.json();
+      } catch (error: any) {
+        // Se falhar o proxy por algum motivo (ex: servidor fora), tentamos fallback direto para Gemini se for o caso
+        if (apiKey.provider === 'gemini') {
+          console.warn('[AIService] Proxy falhou, tentando chamada direta para Gemini...');
+          if (!this.clients.has(apiKey.id)) {
+            this.clients.set(apiKey.id, new GoogleGenAI(apiKey.key));
+          }
+          const genAI = this.clients.get(apiKey.id);
+          const model = genAI.getGenerativeModel({ 
+            model: modelName,
+            systemInstruction: systemInstruction 
+          });
+          
+          const parts: any[] = [];
+          if (prompt) parts.push({ text: prompt });
+          if (image) {
+            parts.push({
+              inlineData: {
+                data: image.split(',')[1],
+                mimeType: 'image/jpeg'
+              }
+            });
+          }
+
+          const result = await model.generateContent({
+            contents: [{ role: 'user', parts }]
+          });
+          
+          const text = result.response.text();
+          if (text) {
+            return {
+              text: text,
+              provider: 'gemini',
+              model: modelName
+            };
+          }
+        }
+        throw error;
       }
     };
 
