@@ -4,6 +4,7 @@ import { AIService } from '../../services/aiService';
 import { calculateProposal } from '../../lib/proposalUtils';
 
 export const BackgroundAIManager = () => {
+    console.log("[BackgroundAIManager] 🏗️ Renderizando componente...");
     const [isAiEnabled, setIsAiEnabled] = useState(false);
     const [autoProposalEnabled, setAutoProposalEnabled] = useState(false);
     const [aiPrompt, setAiPrompt] = useState('');
@@ -580,7 +581,12 @@ REGRAS GERAIS:
                 console.error('[BackgroundAIManager] Erro ao processar resposta interna:', err);
                 await supabase.from('internal_messages')
                     .update({ 
-                        metadata: { ...(payload.metadata || {}), ai_failed: true, ai_error: String(err) } 
+                        metadata: { 
+                            ...(payload.metadata || {}), 
+                            ai_failed: true, 
+                            ai_error: String(err),
+                            failed_at: new Date().toISOString()
+                        } 
                     })
                     .eq('id', payload.id);
             }
@@ -841,7 +847,12 @@ REGRAS GERAIS:
                 console.error('[BackgroundAIManager] Erro ao processar resposta para lead:', err);
                 await supabase.from('mensagens')
                     .update({ 
-                        metadata: { ...(payload.metadata || {}), ai_failed: true, ai_error: String(err) } 
+                        metadata: { 
+                            ...(payload.metadata || {}), 
+                            ai_failed: true, 
+                            ai_error: String(err),
+                            failed_at: new Date().toISOString()
+                        } 
                     })
                     .eq('id', payload.id);
             }
@@ -883,12 +894,21 @@ REGRAS GERAIS:
             for (const [otherId, lastMsg] of convs.entries()) {
                 const readCol = lastMsg.is_read !== undefined ? 'is_read' : 'read';
                 const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
+                const isAiFailed = lastMsg.metadata?.ai_failed;
+                const lastFailedTime = lastMsg.metadata?.failed_at ? new Date(lastMsg.metadata.failed_at).getTime() : 0;
+                const shouldRetry = isAiFailed && (Date.now() - lastFailedTime > 600000); // Retry após 10 min
 
-                if (lastMsg.sender_id !== uid && !lastMsg.metadata?.ai_handled && !lastMsg.metadata?.ai_failed) {
-                    if (timeDiff > 60000) { // Reduzido para 1 min para maior responsividade
-                        console.log(`[BackgroundAIManager] 🔍 scanForOpenMessages: Detectada mensagem interna não respondida de ${otherId}. Processando...`);
+                if (lastMsg.sender_id !== uid && !lastMsg.metadata?.ai_handled && (!isAiFailed || shouldRetry)) {
+                    if (timeDiff > 60000) { 
+                        console.log(`[BackgroundAIManager] 🔍 scanForOpenMessages: Detectada mensagem interna não respondida de ${otherId}. ${shouldRetry ? '(RETRY)' : ''} Processando...`);
                         handleInternalMessage(lastMsg);
                     }
+                }
+                else if (lastMsg.metadata?.ai_handled) {
+                    // Já processado
+                }
+                else if (isAiFailed && !shouldRetry) {
+                    console.log(`[BackgroundAIManager] 🔍 scanForOpenMessages: Mensagem interna de ${otherId} falhou recentemente. Aguardando cooldown de retry.`);
                 }
                 else if (lastMsg.sender_id === uid && lastMsg[readCol] && !lastMsg.metadata?.followed_up) {
                     if (timeDiff > 7200000) { // 2 horas
@@ -914,12 +934,21 @@ REGRAS GERAIS:
             for (const [leadId, lastMsg] of leads.entries()) {
                 const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
                 const remetente = (lastMsg.remetente || '').toLowerCase();
+                const isAiFailed = lastMsg.metadata?.ai_failed;
+                const lastFailedTime = lastMsg.metadata?.failed_at ? new Date(lastMsg.metadata.failed_at).getTime() : 0;
+                const shouldRetry = isAiFailed && (Date.now() - lastFailedTime > 600000); // Retry após 10 min
 
-                if (remetente === 'cliente' && !lastMsg.metadata?.ai_handled && !lastMsg.metadata?.ai_failed) {
-                    if (timeDiff > 30000) { // Reduzido para 30 segundos para maior responsividade
-                        console.log(`[BackgroundAIManager] 🔍 scanForOpenMessages: Detectada mensagem pública não respondida do lead ${leadId}. Processando...`);
+                if (remetente === 'cliente' && !lastMsg.metadata?.ai_handled && (!isAiFailed || shouldRetry)) {
+                    if (timeDiff > 30000) { 
+                        console.log(`[BackgroundAIManager] 🔍 scanForOpenMessages: Detectada mensagem pública não respondida do lead ${leadId}. ${shouldRetry ? '(RETRY)' : ''} Processando...`);
                         handlePublicMessage(lastMsg);
                     }
+                }
+                else if (lastMsg.metadata?.ai_handled) {
+                    // Já processado
+                }
+                else if (isAiFailed && !shouldRetry) {
+                    console.log(`[BackgroundAIManager] 🔍 scanForOpenMessages: Mensagem do lead ${leadId} falhou recentemente. Aguardando cooldown de retry.`);
                 }
                 else if (lastMsg.remetente !== 'cliente' && lastMsg.lida && !lastMsg.metadata?.followed_up) {
                     if (timeDiff > 7200000) { // 2 horas
