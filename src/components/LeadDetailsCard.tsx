@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, MessageCircle, MessageSquare, Send, FileText, Edit2, ArrowLeft, ChevronLeft, ChevronRight, Upload, DollarSign, User, ShieldCheck, Copy, AlertTriangle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { GoogleGenAI, Type } from "@google/genai";
+import { AIService } from '../services/aiService';
+import { Type } from "@google/genai";
 
 import { calculateProposal } from '../lib/proposalUtils';
 
@@ -304,9 +305,6 @@ export default function LeadDetailsCard({
     if (!file) return;
 
     setIsUploadingCRLV(true);
-    const apiKey = (process.env.GEMINI_API_KEY || '').trim();
-    console.log("DEBUG: GEMINI_API_KEY:", apiKey ? "DEFINIDA" : "NÃO DEFINIDA");
-    const ai = new GoogleGenAI({ apiKey });
 
     // Upload via API para contornar RLS
     let publicUrl = '';
@@ -337,42 +335,20 @@ export default function LeadDetailsCard({
 
     const reader = new FileReader();
     reader.onloadend = async () => {
-      const base64Image = (reader.result as string).split(',')[1];
-      const mimeType = file.type || (file.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
+      const base64Image = (reader.result as string);
       
       try {
-        const response = await ai.models.generateContent({
-          model: "gemini-3-flash-preview",
-          contents: {
-            parts: [
-              { inlineData: { data: base64Image, mimeType: mimeType } },
-              { text: "Extraia os dados deste CRLV: placa, marca, modelo, ano_fabricacao, ano_modelo, cor, renavam, chassi. Retorne apenas JSON." }
-            ]
-          },
-          config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: Type.OBJECT,
-              properties: {
-                placa: { type: Type.STRING },
-                marca: { type: Type.STRING },
-                modelo: { type: Type.STRING },
-                ano_fabricacao: { type: Type.STRING },
-                ano_modelo: { type: Type.STRING },
-                cor: { type: Type.STRING },
-                renavam: { type: Type.STRING },
-                chassi: { type: Type.STRING }
-              }
-            }
-          }
-        });
+        const prompt = "Extraia os dados deste CRLV: placa, marca, modelo, ano_fabricacao, ano_modelo, cor, renavam, chassi. Retorne apenas JSON.";
+        const systemInstruction = "Você é um especialista em documentos veiculares. Extraia os dados com precisão. Retorne um JSON com os campos: placa, marca, modelo, ano_fabricacao, ano_modelo, cor, renavam, chassi.";
 
-        const data = JSON.parse(response.text || '{}');
+        const aiResponse = await AIService.generateContent(prompt, systemInstruction, base64Image);
+        const data = JSON.parse(aiResponse.text.replace(/```json|```/g, '').trim() || '{}');
+        
         const updatedLead = { ...currentLead, ...data, crlv_url: publicUrl };
         setCurrentLead(updatedLead);
         onSave(updatedLead);
       } catch (error) {
-        console.error("Erro no OCR:", error);
+        console.error("Erro no OCR via AIService:", error);
         const updatedLead = { ...currentLead, crlv_url: publicUrl };
         setCurrentLead(updatedLead);
         onSave(updatedLead);

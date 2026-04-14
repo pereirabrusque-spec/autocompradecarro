@@ -67,6 +67,42 @@ export class AIService {
       return 0;
     });
 
+    // Validação da chave "Em Uso": Se a chave salva não existe mais ou não está OK, limpamos
+    if (this.lastSuccessfulKeyId && this.lastSuccessfulKeyId !== 'env-key') {
+      const currentKey = filteredData.find(k => k.id === this.lastSuccessfulKeyId);
+      if (!currentKey || currentKey.status !== 'ok') {
+        console.warn(`[AIService] ⚠️ Chave "Em Uso" (${this.lastSuccessfulKeyId}) não é mais válida ou não está OK. Tentando selecionar uma nova...`);
+        
+        // Tenta pegar a primeira chave 'ok' disponível
+        const firstOkKey = filteredData.find(k => k.status === 'ok');
+        if (firstOkKey) {
+          console.log(`[AIService] 🎯 Selecionando automaticamente nova chave "Em Uso": ${firstOkKey.id}`);
+          this.lastSuccessfulKeyId = firstOkKey.id;
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('ai_last_successful_key_id', firstOkKey.id);
+            window.dispatchEvent(new Event('storage'));
+          }
+        } else {
+          this.lastSuccessfulKeyId = null;
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('ai_last_successful_key_id');
+            window.dispatchEvent(new Event('storage'));
+          }
+        }
+      }
+    } else if (!this.lastSuccessfulKeyId) {
+      // Se não tem nenhuma chave em uso, mas temos chaves OK, seleciona a primeira
+      const firstOkKey = filteredData.find(k => k.status === 'ok');
+      if (firstOkKey) {
+        console.log(`[AIService] 🎯 Nenhuma chave em uso detectada. Selecionando primeira disponível: ${firstOkKey.id}`);
+        this.lastSuccessfulKeyId = firstOkKey.id;
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('ai_last_successful_key_id', firstOkKey.id);
+          window.dispatchEvent(new Event('storage'));
+        }
+      }
+    }
+
     console.log('[AIService] Chaves ordenadas por status:', sorted.map(k => `${k.id}(${k.status})`).join(', '));
     this.cachedKeys = sorted;
     this.lastFetchTime = now;
@@ -247,7 +283,7 @@ export class AIService {
           id: 'env-key',
           provider: 'gemini',
           key: process.env.GEMINI_API_KEY,
-          service: 'gemini-1.5-flash' // Use flash for fallback as it's more likely to have quota
+          service: 'gemini-1.5-flash-latest' // Use flash for fallback as it's more likely to have quota
         }, prompt, systemInstruction, image);
       } catch (fallbackError: any) {
         console.error('[AIService] Fallback final também falhou:', fallbackError.message);
@@ -342,7 +378,7 @@ class AIClientManager {
 
   static async execute(apiKey: any, prompt: string, systemInstruction: string, image?: string): Promise<AIResponse> {
     // Clean model name: remove provider prefix if present (e.g., "openai - gpt-4o-mini" -> "gpt-4o-mini")
-    let rawModel = apiKey.service || (apiKey.provider === 'gemini' ? 'gemini-1.5-flash' : 'gpt-4o-mini');
+    let rawModel = apiKey.service || (apiKey.provider === 'gemini' ? 'gemini-1.5-flash-latest' : 'gpt-4o-mini');
     let modelName = rawModel;
     
     if (rawModel.includes(' - ')) {
@@ -371,8 +407,9 @@ class AIClientManager {
     } else if (apiKey.provider === 'gemini') {
       if (lowerModel.includes('flash-thinking')) modelName = 'gemini-2.0-flash-thinking-exp';
       else if (lowerModel.includes('2.0-flash')) modelName = 'gemini-2.0-flash-exp';
-      else if (lowerModel.includes('flash')) modelName = 'gemini-1.5-flash';
-      else if (lowerModel.includes('pro')) modelName = 'gemini-1.5-pro';
+      else if (lowerModel.includes('flash')) modelName = 'gemini-1.5-flash-latest';
+      else if (lowerModel.includes('pro')) modelName = 'gemini-1.5-pro-latest';
+      else modelName = 'gemini-1.5-flash-latest';
     }
 
     console.log(`[AIService] Modelo mapeado final: "${modelName}" para provedor: ${apiKey.provider}`);

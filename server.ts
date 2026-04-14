@@ -265,8 +265,9 @@ async function startServer() {
       } else if (p === 'gemini') {
         if (lowerModel.includes('flash-thinking')) return 'gemini-2.0-flash-thinking-exp';
         if (lowerModel.includes('2.0-flash')) return 'gemini-2.0-flash-exp';
-        if (lowerModel.includes('flash')) return 'gemini-1.5-flash';
-        if (lowerModel.includes('pro')) return 'gemini-1.5-pro';
+        if (lowerModel.includes('flash')) return 'gemini-1.5-flash-latest';
+        if (lowerModel.includes('pro')) return 'gemini-1.5-pro-latest';
+        return 'gemini-1.5-flash-latest';
       }
       return model;
     };
@@ -487,8 +488,9 @@ async function startServer() {
       } else if (provider === 'gemini') {
         if (lowerModel.includes('flash-thinking')) modelName = 'gemini-2.0-flash-thinking-exp';
         else if (lowerModel.includes('2.0-flash')) modelName = 'gemini-2.0-flash-exp';
-        else if (lowerModel.includes('flash')) modelName = 'gemini-1.5-flash';
-        else if (lowerModel.includes('pro')) modelName = 'gemini-1.5-pro';
+        else if (lowerModel.includes('flash')) modelName = 'gemini-1.5-flash-latest';
+        else if (lowerModel.includes('pro')) modelName = 'gemini-1.5-pro-latest';
+        else modelName = 'gemini-1.5-flash-latest';
       }
 
       console.log(`[AI Proxy] Gerando conteúdo com ${provider} (${modelName})...`);

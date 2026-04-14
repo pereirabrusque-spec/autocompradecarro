@@ -255,7 +255,7 @@ export const ApiManagement = ({
                         {key.status === 'ok' ? 'Conectada (Online)' :
                          (key.status === 'no_credit' || key.status === 'rate_limited') ? 'Sem Crédito / Quota' : 'Desconectada / Erro'}
                       </span>
-                      {key.id === currentInUseKeyId && (
+                      {key.id === currentInUseKeyId && key.status === 'ok' && (
                         <span className="text-[10px] px-2 py-0.5 rounded-full font-black uppercase bg-blue-600 text-white animate-pulse shadow-sm shadow-blue-200 flex items-center gap-1">
                           <div className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
                           Em Uso

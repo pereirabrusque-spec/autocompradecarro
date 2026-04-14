@@ -885,15 +885,15 @@ REGRAS GERAIS:
             return;
         }
 
-        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-        console.log("[BackgroundAIManager] 🔍 scanForOpenMessages: Buscando mensagens desde", sevenDaysAgo);
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        console.log("[BackgroundAIManager] 🔍 scanForOpenMessages: Buscando mensagens desde", thirtyDaysAgo);
 
         // 1. Escaneia mensagens internas (Compradores)
         const { data: allInternal } = await supabase
             .from('internal_messages')
             .select('*')
             .or(`receiver_id.eq.${uid},sender_id.eq.${uid},receiver_id.eq.00000000-0000-0000-0000-000000000000`)
-            .gt('created_at', sevenDaysAgo)
+            .gt('created_at', thirtyDaysAgo)
             .order('created_at', { ascending: false });
 
         if (allInternal) {
@@ -934,7 +934,7 @@ REGRAS GERAIS:
         const { data: allPublic } = await supabase
             .from('mensagens')
             .select('*')
-            .gt('created_at', sevenDaysAgo)
+            .gt('created_at', thirtyDaysAgo)
             .order('created_at', { ascending: false });
 
         if (allPublic) {
