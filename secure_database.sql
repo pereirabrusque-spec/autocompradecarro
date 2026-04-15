@@ -64,9 +64,6 @@ ALTER TABLE public.buyer_crm_permissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sent_leads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.providers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.banners ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.admin_users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.ai_agent_rules ENABLE ROW LEVEL SECURITY;
 
 -- 3. POLÍTICAS PARA 'profiles'
 DROP POLICY IF EXISTS "Profiles are viewable by owner or admin" ON public.profiles;
@@ -92,6 +89,12 @@ CREATE POLICY "Leads are viewable by admin, seller or authorized buyer" ON publi
   FOR SELECT USING (
     public.is_admin() OR 
     public.is_seller() OR 
+    -- Comprador Master e Premium podem ver o estoque (Premium vê limitado via UI, Master vê tudo)
+    EXISTS (
+      SELECT 1 FROM public.profiles 
+      WHERE id = auth.uid() AND (role = 'buyer_master' OR role = 'buyer_premium')
+    ) OR
+    -- Compradores normais só veem o que for explicitamente autorizado
     EXISTS (
       SELECT 1 FROM public.buyer_crm_permissions 
       WHERE buyer_id = auth.uid() AND lead_id = public.leads_veiculos.id
@@ -147,7 +150,7 @@ END $$;
 -- 9. POLÍTICAS PARA 'interested_buyers'
 DROP POLICY IF EXISTS "Buyers viewable by admin or owner" ON public.interested_buyers;
 CREATE POLICY "Buyers viewable by admin or owner" ON public.interested_buyers
-  FOR SELECT USING (public.is_admin() OR auth.uid() = id);
+  FOR SELECT USING (public.is_admin() OR public.is_seller() OR auth.uid() = id);
 
 DROP POLICY IF EXISTS "Buyers can be inserted by anyone" ON public.interested_buyers;
 CREATE POLICY "Buyers can be inserted by anyone" ON public.interested_buyers
@@ -162,15 +165,30 @@ DROP POLICY IF EXISTS "Permissions manageable by admin" ON public.buyer_crm_perm
 CREATE POLICY "Permissions manageable by admin" ON public.buyer_crm_permissions
   FOR ALL USING (public.is_admin());
 
--- 11. POLÍTICAS PARA 'admin_users' E 'messages'
-DROP POLICY IF EXISTS "Admin users viewable by admin" ON public.admin_users;
-CREATE POLICY "Admin users viewable by admin" ON public.admin_users FOR SELECT USING (public.is_admin());
+-- 11. POLÍTICAS CONDICIONAIS PARA TABELAS QUE PODEM NÃO EXISTIR
+DO $$
+BEGIN
+    -- admin_users
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'admin_users') THEN
+        ALTER TABLE public.admin_users ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Admin users viewable by admin" ON public.admin_users;
+        CREATE POLICY "Admin users viewable by admin" ON public.admin_users FOR SELECT USING (public.is_admin());
+    END IF;
 
-DROP POLICY IF EXISTS "Messages viewable by admin or seller" ON public.messages;
-CREATE POLICY "Messages viewable by admin or seller" ON public.messages FOR ALL USING (public.is_admin() OR public.is_seller());
+    -- messages (algumas versões usam 'messages' em vez de 'mensagens')
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'messages') THEN
+        ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Messages viewable by admin or seller" ON public.messages;
+        CREATE POLICY "Messages viewable by admin or seller" ON public.messages FOR ALL USING (public.is_admin() OR public.is_seller());
+    END IF;
 
-DROP POLICY IF EXISTS "AI rules manageable by admin" ON public.ai_agent_rules;
-CREATE POLICY "AI rules manageable by admin" ON public.ai_agent_rules FOR ALL USING (public.is_admin());
+    -- ai_agent_rules
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'ai_agent_rules') THEN
+        ALTER TABLE public.ai_agent_rules ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "AI rules manageable by admin" ON public.ai_agent_rules;
+        CREATE POLICY "AI rules manageable by admin" ON public.ai_agent_rules FOR ALL USING (public.is_admin());
+    END IF;
+END $$;
 
 -- MENSAGEM DE FINALIZAÇÃO
 SELECT 'Segurança do banco de dados reforçada com sucesso!' as status;
