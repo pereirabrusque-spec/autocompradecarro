@@ -181,24 +181,29 @@ export const BackgroundAIManager = () => {
         };
         loadProposalData();
 
-        // Get current user with retry
-        const getUserWithRetry = async (retries = 3) => {
-            for (let i = 0; i < retries; i++) {
-                try {
-                    const { data: { user } } = await supabase.auth.getUser();
-                    if (user) {
-                        console.log("[BackgroundAIManager] 👤 Usuário autenticado encontrado:", user.id);
-                        setCurrentUserId(user.id);
-                        return;
-                    }
-                } catch (e) {
-                    console.error(`[BackgroundAIManager] Erro ao buscar usuário (tentativa ${i+1}):`, e);
-                }
-                await new Promise(resolve => setTimeout(resolve, 2000));
+        // Get current user and listen for changes
+        const checkSession = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                console.log("[BackgroundAIManager] 👤 Sessão encontrada:", session.user.id);
+                setCurrentUserId(session.user.id);
+                currentUserIdRef.current = session.user.id;
+            } else {
+                console.log("[BackgroundAIManager] 👤 Nenhuma sessão ativa encontrada no momento.");
             }
-            console.warn("[BackgroundAIManager] ⚠️ Falha ao obter usuário após várias tentativas.");
         };
-        getUserWithRetry();
+        checkSession();
+
+        const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            console.log("[BackgroundAIManager] 👤 Auth Event:", event, session?.user?.id);
+            if (session?.user) {
+                setCurrentUserId(session.user.id);
+                currentUserIdRef.current = session.user.id;
+            } else {
+                setCurrentUserId(null);
+                currentUserIdRef.current = null;
+            }
+        });
 
         // Listen for settings changes
         const settingsSubscription = supabase
@@ -237,6 +242,7 @@ export const BackgroundAIManager = () => {
             clearInterval(heartbeat);
             supabase.removeChannel(settingsSubscription);
             supabase.removeChannel(dataSubscription);
+            authSubscription.unsubscribe();
         };
     }, []);
 
@@ -974,8 +980,12 @@ REGRAS GERAIS:
     };
 
     useEffect(() => {
-        if (!currentUserId) return;
+        if (!currentUserId) {
+            console.log("[BackgroundAIManager] ⏳ Aguardando currentUserId para iniciar scanner...");
+            return;
+        }
 
+        console.log("[BackgroundAIManager] 🚀 Iniciando scanner de mensagens para o usuário:", currentUserId);
         scanForOpenMessages(); 
         const interval = setInterval(scanForOpenMessages, 30000); // 30 segundos
 

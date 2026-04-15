@@ -53,17 +53,21 @@ export const ApiManagement = ({
   }, [apiKeys, fetchData]);
 
   useEffect(() => {
-    const handleStorageChange = () => {
+    const updateInUse = async () => {
+      // Forçamos o AIService a validar e selecionar uma chave se necessário
+      const { AIService } = await import('../../services/aiService');
+      await AIService.getActiveKeys(true);
+      
       const id = localStorage.getItem('ai_last_successful_key_id');
-      console.log('[ApiManagement] 🔄 Detectada mudança na chave em uso:', id);
+      console.log('[ApiManagement] 🔄 Atualizando chave em uso no componente:', id);
       setCurrentInUseKeyId(id);
     };
 
-    window.addEventListener('storage', handleStorageChange);
-    // Também verifica periodicamente ou quando apiKeys mudam
-    handleStorageChange();
+    window.addEventListener('storage', updateInUse);
+    // Verifica no mount e quando apiKeys mudam
+    updateInUse();
 
-    return () => window.removeEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', updateInUse);
   }, [apiKeys]);
 
   const toggleShowKey = (id: string) => {

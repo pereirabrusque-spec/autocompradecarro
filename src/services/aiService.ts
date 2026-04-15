@@ -12,6 +12,14 @@ export interface AIResponse {
 
 export class AIService {
   public static lastSuccessfulKeyId: string | null = typeof window !== 'undefined' ? localStorage.getItem('ai_last_successful_key_id') : null;
+
+  static {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', () => {
+        this.lastSuccessfulKeyId = localStorage.getItem('ai_last_successful_key_id');
+      });
+    }
+  }
   private static lastHealthCheck: number = typeof window !== 'undefined' ? parseInt(localStorage.getItem('ai_last_health_check') || '0') : 0;
   private static cachedKeys: any[] = [];
   private static lastFetchTime: number = 0;
@@ -193,7 +201,14 @@ export class AIService {
       const statusOrder = { 'ok': 0, 'rate_limited': 1, 'no_credit': 2, 'disconnected': 3 };
       const orderA = statusOrder[a.status as keyof typeof statusOrder] ?? 4;
       const orderB = statusOrder[b.status as keyof typeof statusOrder] ?? 4;
-      return orderA - orderB;
+      
+      if (orderA !== orderB) return orderA - orderB;
+      
+      // Se ambos tiverem o mesmo status, prioriza a última chave de sucesso
+      if (a.id === this.lastSuccessfulKeyId) return -1;
+      if (b.id === this.lastSuccessfulKeyId) return 1;
+      
+      return 0;
     });
     console.log('[AIService] Chaves candidatas após filtro rigoroso:', candidateKeys.length, candidateKeys.map(k => `${k.id}(${k.status})`).join(', '));
     

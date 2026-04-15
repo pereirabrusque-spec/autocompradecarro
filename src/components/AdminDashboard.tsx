@@ -900,8 +900,9 @@ export default function AdminDashboard() {
             if (otherProfile && (otherProfile.role === 'admin' || otherProfile.role === 'user' || otherProfile.role === 'seller')) {
               // Exclude buyers even if they somehow have admin role (safety check)
               if (otherProfile.role?.includes('buyer')) return;
+              const readCol = internalMessagesData && internalMessagesData.length > 0 && 'is_read' in internalMessagesData[0] ? 'is_read' : 'read';
               const unreadCount = internalMessagesData.filter((m: any) => 
-                m.sender_id === otherId && m.receiver_id === userProfileRef.current.id && !m.read
+                m.sender_id === otherId && m.receiver_id === userProfileRef.current.id && !m[readCol]
               ).length;
               
               const isOnline = otherProfile.last_login ? (new Date().getTime() - new Date(otherProfile.last_login).getTime()) < 300000 : false;
@@ -962,8 +963,9 @@ export default function AdminDashboard() {
             const otherProfile = (profilesData || []).find((u: any) => u.id === otherId);
             if (otherProfile && otherProfile.role?.toLowerCase().includes('buyer')) {
               compradorIds.add(otherId);
+              const readCol = internalMessagesData && internalMessagesData.length > 0 && 'is_read' in internalMessagesData[0] ? 'is_read' : 'read';
               const unreadCount = internalMessagesData.filter((m: any) => 
-                m.sender_id === otherId && m.receiver_id === userProfileRef.current.id && !m.read
+                m.sender_id === otherId && m.receiver_id === userProfileRef.current.id && !m[readCol]
               ).length;
               const isOnline = otherProfile.last_login ? (new Date().getTime() - new Date(otherProfile.last_login).getTime()) < 300000 : false;
               groupedCompradores.push({
@@ -1528,12 +1530,13 @@ export default function AdminDashboard() {
       setInternalChatMessages(data || []);
       
       // Mark as read
+      const readCol = data && data.length > 0 && 'is_read' in data[0] ? 'is_read' : 'read';
       await supabase
         .from('internal_messages')
-        .update({ is_read: true })
+        .update({ [readCol]: true })
         .eq('sender_id', otherId)
         .eq('receiver_id', userProfile.id)
-        .eq('is_read', false);
+        .eq(readCol, false);
         
       // Update unread count in local state
       setInternalConversations(prev => prev.map(c => 
@@ -1558,12 +1561,13 @@ export default function AdminDashboard() {
       setCompradorChatMessages(data || []);
       
       // Mark as read
+      const readCol = data && data.length > 0 && 'is_read' in data[0] ? 'is_read' : 'read';
       await supabase
         .from('internal_messages')
-        .update({ is_read: true })
+        .update({ [readCol]: true })
         .eq('sender_id', otherId)
         .eq('receiver_id', userProfile.id)
-        .eq('is_read', false);
+        .eq(readCol, false);
         
       // Update unread count in local state
       setCompradoresConversations(prev => prev.map(c => 
