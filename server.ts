@@ -587,34 +587,6 @@ async function startServer() {
     }
   });
 
-  // Health check
-  async function runHealthCheck() {
-    console.log('Running API health check...');
-    if (!supabaseAdmin) return;
-
-    const { data: keys, error } = await supabaseAdmin.from('api_keys').select('*');
-    if (error) return;
-
-    let hasFailed = false;
-    for (const apiKey of keys) {
-      try {
-        await testApiKey(apiKey.provider, apiKey.key);
-        await supabaseAdmin.from('api_keys').update({ status: 'ok' }).eq('id', apiKey.id);
-      } catch (e) {
-        console.error(`Health check failed for ${apiKey.provider}:`, e);
-        hasFailed = true;
-        await supabaseAdmin.from('api_keys').update({ status: 'disconnected' }).eq('id', apiKey.id);
-      }
-    }
-
-    if (hasFailed) {
-      // Force re-test all (already done in the loop)
-    }
-  }
-
-  // setInterval(runHealthCheck, 4 * 60 * 60 * 1000);
-  // runHealthCheck(); // Run on startup
-
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({

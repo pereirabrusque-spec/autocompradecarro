@@ -139,7 +139,9 @@ export const BackgroundAIManager = () => {
         // Heartbeat to confirm it's alive
         const heartbeat = setInterval(() => {
             console.log("[BackgroundAIManager] ❤️ Heartbeat - IA is alive. Enabled:", isAiEnabledRef.current, "User:", currentUserIdRef.current);
-        }, 60000); // 1 minuto
+            // Re-trigger scan every 5 minutes just in case subscription missed something
+            scanForOpenMessages();
+        }, 5 * 60 * 1000); 
 
         // Load initial settings
         supabase.from('settings').select('key, value').in('key', [
@@ -152,7 +154,6 @@ export const BackgroundAIManager = () => {
             }
             console.log("[BackgroundAIManager] Configurações carregadas:", data?.length || 0, "itens.");
             if (data) {
-                console.log("[BackgroundAIManager] RAW Settings:", JSON.stringify(data));
                 const prompt = data.find(s => s.key === 'AI_SYSTEM_PROMPT');
                 const crmPrompt = data.find(s => s.key === 'AI_CRM_PROMPT');
                 const enabled = data.find(s => s.key === 'AI_CRM_ENABLED');
@@ -169,9 +170,8 @@ export const BackgroundAIManager = () => {
                 if (crmPrompt) setAiCrmPrompt(crmPrompt.value);
                 if (enabled) {
                     const isEnabled = enabled.value === 'true';
-                    console.log("[BackgroundAIManager] IA Global status no banco:", enabled.value, "->", isEnabled);
                     setIsAiEnabled(isEnabled);
-                    isAiEnabledRef.current = isEnabled; // Update ref immediately
+                    isAiEnabledRef.current = isEnabled;
                 }
                 if (autoProposal) setAutoProposalEnabled(autoProposal.value === 'true');
                 if (memory) setAiMemory(memory.value);
@@ -182,6 +182,9 @@ export const BackgroundAIManager = () => {
                 if (mode) setResponseMode(mode.value as 'chat' | 'webhook');
                 if (webhook) setWebhookUrl(webhook.value);
             }
+            
+            // Run initial scan
+            setTimeout(scanForOpenMessages, 2000);
         });
 
         // Load other proposal data
@@ -201,17 +204,13 @@ export const BackgroundAIManager = () => {
         const checkSession = async () => {
             const { data: { session } } = await supabase.auth.getSession();
             if (session?.user) {
-                console.log("[BackgroundAIManager] 👤 Sessão encontrada:", session.user.id);
                 setCurrentUserId(session.user.id);
                 currentUserIdRef.current = session.user.id;
-            } else {
-                console.log("[BackgroundAIManager] 👤 Nenhuma sessão ativa encontrada no momento.");
             }
         };
         checkSession();
 
         const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            console.log("[BackgroundAIManager] 👤 Auth Event:", event, session?.user?.id);
             if (session?.user) {
                 setCurrentUserId(session.user.id);
                 currentUserIdRef.current = session.user.id;
@@ -375,7 +374,7 @@ export const BackgroundAIManager = () => {
                 return;
             }
 
-            const delay = Math.floor(Math.random() * 10000) + 5000; // 5-15 segundos
+            const delay = Math.floor(Math.random() * 2000) + 1000; // 1-3 segundos para ser mais ágil
             await new Promise(resolve => setTimeout(resolve, delay));
 
             const { data: recentAdminMsg } = await supabase
@@ -530,75 +529,48 @@ Seja amigável mas incisivo. Verifique se a conversa não foi finalizada antes d
                         ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente é um VENDEDOR que JÁ PREENCHEU o formulário. \n**AÇÃO:** Fale sobre o veículo dele, demonstre interesse técnico e informe que a proposta oficial está sendo analisada pela nossa equipe técnica e será enviada em breve. NÃO peça para preencher o formulário novamente. Foque em manter o cliente engajado enquanto aguarda.`
                         : `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente é um VENDEDOR que AINDA NÃO preencheu o formulário. \n**AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação.`);
 
+                const clientName = senderProfile?.full_name || "Cliente";
+                const systemPromptCRM = `
+${aiCrmPromptRef.current}
+
+VOCÊ É UM AGENTE DE ATENDIMENTO DE ELITE DA AUTO COMPRA ONLINE.
+ESTE É UM CHAT INTERNO COM UM ${finalIsBuyer ? 'COMPRADOR' : 'VENDEDOR'}: ${clientName}.
+
+REGRAS DE OURO:
+1. NUNCA use o placeholder {{nome}}. Se quiser se referir ao nome do cliente, use: "${clientName}".
+2. Identifique o tom da conversa e seja profissional mas acolhedor.
+3. Se for comprador MASTER ou PREMIUM, dê prioridade máxima.
+4. Use o contexto do veículo abaixo para responder dúvidas técnicas ou financeiras.
+5. Se não souber algo, sugira que um especialista humano irá assumir em instantes.
+
+MEMÓRIA DO SISTEMA: ${aiCrmMemoryRef.current}
+`;
+
                 const fullPrompt = `
 [SISTEMA DE CONTROLE DE AGENTES E MEMÓRIA — AUTOCOMPRA.ONLINE]
-IDENTIFICAÇÃO DO PERFIL: ${isBuyerContext ? 'COMPRADOR (INTERESSADO EM COMPRAR UM CARRO DO NOSSO ESTOQUE)' : 'VENDEDOR (QUERENDO VENDER O CARRO DELE PARA NÓS)'}
-OBJETIVO: Roteamento inteligente e uso estrito de memórias/regras.
-${followUpContext}
+IDENTIFICAÇÃO DO PERFIL: ${finalIsBuyer ? 'COMPRADOR' : 'VENDEDOR'}
+NOME DO REMETENTE: ${clientName}
+ROLE: ${senderProfile?.role}
 
-### 1. CONTEXTO: ${isBuyerContext ? 'SITE COMPRADOR (ESTOQUE)' : 'SITE VENDEDOR (LEADS)'}
-- **AMBIENTE:** ${isBuyerContext ? 'ADMIN > CRM > MENSAGENS' : 'ADMIN > MENSAGENS'}
-- **MEMÓRIA OBRIGATÓRIA:** ${isBuyerContext ? 'IA CRM (Compradores)' : 'IA (Leads Vendedor)'}
-- **REGRAS OBRIGATÓRIAS:** ${isBuyerContext ? 'IA CRM (Compradores)' : 'IA (Leads Vendedor)'}
-- **GATILHOS OBRIGATÓRIOS:** ${isBuyerContext ? 'IA CRM (Compradores)' : 'IA (Leads Vendedor)'}
-
-SUA MISSÃO:
-1. ANALISAR E SEGUIR ESTRITAMENTE as REGRAS PERSONALIZADAS e a MEMÓRIA fornecidas abaixo.
-2. Se houver conflito entre o seu conhecimento geral e as REGRAS PERSONALIZADAS, as REGRAS PERSONALIZADAS prevalecem.
-3. Você deve consultar a MEMÓRIA DE LONGO PRAZO antes de formular qualquer resposta.
-4. **ISOLAMENTO:** Nunca utilize regras ou dados de ${isBuyerContext ? 'vendedores' : 'compradores'} neste chat de ${isBuyerContext ? 'comprador' : 'vendedor'}.
-5. **HISTÓRICO COMPLETO:** Analise todo o histórico de mensagens fornecido para entender o contexto e agir de forma consistente.
-
-### CAPACIDADE DE VISÃO (ANÁLISE DE FOTOS)
-- **Se houver uma foto anexada ou no contexto:** Analise o estado de conservação do veículo. Identifique avarias visíveis e use isso para fundamentar sua análise técnica.
-
-**IMPORTANTE:** 
-- NUNCA diga que você é uma Inteligência Artificial ou um robô.
-- NUNCA diga que "um humano entrará em contato". Você é o ESPECIALISTA responsável.
-- Se precisar de tempo, diga que "nossos especialistas estão finalizando a análise".
-
-${formStatusContext}
-
-${specificVehicleInfo}
-${vehicleContext}
-${inventoryContext}
-
-HISTÓRICO:
+CONVERSA ATUAL:
 ${history}
 
-MENSAGEM ATUAL: ${payload.content}
-
-[REGRAS E MEMÓRIA DO MENU IA]
-${isBuyerContext ? aiCrmPromptRef.current : aiPromptRef.current}
-${(isBuyerContext ? aiCrmMemoryRef.current : aiMemoryRef.current) ? `\nMEMÓRIA APRENDIDA (CONSULTE ANTES DE RESPONDER):\n${isBuyerContext ? aiCrmMemoryRef.current : aiMemoryRef.current}` : ''}
-
-REGRAS DE PROPOSTA:
-${autoProposalEnabledRef.current && !requiresManualAnalysis ? 
-    "VOCÊ ESTÁ AUTORIZADO A ENVIAR A PROPOSTA FINAL. Use o valor 'PROPOSTA FINAL CALCULADA' mencionado acima se o cliente perguntar sobre valores ou propostas." : 
-    (requiresManualAnalysis ? 
-        "VOCÊ NÃO ESTÁ AUTORIZADO A ENVIAR VALORES DE PROPOSTA. Diga que você e sua equipe de especialistas estão finalizando os cálculos técnicos para garantir a melhor oferta." :
-        "MODO MANUAL: Não envie valores de proposta agora. Foque em tirar dúvidas e manter o cliente engajado.")}
-
-REGRAS DE ESTOQUE:
-- Se o usuário perguntar sobre "outros modelos", "o que tem no sistema" ou "meus carros", você DEVE confirmar os veículos listando explicitamente o **ANO e MODELO** de cada um.
-- **PROIBIÇÃO:** NUNCA diga que "por questões de segurança não detalhamos os modelos". Você deve ser transparente para deixar o vendedor tranquilo de que os dados estão no banco de dados.
-- Informe o Ano, Modelo e uma breve descrição (Cor/KM) para cada veículo do estoque.
-
-REGRAS GERAIS:
-1. Use os dados técnicos acima.
-2. Seja persuasivo e amigável.
-3. Responda como um consultor de vendas especializado em compradores.
-`;
+${vehicleContext} ${inventoryContext} ${specificVehicleInfo}
+MANTENHA A COERÊNCIA COM OS VALORES DE FIPE E REGRAS FINANCEIRAS EXPOSTAS.
+RESPONDA DIRETAMENTE AO REMETENTE.
+                `;
 
                 console.log("[BackgroundAIManager] Generating internal response for prompt length:", fullPrompt.length);
                 const response = await AIService.generateContent(
                     fullPrompt,
-                    "Você é um especialista de vendas altamente preciso. Responda estritamente com base nos dados técnicos do veículo fornecidos no contexto. Se a informação não estiver nos dados, não invente. Seja direto, profissional e persuasivo. NUNCA mencione ser uma IA ou que haverá contato humano posterior, você é o especialista responsável.",
+                    systemPromptCRM,
                     imageBase64 || undefined
                 );
                 console.log("[BackgroundAIManager] Internal AI Response received:", response ? "SUCCESS" : "NULL/EMPTY", response?.text?.substring(0, 50) + "...");
 
                 if (response && response.text) {
+                    const finalText = response.text.replace(/{{nome}}/g, clientName).replace(/{{cliente_nome}}/g, clientName);
+                    
                     if (responseModeRef.current === 'webhook' && webhookUrlRef.current) {
                         console.log("[BackgroundAIManager] 🌐 Enviando para WEBHOOK (Modo Webhook ativo)");
                         try {
@@ -608,7 +580,7 @@ REGRAS GERAIS:
                                 body: JSON.stringify({
                                     type: 'internal_message_response',
                                     conversation_id: senderId,
-                                    content: response.text,
+                                    content: finalText,
                                     lead_id: currentLeadId,
                                     original_message: payload
                                 })
@@ -621,7 +593,7 @@ REGRAS GERAIS:
                         console.log("[BackgroundAIManager] 💬 Respondendo diretamente no CHAT (Modo Chat ativo)");
                         await supabase.from('internal_messages').insert({
                             receiver_id: senderId,
-                            content: response.text,
+                            content: finalText,
                             sender_id: uid,
                             lead_id: currentLeadId,
                             metadata: { is_follow_up: isFollowUp }
@@ -708,7 +680,9 @@ REGRAS GERAIS:
                 return;
             }
 
-            const delay = Math.floor(Math.random() * 2000) + 1000; 
+            const clienteNomeFromLead = leadData?.cliente_nome || "Cliente";
+            
+            const delay = Math.floor(Math.random() * 5000) + 2000; // 2-7 segundos
             await new Promise(resolve => setTimeout(resolve, delay));
 
             const { data: recentMsg } = await supabase
@@ -824,34 +798,28 @@ Seja amigável mas incisivo. Verifique se a conversa não foi finalizada antes d
                     ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente JÁ PREENCHEU o formulário com os dados do veículo. \n**AÇÃO:** Fale sobre o veículo dele, demonstre interesse técnico e informe que a proposta oficial está sendo analisada pela nossa equipe técnica e será enviada em breve. NÃO peça para preencher o formulário novamente. Foque em manter o cliente engajado enquanto aguarda.`
                     : `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente AINDA NÃO preencheu o formulário com os dados do veículo. \n**AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação.`;
 
+                const clientName = leadData?.cliente_nome || "Cliente";
+                const activePrompt = `
+${aiPromptRef.current}
+
+VOCÊ É O ASSISTENTE INTELIGENTE DA AUTO COMPRA ONLINE.
+ESTÁ FALANDO COM O CLIENTE: ${clientName}.
+
+REGRAS CRÍTICAS:
+1. NUNCA responda com "{{nome}}". Se necessário, chame-o de "${clientName}".
+2. Identifique o tom da conversa e seja profissional mas acolhedor.
+3. Use os dados técnicos do veículo abaixo para dar segurança ao cliente.
+
+MEMÓRIA DO SISTEMA: ${aiMemoryRef.current}
+`;
+
                 const fullPrompt = `
 [SISTEMA DE CONTROLE DE AGENTES E MEMÓRIA — AUTOCOMPRA.ONLINE]
 IDENTIFICAÇÃO DO PERFIL: VENDEDOR (QUERENDO VENDER O CARRO DELE PARA NÓS)
-OBJETIVO: Roteamento inteligente e uso estrito de memórias/regras.
+NOME DO CLIENTE: ${clientName}
 ${followUpContext}
 
-### 1. CONTEXTO: SITE VENDEDOR (LEADS)
-- **AMBIENTE:** ADMIN > MENSAGENS
-- **MEMÓRIA OBRIGATÓRIA:** IA (Leads Vendedor)
-- **REGRAS OBRIGATÓRIAS:** IA (Leads Vendedor)
-- **GATILHOS OBRIGATÓRIOS:** IA (Leads Vendedor)
-
-SUA MISSÃO:
-1. ANALISAR E SEGUIR ESTRITAMENTE as REGRAS PERSONALIZADAS e a MEMÓRIA fornecidas abaixo.
-2. Se houver conflito entre o seu conhecimento geral e as REGRAS PERSONALIZADAS, as REGRAS PERSONALIZADAS prevalecem.
-3. Você deve consultar a MEMÓRIA DE LONGO PRAZO antes de formular qualquer resposta.
-4. **ISOLAMENTO:** Nunca utilize regras ou dados de compradores neste chat de vendedor.
-
-### CAPACIDADE DE VISÃO (ANÁLISE DE FOTOS)
-- **Se houver uma foto anexada ou no contexto:** Analise o estado de conservação do veículo. Identifique avarias visíveis e use isso para fundamentar sua análise técnica.
-
-**IMPORTANTE:** 
-- NUNCA diga que você é uma Inteligência Artificial ou um robô.
-- NUNCA diga que "um humano entrará em contato". Você é o ESPECIALISTA responsável.
-- Se precisar de tempo, diga que "nossos especialistas estão finalizando a análise".
-
 ${formStatusContext}
-
 ${vehicleInfo}
 ${inventoryContext}
 
@@ -873,29 +841,24 @@ ${autoProposalEnabledRef.current && !requiresManualAnalysis ?
 
 REGRAS DE ESTOQUE:
 - Se o usuário perguntar sobre "outros modelos", "o que tem no sistema" ou "meus carros", você DEVE confirmar os veículos listando explicitamente o **ANO e MODELO** de cada um.
-- **PROIBIÇÃO:** NUNCA diga que "por questões de segurança não detalhamos os modelos". Você deve ser transparente para deixar o vendedor tranquilo de que os dados estão no banco de dados.
 - Informe o Ano, Modelo e uma breve descrição (Cor/KM) para cada veículo do estoque.
 
 REGRAS GERAIS:
 1. Use os dados técnicos acima.
 2. Seja persuasivo, amigável e direto.
 3. Responda como um vendedor de carros experiente.
-4. EVITE REPETIR SAUDAÇÕES: Se o histórico já contém um "Bom dia", "Boa tarde" ou "Olá" recente, NÃO repita. Vá direto ao assunto.
-5. NÃO envie mensagens duplicadas. Se a última mensagem do histórico já responde o que o cliente perguntou, não responda novamente.
+4. EVITE REPETIR SAUDAÇÕES.
 `;
 
-                console.log("[BackgroundAIManager] Generating lead response for prompt length:", fullPrompt.length);
-                console.log("[BackgroundAIManager] Generating public response for prompt length:", fullPrompt.length);
-                logToStorage(`Gerando resposta IA para lead ${leadId} (Mensagem: ${payload.conteudo})`, 'info');
+                const { AIService } = await import('../../services/aiService');
                 const response = await AIService.generateContent(
                     fullPrompt,
                     "Você é um especialista de vendas altamente preciso. Responda estritamente com base nos dados técnicos do veículo fornecidos no contexto. Se a informação não estiver nos dados, não invente. Seja direto, profissional e persuasivo. NUNCA mencione ser uma IA ou que haverá contato humano posterior, você é o especialista responsável.",
                     imageBase64 || undefined
                 );
                 
-                console.log("[BackgroundAIManager] Public AI Response received:", response ? "SUCCESS" : "NULL/EMPTY", response?.text?.substring(0, 50) + "...");
-
                 if (response && response.text) {
+                    const finalText = response.text.replace(/{{nome}}/g, clientName).replace(/{{cliente_nome}}/g, clientName);
                     console.log(`[BackgroundAIManager] 🧊 Decidindo canal de resposta: Mode=${responseModeRef.current}, HasWebhook=${!!webhookUrlRef.current}`);
                     if (responseModeRef.current === 'webhook' && webhookUrlRef.current) {
                         console.log("[BackgroundAIManager] 🌐 ENVIANDO VIA WEBHOOK (Chat suprimido para evitar duplicidade)");
@@ -921,7 +884,7 @@ REGRAS GERAIS:
                         logToStorage(`Resposta IA enviada via Chat para lead ${leadId}`, 'info');
                         const { error: insertError } = await supabase.from('mensagens').insert({
                             lead_id: leadId,
-                            conteudo: response.text,
+                            conteudo: finalText,
                             remetente: 'bot',
                             metadata: { ai_handled: true, original_message_id: payload.id, is_follow_up: isFollowUp }
                         });
@@ -1038,7 +1001,8 @@ REGRAS GERAIS:
                 const lastFailedTime = lastMsg.metadata?.failed_at ? new Date(lastMsg.metadata.failed_at).getTime() : 0;
                 const shouldRetry = isAiFailed && (Date.now() - lastFailedTime > 60000); // Retry após 1 min
 
-                console.log(`[BackgroundAIManager] 🔍 Verificando lead ${leadId}: Remetente="${remetente}", Handled=${!!lastMsg.metadata?.ai_handled}, Failed=${!!isAiFailed}, TimeDiff=${Math.round(timeDiff/1000)}s`);
+                const isBot = remetente === 'bot' || remetente === 'system';
+                console.log(`[BackgroundAIManager] 🔍 Lead ${leadId}: Remetente="${remetente}", Handled=${!!lastMsg.metadata?.ai_handled}, Failed=${!!isAiFailed}, Bot=${isBot}, TimeDiff=${Math.round(timeDiff/1000)}s`);
 
                 if (remetente === 'cliente' && !lastMsg.metadata?.ai_handled && (!isAiFailed || shouldRetry)) {
                     if (timeDiff > 5000) { 

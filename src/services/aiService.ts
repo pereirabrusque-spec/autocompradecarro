@@ -119,7 +119,7 @@ export class AIService {
     return sorted;
   }
 
-  public static async updateKeyStatus(id: string, status: 'ok' | 'no_credit' | 'disconnected' | 'rate_limited', errorCount: number = 0) {
+  public static async updateKeyStatus(id: string, status: 'ok' | 'no_credit' | 'disconnected' | 'rate_limited', errorCount: number = 0, lastError?: string) {
     if (id === 'env-key') return;
     
     const now = new Date().toISOString();
@@ -163,16 +163,39 @@ export class AIService {
     }
     
     try {
-      const updateData: any = { status, error_count: errorCount };
-      if (status === 'ok') {
+      const now = new Date().toISOString();
+      const isDefinitiveError = lastError?.toLowerCase().includes('invalid') || lastError?.toLowerCase().includes('key not found') || lastError?.toLowerCase().includes('access_denied');
+      
+      let finalStatus = status;
+      // Se não for um erro definitivo, damos uma chance (error_count < 3) antes de marcar como desconectada de vez
+      if (status === 'disconnected' && !isDefinitiveError && (errorCount || 0) < 3) {
+        console.log(`[AIService] 🧪 Erro temporário em ${id}. Dando uma chance extra (tentativa ${errorCount}). Mantendo status anterior se possível.`);
+        // Note: We update the error count anyway, but maybe keep it 'no_credit' or 'rate_limited' if it was that
+      }
+
+      const updateData: any = { status: finalStatus, error_count: errorCount, last_test_at: now };
+      if (finalStatus === 'ok') {
         updateData.last_used = now;
         updateData.error_count = 0; // Reseta erros se ficou OK
       }
 
-      await supabase
+      const { error } = await supabase
         .from('api_keys')
         .update(updateData)
         .eq('id', id);
+      
+      if (error) {
+        if (error.code === '42703') { // Column does not exist
+          console.error('[AIService] ⚠️ Coluna faltando no Supabase. Por favor, execute o arquivo update_api_keys_schema.sql.');
+          logToStorage('Erro: Coluna last_test_at faltando no banco. Execute o SQL de atualização.', 'error');
+        } else {
+          throw error;
+        }
+      }
+      
+      if (lastError) {
+        logToStorage(`Chave ${id} falhou: ${lastError}`, 'error');
+      }
       
       // Limpa o cache para forçar recarregamento na próxima chamada
       this.cachedKeys = [];
@@ -288,7 +311,7 @@ export class AIService {
         }
 
         console.warn(`[AIService] ⚠️ Marcando chave ${apiKey.id} como ${newStatus} e pulando para a próxima...`);
-        await this.updateKeyStatus(apiKey.id, newStatus, (apiKey.error_count || 0) + 1);
+        await this.updateKeyStatus(apiKey.id, newStatus, (apiKey.error_count || 0) + 1, errMsg);
         
         // Se a falha foi por quota ou crédito, vamos forçar uma atualização no banco
         // Mas não re-filtramos a lista local para não quebrar o índice do loop
@@ -342,8 +365,10 @@ export class AIService {
       // Se a chave não está OK, vamos verificar se vale a pena testar agora
       // No re-teste automático (autoOnlyNonOk), testamos com frequência reduzida (15 min)
       if (autoOnlyNonOk && apiKey.status !== 'ok') {
-        const lastUsed = apiKey.last_used ? new Date(apiKey.last_used).getTime() : 0;
-        const minutesSinceLastTest = (Date.now() - lastUsed) / (1000 * 60);
+        const lastTest = apiKey.last_test_at || apiKey.last_used;
+        const lastTestedTime = lastTest ? new Date(lastTest).getTime() : 0;
+        const minutesSinceLastTest = (Date.now() - lastTestedTime) / (1000 * 60);
+        
         if (minutesSinceLastTest < 15) {
           console.log(`[AIService] 🟡 Chave ${apiKey.id} (${apiKey.status}) verificada há ${Math.round(minutesSinceLastTest)}min. Pulando re-teste automático.`);
           continue;

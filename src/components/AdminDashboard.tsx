@@ -1321,134 +1321,77 @@ export default function AdminDashboard() {
         console.log("[AdminDashboard] Realtime message received:", payload.new);
         addLog(`Nova mensagem recebida: ${payload.new.remetente}`, 'debug', payload.new);
         
-        // Se for uma mensagem do cliente, atualiza a lista de conversas e o chat aberto
-        if (payload.new.remetente === 'cliente') {
-          console.log("[AdminDashboard] Received new message from client:", payload.new);
+        const newMsg = payload.new;
+        const currentConv = selectedConversationRef.current;
+        
+        // 1. Verificar se a mensagem pertence à conversa atual aberta (por Lead IDs ou Email)
+        const isCurrentConversation = 
+          currentConv?.lead_ids?.includes(newMsg.lead_id) || 
+          currentConv?.lead_id === newMsg.lead_id ||
+          (currentConv?.customer_email && newMsg.customer_email === currentConv.customer_email);
+                                     
+        if (isCurrentConversation) {
+          console.log("[AdminDashboard] Atualizando mensagens do chat (Realtime)");
+          setChatMessages(prev => {
+            if (prev.find(m => m.id === newMsg.id)) return prev;
+            return [...prev, newMsg];
+          });
           
-          // Tocar som de notificação
+          // Marcar como lida se for do cliente e o chat estiver aberto
+          if (newMsg.remetente === 'cliente') {
+            try {
+              await supabase.from('mensagens').update({ lida: true }).eq('id', newMsg.id);
+            } catch (err) {}
+          }
+        }
+
+        // 2. Ações específicas para mensagens do CLIENTE
+        if (newMsg.remetente === 'cliente') {
           playNotificationSound();
           
-          // Automação de Status: Se o cliente responde, muda para "Em Contato"
+          // Automação de Status
           try {
-            const { data: leadData, error: leadError } = await supabase
+            const { data: leadData } = await supabase
               .from('leads_veiculos')
               .select('status')
-              .eq('id', payload.new.lead_id)
+              .eq('id', newMsg.lead_id)
               .single();
 
-            if (leadError) {
-              console.error("[AdminDashboard] Error fetching lead for status update:", leadError);
-            } else if (leadData && (leadData.status === 'novo' || leadData.status === 'proposta_enviada')) {
-              const { error: updateError } = await supabase
-                .from('leads_veiculos')
-                .update({ status: 'em_contato' })
-                .eq('id', payload.new.lead_id);
-              
-              if (updateError) {
-                console.error("[AdminDashboard] Error updating lead status:", updateError);
-              } else {
-                console.log("[AdminDashboard] Lead status updated to 'em_contato' automatically");
-                // Atualiza a lista de leads e o lead selecionado se for o caso
-                fetchData();
-                if (selectedLeadRef.current?.id === payload.new.lead_id) {
-                  setSelectedLead(prev => prev ? { ...prev, status: 'em_contato' } : null);
-                }
+            if (leadData && (leadData.status === 'novo' || leadData.status === 'proposta_enviada')) {
+              await supabase.from('leads_veiculos').update({ status: 'em_contato' }).eq('id', newMsg.lead_id);
+              if (selectedLeadRef.current?.id === newMsg.lead_id) {
+                setSelectedLead(prev => prev ? { ...prev, status: 'em_contato' } : null);
               }
             }
-          } catch (err) {
-            console.error("[AdminDashboard] Unexpected error in status automation:", err);
-          }
-
-          console.log("[AdminDashboard] Current selectedConversationRef:", selectedConversationRef.current);
-          // Otimizado: Verificação mais robusta da conversa atual (por lead_ids, lead_id ou email)
-          const currentConv = selectedConversationRef.current;
-          const isCurrentConversation = 
-            currentConv?.lead_ids?.includes(payload.new.lead_id) || 
-            currentConv?.lead_id === payload.new.lead_id ||
-            (currentConv?.customer_email && payload.new.customer_email === currentConv.customer_email);
-                                       
-          if (isCurrentConversation) {
-            console.log("[AdminDashboard] Updating chat messages state for current conversation");
-            setChatMessages(prev => {
-              if (prev.find(m => m.id === payload.new.id)) return prev;
-              return [...prev, payload.new];
-            });
-            
-            // Marcar como lida automaticamente se o chat estiver aberto
-            try {
-              await supabase
-                .from('mensagens')
-                .update({ lida: true })
-                .eq('id', payload.new.id);
-              console.log("[AdminDashboard] Message marked as read");
-            } catch (err) {
-              console.error("[AdminDashboard] Error marking message as read:", err);
-            }
-          } else {
-            console.log("[AdminDashboard] Message is NOT for current conversation. Current:", selectedConversationRef.current?.lead_id, "New:", payload.new.lead_id);
-          }
-
-          // Otimizado: Em vez de fetch completo, atualizamos as listas de conversas localmente
-          const updateConversationList = (newMsg: any) => {
-            setConversations(prev => {
-              const leadKey = newMsg.lead_id;
-              const existingIndex = prev.findIndex(c => c.lead_ids?.includes(leadKey) || c.lead_id === leadKey);
-              
-              if (existingIndex !== -1) {
-                const updated = [...prev];
-                const conv = { ...updated[existingIndex] };
-                conv.last_message = newMsg.conteudo;
-                conv.last_message_at = newMsg.created_at;
-                if (newMsg.remetente === 'cliente' && !isCurrentConversation) {
-                  conv.unread = (conv.unread || 0) + 1;
-                }
-                conv.is_unanswered = newMsg.remetente === 'cliente';
-                // Mover para o topo da lista
-                updated.splice(existingIndex, 1);
-                updated.unshift(conv);
-                return updated;
-              }
-              // Se não existe na lista, melhor dar o fetch para pegar o lead_data completo em breve
-              setTimeout(fetchData, 1000);
-              return prev;
-            });
-          };
-
-          updateConversationList(payload.new);
-        } else {
-          // Se for uma mensagem do admin/bot, apenas atualiza o chat se estiver aberto
-          const currentConv = selectedConversationRef.current;
-          const isCurrentConversation = 
-            currentConv?.lead_ids?.includes(payload.new.lead_id) || 
-            currentConv?.lead_id === payload.new.lead_id ||
-            (currentConv?.customer_email && payload.new.customer_email === currentConv.customer_email);
-                                       
-          if (isCurrentConversation) {
-            console.log("[AdminDashboard] Updating chat messages state (admin message)");
-            setChatMessages(prev => {
-              if (prev.find(m => m.id === payload.new.id)) return prev;
-              return [...prev, payload.new];
-            });
-          }
-          
-          // Atualiza o snippet de última mensagem no sidebar
-          setConversations(prev => {
-             const leadKey = payload.new.lead_id;
-             const existingIndex = prev.findIndex(c => c.lead_ids?.includes(leadKey) || c.lead_id === leadKey);
-             if (existingIndex !== -1) {
-               const updated = [...prev];
-               const conv = { ...updated[existingIndex] };
-               conv.last_message = payload.new.conteudo;
-               conv.last_message_at = payload.new.created_at;
-               conv.is_unanswered = false;
-               
-               updated.splice(existingIndex, 1);
-               updated.unshift(conv);
-               return updated;
-             }
-             return prev;
-          });
+          } catch (err) {}
         }
+
+        // 3. ATUALIZAÇÃO DA SIDEBAR (LISTA DE CONVERSAS)
+        setConversations(prev => {
+          const leadKey = newMsg.lead_id;
+          const existingIndex = prev.findIndex(c => c.lead_ids?.includes(leadKey) || c.lead_id === leadKey);
+          
+          if (existingIndex !== -1) {
+            const updated = [...prev];
+            const conv = { ...updated[existingIndex] };
+            conv.last_message = newMsg.conteudo;
+            conv.last_message_at = newMsg.created_at;
+            
+            if (newMsg.remetente === 'cliente' && !isCurrentConversation) {
+              conv.unread = (conv.unread || 0) + 1;
+            }
+            conv.is_unanswered = newMsg.remetente === 'cliente';
+            
+            // Move para o topo
+            updated.splice(existingIndex, 1);
+            updated.unshift(conv);
+            return updated;
+          } else {
+            // Se é um lead novo não listado, faz fetch em 1s
+            setTimeout(fetchData, 1000);
+            return prev;
+          }
+        });
       })
       .on('postgres_changes', { 
         event: 'UPDATE', 
