@@ -125,14 +125,22 @@ export class AIService {
     const now = new Date().toISOString();
     
     if (status === 'ok') {
-      // Só troca a chave principal se não houver uma atual ou se a atual não for 'ok'
-      // Isso garante que pegamos a "primeira que ficou verde" e mantemos ela.
+      // REGRA: Se não houver chave em uso, OU a chave em uso atual NÃO estiver OK, 
+      // e esta chave está OK, ela assume a liderança.
       const currentId = typeof window !== 'undefined' ? localStorage.getItem('ai_last_successful_key_id') : this.lastSuccessfulKeyId;
-      const shouldUpdate = !currentId;
+      
+      let currentKeyIsOk = false;
+      if (currentId) {
+        // Busca o status da chave atual em uso no cache (parcialmente confiável)
+        const currentKey = this.cachedKeys.find(k => k.id === currentId);
+        currentKeyIsOk = currentKey?.status === 'ok';
+      }
+      
+      const shouldUpdate = !currentId || !currentKeyIsOk;
       
       if (shouldUpdate || currentId === id) {
         if (this.lastSuccessfulKeyId !== id) {
-          console.log(`[AIService] 🎯 Nova API principal selecionada e persistida: ${id}`);
+          console.log(`[AIService] 🎯 Nova API principal selecionada e persistida: ${id} (Status: OK, Anterior: ${currentId || 'Nenhuma'})`);
           logToStorage(`Nova API principal selecionada: ${id}`, 'info');
           this.lastSuccessfulKeyId = id;
           if (typeof window !== 'undefined') {
@@ -332,12 +340,12 @@ export class AIService {
       }
 
       // Se a chave não está OK, vamos verificar se vale a pena testar agora
-      // No re-teste automático, se ela ficou vermelha (disconnected), testamos com menos frequência
+      // No re-teste automático, se ela ficou vermelha (disconnected), testamos com menos frequência (a cada 15 min)
       if (!fullTest && apiKey.status === 'disconnected') {
         const lastUsed = apiKey.last_used ? new Date(apiKey.last_used).getTime() : 0;
-        const hoursSinceLastTest = (Date.now() - lastUsed) / (1000 * 60 * 60);
-        if (hoursSinceLastTest < 1) {
-          console.log(`[AIService] 🔴 Chave ${apiKey.id} desconectada há pouco tempo. Pulando re-teste automático.`);
+        const minutesSinceLastTest = (Date.now() - lastUsed) / (1000 * 60);
+        if (minutesSinceLastTest < 15) {
+          console.log(`[AIService] 🔴 Chave ${apiKey.id} desconectada há ${Math.round(minutesSinceLastTest)}min. Pulando re-teste automático.`);
           continue;
         }
       }

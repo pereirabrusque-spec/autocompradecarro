@@ -248,6 +248,20 @@ export const BackgroundAIManager = () => {
             })
             .subscribe();
 
+        // Listen for API Keys changes to trigger retries if AI was blocked
+        const apiKeysSubscription = supabase
+            .channel('bg_ai_keys')
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'api_keys' }, (payload) => {
+                const oldStatus = (payload.old as any).status;
+                const newStatus = (payload.new as any).status;
+                
+                if (newStatus === 'ok' && oldStatus !== 'ok') {
+                    console.log("[BackgroundAIManager] 🔑 Uma API Key voltou a ficar OK! Acionando scanner de mensagens pendentes...");
+                    scanForOpenMessages();
+                }
+            })
+            .subscribe();
+
         // Listen for other data changes
         const dataSubscription = supabase
             .channel('bg_ai_data')
@@ -259,6 +273,7 @@ export const BackgroundAIManager = () => {
         return () => {
             clearInterval(heartbeat);
             supabase.removeChannel(settingsSubscription);
+            supabase.removeChannel(apiKeysSubscription);
             supabase.removeChannel(dataSubscription);
             authSubscription.unsubscribe();
         };

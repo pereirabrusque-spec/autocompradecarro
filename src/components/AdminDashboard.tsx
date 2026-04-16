@@ -1386,8 +1386,33 @@ export default function AdminDashboard() {
             console.log("[AdminDashboard] Message is NOT for current conversation. Current:", selectedConversationRef.current?.lead_id, "New:", payload.new.lead_id);
           }
 
-          // Atualiza a lista de conversas
-          fetchData();
+          // Otimizado: Em vez de fetch completo, atualizamos as listas de conversas localmente
+          const updateConversationList = (newMsg: any) => {
+            setConversations(prev => {
+              const leadKey = newMsg.lead_id;
+              const existingIndex = prev.findIndex(c => c.lead_ids?.includes(leadKey) || c.lead_id === leadKey);
+              
+              if (existingIndex !== -1) {
+                const updated = [...prev];
+                const conv = { ...updated[existingIndex] };
+                conv.last_message = newMsg.conteudo;
+                conv.last_message_at = newMsg.created_at;
+                if (newMsg.remetente === 'cliente' && !isCurrentConversation) {
+                  conv.unread = (conv.unread || 0) + 1;
+                }
+                conv.is_unanswered = newMsg.remetente === 'cliente';
+                // Mover para o topo da lista
+                updated.splice(existingIndex, 1);
+                updated.unshift(conv);
+                return updated;
+              }
+              // Se não existe na lista, melhor dar o fetch para pegar o lead_data completo em breve
+              setTimeout(fetchData, 1000);
+              return prev;
+            });
+          };
+
+          updateConversationList(payload.new);
         } else {
           // Se for uma mensagem do admin/bot, apenas atualiza o chat se estiver aberto
           const isCurrentConversation = selectedConversationRef.current?.lead_ids?.includes(payload.new.lead_id) || 
@@ -1400,7 +1425,51 @@ export default function AdminDashboard() {
               return [...prev, payload.new];
             });
           }
-          fetchData();
+          
+          // Atualiza o snippet de última mensagem no sidebar
+          setConversations(prev => {
+             const leadKey = payload.new.lead_id;
+             const existingIndex = prev.findIndex(c => c.lead_ids?.includes(leadKey) || c.lead_id === leadKey);
+             if (existingIndex !== -1) {
+               const updated = [...prev];
+               const conv = { ...updated[existingIndex] };
+               conv.last_message = payload.new.conteudo;
+               conv.last_message_at = payload.new.created_at;
+               conv.is_unanswered = false;
+               
+               updated.splice(existingIndex, 1);
+               updated.unshift(conv);
+               return updated;
+             }
+             return prev;
+          });
+        }
+      })
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'mensagens' 
+      }, (payload) => {
+        // Atualiza status de leitura (lida) em tempo real no dashboard
+        const newMsg = payload.new as any;
+        if (newMsg.lida) {
+          const leadId = newMsg.lead_id;
+          
+          // Atualiza mensagens no chat aberto
+          const isCurrent = selectedConversationRef.current?.lead_ids?.includes(leadId) || 
+                            selectedConversationRef.current?.lead_id === leadId;
+                            
+          if (isCurrent) {
+             setChatMessages(prev => prev.map(m => m.id === newMsg.id ? { ...m, lida: true } : m));
+          }
+          
+          // Atualiza contador no sidebar se necessário
+          setConversations(prev => prev.map(c => {
+             if (c.lead_id === leadId || c.lead_ids?.includes(leadId)) {
+                return { ...c, unread: Math.max(0, (c.unread || 0) - (isCurrent ? 0 : 1)) };
+             }
+             return c;
+          }));
         }
       })
       .on('postgres_changes', {
@@ -1450,8 +1519,68 @@ export default function AdminDashboard() {
           });
         }
         
-        // Refresh na lista de conversas internas
-        fetchData();
+        // Otimizado: Atualiza listas internas localmente sem fetch completo
+        const currentUserId = userProfileRef.current?.id;
+        const otherId = payload.new.sender_id === currentUserId ? payload.new.receiver_id : payload.new.sender_id;
+        
+        if (otherId) {
+          // Tenta atualizar Equipe
+          setInternalConversations(prev => {
+            const idx = prev.findIndex(c => c.id === otherId);
+            if (idx !== -1) {
+              const updated = [...prev];
+              const conv = { ...updated[idx] };
+              conv.last_message = payload.new.content;
+              conv.last_time = payload.new.created_at;
+              if (payload.new.sender_id !== currentUserId && selectedInternalChatRef.current !== otherId) {
+                conv.unread = (conv.unread || 0) + 1;
+              }
+              const item = updated.splice(idx, 1)[0];
+              updated.unshift(conv);
+              return updated;
+            }
+            return prev;
+          });
+          
+          // Tenta atualizar Compradores
+          setCompradoresConversations(prev => {
+            const idx = prev.findIndex(c => c.id === otherId);
+            if (idx !== -1) {
+              const updated = [...prev];
+              const conv = { ...updated[idx] };
+              conv.last_message = payload.new.content;
+              conv.last_time = payload.new.created_at;
+              if (payload.new.sender_id !== currentUserId && selectedCompradorChatRef.current !== otherId) {
+                conv.unread = (conv.unread || 0) + 1;
+              }
+              const item = updated.splice(idx, 1)[0];
+              updated.unshift(conv);
+              return updated;
+            }
+            return prev;
+          });
+        }
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'internal_messages'
+      }, (payload) => {
+        const newMsg = payload.new as any;
+        const readCol = 'is_read' in newMsg ? 'is_read' : 'read';
+        if (newMsg[readCol]) {
+           // Atualiza chat aberto
+           if (selectedInternalChatRef.current === newMsg.sender_id || selectedInternalChatRef.current === newMsg.receiver_id) {
+             setInternalChatMessages(prev => prev.map(m => m.id === newMsg.id ? { ...m, [readCol]: true } : m));
+           }
+           if (selectedCompradorChatRef.current === newMsg.sender_id || selectedCompradorChatRef.current === newMsg.receiver_id) {
+             setCompradorChatMessages(prev => prev.map(m => m.id === newMsg.id ? { ...m, [readCol]: true } : m));
+           }
+           // Zera unread localmente
+           const otherId = newMsg.sender_id;
+           setInternalConversations(prev => prev.map(c => c.id === otherId ? { ...c, unread: 0 } : c));
+           setCompradoresConversations(prev => prev.map(c => c.id === otherId ? { ...c, unread: 0 } : c));
+        }
       })
       .subscribe();
 
