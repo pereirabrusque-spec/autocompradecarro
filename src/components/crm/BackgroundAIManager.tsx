@@ -12,6 +12,8 @@ export const BackgroundAIManager = () => {
     const [aiCrmPrompt, setAiCrmPrompt] = useState('');
     const [aiMemory, setAiMemory] = useState('');
     const [aiCrmMemory, setAiCrmMemory] = useState('');
+    const [responseMode, setResponseMode] = useState<'chat' | 'webhook'>('chat');
+    const [webhookUrl, setWebhookUrl] = useState('');
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     
     // Configurações de Proposta
@@ -28,6 +30,8 @@ export const BackgroundAIManager = () => {
     const aiCrmPromptRef = useRef('');
     const aiMemoryRef = useRef('');
     const aiCrmMemoryRef = useRef('');
+    const responseModeRef = useRef<'chat' | 'webhook'>('chat');
+    const webhookUrlRef = useRef('');
     const currentUserIdRef = useRef<string | null>(null);
     const lastProcessedImage = useRef<{ url: string, base64: string } | null>(null);
 
@@ -112,6 +116,14 @@ export const BackgroundAIManager = () => {
     }, [aiCrmMemory]);
 
     useEffect(() => {
+        responseModeRef.current = responseMode;
+    }, [responseMode]);
+
+    useEffect(() => {
+        webhookUrlRef.current = webhookUrl;
+    }, [webhookUrl]);
+
+    useEffect(() => {
         currentUserIdRef.current = currentUserId;
     }, [currentUserId]);
 
@@ -132,7 +144,7 @@ export const BackgroundAIManager = () => {
         // Load initial settings
         supabase.from('settings').select('key, value').in('key', [
             'AI_SYSTEM_PROMPT', 'AI_CRM_PROMPT', 'AI_CRM_ENABLED', 'AI_MEMORY', 'AI_CRM_MEMORY', 'AUTO_PROPOSAL_ENABLED',
-            'COOPERATIVE_DISCOUNT_PERCENTAGE', 'PROFIT_MARGIN_PERCENTAGE', 'JUROS_ATRASO'
+            'COOPERATIVE_DISCOUNT_PERCENTAGE', 'PROFIT_MARGIN_PERCENTAGE', 'JUROS_ATRASO', 'RESPONSE_MODE', 'WEBHOOK_URL'
         ]).then(({ data, error }) => {
             if (error) {
                 console.error("[BackgroundAIManager] ❌ Erro ao carregar configurações:", error);
@@ -150,6 +162,8 @@ export const BackgroundAIManager = () => {
                 const coopDiscount = data.find(s => s.key === 'COOPERATIVE_DISCOUNT_PERCENTAGE');
                 const margin = data.find(s => s.key === 'PROFIT_MARGIN_PERCENTAGE');
                 const juros = data.find(s => s.key === 'JUROS_ATRASO');
+                const mode = data.find(s => s.key === 'RESPONSE_MODE');
+                const webhook = data.find(s => s.key === 'WEBHOOK_URL');
 
                 if (prompt) setAiPrompt(prompt.value);
                 if (crmPrompt) setAiCrmPrompt(crmPrompt.value);
@@ -165,6 +179,8 @@ export const BackgroundAIManager = () => {
                 if (coopDiscount) setCooperativeDiscount(Number(coopDiscount.value) || 5);
                 if (margin) setProfitMarginPercentage(Number(margin.value) || 20);
                 if (juros) setJurosAtraso(Number(juros.value) || 2);
+                if (mode) setResponseMode(mode.value as 'chat' | 'webhook');
+                if (webhook) setWebhookUrl(webhook.value);
             }
         });
 
@@ -226,6 +242,8 @@ export const BackgroundAIManager = () => {
                     if (key === 'COOPERATIVE_DISCOUNT_PERCENTAGE') setCooperativeDiscount(Number(value) || 5);
                     if (key === 'PROFIT_MARGIN_PERCENTAGE') setProfitMarginPercentage(Number(value) || 20);
                     if (key === 'JUROS_ATRASO') setJurosAtraso(Number(value) || 1);
+                    if (key === 'RESPONSE_MODE') setResponseMode(value as 'chat' | 'webhook');
+                    if (key === 'WEBHOOK_URL') setWebhookUrl(value);
                 }
             })
             .subscribe();
@@ -566,13 +584,34 @@ REGRAS GERAIS:
                 console.log("[BackgroundAIManager] Internal AI Response received:", response ? "SUCCESS" : "NULL/EMPTY", response?.text?.substring(0, 50) + "...");
 
                 if (response && response.text) {
-                    await supabase.from('internal_messages').insert({
-                        receiver_id: senderId,
-                        content: response.text,
-                        sender_id: uid,
-                        lead_id: currentLeadId,
-                        metadata: { is_follow_up: isFollowUp }
-                    });
+                    if (responseModeRef.current === 'webhook' && webhookUrlRef.current) {
+                        console.log("[BackgroundAIManager] 🌐 Enviando para WEBHOOK (Modo Webhook ativo)");
+                        try {
+                            await fetch(webhookUrlRef.current, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    type: 'internal_message_response',
+                                    conversation_id: senderId,
+                                    content: response.text,
+                                    lead_id: currentLeadId,
+                                    original_message: payload
+                                })
+                            });
+                            console.log("[BackgroundAIManager] ✅ Webhook enviado com sucesso.");
+                        } catch (webhookErr) {
+                            console.error("[BackgroundAIManager] ❌ Erro ao enviar Webhook:", webhookErr);
+                        }
+                    } else {
+                        console.log("[BackgroundAIManager] 💬 Respondendo diretamente no CHAT (Modo Chat ativo)");
+                        await supabase.from('internal_messages').insert({
+                            receiver_id: senderId,
+                            content: response.text,
+                            sender_id: uid,
+                            lead_id: currentLeadId,
+                            metadata: { is_follow_up: isFollowUp }
+                        });
+                    }
                     
                     const readCol = payload.is_read !== undefined ? 'is_read' : 'read';
                     await supabase.from('internal_messages')
@@ -842,13 +881,41 @@ REGRAS GERAIS:
                 console.log("[BackgroundAIManager] Public AI Response received:", response ? "SUCCESS" : "NULL/EMPTY", response?.text?.substring(0, 50) + "...");
 
                 if (response && response.text) {
-                    logToStorage(`Resposta IA gerada com sucesso para lead ${leadId}`, 'info');
-                    await supabase.from('mensagens').insert({
-                        lead_id: leadId,
-                        conteudo: response.text,
-                        remetente: 'bot',
-                        metadata: { ai_handled: true, original_message_id: payload.id, is_follow_up: isFollowUp }
-                    });
+                    console.log(`[BackgroundAIManager] 🧊 Decidindo canal de resposta: Mode=${responseModeRef.current}, HasWebhook=${!!webhookUrlRef.current}`);
+                    if (responseModeRef.current === 'webhook' && webhookUrlRef.current) {
+                        console.log("[BackgroundAIManager] 🌐 ENVIANDO VIA WEBHOOK (Chat suprimido para evitar duplicidade)");
+                        try {
+                            const startTime = Date.now();
+                            const res = await fetch(webhookUrlRef.current, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    type: 'public_message_response',
+                                    lead_id: leadId,
+                                    content: response.text,
+                                    original_message: payload,
+                                    metadata: { ai_handled: true, is_follow_up: isFollowUp }
+                                })
+                            });
+                            console.log(`[BackgroundAIManager] ✅ Webhook enviado. Status: ${res.status}, Tempo: ${Date.now() - startTime}ms`);
+                        } catch (webhookErr) {
+                            console.error("[BackgroundAIManager] ❌ Erro ao enviar Webhook (Fallback para Chat desativado por config parcial):", webhookErr);
+                        }
+                    } else {
+                        console.log("[BackgroundAIManager] 💬 ENVIANDO VIA CHAT (Lead ID:", leadId, ")");
+                        logToStorage(`Resposta IA enviada via Chat para lead ${leadId}`, 'info');
+                        const { error: insertError } = await supabase.from('mensagens').insert({
+                            lead_id: leadId,
+                            conteudo: response.text,
+                            remetente: 'bot',
+                            metadata: { ai_handled: true, original_message_id: payload.id, is_follow_up: isFollowUp }
+                        });
+                        if (insertError) {
+                            console.error("[BackgroundAIManager] ❌ Erro ao inserir resposta no CHAT:", insertError);
+                        } else {
+                            console.log("[BackgroundAIManager] ✅ Resposta inserida no banco com sucesso.");
+                        }
+                    }
 
                     await supabase.from('mensagens')
                         .update({ 
@@ -1009,6 +1076,7 @@ REGRAS GERAIS:
                 schema: 'public', 
                 table: 'mensagens' 
             }, async (payload) => {
+                console.log("[BackgroundAIManager] 🔔 Realtime INSERT in 'mensagens':", payload.new);
                 handlePublicMessage(payload.new);
             })
             .subscribe();

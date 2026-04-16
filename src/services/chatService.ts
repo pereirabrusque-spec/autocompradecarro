@@ -1,20 +1,26 @@
 import { supabase } from '../lib/supabase';
 
 export const chatService = {
-  async sendMessage(conversationId: string, content: string, isAutomated = false) {
+  async sendMessage(leadId: string, content: string, isAutomated = false) {
+    const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase
-      .from('messages')
-      .insert([{ conversation_id: conversationId, sender_id: supabase.auth.getUser(), content, is_automated: isAutomated }])
+      .from('mensagens')
+      .insert([{ 
+        lead_id: leadId, 
+        remetente: isAutomated ? 'bot' : (user ? 'admin' : 'cliente'), 
+        conteudo: content, 
+        metadata: { ai_handled: isAutomated }
+      }])
       .select();
     if (error) throw error;
     return data;
   },
   
-  async getMessages(conversationId: string) {
+  async getMessages(leadId: string) {
     const { data, error } = await supabase
-      .from('messages')
+      .from('mensagens')
       .select('*')
-      .eq('conversation_id', conversationId)
+      .eq('lead_id', leadId)
       .order('created_at', { ascending: true });
     if (error) throw error;
     return data;

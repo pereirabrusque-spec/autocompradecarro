@@ -90,6 +90,8 @@ export default function AdminDashboard() {
   const [aiMemory, setAiMemory] = useState('');
   const [aiCrmPrompt, setAiCrmPrompt] = useState('');
   const [aiCrmMemory, setAiCrmMemory] = useState('');
+  const [responseMode, setResponseMode] = useState<'chat' | 'webhook'>('chat');
+  const [webhookUrl, setWebhookUrl] = useState('');
   const aiMemoryRef = useRef('');
   useEffect(() => {
     aiMemoryRef.current = aiMemory;
@@ -1147,6 +1149,12 @@ export default function AdminDashboard() {
 
         const autoProposalSetting = settingsData.find((s: any) => s.key === 'AUTO_PROPOSAL_ENABLED');
         if (autoProposalSetting) setAutoProposalEnabled(autoProposalSetting.value === 'true');
+
+        const responseModeSetting = settingsData.find((s: any) => s.key === 'RESPONSE_MODE');
+        if (responseModeSetting) setResponseMode(responseModeSetting.value as 'chat' | 'webhook');
+
+        const webhookUrlSetting = settingsData.find((s: any) => s.key === 'WEBHOOK_URL');
+        if (webhookUrlSetting) setWebhookUrl(webhookUrlSetting.value);
 
         const chatAvatarSetting = settingsData.find((s: any) => s.key === 'CHAT_AVATAR_URL');
         if (chatAvatarSetting) setChatAvatarUrl(chatAvatarSetting.value);
@@ -2514,6 +2522,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
         { key: 'PROFIT_MARGIN_PERCENTAGE', value: profitMarginPercentage.toString() },
         { key: 'BUYER_VIEW_PERMISSIONS', value: JSON.stringify(buyerPermissions) },
         { key: 'BUYER_SEND_SETTINGS', value: JSON.stringify(buyerSendSettings) },
+        { key: 'RESPONSE_MODE', value: responseMode },
+        { key: 'WEBHOOK_URL', value: webhookUrl }
       ];
 
       console.log('settingsToSave:', settingsToSave);
@@ -2601,7 +2611,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
       const { 
         id, 
         created_at, 
-        data_negociacao, // Campo virtual do LeadDetailsCard
         leads_veiculos, // Caso venha de um join
         mensagens,      // Caso venha de um join
         profiles,       // Caso venha de um join
@@ -3731,6 +3740,28 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       onChange={(e) => setContactEmail(e.target.value)}
                     />
                   </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Modo de Resposta (IA)</label>
+                    <select 
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none font-bold"
+                      value={responseMode}
+                      onChange={(e) => setResponseMode(e.target.value as 'chat' | 'webhook')}
+                    >
+                      <option value="chat">Responder no Chat do Site</option>
+                      <option value="webhook">Enviar para Webhook Externo</option>
+                    </select>
+                  </div>
+                  {responseMode === 'webhook' && (
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-xs font-bold text-slate-500 uppercase">URL do Webhook</label>
+                      <input 
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none font-mono"
+                        value={webhookUrl}
+                        placeholder="https://sua-api.com/webhook"
+                        onChange={(e) => setWebhookUrl(e.target.value)}
+                      />
+                    </div>
+                  )}
                 </div>
                 <button 
                   onClick={handleSaveSettings}

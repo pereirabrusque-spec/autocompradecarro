@@ -683,10 +683,16 @@ export default function LeadDetailsCard({
 
                 {/* CRLV Preview (50%) */}
                 <div 
-                  onClick={() => setShowDataModal(true)}
+                  onClick={() => {
+                    if (userRole === 'buyer_premium') {
+                      alert('Acesso ao CRLV restrito para sua categoria. Faça o upgrade para Master para ver documentos.');
+                      return;
+                    }
+                    setShowDataModal(true);
+                  }}
                   className="bg-slate-800 p-4 rounded-[32px] aspect-video flex items-center justify-center border border-white/10 cursor-pointer hover:bg-slate-700 transition-colors relative overflow-hidden shadow-xl group"
                 >
-                  {currentLead.crlv_url ? (
+                  {currentLead.crlv_url && userRole !== 'buyer_premium' ? (
                     currentLead.crlv_url.toLowerCase().includes('.pdf') ? (
                       <div className="flex flex-col items-center gap-2">
                         <FileText className="w-12 h-12 text-blue-400" />
@@ -698,19 +704,32 @@ export default function LeadDetailsCard({
                   ) : (
                     <div className="flex flex-col items-center gap-2 text-white/40">
                       <FileText className="w-12 h-12" />
-                      <span className="text-xs font-bold uppercase tracking-widest">CRLV não disponível</span>
+                      <span className="text-xs font-bold uppercase tracking-widest">
+                        {userRole === 'buyer_premium' ? 'Documento Restrito' : 'CRLV não disponível'}
+                      </span>
                     </div>
                   )}
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                    <span className="text-white opacity-0 group-hover:opacity-100 font-bold text-xs bg-black/50 px-3 py-1.5 rounded-full">Clique para Ver Detalhes</span>
+                    <span className="text-white opacity-0 group-hover:opacity-100 font-bold text-xs bg-black/50 px-3 py-1.5 rounded-full">
+                      {userRole === 'buyer_premium' ? 'Restrito' : 'Clique para Ver Detalhes'}
+                    </span>
                   </div>
                 </div>
               </div>
 
               {/* Botão Avaliar Veículo */}
               <div className="flex gap-2 w-full">
-                <button onClick={() => setShowDataModal(true)} className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-slate-800 transition-all shadow-lg transform hover:scale-[1.01] active:scale-[0.99]">
-                  <FileText className="w-5 h-5" /> Avaliar Veículo
+                <button 
+                  onClick={() => {
+                    if (userRole === 'buyer_premium') {
+                      alert('Acesso detalhado restrito para sua categoria.');
+                      return;
+                    }
+                    setShowDataModal(true);
+                  }} 
+                  className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-slate-800 transition-all shadow-lg transform hover:scale-[1.01] active:scale-[0.99]"
+                >
+                  <FileText className="w-5 h-5" /> {userRole === 'buyer_premium' ? 'Acesso Restrito' : 'Avaliar Veículo'}
                 </button>
                 {onClone && (
                   <button 
