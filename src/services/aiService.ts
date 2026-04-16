@@ -333,19 +333,19 @@ export class AIService {
 
     // Executa sequencialmente para evitar limites de taxa simultâneos e garantir estabilidade
     for (const apiKey of allKeys) {
-      // REGRA: Se a chave está verde (ok) e não foi solicitado um teste forçado (fullTest), PULA.
-      // Isso evita gastar crédito com chaves que já estão funcionando.
-      if (apiKey.status === 'ok' && !fullTest) {
+      // REGRA: Se a chave está verde (ok) e não foi solicitado um teste forçado ou manual (fullTest), PULA.
+      // No re-teste automático (autoOnlyNonOk), nunca testamos as 'ok' para economizar crédito.
+      if (apiKey.status === 'ok' && (autoOnlyNonOk || !fullTest)) {
         continue;
       }
 
       // Se a chave não está OK, vamos verificar se vale a pena testar agora
-      // No re-teste automático, se ela ficou vermelha (disconnected), testamos com menos frequência (a cada 15 min)
-      if (!fullTest && apiKey.status === 'disconnected') {
+      // No re-teste automático (autoOnlyNonOk), testamos com frequência reduzida (15 min)
+      if (autoOnlyNonOk && apiKey.status !== 'ok') {
         const lastUsed = apiKey.last_used ? new Date(apiKey.last_used).getTime() : 0;
         const minutesSinceLastTest = (Date.now() - lastUsed) / (1000 * 60);
         if (minutesSinceLastTest < 15) {
-          console.log(`[AIService] 🔴 Chave ${apiKey.id} desconectada há ${Math.round(minutesSinceLastTest)}min. Pulando re-teste automático.`);
+          console.log(`[AIService] 🟡 Chave ${apiKey.id} (${apiKey.status}) verificada há ${Math.round(minutesSinceLastTest)}min. Pulando re-teste automático.`);
           continue;
         }
       }

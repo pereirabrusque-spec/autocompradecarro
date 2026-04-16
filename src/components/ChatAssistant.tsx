@@ -288,6 +288,18 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
   useEffect(() => {
     fetchApiKey();
     fetchData();
+
+    // Subscription para chaves de API para garantir que o chat comprador use sempre a melhor disponível
+    const keysSub = supabase
+      .channel('buyer_api_keys_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'api_keys' }, () => {
+        fetchApiKey();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(keysSub);
+    };
   }, [settings, leadId]);
 
   useEffect(() => {

@@ -1231,9 +1231,8 @@ export default function AdminDashboard() {
       const checkApiHealth = async () => {
         try {
           const { AIService } = await import('../services/aiService');
-          // On load, we do a full test to ensure accuracy of "ok" status
-          await AIService.testConnections(true, true);
-          // fetchData(); // REMOVIDO para evitar loop infinito de re-renders
+          // No carregamento inicial, apenas as que não estão OK são testadas para economizar crédito
+          await AIService.testConnections(false, true);
         } catch (e) {
           console.error('[AdminDashboard] Erro no health check inicial:', e);
         }
@@ -1361,9 +1360,12 @@ export default function AdminDashboard() {
           }
 
           console.log("[AdminDashboard] Current selectedConversationRef:", selectedConversationRef.current);
-          // Atualiza mensagens do chat se estiver aberto para este lead
-          const isCurrentConversation = selectedConversationRef.current?.lead_ids?.includes(payload.new.lead_id) || 
-                                       selectedConversationRef.current?.lead_id === payload.new.lead_id;
+          // Otimizado: Verificação mais robusta da conversa atual (por lead_ids, lead_id ou email)
+          const currentConv = selectedConversationRef.current;
+          const isCurrentConversation = 
+            currentConv?.lead_ids?.includes(payload.new.lead_id) || 
+            currentConv?.lead_id === payload.new.lead_id ||
+            (currentConv?.customer_email && payload.new.customer_email === currentConv.customer_email);
                                        
           if (isCurrentConversation) {
             console.log("[AdminDashboard] Updating chat messages state for current conversation");
@@ -1415,8 +1417,11 @@ export default function AdminDashboard() {
           updateConversationList(payload.new);
         } else {
           // Se for uma mensagem do admin/bot, apenas atualiza o chat se estiver aberto
-          const isCurrentConversation = selectedConversationRef.current?.lead_ids?.includes(payload.new.lead_id) || 
-                                       selectedConversationRef.current?.lead_id === payload.new.lead_id;
+          const currentConv = selectedConversationRef.current;
+          const isCurrentConversation = 
+            currentConv?.lead_ids?.includes(payload.new.lead_id) || 
+            currentConv?.lead_id === payload.new.lead_id ||
+            (currentConv?.customer_email && payload.new.customer_email === currentConv.customer_email);
                                        
           if (isCurrentConversation) {
             console.log("[AdminDashboard] Updating chat messages state (admin message)");
@@ -1456,8 +1461,11 @@ export default function AdminDashboard() {
           const leadId = newMsg.lead_id;
           
           // Atualiza mensagens no chat aberto
-          const isCurrent = selectedConversationRef.current?.lead_ids?.includes(leadId) || 
-                            selectedConversationRef.current?.lead_id === leadId;
+          const currentConv = selectedConversationRef.current;
+          const isCurrent = 
+            currentConv?.lead_ids?.includes(leadId) || 
+            currentConv?.lead_id === leadId ||
+            (currentConv?.customer_email && newMsg.customer_email === currentConv.customer_email);
                             
           if (isCurrent) {
              setChatMessages(prev => prev.map(m => m.id === newMsg.id ? { ...m, lida: true } : m));
@@ -1614,10 +1622,33 @@ export default function AdminDashboard() {
       })
       .subscribe();
 
+    // Subscription para chaves de API
+    const apiKeysSubscription = supabase
+      .channel('admin_api_keys_realtime')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'api_keys' 
+      }, (payload) => {
+        console.log("API Keys atualizada (realtime):", payload.new);
+        setApiKeys(prev => {
+          if (payload.eventType === 'INSERT') return [...prev, payload.new];
+          if (payload.eventType === 'UPDATE') return prev.map(k => k.id === payload.new.id ? payload.new : k);
+          if (payload.eventType === 'DELETE') return prev.filter(k => k.id === payload.old.id);
+          return prev;
+        });
+        // Sincroniza o cache local do AIService
+        import('../services/aiService').then(({ AIService }) => {
+          AIService.getActiveKeys(true);
+        });
+      })
+      .subscribe();
+
     return () => {
       messagesSubscription.unsubscribe();
       internalSubscription.unsubscribe();
       profilesSubscription.unsubscribe();
+      apiKeysSubscription.unsubscribe();
     };
   }, []);
 
