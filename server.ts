@@ -514,7 +514,7 @@ async function startServer() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
               contents,
-              systemInstruction: { parts: [{ text: systemInstruction }] },
+              system_instruction: { parts: [{ text: systemInstruction }] },
               generationConfig: { temperature: 0.4 }
             })
           });

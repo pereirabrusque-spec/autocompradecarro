@@ -75,11 +75,13 @@ export class AIService {
       return 0;
     });
 
-    // Validação da chave "Em Uso": Se a chave salva não existe mais ou não está OK, limpamos
+    // Validação da chave "Em Uso": Só limpamos se a chave realmente foi excluída.
+    // Se ela estiver sem crédito ou desconectada, mantemos o ID para o selo "Em Uso" visual,
+    // mas a lógica de generateContent lidará com o pulo se o status não for 'ok'.
     if (this.lastSuccessfulKeyId && this.lastSuccessfulKeyId !== 'env-key') {
-      const currentKey = filteredData.find(k => k.id === this.lastSuccessfulKeyId);
-      if (!currentKey || currentKey.status !== 'ok') {
-        console.warn(`[AIService] ⚠️ Chave "Em Uso" (${this.lastSuccessfulKeyId}) não é mais válida ou não está OK. Tentando selecionar uma nova...`);
+      const currentKeyExists = filteredData.some(k => k.id === this.lastSuccessfulKeyId);
+      if (!currentKeyExists) {
+        console.warn(`[AIService] ⚠️ Chave "Em Uso" (${this.lastSuccessfulKeyId}) foi removida. Tentando selecionar uma nova...`);
         
         // Tenta pegar a primeira chave 'ok' disponível
         const firstOkKey = filteredData.find(k => k.status === 'ok');
@@ -326,28 +328,43 @@ export class AIService {
       // REGRA: Se a chave está verde (ok) e não foi solicitado um teste forçado (fullTest), PULA.
       // Isso evita gastar crédito com chaves que já estão funcionando.
       if (apiKey.status === 'ok' && !fullTest) {
-        console.log(`[AIService] 🟢 Chave ${apiKey.id} está OK. Pulando teste automático.`);
         continue;
       }
 
-      // Se autoOnlyNonOk for true, pula chaves que já estão 'ok'
-      if (autoOnlyNonOk && apiKey.status === 'ok') continue;
+      // Se a chave não está OK, vamos verificar se vale a pena testar agora
+      // No re-teste automático, se ela ficou vermelha (disconnected), testamos com menos frequência
+      if (!fullTest && apiKey.status === 'disconnected') {
+        const lastUsed = apiKey.last_used ? new Date(apiKey.last_used).getTime() : 0;
+        const hoursSinceLastTest = (Date.now() - lastUsed) / (1000 * 60 * 60);
+        if (hoursSinceLastTest < 1) {
+          console.log(`[AIService] 🔴 Chave ${apiKey.id} desconectada há pouco tempo. Pulando re-teste automático.`);
+          continue;
+        }
+      }
 
       const provider = apiKey.provider?.toLowerCase().trim();
-      if (provider === 'groq' && !apiKey.key) continue; // Skip if no key
+      if (provider === 'groq' && !apiKey.key) continue; 
       
       console.log(`[AIService] 🧪 Testando chave: ${apiKey.id} (${apiKey.provider}) - Status atual: ${apiKey.status}`);
 
       try {
         const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('TIMEOUT')), 20000);
+          setTimeout(() => reject(new Error('TIMEOUT')), 25000);
         });
 
         const apiCallPromise = async () => {
+          // No teste automático (fullTest=false), se a chave estava sem crédito (no_credit), 
+          // vamos pedir um teste um pouco mais profundo para ver se a quota voltou.
+          const needsSlightlyDeeperTest = !fullTest && (apiKey.status === 'no_credit' || apiKey.status === 'rate_limited');
+          
           const response = await fetch('/api/test-api-key', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ provider: apiKey.provider, key: apiKey.key, fullTest })
+            body: JSON.stringify({ 
+              provider: apiKey.provider, 
+              key: apiKey.key, 
+              fullTest: fullTest || needsSlightlyDeeperTest 
+            })
           });
           const data = await response.json();
           if (!response.ok || !data.success) {
