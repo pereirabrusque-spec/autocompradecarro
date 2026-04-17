@@ -318,7 +318,9 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
           table: 'leads_veiculos',
           filter: `id=eq.${leadId}`
         }, (payload) => {
-          // IA sempre habilitada para automação total
+          console.log("[ChatAssistant] Lead updated in real-time:", payload.new);
+          setLeadData(payload.new);
+          setIsFormFilled(!!(payload.new.marca && payload.new.modelo));
           setIsAiDisabled(false);
         })
         .subscribe();
@@ -593,12 +595,8 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
 
       const isFormFilledStrict = !!(leadData?.marca && leadData?.modelo && leadData.marca !== 'N/A' && leadData.modelo !== 'N/A');
 
-      const formStatusContext = isFormFilledStrict 
-        ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente JÁ PREENCHEU o formulário com os dados do veículo concretamente. \n**AÇÃO:** Fale sobre o veículo dele, demonstre interesse técnico e informe que a proposta oficial está sendo analisada pela nossa equipe técnica e será enviada em breve. NÃO peça para preencher o formulário novamente. Se ele tiver outros carros, mencione-os se necessário.`
-        : `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente AINDA NÃO preencheu o formulário com os dados do veículo (ou os dados estão incompletos). \n**AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação. NÃO diga que "estamos analisando a proposta" se não houver dados de veículo abaixo.`;
-
       const vehicleContext = isFormFilledStrict ? `
-DADOS DO VEÍCULO ATUAL (LEAD ATIVO NO SISTEMA):
+### [DADOS OFICIAIS DO VEÍCULO - REGISTRADOS NO SISTEMA]
 - ID: ${leadData.id}
 - Marca: ${leadData.marca}
 - Modelo: ${leadData.modelo}
@@ -606,65 +604,48 @@ DADOS DO VEÍCULO ATUAL (LEAD ATIVO NO SISTEMA):
 - Placa: ${leadData.placa || 'N/A'}
 - KM: ${leadData.quilometragem || 'N/A'}
 - Cor: ${leadData.cor || 'N/A'}
-- Preço Cliente: R$ ${leadData.preco_cliente || 'N/A'}
+- Preço Pretendido: R$ ${leadData.preco_cliente || 'N/A'}
 - Situação Financeira: ${leadData.situacao_financeira || 'N/A'}
-- Status do Lead: ${leadData.status || 'N/A'}
-` : `\n[AVISO AO SISTEMA]: NÃO EXISTE VEÍCULO CADASTRADO NO BANCO DE DADOS PARA ESTE LEAD. 
-Qualquer menção do cliente sobre um carro deve ser tratada como um interesse de venda inicial, mas você deve afirmar que o sistema ainda não tem os dados oficiais para análise. `;
+- Status: ${leadData.status || 'N/A'}
+
+[INSTRUÇÃO]: Fale sobre este veículo. A proposta técnica para ELE está sendo analisada.
+` : `
+### [AVISO CRÍTICO: NENHUM VEÍCULO CADASTRADO]
+- **STATUS:** O banco de dados está VAZIO para este cliente.
+- **PROIBIÇÃO:** Você NÃO tem permissão para dizer que "temos os dados" ou que "estamos analisando seu [NOME DO CARRO]".
+- **PROIBIÇÃO:** Se o cliente disser que tem um carro no chat (ex: "tenho um Agrale"), você deve ignorar o tom de "já sabemos" e dizer: "Notei que você mencionou um [CARRO], mas para que possamos fazer a avaliação oficial e te passar um valor, você **PRECISA** preencher os detalhes técnicos clicando em 'Vender Meu Carro' ou no link: https://autocompra.online/vender".
+- **OBJETIVO ÚNICO:** Direcionar para o FORMULÁRIO.
+`;
 
       const finalSystemPrompt = `
-        [SISTEMA DE CONTROLE DE AGENTES E MEMÓRIA — AUTOCOMPRA.ONLINE]
-        OBJETIVO: Roteamento inteligente e uso estrito de memórias/regras.
+        [SISTEMA DE CONTROLE DE AGENTES — AUTOCOMPRA.ONLINE]
+        
+        Você é o Especialista Luiz da AutoCompra. 
 
-        ### 1. CONTEXTO: CHAT DO SITE — VENDEDOR (LEADS)
-        - **AMBIENTE:** ADMIN > MENSAGENS
-        - **MEMÓRIA OBRIGATÓRIA:** IA (Leads Vendedor)
-        - **REGRAS OBRIGATÓRIAS:** IA (Leads Vendedor)
-        - **GATILHOS OBRIGATÓRIOS:** IA (Leads Vendedor)
-
-        SUA MISSÃO:
-        1. ANALISAR E SEGUIR ESTRITAMENTE as REGRAS PERSONALIZADAS e a MEMÓRIA fornecidas abaixo.
-        2. Se houver conflito entre o seu conhecimento geral e as REGRAS PERSONALIZADAS, as REGRAS PERSONALIZADAS prevalecem.
-        3. Você deve consultar a MEMÓRIA DE LONGO PRAZO antes de formular qualquer resposta.
-        4. **ISOLAMENTO:** Nunca utilize regras ou dados de compradores neste chat de vendedor.
-
-        ${formStatusContext}
         ${vehicleContext}
 
-        ### REGRAS DE GESTÃO DE ESTOQUE E VEÍCULOS:
-        1. **FOCO NO ÚLTIMO VEÍCULO:** Se houver mais de um veículo registrado para este usuário, sua resposta DEVE focar sempre no ÚLTIMO VEÍCULO mencionado na conversa ou o mais recente no sistema, a menos que o usuário peça explicitamente para falar de outro.
-        2. **TROCA DE VEÍCULO:** Se o cliente mencionar um veículo diferente (ex: "E sobre meu Celta?"), busque-o na lista de "OUTROS MODELOS NO SISTEMA" abaixo. Se encontrar, passe a responder sobre ele.
-        3. **STATUS VENDIDO:** Se o vendedor disser que já vendeu o carro, que não o possui mais ou que encerrou a negociação por fora, você DEVE responder com o JSON de ação: \`\`\`json\n{"action": "mark_as_sold", "vehicle_id": "ID_DO_VEICULO"}\n\`\`\`. Substitua ID_DO_VEICULO pelo ID correto do veículo em questão.
+        ### REGRAS DE OURO:
+        1. **VERACIDADE TOTAL:** Se o bloco [DADOS OFICIAIS] estiver vazio, você NÃO tem um carro para analisar. Ponto final. 
+        2. **SEM ALUCINAÇÃO:** Nunca use o modelo de carro que o usuário digitou no chat como se ele já estivesse "no sistema para análise". O sistema só reconhece o que está no bloco [DADOS OFICIAIS].
+        3. **NEGATIVA:** Se o usuário perguntar "Como está a análise do meu Agrale?" e não houver Agrale nos dados oficiais, responda: "Ainda não recebi os dados técnicos do seu Agrale no meu sistema. Por favor, complete o formulário para que eu possa iniciar a análise."
 
-        [REGRAS DE NEGÓCIO E COMPORTAMENTO - ORIGEM: MENU IA]
+        ### REGRAS DE NEGÓCIO:
         ${systemPrompt || defaultRules}
         
         ${proposalContext}
         
-        ### MEMÓRIA DE LONGO PRAZO (CONSULTE ANTES DE RESPONDER) - ORIGEM: MENU IA:
-        ${aiMemory || 'Nenhuma memória registrada.'}
+        ### CONTEXTO TÉCNICO:
+        FIPE: ${fipeContext}
+        BANCOS: ${banksContext}
+        REPAROS: ${repairContext}
         
-        ### CONTEXTO DE DADOS (PARA CÁLCULOS):
-        ${fipeContext}
-        ${banksContext}
-        ${repairContext}
-        
-        ### OUTROS MODELOS NO SISTEMA (PARA CONSULTA):
-        ${otherModels.length > 0 ? otherModels.map(m => `- ${m.marca} ${m.modelo} (${m.ano_modelo}) | Cor: ${m.cor || 'N/A'} | KM: ${m.quilometragem || '0'} | Preço: R$ ${m.preco_cliente || 'A consultar'}`).join('\n') : 'Nenhum outro modelo listado.'}
+        OUTROS MODELOS REGISTRADOS:
+        ${otherModels.length > 0 ? otherModels.map(m => `- ${m.marca} ${m.modelo}`).join('\n') : 'Nenhum'}
 
-        ### 6. NOTIFICAÇÕES (APÓS FORMULÁRIO)
-        - Após o formulário ser preenchido, pergunte: "Deseja receber notificações sobre o status da sua negociação?"
-        - Se o usuário disser SIM, responda com o JSON: {"notifications_authorized": true}
-        
-        [DIRETRIZ DE RESPOSTA]
-        Responda de forma direta, autoritária e empática.
-        **REGRA DE OURO:** Suas respostas devem ter NO MÁXIMO 4 LINHAS. Seja extremamente conciso. Não use textos longos. Pareça um humano digitando rápido no WhatsApp.
-        **EVITE REPETIÇÕES:** Se o histórico já contém uma saudação, NÃO repita. Se o cliente já enviou os dados, não peça novamente.
-        **ESTOQUE:** Se o usuário perguntar sobre outros carros ou o que temos no sistema, você DEVE confirmar os veículos listando explicitamente o **ANO e MODELO** de cada um.
-        **PROIBIÇÃO:** NUNCA diga que "por questões de segurança não detalhamos os modelos". Você deve ser transparente para deixar o usuário tranquilo de que os dados estão no banco de dados.
-        Informe o Ano, Modelo e uma breve descrição (Cor/KM) para cada veículo do estoque.
-        Se o usuário quiser uma avaliação detalhada ou estiver fornecendo muitos dados técnicos, sugira: "Para uma avaliação completa e rápida, use nosso formulário oficial clicando em 'Vender Meu Carro' no menu".
-        Se a informação necessária para seguir as regras não estiver disponível, peça-a ao usuário.
+        [REGRAS DE RESPOSTA]
+        - Máximo de 4 linhas.
+        - Estilo WhatsApp (direto e sem saudações desnecessárias).
+        - Use {{nome}} para se referir ao cliente.
       `;
       // Lógica para filtrar mensagens para a UI
     const today = new Date().toDateString();
