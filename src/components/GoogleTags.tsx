@@ -28,7 +28,9 @@ export function GoogleTags() {
           document.head.appendChild(gtmScript);
         }
 
-        if (gaId) {
+        // O Ads (AW-11148282770) está fixo no index.html para garantir verificação e evitar timeout
+        // Analytics e GTM são injetados apenas se não houver conflito
+        if (gaId && gaId !== 'AW-11148282770') {
           const script1 = document.createElement('script');
           script1.async = true;
           script1.src = `https://www.googletagmanager.com/gtag/js?id=${gaId}`;
@@ -37,28 +39,17 @@ export function GoogleTags() {
           const script2 = document.createElement('script');
           script2.innerHTML = `
             window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
+            if (!window.gtag) {
+              function gtag(){dataLayer.push(arguments);}
+              window.gtag = gtag;
+            }
             gtag('js', new Date());
             gtag('config', '${gaId}');
           `;
           document.head.appendChild(script2);
         }
 
-        if (adsId && adsId !== gaId) {
-          const script3 = document.createElement('script');
-          script3.async = true;
-          script3.src = `https://www.googletagmanager.com/gtag/js?id=${adsId}`;
-          document.head.appendChild(script3);
-
-          const script4 = document.createElement('script');
-          script4.innerHTML = `
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', '${adsId}');
-          `;
-          document.head.appendChild(script4);
-        }
+        // Não injetamos adsId aqui para evitar duplicidade com o index.html
       }
     };
     fetchTags();
