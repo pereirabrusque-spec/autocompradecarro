@@ -10,10 +10,10 @@ export function GoogleTags() {
         let adsId = data.find(s => s.key === 'GOOGLE_ADS_ID')?.value;
         let gtmId = data.find(s => s.key === 'GOOGLE_TAG_MANAGER_ID')?.value;
 
-        // Fallback para os IDs fornecidos pelo usuário
+        // Fallback apenas para Analytics e GTM se não estiverem no banco
         if (!gaId) gaId = 'G-SE8DRN12VH';
-        if (!adsId) adsId = 'AW-11148282770';
         if (!gtmId) gtmId = 'GTM-MJ49SD3J';
+        // O Ads (AW-11148282770) está fixo no index.html para garantir verificação
 
         // Google Tag Manager
         if (gtmId) {
