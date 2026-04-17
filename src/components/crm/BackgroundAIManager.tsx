@@ -329,19 +329,21 @@ export const BackgroundAIManager = () => {
             
             const { data: senderProfile } = await supabase
                 .from('profiles')
-                .select('is_ai_enabled, role, full_name')
+                .select('is_ai_enabled, role, full_name, email')
                 .eq('id', senderId)
                 .maybeSingle();
             
             console.log(`[BackgroundAIManager] Perfil do remetente (${senderId}):`, senderProfile);
             
-            const { data: userLeads } = await supabase
+            // Busca lead por user_id OU email do perfil
+            const leadQuery = supabase
                 .from('leads_veiculos')
-                .select('id, marca, modelo')
-                .eq('user_id', senderId)
+                .select('id, marca, modelo, created_at')
+                .or(`user_id.eq.${senderId}${senderProfile?.email ? `,email.eq.${senderProfile.email}` : ''}`)
                 .order('created_at', { ascending: false })
                 .limit(1);
-            
+
+            const { data: userLeads } = await leadQuery;
             const existingLead = userLeads?.[0] || null;
 
             const isBuyer = senderProfile?.role?.toLowerCase().includes('buyer') || (payload.lead_id && payload.lead_id !== 'null' && payload.lead_id !== '');
@@ -506,7 +508,11 @@ DETALHES COMPLETOS DO VEÍCULO EM FOCO:
                     }
                 }
 
-                const isFormFilled = !!(specificLead && specificLead.marca && specificLead.modelo);
+                const isFormFilled = !!(specificLead && 
+                                      specificLead.marca && 
+                                      specificLead.marca.trim() !== "" && 
+                                      specificLead.modelo && 
+                                      specificLead.modelo.trim() !== "");
                 const isBuyerContext = finalIsBuyer || !!payload.lead_id;
 
                 const followUpContext = isFollowUp 

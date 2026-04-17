@@ -154,9 +154,11 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
           }
 
           if (userLeads && userLeads.length > 0) {
-            // Se já tem leads, usa o mais recente (independente de ser frio ou quente)
-            const existingLead = userLeads[0];
-            console.log("[ChatAssistant] Found existing lead(s), using most recent:", existingLead.id);
+            // Busca o lead mais recente que esteja "completo" ou o mais recente absoluto
+            const filledLead = userLeads.find(l => l.marca && l.modelo);
+            const existingLead = filledLead || userLeads[0];
+            
+            console.log("[ChatAssistant] Found existing lead(s), using:", existingLead.id, filledLead ? "(filled)" : "(not filled)");
             currentLeadId = existingLead.id;
             
             // Atualiza apenas o timestamp e nome
@@ -681,14 +683,21 @@ DADOS DO VEÍCULO ATUAL (LEAD):
 
     const aiResponse = await AIService.generateContent(prompt, finalSystemPrompt, aiImage || undefined);
 
-      const botText = aiResponse.text || 'Entendido. Por favor, continue com as informações solicitadas.';
+      const rawBotText = aiResponse.text || 'Entendido. Por favor, continue com as informações solicitadas.';
       
+      // Substituição robusta de placeholders (lida com espaços e variações)
+      const clientName = user?.user_metadata?.full_name || profile?.full_name || 'Cliente';
+      const finalText = rawBotText
+          .replace(/{{[ ]*nome[ ]*}}/gi, clientName)
+          .replace(/{{[ ]*cliente_nome[ ]*}}/gi, clientName)
+          .replace(/{{[ ]*name[ ]*}}/gi, clientName);
+
       // Check if botText contains a JSON block for lead submission or notification authorization
-      const jsonMatch = botText.match(/```json\n([\s\S]*?)\n```/);
-      let textToShow = botText;
+      const jsonMatch = finalText.match(/```json\n([\s\S]*?)\n```/);
+      let textToShow = finalText;
 
       if (jsonMatch) {
-        textToShow = botText.replace(jsonMatch[0], '').trim();
+        textToShow = finalText.replace(jsonMatch[0], '').trim();
         try {
           const data = JSON.parse(jsonMatch[1]);
           

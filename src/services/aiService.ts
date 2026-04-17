@@ -173,24 +173,18 @@ export class AIService {
         // Note: We update the error count anyway, but maybe keep it 'no_credit' or 'rate_limited' if it was that
       }
 
-      const updateData: any = { status: finalStatus, error_count: errorCount, last_test_at: now };
+      const updateData: any = { status: finalStatus, error_count: errorCount };
       if (finalStatus === 'ok') {
         updateData.last_used = now;
         updateData.error_count = 0; // Reseta erros se ficou OK
       }
-
-      const { error } = await supabase
-        .from('api_keys')
-        .update(updateData)
-        .eq('id', id);
       
-      if (error) {
-        if (error.code === '42703') { // Column does not exist
-          console.error('[AIService] ⚠️ Coluna faltando no Supabase. Por favor, execute o arquivo update_api_keys_schema.sql.');
-          logToStorage('Erro: Coluna last_test_at faltando no banco. Execute o SQL de atualização.', 'error');
-        } else {
-          throw error;
-        }
+      // Tentativa de atualizar com campos extras (podem falhar se as colunas não existirem)
+      try {
+        await supabase.from('api_keys').update({ ...updateData, last_test_at: now }).eq('id', id);
+      } catch (e) {
+        // Fallback para campos básicos
+        await supabase.from('api_keys').update(updateData).eq('id', id);
       }
       
       if (lastError) {
