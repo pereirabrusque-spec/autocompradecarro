@@ -1,7 +1,14 @@
+import { useEffect } from 'react';
 import { motion } from 'motion/react';
 import { CheckCircle2, ArrowRight, Home, MessageCircle } from 'lucide-react';
+import { triggerAdsConversion } from './GoogleTags';
 
 export default function ThankYou() {
+  useEffect(() => {
+    // Dispara a conversão do Google Ads ao chegar na página de agradecimento
+    triggerAdsConversion();
+  }, []);
+
   return (
     <div className="min-h-[80vh] flex items-center justify-center p-4">
       <motion.div 
