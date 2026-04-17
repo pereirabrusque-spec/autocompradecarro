@@ -176,7 +176,7 @@ export default function AdminDashboard() {
   const [showApiKeyForm, setShowApiKeyForm] = useState(false);
   const [isSavingKey, setIsSavingKey] = useState(false);
 
-  const [activeLeadTab, setActiveLeadTab] = useState<'todos' | 'novo' | 'em_contato' | 'proposta_enviada' | 'fechado' | 'frio' | 'reservado' | 'perdido'>('todos');
+  const [activeLeadTab, setActiveLeadTab] = useState<'todos' | 'novo' | 'em_contato' | 'proposta_enviada' | 'fechado' | 'frio' | 'reservado' | 'perdido' | 'vendido'>('todos');
   const [leadsViewMode, setLeadsViewMode] = useState<'grid' | 'list'>('list');
   const [showBuyerPermissionsModal, setShowBuyerPermissionsModal] = useState(false);
   const [selectedBuyer, setSelectedBuyer] = useState<any>(null);
@@ -206,9 +206,10 @@ export default function AdminDashboard() {
   const filteredLeads = useMemo(() => {
     return leads
       .filter(l => {
-        if (activeLeadTab === 'todos') return true;
+        if (activeLeadTab === 'todos') return l.status !== 'perdido' && l.status !== 'vendido';
         if (activeLeadTab === 'frio') return l.status === 'frio';
         if (activeLeadTab === 'reservado') return l.status === 'reservado';
+        if (activeLeadTab === 'vendido') return l.status === 'vendido';
         if (activeLeadTab === 'proposta_enviada') return l.status === 'proposta_enviada' || l.status === 'novo' || l.status === 'em_contato';
         return l.status === activeLeadTab;
       })
@@ -273,6 +274,18 @@ export default function AdminDashboard() {
   const [avarias, setAvarias] = useState<{id: string, description: string, value: number}[]>([]);
   const [isLearning, setIsLearning] = useState(false);
   const [users, setUsers] = useState<any[]>([]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('profiles_status_realtime')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, (payload) => {
+        setUsers(prev => prev.map(u => u.id === payload.new.id ? { ...u, ...payload.new } : u));
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
   const [userProfile, setUserProfile] = useState<any>(null);
   const isAdmin = userProfile?.role === 'admin' || currentUser?.email === 'pereira.brusque@gmail.com';
 
@@ -4367,6 +4380,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       { id: 'proposta_enviada', label: 'Leads Morna' },
                       { id: 'reservado', label: 'Reservados' },
                       { id: 'fechado', label: 'Lead Quente' },
+                      { id: 'vendido', label: 'Vendido pelo Usuário' },
                       { id: 'perdido', label: 'Perdidos' }
                     ].map((tab) => (
                       <button

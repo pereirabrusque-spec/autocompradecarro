@@ -18,6 +18,7 @@ import Testimonials from './components/Testimonials';
 import FipeSection from './components/FipeSection';
 import FeaturesSection from './components/FeaturesSection';
 import ChatAssistant from './components/ChatAssistant';
+import GlobalAIResponder from './components/GlobalAIResponder';
 import Footer from './components/Footer';
 import SellModal from './components/SellModal';
 import AdminDashboard from './components/AdminDashboard';
@@ -289,6 +290,9 @@ function AppContent() {
           onClose={() => setIsChatOpen(false)} 
         />
       )}
+
+      {/* Global AI Watcher for Buyers/Internal Chats */}
+      <GlobalAIResponder />
 
       {user && view !== 'admin' && profile?.role === 'seller' && (
         <InternalChat 

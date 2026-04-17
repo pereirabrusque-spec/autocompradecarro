@@ -591,29 +591,26 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         \`\`\`
       `;
 
-      const formStatusContext = isFormFilled 
-        ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente JÁ PREENCHEU o formulário com os dados do veículo. \n**AÇÃO:** Fale sobre o veículo dele, demonstre interesse técnico e informe que a proposta oficial está sendo analisada pela nossa equipe técnica e será enviada em breve. NÃO peça para preencher o formulário novamente. Foque em manter o cliente engajado enquanto aguarda.`
-        : `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente AINDA NÃO preencheu o formulário com os dados do veículo. \n**AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação.`;
+      const isFormFilledStrict = !!(leadData?.marca && leadData?.modelo && leadData.marca !== 'N/A' && leadData.modelo !== 'N/A');
 
-      const vehicleContext = leadData ? `
-DADOS DO VEÍCULO ATUAL (LEAD):
+      const formStatusContext = isFormFilledStrict 
+        ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente JÁ PREENCHEU o formulário com os dados do veículo concretamente. \n**AÇÃO:** Fale sobre o veículo dele, demonstre interesse técnico e informe que a proposta oficial está sendo analisada pela nossa equipe técnica e será enviada em breve. NÃO peça para preencher o formulário novamente. Se ele tiver outros carros, mencione-os se necessário.`
+        : `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente AINDA NÃO preencheu o formulário com os dados do veículo (ou os dados estão incompletos). \n**AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação. NÃO diga que "estamos analisando a proposta" se não houver dados de veículo abaixo.`;
+
+      const vehicleContext = isFormFilledStrict ? `
+DADOS DO VEÍCULO ATUAL (LEAD ATIVO NO SISTEMA):
 - ID: ${leadData.id}
-- Marca: ${leadData.marca || 'N/A'}
-- Modelo: ${leadData.modelo || 'N/A'}
+- Marca: ${leadData.marca}
+- Modelo: ${leadData.modelo}
 - Ano: ${leadData.ano_fabricacao}/${leadData.ano_modelo || 'N/A'}
 - Placa: ${leadData.placa || 'N/A'}
 - KM: ${leadData.quilometragem || 'N/A'}
 - Cor: ${leadData.cor || 'N/A'}
 - Preço Cliente: R$ ${leadData.preco_cliente || 'N/A'}
 - Situação Financeira: ${leadData.situacao_financeira || 'N/A'}
-- Entrada: R$ ${leadData.entrada || '0'}
-- Valor Parcela: R$ ${leadData.valor_parcela || '0'}
-- Total Parcelas: ${leadData.total_parcelas || '0'}
-- Banco: ${leadData.banco_financiamento || 'Nenhum'}
-- Sinistro/Leilão: ${leadData.tem_sinistro === 'sim' ? 'Sim' : 'Não'} / ${leadData.passagem_leilao === 'sim' ? 'Sim' : 'Não'}
-- Observações: ${leadData.observacoes || 'N/A'}
 - Status do Lead: ${leadData.status || 'N/A'}
-` : '';
+` : `\n[AVISO AO SISTEMA]: NÃO EXISTE VEÍCULO CADASTRADO NO BANCO DE DADOS PARA ESTE LEAD. 
+Qualquer menção do cliente sobre um carro deve ser tratada como um interesse de venda inicial, mas você deve afirmar que o sistema ainda não tem os dados oficiais para análise. `;
 
       const finalSystemPrompt = `
         [SISTEMA DE CONTROLE DE AGENTES E MEMÓRIA — AUTOCOMPRA.ONLINE]
@@ -633,6 +630,11 @@ DADOS DO VEÍCULO ATUAL (LEAD):
 
         ${formStatusContext}
         ${vehicleContext}
+
+        ### REGRAS DE GESTÃO DE ESTOQUE E VEÍCULOS:
+        1. **FOCO NO ÚLTIMO VEÍCULO:** Se houver mais de um veículo registrado para este usuário, sua resposta DEVE focar sempre no ÚLTIMO VEÍCULO mencionado na conversa ou o mais recente no sistema, a menos que o usuário peça explicitamente para falar de outro.
+        2. **TROCA DE VEÍCULO:** Se o cliente mencionar um veículo diferente (ex: "E sobre meu Celta?"), busque-o na lista de "OUTROS MODELOS NO SISTEMA" abaixo. Se encontrar, passe a responder sobre ele.
+        3. **STATUS VENDIDO:** Se o vendedor disser que já vendeu o carro, que não o possui mais ou que encerrou a negociação por fora, você DEVE responder com o JSON de ação: \`\`\`json\n{"action": "mark_as_sold", "vehicle_id": "ID_DO_VEICULO"}\n\`\`\`. Substitua ID_DO_VEICULO pelo ID correto do veículo em questão.
 
         [REGRAS DE NEGÓCIO E COMPORTAMENTO - ORIGEM: MENU IA]
         ${systemPrompt || defaultRules}
@@ -672,8 +674,16 @@ DADOS DO VEÍCULO ATUAL (LEAD):
       return true; 
     });
 
+    const clientName = user?.user_metadata?.full_name || profile?.full_name || 'Cliente';
+
     // No prompt, enviamos o histórico completo (messages)
-    const prompt = `HISTÓRICO COMPLETO (PARA APRENDIZADO):\n${messages.map(m => `${m.role.toUpperCase()}: ${m.text}`).join('\n')}\n\nENTRADA ATUAL:\n${userText}`;
+    const prompt = `CLIENTE: ${clientName}
+    
+HISTÓRICO COMPLETO (PARA APRENDIZADO):
+${messages.map(m => `${m.role.toUpperCase()}: ${m.text}`).join('\n')}
+
+ENTRADA ATUAL:
+${userText}`;
     
     let aiImage = userImage;
     if (!aiImage && leadData?.fotos && Array.isArray(leadData.fotos) && leadData.fotos.length > 0) {
@@ -686,11 +696,12 @@ DADOS DO VEÍCULO ATUAL (LEAD):
       const rawBotText = aiResponse.text || 'Entendido. Por favor, continue com as informações solicitadas.';
       
       // Substituição robusta de placeholders (lida com espaços e variações)
-      const clientName = user?.user_metadata?.full_name || profile?.full_name || 'Cliente';
+      const currentClientName = user?.user_metadata?.full_name || profile?.full_name || 'Cliente';
       const finalText = rawBotText
-          .replace(/{{[ ]*nome[ ]*}}/gi, clientName)
-          .replace(/{{[ ]*cliente_nome[ ]*}}/gi, clientName)
-          .replace(/{{[ ]*name[ ]*}}/gi, clientName);
+          .replace(/{{[ ]*nome[ ]*}}/gi, currentClientName)
+          .replace(/{{[ ]*cliente_nome[ ]*}}/gi, currentClientName)
+          .replace(/{{[ ]*name[ ]*}}/gi, currentClientName)
+          .replace(/\[[ ]*nome[ ]*\]/gi, currentClientName);
 
       // Check if botText contains a JSON block for lead submission or notification authorization
       const jsonMatch = finalText.match(/```json\n([\s\S]*?)\n```/);
@@ -720,8 +731,39 @@ DADOS DO VEÍCULO ATUAL (LEAD):
             return;
           }
 
+          // Handle Mark as Sold
+          if (data.action === 'mark_as_sold') {
+            const vehicleId = data.vehicle_id || leadId;
+            if (vehicleId) {
+              const { error } = await supabase
+                .from('leads_veiculos')
+                .update({ status: 'vendido' })
+                .eq('id', vehicleId);
+              
+              if (!error) {
+                const vehicleName = leadData?.id === vehicleId ? `${leadData.marca} ${leadData.modelo}` : 'veículo';
+                const soldMsg = `Entendido! Marquei o seu ${vehicleName} como **VENDIDO** em nosso sistema. Ele não aparecerá mais como uma negociação ativa. Deseja negociar algum outro veículo ou em que posso te ajudar agora?`;
+                
+                setMessages(prev => [...prev, 
+                  ...(textToShow ? [{ role: 'bot' as const, text: textToShow }] : []),
+                  { role: 'bot' as const, text: soldMsg }
+                ]);
+                
+                // Se for o veículo atual, limpa o estado local
+                if (vehicleId === leadId) {
+                  setLeadId(null);
+                  setLeadData(null);
+                  localStorage.removeItem('chat_lead_id');
+                }
+              } else {
+                console.error("[ChatAssistant] Error marking as sold:", error);
+              }
+            }
+            return;
+          }
+
           // Handle Lead Submission
-          const leadData = data;
+          const formJsonData = data;
           
           if (!leadId) {
             console.error("[ChatAssistant] Cannot save lead data: leadId is null");
@@ -729,30 +771,30 @@ DADOS DO VEÍCULO ATUAL (LEAD):
           }
 
           // Determine status based on data
-          let status = 'frio';
-          if (leadData.proposal_value) status = 'morno';
-          if (leadData.status_lead === 'fechado') status = 'quente';
+          let statusResult = 'frio';
+          if (formJsonData.proposal_value) statusResult = 'morno';
+          if (formJsonData.status_lead === 'fechado') statusResult = 'quente';
 
           const { error } = await supabase.from('leads_veiculos').upsert({
             id: leadId,
-            cliente_nome: leadData.owner_name,
-            telefone: leadData.owner_phone,
-            marca: leadData.brand,
-            modelo: leadData.model,
-            ano_modelo: leadData.year,
-            placa: leadData.plate,
-            renavam: leadData.renavam,
-            quilometragem: leadData.mileage,
-            banco_financiador: leadData.bank,
-            valor_parcela: leadData.installment_value,
-            parcelas_pagas: leadData.installments_paid,
-            parcelas_restantes: leadData.installments_remaining,
-            preco_cliente: leadData.desired_price,
-            valor_fipe: leadData.fipe_price,
-            situacao_financeira: leadData.situation,
-            status: status,
+            cliente_nome: formJsonData.owner_name,
+            telefone: formJsonData.owner_phone,
+            marca: formJsonData.brand,
+            modelo: formJsonData.model,
+            ano_modelo: formJsonData.year,
+            placa: formJsonData.plate,
+            renavam: formJsonData.renavam,
+            quilometragem: formJsonData.mileage,
+            banco_financiador: formJsonData.bank,
+            valor_parcela: formJsonData.installment_value,
+            parcelas_pagas: formJsonData.installments_paid,
+            parcelas_restantes: formJsonData.installments_remaining,
+            preco_cliente: formJsonData.desired_price,
+            valor_fipe: formJsonData.fipe_price,
+            situacao_financeira: formJsonData.situation,
+            status: statusResult,
             origem: 'chat',
-            observacoes: `Proposta: ${leadData.proposal_value} | Tipo: ${leadData.proposal_type} | Score: ${leadData.score_veiculo}`
+            observacoes: `Proposta: ${formJsonData.proposal_value} | Tipo: ${formJsonData.proposal_type} | Score: ${formJsonData.score_veiculo}`
           });
           
           if (error) throw error;
