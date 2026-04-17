@@ -245,6 +245,88 @@ async function startServer() {
     }
   });
 
+  // Google Merchant Center XML Feed
+  app.get('/api/google-merchant-feed', async (req, res) => {
+    try {
+      if (!supabaseAdmin) {
+        return res.status(500).send('Supabase Admin not initialized');
+      }
+
+      console.log('[Merchant Feed] Gerando feed de produtos...');
+
+      const { data: vehicles, error } = await supabaseAdmin
+        .from('leads_veiculos')
+        .select('*')
+        .not('marca', 'is', null)
+        .not('status', 'in', '("vendido", "perdido")');
+
+      if (error) throw error;
+
+      const escapeXml = (unsafe: string) => {
+        if (!unsafe) return '';
+        return unsafe.replace(/[<>&'"]/g, (c) => {
+          switch (c) {
+            case '<': return '&lt;';
+            case '>': return '&gt;';
+            case '&': return '&amp;';
+            case '\'': return '&apos;';
+            case '"': return '&quot;';
+            default: return c;
+          }
+        });
+      };
+
+      let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<rss xmlns:g="http://base.google.com/ns/1.0" version="2.0">
+  <channel>
+    <title>AutoCompra.online - Estoque</title>
+    <link>https://autocompra.online</link>
+    <description>Estoques de veículos da AutoCompra.online atualizados automaticamente.</description>
+`;
+
+      vehicles?.forEach((v: any) => {
+        const title = escapeXml(`${v.marca} ${v.modelo} ${v.ano_modelo || ''} ${v.versao || ''}`.trim());
+        const description = escapeXml(v.descricao || `Confira este ${title} disponível na AutoCompra.online.`);
+        const link = `https://autocompra.online/?veiculo=${v.id}`;
+        
+        let imageLink = '';
+        if (Array.isArray(v.fotos) && v.fotos.length > 0) {
+          imageLink = v.fotos[0];
+        } else if (typeof v.fotos === 'string' && v.fotos.startsWith('[')) {
+          try {
+            const parsed = JSON.parse(v.fotos);
+            if (Array.isArray(parsed) && parsed.length > 0) imageLink = parsed[0];
+          } catch (e) {}
+        }
+
+        const price = v.preco_cliente || v.preco_fipe || 0;
+        const availability = v.status === 'reservado' ? 'out of stock' : 'in stock';
+
+        xml += `    <item>
+      <g:id>${v.id}</g:id>
+      <g:title>${title}</g:title>
+      <g:description>${description}</g:description>
+      <g:link>${escapeXml(link)}</g:link>
+      <g:image_link>${escapeXml(imageLink)}</g:image_link>
+      <g:condition>used</g:condition>
+      <g:availability>${availability}</g:availability>
+      <g:price>${price.toFixed(2)} BRL</g:price>
+      <g:brand>${escapeXml(v.marca)}</g:brand>
+      <g:google_product_category>Vehicles &amp; Parts &gt; Vehicles &gt; Motor Vehicles &gt; Cars, Trucks &amp; Vans</g:google_product_category>
+    </item>\n`;
+      });
+
+      xml += `  </channel>
+</rss>`;
+
+      res.header('Content-Type', 'application/xml; charset=utf-8');
+      res.send(xml);
+    } catch (error: any) {
+      console.error('[Merchant Feed] Erro:', error);
+      res.status(500).send('Erro ao gerar o feed');
+    }
+  });
+
   async function testApiKey(provider: string, key: string, service?: string, fullTest: boolean = false) {
     const trimmedKey = key?.trim();
     const p = provider?.toLowerCase();
