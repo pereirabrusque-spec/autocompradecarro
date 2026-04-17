@@ -335,11 +335,14 @@ export const BackgroundAIManager = () => {
             
             console.log(`[BackgroundAIManager] Perfil do remetente (${senderId}):`, senderProfile);
             
-            const { data: existingLead } = await supabase
+            const { data: userLeads } = await supabase
                 .from('leads_veiculos')
                 .select('id, marca, modelo')
                 .eq('user_id', senderId)
-                .maybeSingle();
+                .order('created_at', { ascending: false })
+                .limit(1);
+            
+            const existingLead = userLeads?.[0] || null;
 
             const isBuyer = senderProfile?.role?.toLowerCase().includes('buyer') || (payload.lead_id && payload.lead_id !== 'null' && payload.lead_id !== '');
             const isSeller = senderProfile?.role?.toLowerCase().includes('seller') || (!isBuyer && !!existingLead);
@@ -360,17 +363,6 @@ export const BackgroundAIManager = () => {
 
             if (!isGlobalAiEnabled) {
                 console.log(`[BackgroundAIManager] ⏭️ IA ignorando resposta para ${senderId} (Global: ${isGlobalAiEnabled}).`);
-                return;
-            }
-
-            if (!finalIsBuyer && finalIsSeller && !existingLead && !payload.lead_id) {
-                console.log(`[BackgroundAIManager] Vendedor sem lead encontrado. Induzindo preenchimento.`);
-                await supabase.from('internal_messages').insert({
-                    receiver_id: senderId,
-                    content: "Olá! Para que eu possa te ajudar a encontrar o melhor negócio e fornecer uma proposta de valor, você precisa preencher nosso formulário completo aqui: https://autocompra.online/vender. Assim nossa equipe consegue fazer uma análise técnica detalhada para você!",
-                    sender_id: uid,
-                    lead_id: null
-                });
                 return;
             }
 
@@ -411,7 +403,12 @@ export const BackgroundAIManager = () => {
 
                 if (!currentLeadId) {
                     const lastMsgWithLead = historyData?.find(m => m.lead_id);
-                    if (lastMsgWithLead) currentLeadId = lastMsgWithLead.lead_id;
+                    if (lastMsgWithLead) {
+                        currentLeadId = lastMsgWithLead.lead_id;
+                    } else if (existingLead) {
+                        currentLeadId = existingLead.id;
+                        console.log(`[BackgroundAIManager] Usando existingLead (${currentLeadId}) como fallback.`);
+                    }
                 }
 
                 if (currentLeadId) {
@@ -551,6 +548,9 @@ MEMÓRIA DO SISTEMA: ${aiCrmMemoryRef.current}
 IDENTIFICAÇÃO DO PERFIL: ${finalIsBuyer ? 'COMPRADOR' : 'VENDEDOR'}
 NOME DO REMETENTE: ${clientName}
 ROLE: ${senderProfile?.role}
+
+${formStatusContext}
+${followUpContext}
 
 CONVERSA ATUAL:
 ${history}
