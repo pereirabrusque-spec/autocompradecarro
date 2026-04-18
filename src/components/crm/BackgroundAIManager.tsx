@@ -744,13 +744,28 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                 return;
             }
 
-            const { data: leadData, error: leadError } = await supabase
+            let leadData: any = null;
+            const { data: leadFromTable, error: leadError } = await supabase
                 .from('leads_veiculos')
                 .select('detalhes_proposta, cliente_nome')
                 .eq('id', leadId)
                 .maybeSingle();
             
-            if (leadError) {
+            leadData = leadFromTable;
+
+            if (!leadData) {
+                // Tenta buscar no profiles (novo usuário sem veículo ainda)
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('full_name')
+                    .eq('id', leadId)
+                    .maybeSingle();
+                if (profile) {
+                    leadData = { cliente_nome: profile.full_name, detalhes_proposta: {} };
+                }
+            }
+            
+            if (leadError && !leadData) {
                 console.error(`[BackgroundAIManager] handlePublicMessage ERROR [ID: ${messageId}]: Erro ao buscar lead:`, leadError);
             }
             
@@ -802,7 +817,7 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                     .from('leads_veiculos')
                     .select('*')
                     .eq('id', leadId)
-                    .single();
+                    .maybeSingle();
 
                 let inventoryContext = "";
                 let vehicleInfo = "";
