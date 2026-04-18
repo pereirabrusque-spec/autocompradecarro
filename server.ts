@@ -3,6 +3,7 @@ import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
+import fs from 'fs';
 
 import { createClient } from '@supabase/supabase-js';
 
@@ -676,6 +677,25 @@ async function startServer() {
       appType: 'spa',
     });
     app.use(vite.middlewares);
+
+    // Catch-all route to serve index.html with Vite transformation
+    app.get('*', async (req, res, next) => {
+      // Ignore API routes
+      if (req.originalUrl.startsWith('/api')) {
+        return next();
+      }
+
+      try {
+        const url = req.originalUrl;
+        let template = fs.readFileSync(path.resolve(__dirname, 'index.html'), 'utf-8');
+        template = await vite.transformIndexHtml(url, template);
+        res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+      } catch (e: any) {
+        vite.ssrFixStacktrace(e);
+        console.error('[Server Error] Error serving index.html:', e);
+        res.status(500).end(e.stack);
+      }
+    });
   } else {
     app.use(express.static(path.join(__dirname, 'dist')));
     app.get('*', (req, res) => {
