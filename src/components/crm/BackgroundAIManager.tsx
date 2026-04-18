@@ -461,6 +461,7 @@ export const BackgroundAIManager = () => {
                 return;
             }
 
+            let currentLeadId = (payload.lead_id && payload.lead_id !== 'null' && payload.lead_id !== '') ? payload.lead_id : null;
             try {
                 const { data: historyData } = await supabase
                     .from('internal_messages')
@@ -473,7 +474,6 @@ export const BackgroundAIManager = () => {
                     `${m.sender_id === uid ? 'Admin' : 'Cliente'}: ${m.content} ${m.lead_id ? `(Ref: ${m.lead_id})` : ''}`
                 ).join('\n');
 
-                let currentLeadId = (payload.lead_id && payload.lead_id !== 'null' && payload.lead_id !== '') ? payload.lead_id : null;
                 let specificLead = null;
                 let vehicleContext = "";
                 let specificVehicleInfo = "";
@@ -705,6 +705,33 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                         } 
                     })
                     .eq('id', payload.id);
+
+                // ENVIAR RESPOSTA ESTÁTICA EM CASO DE FALHA DAS APIS (Assumir controle provisório)
+                const staticFallback = "Olá! Recebi sua mensagem interna. No momento meus sistemas de processamento automático estão passando por uma atualização. Continuarei tentando processar sua solicitação e em breve trarei a resposta técnica definitiva. Se preferir, um administrador também poderá assumir este chat em instantes.";
+                
+                // Verifica se já não enviamos esse fallback para ESSA mensagem específica para evitar spam
+                const { data: existingInternalFallback } = await supabase
+                    .from('internal_messages')
+                    .select('id')
+                    .eq('metadata->>original_message_id', payload.id)
+                    .or('metadata->>is_fallback.eq.true,metadata->>fallback.eq.true')
+                    .limit(1);
+
+                if (!existingInternalFallback || existingInternalFallback.length === 0) {
+                    await supabase.from('internal_messages').insert({
+                        receiver_id: senderId,
+                        sender_id: uid,
+                        content: staticFallback,
+                        lead_id: currentLeadId,
+                        metadata: { 
+                            ai_handled: true, 
+                            is_fallback: true,
+                            original_message_id: payload.id,
+                            error_ref: String(err)
+                        }
+                    });
+                    console.log(`[BackgroundAIManager] 🛡️ Fallback interno enviado para ${senderId}.`);
+                }
             }
         }
     };
@@ -1027,19 +1054,31 @@ REGRAS GERAIS:
                 // Isso garante que o cliente nunca fique sem resposta, mesmo sem chaves de API válidas
                 const staticFallback = "Olá! Recebi sua mensagem. No momento nossos sistemas de análise automática estão passando por uma atualização rápida. Sou o especialista responsável por este atendimento e em instantes darei continuidade à sua análise pessoalmente. Por favor, aguarde só um momento!";
                 
-                await supabase.from('mensagens').insert({
-                    lead_id: leadId,
-                    conteudo: staticFallback,
-                    remetente: 'bot',
-                    metadata: { 
-                        ai_handled: true, 
-                        is_fallback: true,
-                        original_message_id: payload.id,
-                        error_ref: String(err)
-                    }
-                });
-                
-                console.log(`[BackgroundAIManager] 🛡️ Mensagem Estática de Fallback enviada para lead ${leadId} devido a erro de API.`);
+                // VERIFICA SE JÁ ENVIAMOS FALLBACK PARA ESTA MENSAGEM (Evita flood se o scanner forçar retry)
+                const { data: existingPublicFallback } = await supabase
+                    .from('mensagens')
+                    .select('id')
+                    .eq('lead_id', leadId)
+                    .eq('metadata->>original_message_id', payload.id)
+                    .or('metadata->>is_fallback.eq.true,metadata->>fallback.eq.true')
+                    .limit(1);
+
+                if (!existingPublicFallback || existingPublicFallback.length === 0) {
+                    await supabase.from('mensagens').insert({
+                        lead_id: leadId,
+                        conteudo: staticFallback,
+                        remetente: 'bot',
+                        metadata: { 
+                            ai_handled: true, 
+                            is_fallback: true,
+                            original_message_id: payload.id,
+                            error_ref: String(err)
+                        }
+                    });
+                    console.log(`[BackgroundAIManager] 🛡️ Mensagem Estática de Fallback enviada para lead ${leadId} devido a erro de API.`);
+                } else {
+                    console.log(`[BackgroundAIManager] ⏭️ Fallback já existe para msg ${payload.id}. Apenas registrando erro e aguardando autorecuperação da IA...`);
+                }
             }
         }
     };
@@ -1097,7 +1136,7 @@ REGRAS GERAIS:
 
                 const isAiFailed = lastClientMsg?.metadata?.ai_failed;
                 const lastFailedTime = lastClientMsg?.metadata?.failed_at ? new Date(lastClientMsg.metadata.failed_at).getTime() : 0;
-                const shouldRetry = isAiFailed && (Date.now() - lastFailedTime > 60000); // Retry após 1 min
+                const shouldRetry = isAiFailed && (Date.now() - lastFailedTime > 30000); // Retry mais agressivo (30s) para forçar controle
 
                 if (lastClientMsg && (!lastAdminSuccess || new Date(lastClientMsg.created_at) > new Date(lastAdminSuccess.created_at))) {
                     if (!lastClientMsg.metadata?.ai_handled && (!isAiFailed || shouldRetry)) {
@@ -1155,7 +1194,7 @@ REGRAS GERAIS:
 
                 const isAiFailed = lastClientMsg?.metadata?.ai_failed;
                 const lastFailedTime = lastClientMsg?.metadata?.failed_at ? new Date(lastClientMsg.metadata.failed_at).getTime() : 0;
-                const shouldRetry = isAiFailed && (Date.now() - lastFailedTime > 60000); // Retry após 1 min
+                const shouldRetry = isAiFailed && (Date.now() - lastFailedTime > 30000); // Retry mais agressivo (30s) para forçar controle
 
                 if (lastClientMsg && (!lastAdminSuccess || new Date(lastClientMsg.created_at) > new Date(lastAdminSuccess.created_at))) {
                     if (!lastClientMsg.metadata?.ai_handled && (!isAiFailed || shouldRetry)) {
