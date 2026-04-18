@@ -661,15 +661,19 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
     const prompt = `CLIENTE: ${clientName}
     
 HISTÓRICO COMPLETO (PARA APRENDIZADO):
-${messages.map(m => `${m.role.toUpperCase()}: ${m.text}`).join('\n')}
+${messages.map(m => `${m.role.toUpperCase()}: ${m.text || '[Imagem/Arquivo]'}`).join('\n')}
 
 ENTRADA ATUAL:
 ${userText}`;
     
     let aiImage = userImage;
-    if (!aiImage && leadData?.fotos && Array.isArray(leadData.fotos) && leadData.fotos.length > 0) {
+    if (!aiImage && leadData?.fotos && Array.isArray(leadData.fotos) && leadData.fotos.length > 0 && leadData.fotos[0]) {
       console.log("[ChatAssistant] Fetching vehicle photo for AI analysis...");
-      aiImage = await fetchImageAsBase64(leadData.fotos[0]);
+      try {
+        aiImage = await fetchImageAsBase64(leadData.fotos[0]);
+      } catch (imgErr) {
+        console.warn("[ChatAssistant] Erro ao carregar foto do lead para IA:", imgErr);
+      }
     }
 
     const aiResponse = await AIService.generateContent(prompt, finalSystemPrompt, aiImage || undefined);

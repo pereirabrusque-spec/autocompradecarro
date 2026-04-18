@@ -923,10 +923,14 @@ VEÍCULO EM NEGOCIAÇÃO:
                     } catch (e) {}
                 }
 
+            // Identificação do lead e status
             const isFormFilled = !!(vehicle && vehicle.marca && vehicle.modelo);
             const leadStatus = isFormFilled ? "MORNO (Formulário Preenchido)" : "FRIO (Formulário NÃO Preenchido)";
             
-            console.log(`[BackgroundAIManager] 🌡️ Status do Lead [ID: ${messageId}]: ${leadStatus}`);
+            // Força o leadId a ser o do payload se o vehicle falhar (para novos leads recém criados)
+            const activeLeadId = leadId || payload.lead_id;
+
+            console.log(`[BackgroundAIManager] 🌡️ Status do Lead [ID: ${messageId}]: ${leadStatus}. FormFilled: ${isFormFilled}`);
 
             const formStatusContext = isFormFilled 
                 ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** ${leadStatus}. \n**AÇÃO:** O cliente já forneceu os dados técnicos do veículo. Fale sobre o veículo dele, demonstre interesse técnico e informe que a proposta oficial está sendo analisada. NÃO peça para preencher o formulário novamente. Foque em manter o cliente engajado enquanto aguarda.`
@@ -1037,10 +1041,10 @@ REGRAS GERAIS:
                             console.error("[BackgroundAIManager] ❌ Erro ao enviar Webhook (Fallback para Chat desativado por config parcial):", webhookErr);
                         }
                     } else {
-                        console.log("[BackgroundAIManager] 💬 ENVIANDO VIA CHAT (Lead ID:", leadId, ")");
-                        logToStorage(`Resposta IA enviada via Chat para lead ${leadId}`, 'info');
+                        console.log("[BackgroundAIManager] 💬 ENVIANDO VIA CHAT (Lead ID:", activeLeadId, ")");
+                        logToStorage(`Resposta IA enviada via Chat para lead ${activeLeadId}`, 'info');
                         const { error: insertError } = await supabase.from('mensagens').insert({
-                            lead_id: leadId,
+                            lead_id: activeLeadId,
                             conteudo: finalText,
                             remetente: 'bot',
                             metadata: { ai_handled: true, original_message_id: payload.id, is_follow_up: isFollowUp }
@@ -1212,13 +1216,16 @@ REGRAS GERAIS:
                 );
 
                 // Busca a última resposta SUCESSO (IA ou Admin Humano)
+                // MODIFICAÇÃO: Ignora explicitamente mensagens de FALLBACK enviadas pelo ChatAssistant
                 const lastAdminSuccess = allPublic.find(m => 
                     m.lead_id === leadId && 
                     (m.remetente?.toLowerCase() === 'admin' || m.remetente?.toLowerCase() === 'bot') &&
-                    !m.metadata?.ai_welcome && // Ignora boas-vindas para decidir se precisa de resposta real
+                    !m.metadata?.ai_welcome && 
                     !m.metadata?.ai_failed &&
                     !m.metadata?.is_fallback &&
-                    !m.metadata?.fallback
+                    !m.metadata?.fallback &&
+                    !m.conteudo.includes('Um consultor técnico já foi notificado') &&
+                    !m.conteudo.includes('No momento nossos sistemas de análise automática estão passando por uma atualização')
                 );
 
                 const isAiFailed = lastClientMsg?.metadata?.ai_failed;
