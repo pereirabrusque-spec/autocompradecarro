@@ -296,55 +296,52 @@ export const BackgroundAIManager = () => {
         console.log("[BackgroundAIManager] 🤖 Iniciando resposta automática para NOVO LEAD:", lead.id);
 
         try {
-            // Verifica se já existe alguma mensagem para este lead para não duplicar boas-vindas
-            const { count } = await supabase
-                .from('internal_messages')
-                .select('*', { count: 'exact', head: true })
-                .eq('lead_id', lead.id);
+            // Verifica se já existe alguma mensagem de BOAS VINDAS para não duplicar
+            const { data: welcomeMsgs } = await supabase
+                .from('mensagens')
+                .select('id')
+                .eq('lead_id', lead.id)
+                .is('metadata->ai_welcome', true);
 
-            if (count && count > 0) {
-                console.log("[BackgroundAIManager] Lead já possui mensagens, ignorando saudação inicial.");
+            if (welcomeMsgs && welcomeMsgs.length > 0) {
+                console.log("[BackgroundAIManager] Lead já possui saudação inicial, ignorando.");
                 return;
             }
 
-            const clientName = lead.nome || lead.full_name || "Cliente";
-            const carContext = lead.marca ? `sobre o ${lead.marca} ${lead.modelo}` : "sobre a sua intenção de venda/compra";
+            const clientName = lead.cliente_nome || "Cliente";
+            const carContext = lead.marca ? `sobre o seu veículo ${lead.marca} ${lead.modelo}` : "sobre sua intenção de negócio";
             
             const prompt = `
-                O cliente ${clientName} acabou de se cadastrar no site ${carContext}.
-                Inicie a conversa de forma extremamente profissional e acolhedora como Agente de Elite da Auto Compra Online.
-                Se ele já preencheu o carro (${lead.marca}), mencione que recebeu os dados e está analisando.
-                Se for lead frio (apenas contato), convide-o a falar mais sobre o que procura ou oferecer o veículo para avaliação.
-                Mantenha a resposta curta e instigue uma resposta.
+                O cliente ${clientName} acaba de se cadastrar no site e está interessado ${carContext}.
+                Dê as boas-vindas como Especialista Luiz da AutoCompra.
+                Seja extremamente profissional, direto e diga que já estamos analisando as informações para garantir o melhor negócio.
+                Use no máximo 2 linhas.
             `;
 
-            const systemPrompt = "Você é o Agente de Elite da Auto Compra Online. Sua missão é dar as boas-vindas a novos leads e iniciar o engajamento imediato.";
+            const systemPrompt = "Você é o Especialista Luiz da AutoCompra. Sua missão é recepcionar novos leads com agilidade e autoridade.";
             
             const response = await AIService.generateContent(prompt, systemPrompt);
 
             if (response && response.text) {
-                // Envia tanto para mensagens INTERNAS quanto PÚBLICAS para garantir que o lead veja
+                // Envia para o chat público (Vendedores)
                 await supabase.from('mensagens').insert({
                     lead_id: lead.id,
                     remetente: 'bot',
                     conteudo: response.text,
-                    metadata: { ai_handled: true, ai_welcome: true, timestamp: new Date().toISOString() }
+                    metadata: { 
+                        ai_handled: true, 
+                        ai_welcome: true, 
+                        is_initial: true,
+                        timestamp: new Date().toISOString() 
+                    }
                 });
 
-                await supabase.from('internal_messages').insert({
-                    sender_id: uid,
-                    receiver_id: null,
-                    lead_id: lead.id,
-                    content: response.text,
-                    metadata: { ai_handled: true, ai_welcome: true, timestamp: new Date().toISOString() }
-                });
-
-                console.log("[BackgroundAIManager] ✅ Saudação inicial enviada para novo lead:", lead.id);
+                console.log("[BackgroundAIManager] ✅ Saudação inicial enviada para o canal público do lead:", lead.id);
             }
         } catch (error) {
             console.error("[BackgroundAIManager] Erro ao responder novo lead:", error);
         }
-    }
+    };
 
     const handleInternalMessage = async (payload: any, isFollowUp = false) => {
         console.log('[BackgroundAIManager] 📩 handleInternalMessage START:', { 
@@ -1041,10 +1038,11 @@ REGRAS GERAIS:
                     m.sender_id !== uid
                 );
 
-                // Busca a última resposta SUCESSO da IA/Admin
+                // Busca a última resposta SUCESSO da IA/Admin (ignorando fallbacks de erro)
                 const lastAdminSuccess = allInternal.find(m => 
                     m.sender_id === uid && 
-                    m.metadata?.ai_handled === true
+                    m.metadata?.ai_handled === true &&
+                    !m.metadata?.is_fallback
                 );
 
                 const isAiFailed = lastClientMsg?.metadata?.ai_failed;
@@ -1095,11 +1093,13 @@ REGRAS GERAIS:
                     m.remetente?.toLowerCase() === 'cliente'
                 );
 
-                // Busca a última resposta SUCESSO da IA/Admin
+                // Busca a última resposta SUCESSO da IA/Admin (Ignorando mensagens de boas-vindas ou falhas)
                 const lastAdminSuccess = allPublic.find(m => 
                     m.lead_id === leadId && 
                     (m.remetente?.toLowerCase() === 'admin' || m.remetente?.toLowerCase() === 'bot') &&
-                    m.metadata?.ai_handled === true
+                    m.metadata?.ai_handled === true &&
+                    !m.metadata?.ai_welcome &&
+                    !m.metadata?.is_fallback
                 );
 
                 const isAiFailed = lastClientMsg?.metadata?.ai_failed;

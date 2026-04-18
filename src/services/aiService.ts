@@ -298,6 +298,10 @@ export class AIService {
           newStatus = 'rate_limited';
         } else if (errMsg.includes('quota') || errMsg.includes('credit') || errMsg.includes('balance') || errMsg.includes('insufficient') || errMsg.includes('billing')) {
           newStatus = 'no_credit';
+        } else if (errMsg.includes('unknown name "system_instruction"') || errMsg.includes('system_instruction')) {
+          // Erro comum em modelos v1 que não suportam campo de instrução de sistema no payload
+          console.warn(`[AIService] ⚠️ Modelo não suporta system_instruction. Tentando marcar como disconnected para rotacionar.`);
+          newStatus = 'disconnected';
         } else if (errMsg.includes('model') || errMsg.includes('not found') || errMsg.includes('exist')) {
           newStatus = 'disconnected';
         } else if (errMsg.includes('key') || errMsg.includes('invalid') || errMsg.includes('unauthorized') || errMsg.includes('permission') || errMsg.includes('denied access') || errMsg.includes('suspended')) {
@@ -473,9 +477,9 @@ class AIClientManager {
 
     console.log(`[AIService] Modelo mapeado final: "${modelName}" para provedor: ${apiKey.provider}`);
 
-    if (modelName === 'gemini-pro' || modelName === 'gemini-1.0-pro') {
-      // Use gemini-1.5-flash as default for better reliability unless specifically overridden
-      if (!apiKey.service) modelName = 'gemini-1.5-flash';
+    if (modelName === 'gemini-pro' || modelName === 'gemini-1.0-pro' || modelName.includes('gemini-1.0')) {
+      // Use gemini-1.5-flash as default for better reliability as v1 often fails with system_instruction
+      modelName = 'gemini-1.5-flash';
     }
 
     const timeoutPromise = new Promise<never>((_, reject) => {
