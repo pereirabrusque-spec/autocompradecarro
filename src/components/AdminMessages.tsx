@@ -88,6 +88,30 @@ export default function AdminMessages({
 }: AdminMessagesProps) {
   const [searchTerm, setSearchTerm] = React.useState('');
   const leadsScrollRef = useRef<HTMLDivElement>(null);
+  const internalScrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll para o final das mensagens
+  useEffect(() => {
+    const scrollToBottom = () => {
+      if (leadsScrollRef.current) {
+        leadsScrollRef.current.scrollTop = leadsScrollRef.current.scrollHeight;
+      }
+    };
+    
+    const timeout = setTimeout(scrollToBottom, 100);
+    return () => clearTimeout(timeout);
+  }, [chatMessages, selectedConversation]);
+
+  useEffect(() => {
+    const scrollToBottom = () => {
+      if (internalScrollRef.current) {
+        internalScrollRef.current.scrollTop = internalScrollRef.current.scrollHeight;
+      }
+    };
+    
+    const timeout = setTimeout(scrollToBottom, 100);
+    return () => clearTimeout(timeout);
+  }, [internalChatMessages, compradorChatMessages, selectedInternalChat, selectedCompradorChat]);
 
   const filteredConversations = (conversations || [])
     .filter(conv => 
@@ -454,7 +478,7 @@ export default function AdminMessages({
           selectedConversation ? (
           <>
             {/* Cabeçalho do Chat */}
-            <div className="p-4 bg-white border-b border-slate-100 flex justify-between items-center">
+            <div className="p-4 bg-white border-b border-slate-100 flex justify-between items-center sticky top-0 z-20 shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden flex items-center justify-center">
                   {(() => {
@@ -771,7 +795,7 @@ export default function AdminMessages({
           (selectedInternalChat || selectedCompradorChat) ? (
             <>
               {/* Cabeçalho do Chat Interno / Comprador */}
-              <div className="p-4 bg-white border-b border-slate-100 flex justify-between items-center">
+              <div className="p-4 bg-white border-b border-slate-100 flex justify-between items-center sticky top-0 z-20 shadow-sm">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden flex items-center justify-center">
                     {(() => {
@@ -949,8 +973,8 @@ export default function AdminMessages({
 
               {/* Mensagens Internas / Compradores */}
               <div 
-                ref={leadsScrollRef}
-                className="flex-1 overflow-y-auto p-6 space-y-4"
+                ref={internalScrollRef}
+                className="flex-1 overflow-y-auto p-6 space-y-4 scroll-smooth"
               >
                 {(messageTab === 'buyers' ? compradorChatMessages : internalChatMessages || []).map((msg) => (
                   <div 

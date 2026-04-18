@@ -1552,32 +1552,55 @@ export default function AdminDashboard() {
       })
       .subscribe();
 
-    // Subscription para perfis (online status)
+    // Subscription para perfis (online status e novos registros)
     const profilesSubscription = supabase
       .channel('admin_profiles_realtime')
       .on('postgres_changes', { 
-        event: 'UPDATE', 
+        event: '*', 
         schema: 'public', 
         table: 'profiles' 
       }, (payload) => {
-        console.log("Perfil atualizado (realtime):", payload.new);
-        setUsers(prev => prev.map(u => u.id === payload.new.id ? { ...u, ...payload.new } : u));
+        console.log("Perfil alterado (realtime):", payload.eventType, payload.new);
         
-        // Se o perfil atualizado for o do lead selecionado ou de uma conversa, força refresh
-        // Apenas se houver mudança significativa (role ou nome), para evitar loop com last_login
-        const oldProfile = payload.old as any;
+        if (payload.eventType === 'INSERT') {
+          setUsers(prev => [...prev, payload.new]);
+          // Se for um novo perfil, pode ser um novo lead frio
+          setTimeout(fetchData, 1000);
+          return;
+        }
+
         const newProfile = payload.new as any;
+        setUsers(prev => prev.map(u => u.id === newProfile.id ? { ...u, ...newProfile } : u));
         
-        // Se não tiver o perfil antigo (Replica Identity), comparamos com o que temos no estado
+        // Se houver mudança significativa (role ou nome), força refresh completo
         const profileInState = users.find(u => u.id === newProfile.id);
-        
         if (profileInState) {
           if (profileInState.role !== newProfile.role || profileInState.full_name !== newProfile.full_name) {
             fetchData();
+          } else {
+            // Apenas atualiza o status online na lista de conversas sem fetch completo
+            const isOnline = (new Date().getTime() - new Date(newProfile.last_login).getTime()) < 300000;
+            setConversations(prev => prev.map(c => {
+               if (c.customer_email === newProfile.email) {
+                  return { ...c, is_online: isOnline };
+               }
+               return c;
+            }));
+            
+            setInternalConversations(prev => prev.map(c => {
+               if (c.id === newProfile.id) {
+                  return { ...c, is_online: isOnline, profile: { ...c.profile, ...newProfile } };
+               }
+               return c;
+            }));
+            
+            setCompradoresConversations(prev => prev.map(c => {
+               if (c.id === newProfile.id) {
+                  return { ...c, is_online: isOnline, profile: { ...c.profile, ...newProfile } };
+               }
+               return c;
+            }));
           }
-        } else {
-          // Se for um novo perfil que não estava no estado, melhor atualizar
-          fetchData();
         }
       })
       .subscribe();

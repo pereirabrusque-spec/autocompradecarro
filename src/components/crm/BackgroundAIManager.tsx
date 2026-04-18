@@ -315,7 +315,8 @@ export const BackgroundAIManager = () => {
                 O cliente ${clientName} acaba de se cadastrar no site e está interessado ${carContext}.
                 Dê as boas-vindas como Especialista Luiz da AutoCompra.
                 Seja extremamente profissional, direto e diga que já estamos analisando as informações para garantir o melhor negócio.
-                Use no máximo 2 linhas.
+                Fale que em instantes ele receberá uma proposta preliminar baseada nos dados fornecidos.
+                Use no máximo 2 linhas rápidas.
             `;
 
             const systemPrompt = "Você é o Especialista Luiz da AutoCompra. Sua missão é recepcionar novos leads com agilidade e autoridade.";
@@ -340,6 +341,14 @@ export const BackgroundAIManager = () => {
             }
         } catch (error) {
             console.error("[BackgroundAIManager] Erro ao responder novo lead:", error);
+            // Se falhar a IA por crédito, envia uma estática para não deixar o cliente no vácuo
+            const clientName = lead.cliente_nome || "Cliente";
+            await supabase.from('mensagens').insert({
+                lead_id: lead.id,
+                remetente: 'bot',
+                conteudo: `Olá ${clientName}, sou o Luiz da AutoCompra. Seja bem-vindo! Já recebi seus dados e nossa equipe técnica está analisando tudo para te enviar a melhor proposta em instantes.`,
+                metadata: { ai_welcome: true, is_initial: true, fallback: true }
+            });
         }
     };
 
@@ -759,16 +768,20 @@ RESPONDA DIRETAMENTE AO REMETENTE.
             const delay = Math.floor(Math.random() * 5000) + 2000; // 2-7 segundos
             await new Promise(resolve => setTimeout(resolve, delay));
 
-            const { data: recentMsg } = await supabase
+            // Verificação Refinada: Ignora mensagens de BOAS VINDAS ou FALHAS para decidir se deve responder
+            const { data: recentAdminResponse } = await supabase
                 .from('mensagens')
-                .select('id')
+                .select('id, metadata')
                 .eq('lead_id', leadId)
                 .in('remetente', ['admin', 'bot'])
-                .gt('created_at', payload.created_at)
-                .limit(1);
+                .gt('created_at', payload.created_at);
 
-            if (recentMsg && recentMsg.length > 0) {
-                console.log(`[BackgroundAIManager] 🛑 Já existe uma resposta posterior para o lead [ID: ${messageId}] (${leadId}). Abortando.`);
+            const hasValidResponse = recentAdminResponse?.some(m => 
+                !m.metadata?.ai_welcome && !m.metadata?.ai_failed && !m.metadata?.is_fallback
+            );
+
+            if (hasValidResponse) {
+                console.log(`[BackgroundAIManager] 🛑 Já existe uma resposta posterior VÁLIDA para o lead [ID: ${messageId}] (${leadId}). Abortando.`);
                 return;
             }
 
@@ -800,12 +813,12 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                     vehiclePhoto = allPhotos[0] || "";
                     
                     const proposalResult = calculateProposal(vehicle, {
-                        fipeRules: fipeRulesRef.current,
-                        banks: banksRef.current,
-                        cooperativeDiscount: cooperativeDiscountRef.current,
-                        profitMarginPercentage: profitMarginPercentageRef.current,
-                        jurosAtraso: jurosAtrasoRef.current,
-                        repairCosts: repairCostsRef.current
+                        fipeRules: fipeRulesRef.current || [],
+                        banks: banksRef.current || [],
+                        cooperativeDiscount: cooperativeDiscountRef.current || 0,
+                        profitMarginPercentage: profitMarginPercentageRef.current || 0,
+                        jurosAtraso: jurosAtrasoRef.current || 1,
+                        repairCosts: repairCostsRef.current || []
                     });
                     const propostaFinal = proposalResult.finalValue;
                     requiresManualAnalysis = proposalResult.requiresManualAnalysis;
@@ -813,33 +826,34 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                     vehicleInfo = `
 VEÍCULO EM NEGOCIAÇÃO:
 - ID: ${vehicle.id}
-- Marca/Modelo: ${vehicle.marca} ${vehicle.modelo}
-- Ano: ${vehicle.ano_fabricacao}/${vehicle.ano_modelo}
+- Marca/Modelo: ${vehicle.marca || 'N/A'} ${vehicle.modelo || 'N/A'}
+- Ano: ${vehicle.ano_fabricacao || 'N/A'}/${vehicle.ano_modelo || 'N/A'}
 - Placa: ${vehicle.placa || 'N/A'}
 - Preço Sugerido/Cliente: R$ ${vehicle.preco_cliente || 'A consultar'}
 - PROPOSTA FINAL CALCULADA: R$ ${propostaFinal || 'A calcular'}
 - KM: ${vehicle.quilometragem || vehicle.km || '0'}
 - Cor: ${vehicle.cor || 'Não informada'}
-- Situação Financeira: ${vehicle.situacao_financeira || 'Não informada'}
-- Entrada: R$ ${vehicle.entrada || '0'}
-- Valor Parcela: R$ ${vehicle.valor_parcela || '0'}
-- Total Parcelas: ${vehicle.total_parcelas || '0'}
-- Banco: ${vehicle.banco_financiamento || 'Nenhum'}
 - Sinistro/Leilão: ${vehicle.tem_sinistro === 'sim' ? 'Sim' : 'Não'} / ${vehicle.passagem_leilao === 'sim' ? 'Sim' : 'Não'}
-- Observações: ${vehicle.observacoes || 'N/A'}
-- Status do Lead: ${vehicle.status || 'N/A'}
+- Status: ${vehicle.status || 'N/A'}
 `;
 
-                    const { data: others } = await supabase
-                        .from('leads_veiculos')
-                        .select('marca, modelo, ano_modelo, preco_cliente, cor, quilometragem')
-                        .or(`email.eq.${vehicle.email}${vehicle.user_id ? `,user_id.eq.${vehicle.user_id}` : ''}`)
-                        .neq('id', leadId)
-                        .limit(10);
+                    // Guard clause for the "others" query to prevent crash on null email
+                    if (vehicle.email) {
+                        try {
+                            const { data: others } = await supabase
+                                .from('leads_veiculos')
+                                .select('marca, modelo, ano_modelo, preco_cliente, cor, quilometragem')
+                                .or(`email.eq.${vehicle.email}${vehicle.user_id ? `,user_id.eq.${vehicle.user_id}` : ''}`)
+                                .neq('id', leadId)
+                                .limit(10);
 
-                    if (others && others.length > 0) {
-                        inventoryContext = "\nOUTROS VEÍCULOS DESTE VENDEDOR NO SISTEMA:\n" + 
-                            others.map(v => `- ${v.marca} ${v.modelo} (${v.ano_modelo}) - ${v.cor} - ${v.quilometragem}km`).join('\n');
+                            if (others && others.length > 0) {
+                                inventoryContext = "\nOUTROS VEÍCULOS DESTE VENDEDOR NO SISTEMA:\n" + 
+                                    others.map(v => `- ${v.marca} ${v.modelo} (${v.ano_modelo}) - ${v.cor} - ${v.quilometragem}km`).join('\n');
+                            }
+                        } catch (e) {
+                            console.warn("[BackgroundAIManager] Erro ao buscar outros veículos do lead:", e);
+                        }
                     }
                 }
 
@@ -979,7 +993,10 @@ REGRAS GERAIS:
                     console.log(`[BackgroundAIManager] Resposta automática enviada para lead (FollowUp: ${isFollowUp})`);
                 }
             } catch (err) {
-                console.error('[BackgroundAIManager] Erro ao processar resposta para lead:', err);
+                console.error('[BackgroundAIManager] ❌ ERRO FATAL ao processar resposta para lead:', leadId, 'Msg:', payload.id);
+                console.error('[BackgroundAIManager] Stack Trace:', err);
+                
+                // Marca a mensagem como falha no metadado
                 await supabase.from('mensagens')
                     .update({ 
                         metadata: { 
@@ -990,6 +1007,24 @@ REGRAS GERAIS:
                         } 
                     })
                     .eq('id', payload.id);
+
+                // ENVIAR RESPOSTA ESTÁTICA EM CASO DE FALHA DAS APIS
+                // Isso garante que o cliente nunca fique sem resposta, mesmo sem chaves de API válidas
+                const staticFallback = "Olá! Recebi sua mensagem. No momento nossos sistemas de análise automática estão passando por uma atualização rápida. Sou o especialista responsável por este atendimento e em instantes darei continuidade à sua análise pessoalmente. Por favor, aguarde só um momento!";
+                
+                await supabase.from('mensagens').insert({
+                    lead_id: leadId,
+                    conteudo: staticFallback,
+                    remetente: 'bot',
+                    metadata: { 
+                        ai_handled: true, 
+                        is_fallback: true,
+                        original_message_id: payload.id,
+                        error_ref: String(err)
+                    }
+                });
+                
+                console.log(`[BackgroundAIManager] 🛡️ Mensagem Estática de Fallback enviada para lead ${leadId} devido a erro de API.`);
             }
         }
     };
@@ -1099,7 +1134,8 @@ REGRAS GERAIS:
                     (m.remetente?.toLowerCase() === 'admin' || m.remetente?.toLowerCase() === 'bot') &&
                     m.metadata?.ai_handled === true &&
                     !m.metadata?.ai_welcome &&
-                    !m.metadata?.is_fallback
+                    !m.metadata?.is_fallback &&
+                    !m.metadata?.fallback
                 );
 
                 const isAiFailed = lastClientMsg?.metadata?.ai_failed;
