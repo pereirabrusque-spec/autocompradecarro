@@ -774,22 +774,25 @@ RESPONDA DIRETAMENTE AO REMETENTE.
             let leadData: any = null;
             const { data: leadFromTable, error: leadError } = await supabase
                 .from('leads_veiculos')
-                .select('detalhes_proposta, cliente_nome')
+                .select('detalhes_proposta, cliente_nome, email')
                 .eq('id', leadId)
                 .maybeSingle();
             
             leadData = leadFromTable;
 
-            if (!leadData) {
-                // Tenta buscar no profiles (novo usuário sem veículo ainda)
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('full_name')
-                    .eq('id', leadId)
-                    .maybeSingle();
-                if (profile) {
-                    leadData = { cliente_nome: profile.full_name, detalhes_proposta: {} };
-                }
+            // Busca perfil para garantir que temos nome e email se o lead estiver incompleto
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('full_name, email')
+                .eq('id', leadId)
+                .maybeSingle();
+
+            if (!leadData && profile) {
+                leadData = { cliente_nome: profile.full_name, email: profile.email, detalhes_proposta: {} };
+            } else if (leadData && profile) {
+                // Mescla dados do perfil se o lead estiver faltando dados básicos
+                if (!leadData.cliente_nome) leadData.cliente_nome = profile.full_name;
+                if (!leadData.email) leadData.email = profile.email;
             }
             
             if (leadError && !leadData) {
@@ -912,9 +915,17 @@ VEÍCULO EM NEGOCIAÇÃO:
                     } catch (e) {}
                 }
 
-                const isFormFilled = !!(vehicle && vehicle.marca && vehicle.modelo);
-                const followUpContext = isFollowUp 
-                    ? `\n[MODO FOLLOW-UP ATIVADO]
+            const isFormFilled = !!(vehicle && vehicle.marca && vehicle.modelo);
+            const leadStatus = isFormFilled ? "MORNO (Formulário Preenchido)" : "FRIO (Formulário NÃO Preenchido)";
+            
+            console.log(`[BackgroundAIManager] 🌡️ Status do Lead [ID: ${messageId}]: ${leadStatus}`);
+
+            const formStatusContext = isFormFilled 
+                ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** ${leadStatus}. \n**AÇÃO:** O cliente já forneceu os dados técnicos do veículo. Fale sobre o veículo dele, demonstre interesse técnico e informe que a proposta oficial está sendo analisada. NÃO peça para preencher o formulário novamente. Foque em manter o cliente engajado enquanto aguarda.`
+                : `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** ${leadStatus}. \n**AÇÃO:** O cliente ainda não preencheu o formulário completo. Sua prioridade absoluta é ser amigável, tirar as dúvidas dele E INDUZI-LO a preencher o formulário agora para que possamos fazer a análise técnica. Envie o link: https://autocompra.online/vender e explique que sem esses dados não conseguimos garantir o melhor preço.`;
+
+            const followUpContext = isFollowUp 
+                ? `\n[MODO FOLLOW-UP ATIVADO]
 O cliente visualizou sua última mensagem mas não respondeu. 
 **MISSÃO:** Tente re-engajar o cliente usando GATILHOS DE COMPRA (persuasão para ele vender para nós).
 **GATILHOS RECOMENDADOS:**
@@ -922,18 +933,17 @@ O cliente visualizou sua última mensagem mas não respondeu.
 - AGILIDADE: "Dinheiro na conta hoje mesmo via PIX."
 - VALORIZAÇÃO: "Conseguimos cobrir ofertas se o carro estiver impecável."
 Seja amigável mas incisivo. Verifique se a conversa não foi finalizada antes de enviar.`
-                    : "";
+                : "";
 
-                const formStatusContext = isFormFilled 
-                    ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente JÁ PREENCHEU o formulário com os dados do veículo. \n**AÇÃO:** Fale sobre o veículo dele, demonstre interesse técnico e informe que a proposta oficial está sendo analisada pela nossa equipe técnica e será enviada em breve. NÃO peça para preencher o formulário novamente. Foque em manter o cliente engajado enquanto aguarda.`
-                    : `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente AINDA NÃO preencheu o formulário com os dados do veículo. \n**AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação.`;
-
-                const clientName = leadData?.cliente_nome || "Cliente";
+                const clientEmail = leadData?.email || payload.metadata?.email || profile?.email || "Email não informado";
+                const clientName = leadData?.cliente_nome || profile?.full_name || "Cliente";
                 const activePrompt = `
 ${aiPromptRef.current}
 
 VOCÊ É O ASSISTENTE INTELIGENTE DA AUTO COMPRA ONLINE.
 ESTÁ FALANDO COM O CLIENTE: ${clientName}.
+EMAIL: ${clientEmail}.
+STATUS DO LEAD: ${leadStatus}.
 
 REGRAS CRÍTICAS:
 1. NUNCA responda com "{{nome}}". Se necessário, chame-o de "${clientName}".
@@ -947,6 +957,7 @@ MEMÓRIA DO SISTEMA: ${aiMemoryRef.current}
 [SISTEMA DE CONTROLE DE AGENTES E MEMÓRIA — AUTOCOMPRA.ONLINE]
 IDENTIFICAÇÃO DO PERFIL: VENDEDOR (QUERENDO VENDER O CARRO DELE PARA NÓS)
 NOME DO CLIENTE: ${clientName}
+EMAIL DO CLIENTE: ${clientEmail}
 ${followUpContext}
 
 ${formStatusContext}
@@ -980,7 +991,6 @@ REGRAS GERAIS:
 4. EVITE REPETIR SAUDAÇÕES.
 `;
 
-                const { AIService } = await import('../../services/aiService');
                 const response = await AIService.generateContent(
                     fullPrompt,
                     "Você é um especialista de vendas altamente preciso. Responda estritamente com base nos dados técnicos do veículo fornecidos no contexto. Se a informação não estiver nos dados, não invente. Seja direto, profissional e persuasivo. NUNCA mencione ser uma IA ou que haverá contato humano posterior, você é o especialista responsável.",
@@ -1045,6 +1055,7 @@ REGRAS GERAIS:
                             ...(payload.metadata || {}), 
                             ai_failed: true, 
                             ai_error: String(err),
+                            error_details: err instanceof Error ? err.stack : undefined,
                             failed_at: new Date().toISOString()
                         } 
                     })
@@ -1127,11 +1138,12 @@ REGRAS GERAIS:
                     m.sender_id !== uid
                 );
 
-                // Busca a última resposta SUCESSO da IA/Admin (ignorando fallbacks de erro)
+                // Busca a última resposta SUCESSO (IA ou Admin Humano)
                 const lastAdminSuccess = allInternal.find(m => 
                     m.sender_id === uid && 
-                    m.metadata?.ai_handled === true &&
-                    !m.metadata?.is_fallback
+                    !m.metadata?.ai_failed &&
+                    !m.metadata?.is_fallback &&
+                    !m.metadata?.fallback
                 );
 
                 const isAiFailed = lastClientMsg?.metadata?.ai_failed;
@@ -1182,12 +1194,12 @@ REGRAS GERAIS:
                     m.remetente?.toLowerCase() === 'cliente'
                 );
 
-                // Busca a última resposta SUCESSO da IA/Admin (Ignorando mensagens de boas-vindas ou falhas)
+                // Busca a última resposta SUCESSO (IA ou Admin Humano)
                 const lastAdminSuccess = allPublic.find(m => 
                     m.lead_id === leadId && 
                     (m.remetente?.toLowerCase() === 'admin' || m.remetente?.toLowerCase() === 'bot') &&
-                    m.metadata?.ai_handled === true &&
-                    !m.metadata?.ai_welcome &&
+                    !m.metadata?.ai_welcome && // Ignora boas-vindas para decidir se precisa de resposta real
+                    !m.metadata?.ai_failed &&
                     !m.metadata?.is_fallback &&
                     !m.metadata?.fallback
                 );

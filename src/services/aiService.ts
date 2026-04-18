@@ -58,8 +58,7 @@ export class AIService {
     }
 
     // Prioritize 'ok' status (green). 
-    // Among 'ok' keys, we want to stick to the last successful one.
-    const sorted = filteredData.sort((a, b) => {
+    const sorted = (filteredData || []).sort((a, b) => {
       const statusOrder = { 'ok': 0, 'rate_limited': 1, 'no_credit': 2, 'disconnected': 3 };
       const orderA = statusOrder[a.status as keyof typeof statusOrder] ?? 4;
       const orderB = statusOrder[b.status as keyof typeof statusOrder] ?? 4;
@@ -321,15 +320,18 @@ export class AIService {
       }
     }
 
-    // Fallback final para chave de ambiente se tudo falhar
-    if (process.env.GEMINI_API_KEY) {
+    // Fallback final para chave de ambiente se tudo falhar. 
+    // Nota: Em ambiente frontend Vite, process.env pode não estar disponível.
+    const envKey = (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) || (import.meta as any).env?.VITE_GEMINI_API_KEY;
+
+    if (envKey) {
       console.log('[AIService] Tentando fallback final com chave de ambiente...');
       try {
         return await AIClientManager.execute({
           id: 'env-key',
           provider: 'gemini',
-          key: process.env.GEMINI_API_KEY,
-          service: 'gemini-1.5-flash-latest' // Use flash for fallback as it's more likely to have quota
+          key: envKey,
+          service: 'gemini-1.5-flash-latest' 
         }, prompt, systemInstruction, image);
       } catch (fallbackError: any) {
         console.error('[AIService] Fallback final também falhou:', fallbackError.message);
