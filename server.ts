@@ -691,16 +691,29 @@ async function startServer() {
         template = await vite.transformIndexHtml(url, template);
         res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
       } catch (e: any) {
-        vite.ssrFixStacktrace(e);
+        if (vite) vite.ssrFixStacktrace(e);
         console.error('[Server Error] Error serving index.html:', e);
         res.status(500).end(e.stack);
       }
     });
   } else {
-    app.use(express.static(path.join(__dirname, 'dist')));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(__dirname, 'dist', 'index.html'));
-    });
+    // Production: Serve from dist if exists, otherwise from root
+    const distPath = path.join(__dirname, 'dist');
+    const rootIndexPath = path.join(__dirname, 'index.html');
+    
+    if (fs.existsSync(distPath)) {
+      app.use(express.static(distPath));
+      app.get('*', (req, res) => {
+        if (req.originalUrl.startsWith('/api')) return res.status(404).json({error: 'Not found'});
+        res.sendFile(path.join(distPath, 'index.html'));
+      });
+    } else {
+      console.log('[Server] Dist folder not found, serving index.html from root.');
+      app.get('*', (req, res) => {
+        if (req.originalUrl.startsWith('/api')) return res.status(404).json({error: 'Not found'});
+        res.sendFile(rootIndexPath);
+      });
+    }
   }
 
   app.listen(PORT as number, '0.0.0.0', () => {
