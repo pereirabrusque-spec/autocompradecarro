@@ -12,6 +12,7 @@ export interface AIResponse {
 
 export class AIService {
   public static lastSuccessfulKeyId: string | null = typeof window !== 'undefined' ? localStorage.getItem('ai_last_successful_key_id') : null;
+  private static failedKeysInSession = new Set<string>();
 
   static {
     if (typeof window !== 'undefined') {
@@ -43,10 +44,11 @@ export class AIService {
       return this.cachedKeys;
     }
 
-    // Filter out known invalid providers like 'grod'
+    // Filter out known invalid providers and keys that failed recently in this session
     const filteredData = (data || []).filter(k => {
       const provider = k.provider?.trim().toLowerCase();
       if (provider === 'grod') return false;
+      if (this.failedKeysInSession.has(k.id)) return false; // Pula chaves que já sabemos que falharam nesta sessão
       return true;
     });
 
@@ -162,6 +164,12 @@ export class AIService {
     }
     
     try {
+      if (status !== 'ok') {
+        this.failedKeysInSession.add(id); // Marca localmente como falha
+      } else {
+        this.failedKeysInSession.delete(id); // Reset se ficou OK
+      }
+
       const now = new Date().toISOString();
       const isDefinitiveError = lastError?.toLowerCase().includes('invalid') || lastError?.toLowerCase().includes('key not found') || lastError?.toLowerCase().includes('access_denied');
       
@@ -179,12 +187,18 @@ export class AIService {
       }
       
       // Tentativa de atualizar com campos extras (podem falhar se as colunas não existirem)
-      try {
-        await supabase.from('api_keys').update({ ...updateData, last_test_at: now }).eq('id', id);
-      } catch (e) {
-        // Fallback para campos básicos
-        await supabase.from('api_keys').update(updateData).eq('id', id);
-      }
+      // Executamos em background para não travar a geração
+      (async () => {
+        try {
+          const { error } = await supabase.from('api_keys').update({ ...updateData, last_test_at: now }).eq('id', id);
+          if (error) {
+            console.warn('[AIService] Erro ao atualizar status (tentativa 1):', error.message);
+            await supabase.from('api_keys').update(updateData).eq('id', id);
+          }
+        } catch (err) {
+          console.error('[AIService] Erro crítico ao atualizar status no banco:', err);
+        }
+      })();
       
       if (lastError) {
         logToStorage(`Chave ${id} falhou: ${lastError}`, 'error');
@@ -308,7 +322,11 @@ export class AIService {
         }
 
         console.warn(`[AIService] ⚠️ Marcando chave ${apiKey.id} como ${newStatus} e pulando para a próxima...`);
-        await this.updateKeyStatus(apiKey.id, newStatus, (apiKey.error_count || 0) + 1, errMsg);
+        try {
+          await this.updateKeyStatus(apiKey.id, newStatus, (apiKey.error_count || 0) + 1, errMsg);
+        } catch (statusError) {
+          console.warn('[AIService] Falha ao persistir status da chave, mas continuando loop...', statusError);
+        }
         
         // Se a falha foi por quota ou crédito, vamos forçar uma atualização no banco
         // Mas não re-filtramos a lista local para não quebrar o índice do loop
