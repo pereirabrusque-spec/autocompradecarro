@@ -28,8 +28,9 @@ export function GoogleTags() {
           document.head.appendChild(gtmScript);
         }
 
-        // O Ads (AW-11148282770) está fixo no index.html para garantir verificação e evitar timeout
-        // Analytics e GTM são injetados apenas se não houver conflito
+        // Tags fixas agora são gerenciadas via index.html para evitar conflitos de carregamento
+        // e erros de verificação do Google Ads.
+        // Analytics e GTM permanecem dinâmicos se configurados no banco.
         if (gaId && gaId !== 'AW-11148282770') {
           const script1 = document.createElement('script');
           script1.async = true;
