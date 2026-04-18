@@ -670,6 +670,12 @@ async function startServer() {
     }
   });
 
+  // Log requests to help debug conversion tracking
+  app.use((req, res, next) => {
+    console.log(`[Server] ${req.method} ${req.originalUrl} - Mode: ${process.env.NODE_ENV || 'development'}`);
+    next();
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
@@ -681,7 +687,7 @@ async function startServer() {
     // Catch-all route to serve index.html with Vite transformation
     app.get('*', async (req, res, next) => {
       // Ignore API routes
-      if (req.originalUrl.startsWith('/api')) {
+      if (req.originalUrl.split('?')[0].startsWith('/api')) {
         return next();
       }
 
@@ -700,20 +706,21 @@ async function startServer() {
     // Production: Serve from dist if exists, otherwise from root
     const distPath = path.join(__dirname, 'dist');
     const rootIndexPath = path.join(__dirname, 'index.html');
+    const staticIndex = fs.existsSync(path.join(distPath, 'index.html')) ? path.join(distPath, 'index.html') : rootIndexPath;
     
     if (fs.existsSync(distPath)) {
-      app.use(express.static(distPath));
-      app.get('*', (req, res) => {
-        if (req.originalUrl.startsWith('/api')) return res.status(404).json({error: 'Not found'});
-        res.sendFile(path.join(distPath, 'index.html'));
-      });
-    } else {
-      console.log('[Server] Dist folder not found, serving index.html from root.');
-      app.get('*', (req, res) => {
-        if (req.originalUrl.startsWith('/api')) return res.status(404).json({error: 'Not found'});
-        res.sendFile(rootIndexPath);
-      });
+      app.use(express.static(distPath, { index: false }));
     }
+
+    app.get('*', (req, res) => {
+      const urlPath = req.originalUrl.split('?')[0];
+      if (urlPath.startsWith('/api')) {
+        return res.status(404).json({ error: 'API route not found' });
+      }
+      
+      console.log(`[Server] Serving index.html for: ${req.originalUrl}`);
+      res.sendFile(staticIndex);
+    });
   }
 
   app.listen(PORT as number, '0.0.0.0', () => {
