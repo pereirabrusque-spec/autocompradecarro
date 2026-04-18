@@ -774,17 +774,18 @@ RESPONDA DIRETAMENTE AO REMETENTE.
             let leadData: any = null;
             const { data: leadFromTable, error: leadError } = await supabase
                 .from('leads_veiculos')
-                .select('detalhes_proposta, cliente_nome, email')
+                .select('detalhes_proposta, cliente_nome, email, user_id')
                 .eq('id', leadId)
                 .maybeSingle();
             
             leadData = leadFromTable;
 
-            // Busca perfil para garantir que temos nome e email se o lead estiver incompleto
+            // Busca perfil usando o user_id do lead ou o próprio leadId como fallback (se o leadId for o UID)
+            const profileId = leadData?.user_id || leadId;
             const { data: profile } = await supabase
                 .from('profiles')
-                .select('full_name, email')
-                .eq('id', leadId)
+                .select('id, full_name, email')
+                .eq('id', profileId)
                 .maybeSingle();
 
             if (!leadData && profile) {
@@ -793,6 +794,7 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                 // Mescla dados do perfil se o lead estiver faltando dados básicos
                 if (!leadData.cliente_nome) leadData.cliente_nome = profile.full_name;
                 if (!leadData.email) leadData.email = profile.email;
+                if (!leadData.user_id) leadData.user_id = profile.id;
             }
             
             if (leadError && !leadData) {
@@ -882,19 +884,25 @@ VEÍCULO EM NEGOCIAÇÃO:
 - Status: ${vehicle.status || 'N/A'}
 `;
 
-                    // Guard clause for the "others" query to prevent crash on null email
-                    if (vehicle.email) {
+                    // Guard clause for the "others" query: prevent crash if email and user_id are missing
+                    if (vehicle.email || vehicle.user_id) {
                         try {
-                            const { data: others } = await supabase
-                                .from('leads_veiculos')
-                                .select('marca, modelo, ano_modelo, preco_cliente, cor, quilometragem')
-                                .or(`email.eq.${vehicle.email}${vehicle.user_id ? `,user_id.eq.${vehicle.user_id}` : ''}`)
-                                .neq('id', leadId)
-                                .limit(10);
+                            let query = supabase.from('leads_veiculos').select('marca, modelo, ano_modelo, preco_cliente, cor, quilometragem');
+                            
+                            const filters: string[] = [];
+                            if (vehicle.email) filters.push(`email.eq.${vehicle.email}`);
+                            if (vehicle.user_id) filters.push(`user_id.eq.${vehicle.user_id}`);
+                            
+                            if (filters.length > 0) {
+                                const { data: others } = await query
+                                    .or(filters.join(','))
+                                    .neq('id', leadId)
+                                    .limit(10);
 
-                            if (others && others.length > 0) {
-                                inventoryContext = "\nOUTROS VEÍCULOS DESTE VENDEDOR NO SISTEMA:\n" + 
-                                    others.map(v => `- ${v.marca} ${v.modelo} (${v.ano_modelo}) - ${v.cor} - ${v.quilometragem}km`).join('\n');
+                                if (others && others.length > 0) {
+                                    inventoryContext = "\nOUTROS VEÍCULOS DESTE VENDEDOR NO SISTEMA:\n" + 
+                                        others.map(v => `- ${v.marca || ''} ${v.modelo || ''} (${v.ano_modelo || ''}) - ${v.cor || ''} - ${v.quilometragem || ''}km`).join('\n');
+                                }
                             }
                         } catch (e) {
                             console.warn("[BackgroundAIManager] Erro ao buscar outros veículos do lead:", e);
@@ -935,8 +943,12 @@ O cliente visualizou sua última mensagem mas não respondeu.
 Seja amigável mas incisivo. Verifique se a conversa não foi finalizada antes de enviar.`
                 : "";
 
-                const clientEmail = leadData?.email || payload.metadata?.email || profile?.email || "Email não informado";
+                const clientEmail = leadData?.email || profile?.email || payload.metadata?.email || "Email não informado";
                 const clientName = leadData?.cliente_nome || profile?.full_name || "Cliente";
+                
+                // Logging de diagnóstico para novos usuários
+                console.log(`[BackgroundAIManager] 🔎 Identificação: Nome=${clientName}, Email=${clientEmail}, LeadStatus=${leadStatus}`);
+
                 const activePrompt = `
 ${aiPromptRef.current}
 
@@ -945,10 +957,15 @@ ESTÁ FALANDO COM O CLIENTE: ${clientName}.
 EMAIL: ${clientEmail}.
 STATUS DO LEAD: ${leadStatus}.
 
+INSTRUÇÃO DE COMPORTAMENTO:
+Se o status for "FRIO", você é um consultor que está ajudando o cliente a iniciar o processo. Seja acolhedor, tire dúvidas e conduza-o suavemente ao formulário: https://autocompra.online/vender.
+Se o status for "MORNO", você é um especialista técnico que já conhece o carro. Fale sobre detalhes do veículo dele e informe que a proposta está em análise.
+
 REGRAS CRÍTICAS:
 1. NUNCA responda com "{{nome}}". Se necessário, chame-o de "${clientName}".
 2. Identifique o tom da conversa e seja profissional mas acolhedor.
 3. Use os dados técnicos do veículo abaixo para dar segurança ao cliente.
+4. Se ele não preencheu o formulário, INDUZA-O ao link https://autocompra.online/vender.
 
 MEMÓRIA DO SISTEMA: ${aiMemoryRef.current}
 `;
