@@ -719,6 +719,7 @@ async function startServer() {
       }
       
       console.log(`[Server] Serving index.html for: ${req.originalUrl}`);
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
       res.sendFile(staticIndex);
     });
   }

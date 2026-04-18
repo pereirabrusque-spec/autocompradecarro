@@ -2,60 +2,8 @@ import { useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 
 export function GoogleTags() {
-  useEffect(() => {
-    const fetchTags = async () => {
-      const { data } = await supabase.from('settings').select('*').in('key', ['GOOGLE_ANALYTICS_ID', 'GOOGLE_ADS_ID', 'GOOGLE_TAG_MANAGER_ID']);
-      if (data) {
-        let gaId = data.find(s => s.key === 'GOOGLE_ANALYTICS_ID')?.value;
-        let adsId = data.find(s => s.key === 'GOOGLE_ADS_ID')?.value;
-        let gtmId = data.find(s => s.key === 'GOOGLE_TAG_MANAGER_ID')?.value;
-
-        // Fallback apenas para Analytics e GTM se não estiverem no banco
-        if (!gaId) gaId = 'G-SE8DRN12VH';
-        if (!gtmId) gtmId = 'GTM-MJ49SD3J';
-        // O Ads (AW-11148282770) está fixo no index.html para garantir verificação
-
-        // Google Tag Manager
-        if (gtmId) {
-          const gtmScript = document.createElement('script');
-          gtmScript.innerHTML = `
-            (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-            new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-            j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-            'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-            })(window,document,'script','dataLayer','${gtmId}');
-          `;
-          document.head.appendChild(gtmScript);
-        }
-
-        // Tags fixas agora são gerenciadas via index.html para evitar conflitos de carregamento
-        // e erros de verificação do Google Ads.
-        // Analytics e GTM permanecem dinâmicos se configurados no banco.
-        if (gaId && gaId !== 'AW-11148282770') {
-          const script1 = document.createElement('script');
-          script1.async = true;
-          script1.src = `https://www.googletagmanager.com/gtag/js?id=${gaId}`;
-          document.head.appendChild(script1);
-
-          const script2 = document.createElement('script');
-          script2.innerHTML = `
-            window.dataLayer = window.dataLayer || [];
-            if (!window.gtag) {
-              function gtag(){dataLayer.push(arguments);}
-              window.gtag = gtag;
-            }
-            gtag('js', new Date());
-            gtag('config', '${gaId}');
-          `;
-          document.head.appendChild(script2);
-        }
-
-        // Não injetamos adsId aqui para evitar duplicidade com o index.html
-      }
-    };
-    fetchTags();
-  }, []);
-
+  // A injeção de scripts agora é feita de forma estática no index.html 
+  // para evitar problemas de detecção do Google Ads e timeouts de verificação.
   return null;
 }
 
