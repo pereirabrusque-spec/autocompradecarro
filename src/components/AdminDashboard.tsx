@@ -1443,9 +1443,13 @@ export default function AdminDashboard() {
       }, (payload) => {
         console.log("[AdminDashboard] Lead changed (realtime):", payload.eventType, payload.new);
         if (payload.eventType === 'INSERT') {
+          console.log("[AdminDashboard] 🔔 NOVO LEAD DETECTADO! Disparando alerta sonoro e recarregando...");
           playNotificationSound();
+          // Pequeno delay para garantir que o banco persistiu tudo antes do fetch
+          setTimeout(fetchData, 1000);
+        } else {
+          fetchData();
         }
-        fetchData();
       })
       .subscribe();
 

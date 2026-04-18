@@ -270,6 +270,14 @@ export const BackgroundAIManager = () => {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'fipe_rules' }, () => loadProposalData())
             .on('postgres_changes', { event: '*', schema: 'public', table: 'banks' }, () => loadProposalData())
             .on('postgres_changes', { event: '*', schema: 'public', table: 'repair_costs' }, () => loadProposalData())
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'leads_veiculos' }, (payload) => {
+                console.log("[BackgroundAIManager] 🆕 Novo lead detectado via Realtime:", payload.new.id);
+                // Se a IA Global estiver ativa, vamos tentar iniciar um contato inicial se não for lead frio
+                if (isAiEnabledRef.current) {
+                    // Pequeno delay para garantir que o lead esteja totalmente processado se houver triggers de banco
+                    setTimeout(() => handleNewLeadResponse(payload.new), 2000);
+                }
+            })
             .subscribe();
 
         return () => {
@@ -280,6 +288,63 @@ export const BackgroundAIManager = () => {
             authSubscription.unsubscribe();
         };
     }, []);
+
+    const handleNewLeadResponse = async (lead: any) => {
+        const uid = currentUserIdRef.current;
+        if (!uid || !isAiEnabledRef.current) return;
+
+        console.log("[BackgroundAIManager] 🤖 Iniciando resposta automática para NOVO LEAD:", lead.id);
+
+        try {
+            // Verifica se já existe alguma mensagem para este lead para não duplicar boas-vindas
+            const { count } = await supabase
+                .from('internal_messages')
+                .select('*', { count: 'exact', head: true })
+                .eq('lead_id', lead.id);
+
+            if (count && count > 0) {
+                console.log("[BackgroundAIManager] Lead já possui mensagens, ignorando saudação inicial.");
+                return;
+            }
+
+            const clientName = lead.nome || lead.full_name || "Cliente";
+            const carContext = lead.marca ? `sobre o ${lead.marca} ${lead.modelo}` : "sobre a sua intenção de venda/compra";
+            
+            const prompt = `
+                O cliente ${clientName} acabou de se cadastrar no site ${carContext}.
+                Inicie a conversa de forma extremamente profissional e acolhedora como Agente de Elite da Auto Compra Online.
+                Se ele já preencheu o carro (${lead.marca}), mencione que recebeu os dados e está analisando.
+                Se for lead frio (apenas contato), convide-o a falar mais sobre o que procura ou oferecer o veículo para avaliação.
+                Mantenha a resposta curta e instigue uma resposta.
+            `;
+
+            const systemPrompt = "Você é o Agente de Elite da Auto Compra Online. Sua missão é dar as boas-vindas a novos leads e iniciar o engajamento imediato.";
+            
+            const response = await AIService.generateContent(prompt, systemPrompt);
+
+            if (response && response.text) {
+                // Envia tanto para mensagens INTERNAS quanto PÚBLICAS para garantir que o lead veja
+                await supabase.from('mensagens').insert({
+                    lead_id: lead.id,
+                    remetente: 'bot',
+                    conteudo: response.text,
+                    metadata: { ai_handled: true, ai_welcome: true, timestamp: new Date().toISOString() }
+                });
+
+                await supabase.from('internal_messages').insert({
+                    sender_id: uid,
+                    receiver_id: null,
+                    lead_id: lead.id,
+                    content: response.text,
+                    metadata: { ai_handled: true, ai_welcome: true, timestamp: new Date().toISOString() }
+                });
+
+                console.log("[BackgroundAIManager] ✅ Saudação inicial enviada para novo lead:", lead.id);
+            }
+        } catch (error) {
+            console.error("[BackgroundAIManager] Erro ao responder novo lead:", error);
+        }
+    }
 
     const handleInternalMessage = async (payload: any, isFollowUp = false) => {
         console.log('[BackgroundAIManager] 📩 handleInternalMessage START:', { 
@@ -969,14 +1034,29 @@ REGRAS GERAIS:
             for (const [otherId, lastMsg] of convs.entries()) {
                 const readCol = lastMsg.is_read !== undefined ? 'is_read' : 'read';
                 const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
-                const isAiFailed = lastMsg.metadata?.ai_failed;
-                const lastFailedTime = lastMsg.metadata?.failed_at ? new Date(lastMsg.metadata.failed_at).getTime() : 0;
+                
+                // Busca a última mensagem do CLIENTE nesta conversa
+                const lastClientMsg = allInternal.find(m => 
+                    (m.sender_id === otherId) && 
+                    m.sender_id !== uid
+                );
+
+                // Busca a última resposta SUCESSO da IA/Admin
+                const lastAdminSuccess = allInternal.find(m => 
+                    m.sender_id === uid && 
+                    m.metadata?.ai_handled === true
+                );
+
+                const isAiFailed = lastClientMsg?.metadata?.ai_failed;
+                const lastFailedTime = lastClientMsg?.metadata?.failed_at ? new Date(lastClientMsg.metadata.failed_at).getTime() : 0;
                 const shouldRetry = isAiFailed && (Date.now() - lastFailedTime > 60000); // Retry após 1 min
 
-                if (lastMsg.sender_id !== uid && !lastMsg.metadata?.ai_handled && (!isAiFailed || shouldRetry)) {
-                    if (timeDiff > 5000) { 
-                        console.log(`[BackgroundAIManager] 🔍 scanForOpenMessages: Detectada mensagem interna não respondida de ${otherId}. ${shouldRetry ? '(RETRY)' : ''} Processando...`);
-                        handleInternalMessage(lastMsg);
+                if (lastClientMsg && (!lastAdminSuccess || new Date(lastClientMsg.created_at) > new Date(lastAdminSuccess.created_at))) {
+                    if (!lastClientMsg.metadata?.ai_handled && (!isAiFailed || shouldRetry)) {
+                        if (timeDiff > 5000) { 
+                            console.log(`[BackgroundAIManager] 🔍 scanForOpenMessages: Detectada mensagem interna não respondida de ${otherId}. ${shouldRetry ? '(RETRY)' : ''} Processando...`);
+                            handleInternalMessage(lastClientMsg);
+                        }
                     }
                 }
                 else if (lastMsg.metadata?.ai_handled) {
@@ -1008,18 +1088,30 @@ REGRAS GERAIS:
 
             for (const [leadId, lastMsg] of leads.entries()) {
                 const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
-                const remetente = (lastMsg.remetente || '').toLowerCase();
-                const isAiFailed = lastMsg.metadata?.ai_failed;
-                const lastFailedTime = lastMsg.metadata?.failed_at ? new Date(lastMsg.metadata.failed_at).getTime() : 0;
+                
+                // Busca a última mensagem do CLIENTE para este lead
+                const lastClientMsg = allPublic.find(m => 
+                    m.lead_id === leadId && 
+                    m.remetente?.toLowerCase() === 'cliente'
+                );
+
+                // Busca a última resposta SUCESSO da IA/Admin
+                const lastAdminSuccess = allPublic.find(m => 
+                    m.lead_id === leadId && 
+                    (m.remetente?.toLowerCase() === 'admin' || m.remetente?.toLowerCase() === 'bot') &&
+                    m.metadata?.ai_handled === true
+                );
+
+                const isAiFailed = lastClientMsg?.metadata?.ai_failed;
+                const lastFailedTime = lastClientMsg?.metadata?.failed_at ? new Date(lastClientMsg.metadata.failed_at).getTime() : 0;
                 const shouldRetry = isAiFailed && (Date.now() - lastFailedTime > 60000); // Retry após 1 min
 
-                const isBot = remetente === 'bot' || remetente === 'system';
-                console.log(`[BackgroundAIManager] 🔍 Lead ${leadId}: Remetente="${remetente}", Handled=${!!lastMsg.metadata?.ai_handled}, Failed=${!!isAiFailed}, Bot=${isBot}, TimeDiff=${Math.round(timeDiff/1000)}s`);
-
-                if (remetente === 'cliente' && !lastMsg.metadata?.ai_handled && (!isAiFailed || shouldRetry)) {
-                    if (timeDiff > 5000) { 
-                        console.log(`[BackgroundAIManager] 🔍 scanForOpenMessages: Detectada mensagem pública não respondida do lead ${leadId}. ${shouldRetry ? '(RETRY)' : ''} Processando...`);
-                        handlePublicMessage(lastMsg);
+                if (lastClientMsg && (!lastAdminSuccess || new Date(lastClientMsg.created_at) > new Date(lastAdminSuccess.created_at))) {
+                    if (!lastClientMsg.metadata?.ai_handled && (!isAiFailed || shouldRetry)) {
+                        if (timeDiff > 5000) { 
+                            console.log(`[BackgroundAIManager] 🔍 scanForOpenMessages: Detectada mensagem pública não respondida do lead ${leadId}. ${shouldRetry ? '(RETRY)' : ''} Processando...`);
+                            handlePublicMessage(lastClientMsg);
+                        }
                     }
                 }
                 else if (lastMsg.metadata?.ai_handled) {

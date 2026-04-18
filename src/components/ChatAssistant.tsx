@@ -835,6 +835,16 @@ ${userText}`;
         role: 'bot', 
         text: errorMsg
       }]);
+
+      // SALVA O FALLBACK NO BANCO para o Admin ver que a IA tentou/falhou amigavelmente
+      if (leadIdRef.current) {
+        await supabase.from('mensagens').insert({
+          lead_id: leadIdRef.current,
+          remetente: 'bot',
+          conteudo: errorMsg,
+          metadata: { is_fallback: true, original_error: error.message }
+        });
+      }
     } finally {
       setIsLoading(false);
     }

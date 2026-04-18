@@ -185,7 +185,7 @@ export default function AdminMessages({
   };
 
   return (
-    <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm flex h-[700px] w-full">
+    <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm flex h-[750px] w-full max-h-[85vh]">
       {/* Lista de Conversas (Esquerda) */}
       <div className="w-1/3 border-r border-slate-100 flex flex-col h-full overflow-hidden">
         <div className="p-6 border-b border-slate-100 shrink-0">
@@ -682,7 +682,7 @@ export default function AdminMessages({
             {/* Mensagens */}
             <div 
               ref={leadsScrollRef}
-              className="flex-1 overflow-y-auto p-6 space-y-4"
+              className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 scroll-smooth"
             >
               {(chatMessages || []).map((msg) => (
                 <div 
