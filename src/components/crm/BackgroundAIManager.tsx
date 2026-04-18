@@ -211,9 +211,12 @@ export const BackgroundAIManager = () => {
         checkSession();
 
         const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            console.log("[BackgroundAIManager] Auth state changed:", event, session?.user?.id);
             if (session?.user) {
                 setCurrentUserId(session.user.id);
                 currentUserIdRef.current = session.user.id;
+                // Force a scan when user changes/logs in
+                setTimeout(scanForOpenMessages, 1000);
             } else {
                 setCurrentUserId(null);
                 currentUserIdRef.current = null;
@@ -346,11 +349,14 @@ export const BackgroundAIManager = () => {
             const { data: userLeads } = await leadQuery;
             const existingLead = userLeads?.[0] || null;
 
-            const isBuyer = senderProfile?.role?.toLowerCase().includes('buyer') || (payload.lead_id && payload.lead_id !== 'null' && payload.lead_id !== '');
-            const isSeller = senderProfile?.role?.toLowerCase().includes('seller') || (!isBuyer && !!existingLead);
-            
-            const finalIsBuyer = isBuyer || (payload.lead_id ? true : false);
-            const finalIsSeller = !finalIsBuyer && (isSeller || senderProfile?.role === 'user');
+        const isBuyer = senderProfile?.role?.toLowerCase().includes('buyer') || 
+                            (payload.lead_id && payload.lead_id !== 'null' && payload.lead_id !== '');
+        const isSeller = senderProfile?.role?.toLowerCase().includes('seller') || 
+                            senderProfile?.role?.toLowerCase().includes('agent') || 
+                            (!isBuyer && !!existingLead);
+        
+        const finalIsBuyer = !!isBuyer || (payload.lead_id && payload.lead_id !== 'null' && payload.lead_id !== '');
+        const finalIsSeller = !finalIsBuyer && (isSeller || senderProfile?.role === 'user');
 
             console.log(`[BackgroundAIManager] 🔍 Processando mensagem interna (${messageId}). isBuyer: ${finalIsBuyer}, isSeller: ${finalIsSeller}, lead_id: ${payload.lead_id}`);
             console.log(`[BackgroundAIManager] 👤 Perfil do remetente:`, senderProfile?.full_name, 'Role:', senderProfile?.role);
@@ -396,7 +402,7 @@ export const BackgroundAIManager = () => {
                     `${m.sender_id === uid ? 'Admin' : 'Cliente'}: ${m.content} ${m.lead_id ? `(Ref: ${m.lead_id})` : ''}`
                 ).join('\n');
 
-                let currentLeadId = payload.lead_id;
+                let currentLeadId = (payload.lead_id && payload.lead_id !== 'null' && payload.lead_id !== '') ? payload.lead_id : null;
                 let specificLead = null;
                 let vehicleContext = "";
                 let specificVehicleInfo = "";
@@ -968,7 +974,7 @@ REGRAS GERAIS:
                 const shouldRetry = isAiFailed && (Date.now() - lastFailedTime > 60000); // Retry após 1 min
 
                 if (lastMsg.sender_id !== uid && !lastMsg.metadata?.ai_handled && (!isAiFailed || shouldRetry)) {
-                    if (timeDiff > 60000) { 
+                    if (timeDiff > 5000) { 
                         console.log(`[BackgroundAIManager] 🔍 scanForOpenMessages: Detectada mensagem interna não respondida de ${otherId}. ${shouldRetry ? '(RETRY)' : ''} Processando...`);
                         handleInternalMessage(lastMsg);
                     }
