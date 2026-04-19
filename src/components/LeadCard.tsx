@@ -74,6 +74,8 @@ export const LeadCard: React.FC<LeadCardProps> = ({ lead, suggestedValue, onClic
               lead.status === 'reservado' ? 'bg-amber-200 text-amber-800' :
               lead.status === 'proposta_enviada' ? 'bg-blue-100 text-blue-700' :
               lead.status === 'em_contato' ? 'bg-amber-100 text-amber-700' :
+              lead.status === 'negociar' ? 'bg-purple-100 text-purple-700' :
+              lead.status === 'limpa_nome' ? 'bg-indigo-100 text-indigo-700' :
               'bg-slate-100 text-slate-600'
             }`}>
               {lead.status?.replace('_', ' ')}

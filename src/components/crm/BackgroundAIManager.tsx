@@ -965,6 +965,18 @@ INSTRUÇÃO DE COMPORTAMENTO:
 Se o status for "FRIO", você é um consultor que está ajudando o cliente a iniciar o processo. Seja acolhedor, tire dúvidas e conduza-o suavemente ao formulário: https://autocompra.online/vender.
 Se o status for "MORNO", você é um especialista técnico que já conhece o carro. Fale sobre detalhes do veículo dele e informe que a proposta está em análise.
 
+NEGOCIAÇÃO COM O BANCO:
+- Se o cliente perguntar sobre negociar com o banco ou dívidas, explique que podemos conseguir até 80% de desconto na quitação dependendo do banco.
+- Induza-o a preencher o formulário em https://autocompra.online/vender para que possamos passar uma prévia do valor de quitação.
+- Informe que após o preenchimento, um analista entrará em contato.
+- Se ele demonstrar interesse real nesta parte, inclua no final da sua resposta o bloco: \`\`\`json {"action": "update_status", "status": "negociar"} \`\`\`
+
+LIMPA NOME / BLINDAGEM:
+- Se o cliente perguntar sobre limpa nome ou blindagem, explique como funciona o processo de restaurar o crédito.
+- Informe os valores (consulte a memória se houver, se não, diga que um especialista passará os detalhes).
+- Se ele estiver interessado, diga que um especialista entrará em contato.
+- Se ele demonstrar interesse real nesta parte, inclua no final da sua resposta o bloco: \`\`\`json {"action": "update_status", "status": "limpa_nome"} \`\`\`
+
 REGRAS CRÍTICAS:
 1. NUNCA responda com "{{nome}}". Se necessário, chame-o de "${clientName}".
 2. Identifique o tom da conversa e seja profissional mas acolhedor.
@@ -1020,6 +1032,30 @@ REGRAS GERAIS:
                 
                 if (response && response.text) {
                     const finalText = response.text.replace(/{{nome}}/g, clientName).replace(/{{cliente_nome}}/g, clientName);
+                    
+                    // Lógica de Processamento de Ações via JSON
+                    const jsonMatch = finalText.match(/```json\n([\s\S]*?)\n```/);
+                    let textToSave = finalText;
+
+                    if (jsonMatch) {
+                        try {
+                            const data = JSON.parse(jsonMatch[1]);
+                            textToSave = finalText.replace(jsonMatch[0], '').trim();
+
+                            if (data.action === 'update_status' && data.status) {
+                                console.log(`[BackgroundAIManager] 🔄 ATUALIZANDO STATUS DO LEAD PARA: ${data.status}`);
+                                await supabase.from('leads_veiculos')
+                                    .update({ 
+                                        status: data.status,
+                                        classificacao: data.status === 'negociar' || data.status === 'limpa_nome' ? 'quente' : undefined
+                                    })
+                                    .eq('id', activeLeadId);
+                            }
+                        } catch (jsonErr) {
+                            console.error("[BackgroundAIManager] ❌ Erro ao processar JSON de ação:", jsonErr);
+                        }
+                    }
+
                     console.log(`[BackgroundAIManager] 🧊 Decidindo canal de resposta: Mode=${responseModeRef.current}, HasWebhook=${!!webhookUrlRef.current}`);
                     if (responseModeRef.current === 'webhook' && webhookUrlRef.current) {
                         console.log("[BackgroundAIManager] 🌐 ENVIANDO VIA WEBHOOK (Chat suprimido para evitar duplicidade)");
@@ -1031,7 +1067,7 @@ REGRAS GERAIS:
                                 body: JSON.stringify({
                                     type: 'public_message_response',
                                     lead_id: leadId,
-                                    content: response.text,
+                                    content: textToSave,
                                     original_message: payload,
                                     metadata: { ai_handled: true, is_follow_up: isFollowUp }
                                 })
@@ -1045,7 +1081,7 @@ REGRAS GERAIS:
                         logToStorage(`Resposta IA enviada via Chat para lead ${activeLeadId}`, 'info');
                         const { error: insertError } = await supabase.from('mensagens').insert({
                             lead_id: activeLeadId,
-                            conteudo: finalText,
+                            conteudo: textToSave,
                             remetente: 'bot',
                             metadata: { ai_handled: true, original_message_id: payload.id, is_follow_up: isFollowUp }
                         });

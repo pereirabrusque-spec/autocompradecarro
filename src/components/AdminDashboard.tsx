@@ -176,7 +176,7 @@ export default function AdminDashboard() {
   const [showApiKeyForm, setShowApiKeyForm] = useState(false);
   const [isSavingKey, setIsSavingKey] = useState(false);
 
-  const [activeLeadTab, setActiveLeadTab] = useState<'todos' | 'novo' | 'em_contato' | 'proposta_enviada' | 'fechado' | 'frio' | 'reservado' | 'perdido' | 'vendido'>('todos');
+  const [activeLeadTab, setActiveLeadTab] = useState<'todos' | 'novo' | 'em_contato' | 'proposta_enviada' | 'fechado' | 'frio' | 'reservado' | 'perdido' | 'vendido' | 'negociar' | 'limpa_nome'>('todos');
   const [leadsViewMode, setLeadsViewMode] = useState<'grid' | 'list'>('list');
   const [showBuyerPermissionsModal, setShowBuyerPermissionsModal] = useState(false);
   const [selectedBuyer, setSelectedBuyer] = useState<any>(null);
@@ -210,6 +210,8 @@ export default function AdminDashboard() {
         if (activeLeadTab === 'frio') return l.status === 'frio';
         if (activeLeadTab === 'reservado') return l.status === 'reservado';
         if (activeLeadTab === 'vendido') return l.status === 'vendido';
+        if (activeLeadTab === 'negociar') return l.status === 'negociar' || l.status === 'Negociar';
+        if (activeLeadTab === 'limpa_nome') return l.status === 'limpa_nome' || l.status === 'Limpa Nome';
         if (activeLeadTab === 'proposta_enviada') return l.status === 'proposta_enviada' || l.status === 'novo' || l.status === 'em_contato';
         return l.status === activeLeadTab;
       })
@@ -4405,6 +4407,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       { id: 'todos', label: 'Todos' },
                       { id: 'frio', label: 'Lead Frio' },
                       { id: 'proposta_enviada', label: 'Leads Morna' },
+                      { id: 'negociar', label: 'Negociar' },
+                      { id: 'limpa_nome', label: 'Limpa Nome' },
                       { id: 'reservado', label: 'Reservados' },
                       { id: 'fechado', label: 'Lead Quente' },
                       { id: 'vendido', label: 'Vendido pelo Usuário' },
@@ -4618,12 +4622,16 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                       lead.status === 'reservado' ? 'bg-amber-100 text-amber-700' :
                                       lead.status === 'proposta_enviada' ? 'bg-blue-100 text-blue-700' :
                                       lead.status === 'em_contato' ? 'bg-amber-100 text-amber-700' :
+                                      lead.status === 'negociar' ? 'bg-purple-100 text-purple-700' :
+                                      lead.status === 'limpa_nome' ? 'bg-indigo-100 text-indigo-700' :
                                       'bg-slate-100 text-slate-600'
                                     }`}
                                   >
                                     <option value="novo">NOVO</option>
                                     <option value="em_contato">EM CONTATO</option>
                                     <option value="proposta_enviada">PROPOSTA ENVIADA</option>
+                                    <option value="negociar">NEGOCIAR</option>
+                                    <option value="limpa_nome">LIMPA NOME</option>
                                     <option value="reservado">RESERVADO</option>
                                     <option value="fechado">FECHADO</option>
                                     <option value="perdido">PERDIDO</option>

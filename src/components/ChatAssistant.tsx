@@ -630,6 +630,17 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         3. **NEGATIVA:** Se o usuário perguntar "Como está a análise do meu Agrale?" e não houver Agrale nos dados oficiais, responda: "Ainda não recebi os dados técnicos do seu Agrale no meu sistema. Por favor, complete o formulário para que eu possa iniciar a análise."
 
         ### REGRAS DE NEGÓCIO:
+        NEGOCIAÇÃO COM O BANCO:
+        - Se o cliente perguntar sobre negociar com o banco ou dívidas, explique que podemos conseguir até 80% de desconto na quitação dependendo do banco.
+        - Induza-o a preencher o formulário em https://autocompra.online/vender para que possamos passar uma prévia do valor de quitação.
+        - Informe que após o preenchimento, um analista entrará em contato.
+        - Se ele demonstrar interesse real nesta parte, inclua no final da sua resposta o bloco: \`\`\`json {"action": "update_status", "status": "negociar"} \`\`\`
+
+        LIMPA NOME / BLINDAGEM:
+        - Se o cliente perguntar sobre limpa nome ou blindagem, explique como funciona o processo de restaurar o crédito.
+        - Informe que um especialista passará os detalhes e entrará em contato se houver interesse.
+        - Se ele demonstrar interesse real nesta parte, inclua no final da sua resposta o bloco: \`\`\`json {"action": "update_status", "status": "limpa_nome"} \`\`\`
+
         ${systemPrompt || defaultRules}
         
         ${proposalContext}
@@ -743,6 +754,32 @@ ${userText}`;
               } else {
                 console.error("[ChatAssistant] Error marking as sold:", error);
               }
+            }
+            return;
+          }
+
+          // Handle Update Lead Status (Negociar / Limpa Nome)
+          if (data.action === 'update_status' && data.status && leadId) {
+            const { error } = await supabase
+              .from('leads_veiculos')
+              .update({ 
+                status: data.status,
+                classificacao: (data.status === 'negociar' || data.status === 'limpa_nome') ? 'quente' : undefined
+              })
+              .eq('id', leadId);
+            
+            if (!error) {
+              setMessages(prev => [...prev, { role: 'bot' as const, text: textToShow }]);
+              
+              // Salvar resposta do bot
+              await supabase.from('mensagens').insert({
+                lead_id: leadId,
+                remetente: 'bot',
+                conteudo: textToShow
+              });
+              
+              // Atualiza o dado local se necessário
+              if (leadData) setLeadData({...leadData, status: data.status});
             }
             return;
           }
