@@ -10,7 +10,7 @@ export function GoogleTags() {
 export const triggerAdsConversion = async () => {
   const { data } = await supabase.from('settings').select('*').in('key', ['GOOGLE_ADS_ID', 'GOOGLE_ADS_CONVERSION_LABEL']);
   
-  let adsId = 'AW-11148282770'; // Padrão fornecido pelo usuário
+  let adsId = 'AW-18105159423'; // Padrão fornecido pelo usuário
   let convLabel = '';
 
   if (data) {
