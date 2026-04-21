@@ -892,7 +892,7 @@ VEÍCULO EM NEGOCIAÇÃO:
                             let query = supabase.from('leads_veiculos').select('marca, modelo, ano_modelo, preco_cliente, cor, quilometragem');
                             
                             const filters: string[] = [];
-                            if (vehicle.email) filters.push(`email.eq.${vehicle.email}`);
+                            if (vehicle.email) filters.push(`email.ilike.${vehicle.email}`);
                             if (vehicle.user_id) filters.push(`user_id.eq.${vehicle.user_id}`);
                             
                             if (filters.length > 0) {

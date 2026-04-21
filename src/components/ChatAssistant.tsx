@@ -93,13 +93,15 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
     // Busca inventário expandido (por Lead ID, por User ID ou por Email)
     const filters: string[] = [];
     if (user?.id) filters.push(`user_id.eq.${user.id}`);
-    if (user?.email) filters.push(`email.eq.${user.email}`);
+    if (user?.email) {
+        filters.push(`email.ilike.${user.email}`);
+    }
 
     if (leadId) {
       const { data: currentLead } = await supabase.from('leads_veiculos').select('user_id, email').eq('id', leadId).maybeSingle();
       if (currentLead) {
         if (currentLead.user_id) filters.push(`user_id.eq.${currentLead.user_id}`);
-        if (currentLead.email) filters.push(`email.eq.${currentLead.email}`);
+        if (currentLead.email) filters.push(`email.ilike.${currentLead.email}`);
       }
     }
 
@@ -304,7 +306,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
     fetchApiKey();
     fetchData();
 
-    // Subscription para chaves de API para garantir que o chat comprador use sempre a melhor disponível
+    // Subscription para chaves de API
     const keysSub = supabase
       .channel('buyer_api_keys_realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'api_keys' }, () => {
@@ -315,7 +317,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
     return () => {
       supabase.removeChannel(keysSub);
     };
-  }, [settings, leadId]);
+  }, [settings, leadId, user, isOpen]);
 
   useEffect(() => {
     let leadSubscription: any;
@@ -606,28 +608,32 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
       // Verificação infalível de formulário
       const currentVehicleFilled = !!(leadData?.marca && leadData?.modelo && leadData.marca !== 'N/A' && leadData.modelo !== 'N/A');
       const hasInventory = otherModels.length > 0;
-      const isFormFilledStrict = currentVehicleFilled;
-      const hasAnyVehicle = currentVehicleFilled || hasInventory;
+      
+      // LOG DE DIAGNÓSTICO PARA O LUIZ (OCULTO AO USUÁRIO)
+      const luizContextLog = `
+[LOG DE SISTEMA - IDENTIFICAÇÃO]:
+- Cliente Logado: ${user?.email || 'N/A'}
+- Lead Atual (${leadId}): ${currentVehicleFilled ? `${leadData.marca} ${leadData.modelo}` : 'Vazio'}
+- Outros Carros Detectados: ${otherModels.length} (${otherModels.map(m => `${m.marca} ${m.modelo}`).join(', ')})
+- Decisão: ${ (currentVehicleFilled || hasInventory) ? 'CLIENTE COM CADASTRO (PROIBIDO PEDIR FORMULÁRIO)' : 'NOVO CLIENTE' }
+      `;
 
       const vehicleContext = currentVehicleFilled ? `
-### [BINGO: VEÍCULO ATUAL IDENTIFICADO]
-- CARRO: ${leadData.marca} ${leadData.modelo} (${leadData.ano_fabricacao}/${leadData.ano_modelo || 'N/A'})
-- STATUS DA ANÁLISE: ${leadData.status || 'Em processamento'}
+### [CADASTRO LOCALIZADO]
+- VEÍCULO ATUAL: ${leadData.marca} ${leadData.modelo}
+- STATUS: ${leadData.status || 'Em processamento'}
 
-[INSTRUÇÃO CRÍTICA]: O cliente JÁ É CADASTRADO.
-- NÃO peça para preencher formulários.
-- Fale sobre a análise do ${leadData.modelo} dele.
+[MISSÃO CRÍTICA]: O cliente já preencheu os dados deste carro. Foque em PERSUADIR ele a seguir com a análise. NUNCA peça formulário.
 ` : hasInventory ? `
-### [BINGO: CLIENTE JÁ POSSUI CADASTROS]
-- O cliente já enviou ${otherModels.length} veículo(s) anteriormente: ${otherModels.map(m => `${m.marca} ${m.modelo}`).join(', ')}.
+### [CLIENTE VIP - INVENTÁRIO DETECTADO]
+- FROTA DO CLIENTE: ${otherModels.map(m => `${m.marca} ${m.modelo}`).join(', ')}.
 
-[INSTRUÇÃO CRÍTICA]: O cliente JÁ É NOSSO PARCEIRO.
-- NÃO peça para preencher o formulário inicial.
-- Pergunte se ele quer falar sobre os carros que já cadastrou ou se quer adicionar um NOVO carro (só peça formulário se for um NOVO carro carreado pelo link https://autocompra.online/vender).
+[MISSÃO CRÍTICA]: O cliente JÁ É NOSSO PARCEIRO com ${otherModels.length} carros. 
+- PROIBIDO pedir formulário de boas-vindas. 
+- Trate-o como cliente antigo. Pergunte sobre os carros acima.
 ` : `
-### [STATUS: NOVO CLIENTE — SEM DADOS]
-- O cliente ainda não tem nenhum veículo no sistema.
-- SUA MISSÃO: Explicar que precisamos dos dados técnicos para avaliar e mande o link: https://autocompra.online/vender.
+### [NOVO CLIENTE — SEM INVENTÁRIO]
+- MISSÃO: Explicar que precisamos dos dados técnicos para avaliar e mande o link: https://autocompra.online/vender.
 `;
 
       const finalSystemPrompt = `
@@ -636,6 +642,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         Você é o Luiz, especialista sênior em avaliação de veículos da AutoCompra. 
 
         ### [CONDIÇÃO DO CLIENTE]
+        ${luizContextLog}
         ${vehicleContext}
 
         ### REGRAS DE OURO:
