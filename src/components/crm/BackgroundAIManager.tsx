@@ -854,7 +854,9 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                 let inventoryContext = "";
                 let vehicleInfo = "";
                 let vehiclePhoto = "";
+                let othersData: any[] = [];
                 let requiresManualAnalysis = false;
+                
                 if (vehicle) {
                     const allPhotos = vehicle.fotos || [];
                     vehiclePhoto = allPhotos[0] || "";
@@ -900,6 +902,7 @@ VEÍCULO EM NEGOCIAÇÃO:
                                     .limit(10);
 
                                 if (others && others.length > 0) {
+                                    othersData = others;
                                     inventoryContext = "\nOUTROS VEÍCULOS DESTE VENDEDOR NO SISTEMA:\n" + 
                                         others.map(v => `- ${v.marca || ''} ${v.modelo || ''} (${v.ano_modelo || ''}) - ${v.cor || ''} - ${v.quilometragem || ''}km`).join('\n');
                                 }
@@ -923,9 +926,9 @@ VEÍCULO EM NEGOCIAÇÃO:
                     } catch (e) {}
                 }
 
-            const hasOtherVehicles = inventoryContext.includes("OUTROS VEÍCULOS");
-            const isFormFilled = !!(vehicle && vehicle.marca && vehicle.modelo);
-            const leadStatus = isFormFilled ? "MORNO (Formulário Preenchido)" : hasOtherVehicles ? "MORNO (Tem outros veículos no cadastro)" : "FRIO (Nenhum veículo cadastrado)";
+            const hasOtherVehicles = inventoryContext.includes("OUTROS VEÍCULOS") || (othersData && othersData.length > 0);
+            const isFormFilled = !!(vehicle && vehicle.marca && vehicle.modelo && vehicle.marca !== 'N/A');
+            const leadStatus = isFormFilled ? "MORNO (Carro Atual Identificado)" : hasOtherVehicles ? "MORNO (Possui Inventário Anterior)" : "FRIO (Novo Lead)";
             
             // Força o leadId a ser o do payload se o vehicle falhar (para novos leads recém criados)
             const activeLeadId = leadId || payload.lead_id;
@@ -933,10 +936,10 @@ VEÍCULO EM NEGOCIAÇÃO:
             console.log(`[BackgroundAIManager] 🌡️ Status do Lead [ID: ${messageId}]: ${leadStatus}. FormFilled: ${isFormFilled}, HasOthers: ${hasOtherVehicles}`);
 
             const formStatusContext = isFormFilled 
-                ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** ${leadStatus}. \n**AÇÃO:** O cliente JÁ preencheu o formulário deste veículo. NÃO peça para preencher novamente sob nenhuma hipótese. Informe que nossa equipe técnica já recebeu os dados do veículo (${vehicle?.marca || ''} ${vehicle?.modelo || ''}) e está realizando a análise técnica agora.`
+                ? `\n[SITUAÇÃO]: O cliente já preencheu o formulário deste carro (${vehicle?.marca} ${vehicle?.modelo}). NÃO peça link de formulário! Foque na análise em curso.`
                 : hasOtherVehicles
-                ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** ${leadStatus}. \n**AÇÃO:** O cliente já possui veículos cadastrados no sistema (veja em OUTROS VEÍCULOS). Reconheça isso e não peça para preencher formulário a menos que ele queira vender um NOVO carro não listado.`
-                : `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** ${leadStatus}. \n**AÇÃO:** O cliente ainda não preencheu o formulário completo. Sua prioridade absoluta é induzi-lo ao link: https://autocompra.online/vender para iniciar a análise técnica.`;
+                ? `\n[SITUAÇÃO]: O cliente já tem frota cadastrada conosco. Ele já nos enviou veículos anteriormente. NÃO trate como novo lead. Pergunte se ele quer falar sobre os carros antigos ou cadastrar um novo.`
+                : `\n[SITUAÇÃO]: O cliente é novo e não tem nenhum dado no sistema. Induza-o ao link https://autocompra.online/vender de forma amigável.`;
 
             const followUpContext = isFollowUp 
                 ? `\n[MODO FOLLOW-UP ATIVADO]

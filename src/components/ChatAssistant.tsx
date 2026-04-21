@@ -90,24 +90,30 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
     const { data: fipeRules } = await supabase.from('fipe_rules').select('*');
     setContextData({ banks: banks || [], repairCosts: repairCosts || [], fipeRules: fipeRules || [] });
 
-    // Se tiver leadId, busca outros modelos do mesmo vendedor
-    if (leadId) {
-      const { data: lead } = await supabase.from('leads_veiculos').select('user_id, email').eq('id', leadId).single();
-      if (lead) {
-        const filters: string[] = [];
-        if (lead.user_id) filters.push(`user_id.eq.${lead.user_id}`);
-        if (lead.email) filters.push(`email.eq.${lead.email}`);
+    // Busca inventário expandido (por Lead ID, por User ID ou por Email)
+    const filters: string[] = [];
+    if (user?.id) filters.push(`user_id.eq.${user.id}`);
+    if (user?.email) filters.push(`email.eq.${user.email}`);
 
-        if (filters.length > 0) {
-          const { data: others } = await supabase
-            .from('leads_veiculos')
-            .select('marca, modelo, ano_modelo, preco_cliente, cor, quilometragem')
-            .or(filters.join(','))
-            .neq('id', leadId)
-            .limit(10);
-          setOtherModels(others || []);
-        }
+    if (leadId) {
+      const { data: currentLead } = await supabase.from('leads_veiculos').select('user_id, email').eq('id', leadId).maybeSingle();
+      if (currentLead) {
+        if (currentLead.user_id) filters.push(`user_id.eq.${currentLead.user_id}`);
+        if (currentLead.email) filters.push(`email.eq.${currentLead.email}`);
       }
+    }
+
+    const uniqueFilters = Array.from(new Set(filters));
+    if (uniqueFilters.length > 0) {
+      const { data: others } = await supabase
+        .from('leads_veiculos')
+        .select('marca, modelo, ano_modelo, preco_cliente, cor, quilometragem, status')
+        .or(uniqueFilters.join(','))
+        .limit(15);
+      
+      // Filtra apenas os que realmente têm dados de carro preenchidos
+      const validOthers = (others || []).filter(v => v.marca && v.modelo && v.marca !== 'N/A');
+      setOtherModels(validOthers);
     }
   };
 
@@ -596,29 +602,31 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         \`\`\`
       `;
 
-      const hasAnyVehicle = !!(leadData?.marca && leadData?.modelo && leadData.marca !== 'N/A') || otherModels.length > 0;
-      const isFormFilledStrict = !!(leadData?.marca && leadData?.modelo && leadData.marca !== 'N/A' && leadData.modelo !== 'N/A');
+      // Verificação infalível de formulário
+      const currentVehicleFilled = !!(leadData?.marca && leadData?.modelo && leadData.marca !== 'N/A' && leadData.modelo !== 'N/A');
+      const hasInventory = otherModels.length > 0;
+      const isFormFilledStrict = currentVehicleFilled;
+      const hasAnyVehicle = currentVehicleFilled || hasInventory;
 
-      const vehicleContext = isFormFilledStrict ? `
-### [DADOS DO VEÍCULO EM ANÁLISE]
-- VEÍCULO: ${leadData.marca} ${leadData.modelo} (${leadData.ano_fabricacao}/${leadData.ano_modelo || 'N/A'})
-- STATUS: ${leadData.status || 'Em Análise'}
+      const vehicleContext = currentVehicleFilled ? `
+### [BINGO: VEÍCULO ATUAL IDENTIFICADO]
+- CARRO: ${leadData.marca} ${leadData.modelo} (${leadData.ano_fabricacao}/${leadData.ano_modelo || 'N/A'})
+- STATUS DA ANÁLISE: ${leadData.status || 'Em processamento'}
 
-[REGRA ABSOLUTA]: O cliente JÁ PREENCHEU o formulário para este carro.
-1. NÃO peça para ele preencher nada.
-2. Informe que a análise técnica do ${leadData.modelo} está em andamento.
-3. Se ele perguntar por valores, diga que os especialistas estão calculando com base no ano e estado do carro.
-` : hasAnyVehicle ? `
-### [CLIENTE COM INVENTÁRIO]
-- O cliente já possui ${otherModels.length} veículo(s) cadastrado(s): ${otherModels.map(m => `${m.marca} ${m.modelo}`).join(', ')}.
+[INSTRUÇÃO CRÍTICA]: O cliente JÁ É CADASTRADO.
+- NÃO peça para preencher formulários.
+- Fale sobre a análise do ${leadData.modelo} dele.
+` : hasInventory ? `
+### [BINGO: CLIENTE JÁ POSSUI CADASTROS]
+- O cliente já enviou ${otherModels.length} veículo(s) anteriormente: ${otherModels.map(m => `${m.marca} ${m.modelo}`).join(', ')}.
 
-[REGRA ABSOLUTA]: Este cliente já é cadastrado.
-1. NÃO peça para preencher o formulário inicial.
-2. Pergunte se ele deseja saber sobre a análise dos carros que ele já enviou ou se quer cadastrar um NOVO veículo (neste caso, mande o link: https://autocompra.online/vender).
+[INSTRUÇÃO CRÍTICA]: O cliente JÁ É NOSSO PARCEIRO.
+- NÃO peça para preencher o formulário inicial.
+- Pergunte se ele quer falar sobre os carros que já cadastrou ou se quer adicionar um NOVO carro (só peça formulário se for um NOVO carro carreado pelo link https://autocompra.online/vender).
 ` : `
-### [STATUS: NOVO CLIENTE]
-- Nenhum veículo no sistema.
-- SUA MISSÃO: Ser receptivo e levar o cliente ao formulário oficial: https://autocompra.online/vender.
+### [STATUS: NOVO CLIENTE — SEM DADOS]
+- O cliente ainda não tem nenhum veículo no sistema.
+- SUA MISSÃO: Explicar que precisamos dos dados técnicos para avaliar e mande o link: https://autocompra.online/vender.
 `;
 
       const finalSystemPrompt = `
@@ -636,8 +644,8 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         ### REGRAS DE NEGÓCIO:
         NEGOCIAÇÃO COM O BANCO:
         - Se o cliente perguntar sobre negociar com o banco ou dívidas, explique que podemos conseguir até 80% de desconto na quitação dependendo do banco.
-        - Induza-o a preencher o formulário em https://autocompra.online/vender para que possamos passar uma prévia do valor de quitação.
-        - Informe que após o preenchimento, um analista entrará em contato.
+        - Se ele AINDA NÃO tiver preenchido o formulário (verifique blocos acima), induza-o ao link https://autocompra.online/vender. Se JÁ PREENCHEU, diga que a análise da quitação será feita com base no veículo enviado.
+        - Informe que após a análise, um analista entrará em contato.
         - Se ele demonstrar interesse real nesta parte, inclua no final da sua resposta o bloco: \`\`\`json {"action": "update_status", "status": "negociar"} \`\`\`
 
         LIMPA NOME / BLINDAGEM:
