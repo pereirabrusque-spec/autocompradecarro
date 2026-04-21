@@ -933,8 +933,8 @@ VEÍCULO EM NEGOCIAÇÃO:
             console.log(`[BackgroundAIManager] 🌡️ Status do Lead [ID: ${messageId}]: ${leadStatus}. FormFilled: ${isFormFilled}`);
 
             const formStatusContext = isFormFilled 
-                ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** ${leadStatus}. \n**AÇÃO:** O cliente já forneceu os dados técnicos do veículo. Fale sobre o veículo dele, demonstre interesse técnico e informe que a proposta oficial está sendo analisada. NÃO peça para preencher o formulário novamente. Foque em manter o cliente engajado enquanto aguarda.`
-                : `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** ${leadStatus}. \n**AÇÃO:** O cliente ainda não preencheu o formulário completo. Sua prioridade absoluta é ser amigável, tirar as dúvidas dele E INDUZI-LO a preencher o formulário agora para que possamos fazer a análise técnica. Envie o link: https://autocompra.online/vender e explique que sem esses dados não conseguimos garantir o melhor preço.`;
+                ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** ${leadStatus}. \n**AÇÃO:** O cliente JÁ preencheu o formulário. NÃO peça para preencher novamente sob nenhuma hipótese. Informe que nossa equipe técnica já recebeu os dados do veículo (${vehicle?.marca || ''} ${vehicle?.modelo || ''}) e está realizando a análise técnica agora. Diga que assim que tivermos a proposta oficial, informaremos ele imediatamente.`
+                : `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** ${leadStatus}. \n**AÇÃO:** O cliente ainda não preencheu o formulário completo. Sua prioridade absoluta é ser amigável e induzi-lo ao link: https://autocompra.online/vender para análise técnica.`;
 
             const followUpContext = isFollowUp 
                 ? `\n[MODO FOLLOW-UP ATIVADO]
@@ -979,9 +979,9 @@ LIMPA NOME / BLINDAGEM:
 
 REGRAS CRÍTICAS:
 1. NUNCA responda com "{{nome}}". Se necessário, chame-o de "${clientName}".
-2. Identifique o tom da conversa e seja profissional mas acolhedor.
-3. Use os dados técnicos do veículo abaixo para dar segurança ao cliente.
-4. Se ele não preencheu o formulário, INDUZA-O ao link https://autocompra.online/vender.
+2. FOCO EM AJUDAR: Se o usuário quer vender, sua resposta deve ser sempre de auxílio. Nunca diga que não pode ajudar.
+3. CONDUÇÃO: Se ele não preencheu o formulário, INDUZA-O ao link https://autocompra.online/vender para análise técnica.
+4. PROFISSIONALISMO: Identifique o tom da conversa e seja profissional mas acolhedor.
 
 MEMÓRIA DO SISTEMA: ${aiMemoryRef.current}
 `;

@@ -596,38 +596,37 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
       const isFormFilledStrict = !!(leadData?.marca && leadData?.modelo && leadData.marca !== 'N/A' && leadData.modelo !== 'N/A');
 
       const vehicleContext = isFormFilledStrict ? `
-### [DADOS OFICIAIS DO VEÍCULO - REGISTRADOS NO SISTEMA]
-- ID: ${leadData.id}
+### [DADOS DO VEÍCULO EM ANÁLISE]
 - Marca: ${leadData.marca}
 - Modelo: ${leadData.modelo}
 - Ano: ${leadData.ano_fabricacao}/${leadData.ano_modelo || 'N/A'}
 - Placa: ${leadData.placa || 'N/A'}
-- KM: ${leadData.quilometragem || 'N/A'}
-- Cor: ${leadData.cor || 'N/A'}
-- Preço Pretendido: R$ ${leadData.preco_cliente || 'N/A'}
-- Situação Financeira: ${leadData.situacao_financeira || 'N/A'}
 - Status: ${leadData.status || 'N/A'}
 
-[INSTRUÇÃO]: Fale sobre este veículo. A proposta técnica para ELE está sendo analisada.
+[INSTRUÇÃO DE PRIORIDADE]: O CLIENTE JÁ PREENCHEU O FORMULÁRIO.
+1. NÃO peça para preencher novamente.
+2. Informe que nossa equipe técnica já recebeu os dados do ${leadData.marca} ${leadData.modelo} e está realizando a análise agora mesmo.
+3. Diga que assim que a proposta oficial for gerada, ele será avisado imediatamente.
+4. Pergunte se ele tem fotos adicionais ou alguma dúvida enquanto aguarda.
 ` : `
-### [AVISO CRÍTICO: NENHUM VEÍCULO CADASTRADO]
-- **STATUS:** O banco de dados está VAZIO para este cliente.
-- **PROIBIÇÃO:** Você NÃO tem permissão para dizer que "temos os dados" ou que "estamos analisando seu [NOME DO CARRO]".
-- **PROIBIÇÃO:** Se o cliente disser que tem um carro no chat (ex: "tenho um Agrale"), você deve ignorar o tom de "já sabemos" e dizer: "Notei que você mencionou um [CARRO], mas para que possamos fazer a avaliação oficial e te passar um valor, você **PRECISA** preencher os detalhes técnicos clicando em 'Vender Meu Carro' ou no link: https://autocompra.online/vender".
-- **OBJETIVO ÚNICO:** Direcionar para o FORMULÁRIO.
+### [STATUS: AGUARDANDO DADOS DO VEÍCULO]
+- **SITUAÇÃO:** O usuário quer vender um veículo, mas ainda não completou o cadastro técnico.
+- **SUA MISSÃO:** Explique que você está pronto para ajudar, mas precisa dos detalhes técnicos no link oficial para gerar uma oferta real.
+- **LINK:** https://autocompra.online/vender
+- **TOM:** Muito positivo e proativo. Diga: "Com certeza, eu te ajudo agora a vender seu carro! Só preciso que você preencha os dados rapidinho aqui: https://autocompra.online/vender"
 `;
 
       const finalSystemPrompt = `
-        [SISTEMA DE CONTROLE DE AGENTES — AUTOCOMPRA.ONLINE]
+        [SISTEMA DE ATENDIMENTO — AUTOCOMPRA.ONLINE]
         
-        Você é o Especialista Luiz da AutoCompra. 
+        Você é o Luiz, especialista sênior em avaliação de veículos da AutoCompra. 
 
         ${vehicleContext}
 
         ### REGRAS DE OURO:
-        1. **VERACIDADE TOTAL:** Se o bloco [DADOS OFICIAIS] estiver vazio, você NÃO tem um carro para analisar. Ponto final. 
-        2. **SEM ALUCINAÇÃO:** Nunca use o modelo de carro que o usuário digitou no chat como se ele já estivesse "no sistema para análise". O sistema só reconhece o que está no bloco [DADOS OFICIAIS].
-        3. **NEGATIVA:** Se o usuário perguntar "Como está a análise do meu Agrale?" e não houver Agrale nos dados oficiais, responda: "Ainda não recebi os dados técnicos do seu Agrale no meu sistema. Por favor, complete o formulário para que eu possa iniciar a análise."
+        1. **FOCO EM AJUDAR:** Se o usuário quer vender, sua resposta deve ser sempre de auxílio. Nunca diga que não pode ajudar.
+        2. **SEM ALUCINAÇÃO:** Se o carro não estiver nos dados acima, explique educadamente que você ainda não recebeu as informações no sistema e peça para ele preencher o formulário para você poder analisar.
+        3. **DIRECIONAMENTO:** Sempre conduza o usuário para o formulário (https://autocompra.online/vender) se os dados técnicos ainda não foram preenchidos.
 
         ### REGRAS DE NEGÓCIO:
         NEGOCIAÇÃO COM O BANCO:
@@ -830,6 +829,12 @@ ${userText}`;
             ...(textToShow ? [{ role: 'bot' as const, text: textToShow }] : []),
             { role: 'bot' as const, text: '✅ **Dados registrados!** Nossa equipe analisará sua proposta e retornará em até 24 horas. Deseja receber notificações sobre o status da sua negociação?' }
           ]);
+
+          // Redireciona para a página de obrigado após um curto delay para garantir o rastreamento do Google Ads
+          setTimeout(() => {
+            window.history.pushState({}, '', '/obrigado');
+            window.dispatchEvent(new PopStateEvent('popstate'));
+          }, 3000);
           
           // Salvar resposta do bot (o texto que a IA gerou)
           if (leadId && textToShow) {
