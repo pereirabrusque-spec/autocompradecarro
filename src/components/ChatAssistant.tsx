@@ -109,6 +109,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         .from('leads_veiculos')
         .select('marca, modelo, ano_modelo, preco_cliente, cor, quilometragem, status')
         .or(uniqueFilters.join(','))
+        .neq('id', leadId || '')
         .limit(15);
       
       // Filtra apenas os que realmente têm dados de carro preenchidos
@@ -563,7 +564,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         ### 3. PAGAMENTOS E PERSUASÃO
         - **Como pagamos:** Pagamento à vista via PIX ou Transferência Bancária IMEDIATA após a vistoria e assinatura do documento em cartório (em até 24h).
         - **Persuasão:** Incentive o usuário a enviar os dados para avaliação. Diga: "Pode mandar os dados e fotos sem compromisso. Nossa avaliação é gratuita e você decide se aceita a proposta."
-        - **Negociação/Estimativa:** Se o usuário pedir uma estimativa de valor ou quiser negociar e **AINDA NÃO** tiver preenchido o formulário, diga que para isso ele **PRECISA preencher o formulário completo** clicando em "Vender Meu Carro" ou fornecendo todos os dados aqui no chat. Se ele **JÁ PREENCHEU**, informe que os dados já estão com nossos especialistas e a proposta está sendo calculada.
+        - **Negociação/Estimativa:** Para negociações e valores, informe que nossos especialistas estão analisando os dados enviados. Só mencione o formulário se o cliente realmente não tiver nenhum dado no sistema (verifique contexto acima).
 
         ### 4. FLUXO DE ATENDIMENTO (Prioridade ao Contexto)
         1. **Saudação:** Seja breve. Se houver veículos no bloco acima, fale diretamente sobre eles.
@@ -634,12 +635,13 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         
         Você é o Luiz, especialista sênior em avaliação de veículos da AutoCompra. 
 
+        ### [CONDIÇÃO DO CLIENTE]
         ${vehicleContext}
 
         ### REGRAS DE OURO:
-        1. **FOCO EM AJUDAR:** Se o usuário quer vender, sua resposta deve ser sempre de auxílio. Nunca diga que não pode ajudar.
-        2. **VERIFICAÇÃO DE DADOS:** Antes de pedir para preencher o formulário, verifique os blocos [DADOS DO VEÍCULO] e [CLIENTE COM INVENTÁRIO] acima. Se houver veículos lá, o cliente JÁ é cadastrado.
-        3. **DIRECIONAMENTO INTELIGENTE:** Somente peça para preencher o formulário (https://autocompra.online/vender) se o cliente NÃO possuir nenhum veículo nos blocos acima, ou se ele quiser vender um NOVO carro além dos que já estão listados.
+        1. **FOCO EM AJUDAR:** Se o usuário quer vender, sua resposta deve ser sempre de auxílio. **PROIBIDO dizer "não posso ajudar com isso"**.
+        2. **VERIFICAÇÃO DE INVENTÁRIO:** Antes de qualquer coisa, olhe o bloco [CONDIÇÃO DO CLIENTE] abaixo. Se ele tiver carros, ele é VIP e já cadastrado.
+        3. **NUNCA PEÇA FORMULÁRIO PARA CLIENTE CADASTRADO:** Se houver veículos nos blocos acima, foque na análise atual ou pergunte se ele quer vender mais um carro (novo).
 
         ### REGRAS DE NEGÓCIO:
         NEGOCIAÇÃO COM O BANCO:
@@ -653,7 +655,9 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         - Informe que um especialista passará os detalhes e entrará em contato se houver interesse.
         - Se ele demonstrar interesse real nesta parte, inclua no final da sua resposta o bloco: \`\`\`json {"action": "update_status", "status": "limpa_nome"} \`\`\`
 
-        ${systemPrompt || defaultRules}
+        ${defaultRules}
+
+        ${systemPrompt ? `### DIRETRIZES PERSONALIZADAS (Siga estas também): \n${systemPrompt}` : ''}
         
         ${proposalContext}
         
