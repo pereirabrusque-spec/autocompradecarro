@@ -887,16 +887,18 @@ VEÍCULO EM NEGOCIAÇÃO:
 `;
 
                     // Guard clause for the "others" query: prevent crash if email and user_id are missing
-                    if (vehicle.email || vehicle.user_id) {
+                    const searchEmail = vehicle.email || leadData?.email || payload.metadata?.email;
+                    const searchUserId = vehicle.user_id || profile?.id || payload.metadata?.user_id;
+
+                    if (searchEmail || searchUserId) {
                         try {
-                            let query = supabase.from('leads_veiculos').select('marca, modelo, ano_modelo, preco_cliente, cor, quilometragem');
-                            
                             const filters: string[] = [];
-                            if (vehicle.email) filters.push(`email.ilike.${vehicle.email}`);
-                            if (vehicle.user_id) filters.push(`user_id.eq.${vehicle.user_id}`);
+                            if (searchEmail) filters.push(`email.ilike.${searchEmail.toLowerCase().trim()}`);
+                            if (searchUserId) filters.push(`user_id.eq.${searchUserId}`);
                             
                             if (filters.length > 0) {
-                                const { data: others } = await query
+                                const { data: others } = await supabase.from('leads_veiculos')
+                                    .select('marca, modelo, ano_modelo, preco_cliente, cor, quilometragem')
                                     .or(filters.join(','))
                                     .neq('id', leadId)
                                     .limit(10);
@@ -1043,7 +1045,27 @@ REGRAS GERAIS:
                 );
                 
                 if (response && response.text) {
-                    const finalText = response.text.replace(/{{nome}}/g, clientName).replace(/{{cliente_nome}}/g, clientName);
+                    let rawBotText = response.text;
+                    
+                    // FILTRO DE SEGURANÇA (POST-PROCESSING): 
+                    // Impede que o CRM mande formulário para quem já tem cadastro
+                    const detectionPhrases = [
+                      'preencha nosso formulário',
+                      'formulário de avaliação',
+                      'link do formulário',
+                      'clique no link',
+                      'avançar com a venda do seu carro',
+                      '/vender'
+                    ];
+
+                    if ((isFormFilled || hasOtherVehicles) && detectionPhrases.some(phrase => rawBotText.toLowerCase().includes(phrase))) {
+                        console.warn("[BackgroundAIManager] Filtro de Segurança Ativado para CRM.");
+                        if (rawBotText.toLowerCase().includes('http')) {
+                            rawBotText = `Olá ${clientName}! Já localizei os dados que você enviou anteriormente. Nossos especialistas estão analisando e entrarão em contato em breve com uma proposta justa. Deseja saber algo específico sobre a avaliação agora?`;
+                        }
+                    }
+
+                    const finalText = rawBotText.replace(/{{nome}}/g, clientName).replace(/{{cliente_nome}}/g, clientName);
                     
                     // Lógica de Processamento de Ações via JSON
                     const jsonMatch = finalText.match(/```json\n([\s\S]*?)\n```/);

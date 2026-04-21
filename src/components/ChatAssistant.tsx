@@ -96,7 +96,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
     
     // Busca por email de forma insensível e também normalizada
     if (user?.email) {
-        const email = user.email.toLowerCase();
+        const email = user.email.toLowerCase().trim();
         filters.push(`email.ilike.${email}`);
     }
 
@@ -104,7 +104,10 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
       const { data: currentLead } = await supabase.from('leads_veiculos').select('user_id, email, telefone').eq('id', leadId).maybeSingle();
       if (currentLead) {
         if (currentLead.user_id) filters.push(`user_id.eq.${currentLead.user_id}`);
-        if (currentLead.email) filters.push(`email.ilike.${currentLead.email.toLowerCase()}`);
+        if (currentLead.email) {
+            const email = currentLead.email.toLowerCase().trim();
+            filters.push(`email.ilike.${email}`);
+        }
         if (currentLead.telefone) filters.push(`telefone.eq.${currentLead.telefone}`);
       }
     }
@@ -697,9 +700,28 @@ ${userText}`;
       }
     }
 
-    const aiResponse = await AIService.generateContent(prompt, finalSystemPrompt, aiImage || undefined);
+      let aiResponse = await AIService.generateContent(prompt, finalSystemPrompt, aiImage || undefined);
+      
+      let rawBotText = aiResponse.text || 'Entendido. Por favor, continue com as informações solicitadas.';
 
-      const rawBotText = aiResponse.text || 'Entendido. Por favor, continue com as informações solicitadas.';
+      // FILTRO DE SEGURANÇA (POST-PROCESSING): 
+      // Se a IA for teimosa e enviar o link do formulário para quem já tem cadastro
+      const detectionPhrases = [
+        'preencha nosso formulário',
+        'formulário de avaliação',
+        'link do formulário',
+        'clique no link',
+        'avançar com a venda do seu carro',
+        '/vender'
+      ];
+      
+      const shouldBlock = (currentVehicleFilled || hasInventory) && 
+                         detectionPhrases.some(phrase => rawBotText.toLowerCase().includes(phrase));
+
+      if (shouldBlock) {
+          console.warn("[ChatAssistant] Filtro de Segurança Ativado: IA tentou pedir formulário para cliente cadastrado.");
+          rawBotText = "Estamos analisando as informações que você já nos enviou. Em breve um de nossos especialistas entrará em contato com uma proposta justa. Deseja tirar alguma dúvida específica sobre o seu veículo agora?";
+      }
       
       // Substituição robusta de placeholders (lida com espaços e variações)
       const currentClientName = user?.user_metadata?.full_name || profile?.full_name || 'Cliente';
