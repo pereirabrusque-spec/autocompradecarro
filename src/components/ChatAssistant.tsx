@@ -93,15 +93,19 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
     // Busca inventário expandido (por Lead ID, por User ID ou por Email)
     const filters: string[] = [];
     if (user?.id) filters.push(`user_id.eq.${user.id}`);
+    
+    // Busca por email de forma insensível e também normalizada
     if (user?.email) {
-        filters.push(`email.ilike.${user.email}`);
+        const email = user.email.toLowerCase();
+        filters.push(`email.ilike.${email}`);
     }
 
     if (leadId) {
-      const { data: currentLead } = await supabase.from('leads_veiculos').select('user_id, email').eq('id', leadId).maybeSingle();
+      const { data: currentLead } = await supabase.from('leads_veiculos').select('user_id, email, telefone').eq('id', leadId).maybeSingle();
       if (currentLead) {
         if (currentLead.user_id) filters.push(`user_id.eq.${currentLead.user_id}`);
-        if (currentLead.email) filters.push(`email.ilike.${currentLead.email}`);
+        if (currentLead.email) filters.push(`email.ilike.${currentLead.email.toLowerCase()}`);
+        if (currentLead.telefone) filters.push(`telefone.eq.${currentLead.telefone}`);
       }
     }
 
@@ -597,10 +601,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
           "down_payment": 0,
           "desired_price": 0,
           "fipe_price": 0,
-          "situation": "Financiado/Batido/Normal",
-          "proposal_value": "Valor da Proposta Gerada",
-          "proposal_type": "Compra/Assunção/Cobrança",
-          "score_veiculo": 0-100
+          "situation": "Financiado/Batido/Normal"
         }
         \`\`\`
       `;
@@ -609,77 +610,63 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
       const currentVehicleFilled = !!(leadData?.marca && leadData?.modelo && leadData.marca !== 'N/A' && leadData.modelo !== 'N/A');
       const hasInventory = otherModels.length > 0;
       
-      // LOG DE DIAGNÓSTICO PARA O LUIZ (OCULTO AO USUÁRIO)
       const luizContextLog = `
-[LOG DE SISTEMA - IDENTIFICAÇÃO]:
-- Cliente Logado: ${user?.email || 'N/A'}
-- Lead Atual (${leadId}): ${currentVehicleFilled ? `${leadData.marca} ${leadData.modelo}` : 'Vazio'}
-- Outros Carros Detectados: ${otherModels.length} (${otherModels.map(m => `${m.marca} ${m.modelo}`).join(', ')})
-- Decisão: ${ (currentVehicleFilled || hasInventory) ? 'CLIENTE COM CADASTRO (PROIBIDO PEDIR FORMULÁRIO)' : 'NOVO CLIENTE' }
+[DEBUG LUIZ]: 
+- ID Lead: ${leadId}
+- Carro Atual Ok: ${currentVehicleFilled ? 'Sim' : 'Não'}
+- Histórico Encontrado: ${hasInventory ? `${otherModels.length} carros` : 'Nenhum'}
       `;
 
       const vehicleContext = currentVehicleFilled ? `
-### [CADASTRO LOCALIZADO]
-- VEÍCULO ATUAL: ${leadData.marca} ${leadData.modelo}
-- STATUS: ${leadData.status || 'Em processamento'}
-
-[MISSÃO CRÍTICA]: O cliente já preencheu os dados deste carro. Foque em PERSUADIR ele a seguir com a análise. NUNCA peça formulário.
+### [BINGO: CLIENTE COM CARRO EM MÃOS]
+- O cliente já preencheu tudo para o ${leadData.marca} ${leadData.modelo}.
+- MISSÃO: NÃO peça formulários. Fale da análise deste carro.
 ` : hasInventory ? `
-### [CLIENTE VIP - INVENTÁRIO DETECTADO]
-- FROTA DO CLIENTE: ${otherModels.map(m => `${m.marca} ${m.modelo}`).join(', ')}.
-
-[MISSÃO CRÍTICA]: O cliente JÁ É NOSSO PARCEIRO com ${otherModels.length} carros. 
-- PROIBIDO pedir formulário de boas-vindas. 
-- Trate-o como cliente antigo. Pergunte sobre os carros acima.
+### [BINGO: CLIENTE COM HISTÓRICO]
+- O cliente já tem ${otherModels.length} carros conosco: ${otherModels.map(m => `${m.marca} ${m.modelo}`).join(', ')}.
+- MISSÃO: Trate-o como cliente VIP. NÃO peça formulário de boas-vindas. Pergunte sobre os carros que ele já tem.
 ` : `
-### [NOVO CLIENTE — SEM INVENTÁRIO]
-- MISSÃO: Explicar que precisamos dos dados técnicos para avaliar e mande o link: https://autocompra.online/vender.
+### [NOVO CLIENTE]
+- Nenhum dado. Leve ao link: https://autocompra.online/vender.
 `;
 
-      const finalSystemPrompt = `
-        [SISTEMA DE ATENDIMENTO — AUTOCOMPRA.ONLINE]
-        
-        Você é o Luiz, especialista sênior em avaliação de veículos da AutoCompra. 
+      // Limpeza agressiva de prompt customizado se houver inventário
+      let cleanSystemPrompt = systemPrompt || '';
+      if (currentVehicleFilled || hasInventory) {
+        // Remove frases inteiras que induzem ao preenchimento se detectado inventário
+        cleanSystemPrompt = cleanSystemPrompt.replace(/preencha nosso formulário de avaliação online/gi, 'aguarde nossa análise');
+        cleanSystemPrompt = cleanSystemPrompt.replace(/preencha o formulário/gi, 'verifique os dados');
+        cleanSystemPrompt = cleanSystemPrompt.replace(/clique no link/gi, 'aguarde o contato');
+        cleanSystemPrompt = cleanSystemPrompt.replace(/https:\/\/autocompra.online\/vender/gi, ''); 
+      }
 
-        ### [CONDIÇÃO DO CLIENTE]
+      const finalSystemPrompt = `
+        VOCÊ É O LUIZ — Especialista Sênior da AutoCompra.
+        
+        ### [VIGILÂNCIA DE ESTADO DO CLIENTE — PRIORIDADE MÁXIMA]
         ${luizContextLog}
         ${vehicleContext}
 
-        ### REGRAS DE OURO:
-        1. **FOCO EM AJUDAR:** Se o usuário quer vender, sua resposta deve ser sempre de auxílio. **PROIBIDO dizer "não posso ajudar com isso"**.
-        2. **VERIFICAÇÃO DE INVENTÁRIO:** Antes de qualquer coisa, olhe o bloco [CONDIÇÃO DO CLIENTE] abaixo. Se ele tiver carros, ele é VIP e já cadastrado.
-        3. **NUNCA PEÇA FORMULÁRIO PARA CLIENTE CADASTRADO:** Se houver veículos nos blocos acima, foque na análise atual ou pergunte se ele quer vender mais um carro (novo).
-
-        ### REGRAS DE NEGÓCIO:
-        NEGOCIAÇÃO COM O BANCO:
-        - Se o cliente perguntar sobre negociar com o banco ou dívidas, explique que podemos conseguir até 80% de desconto na quitação dependendo do banco.
-        - Se ele AINDA NÃO tiver preenchido o formulário (verifique blocos acima), induza-o ao link https://autocompra.online/vender. Se JÁ PREENCHEU, diga que a análise da quitação será feita com base no veículo enviado.
-        - Informe que após a análise, um analista entrará em contato.
-        - Se ele demonstrar interesse real nesta parte, inclua no final da sua resposta o bloco: \`\`\`json {"action": "update_status", "status": "negociar"} \`\`\`
-
-        LIMPA NOME / BLINDAGEM:
-        - Se o cliente perguntar sobre limpa nome ou blindagem, explique como funciona o processo de restaurar o crédito.
-        - Informe que um especialista passará os detalhes e entrará em contato se houver interesse.
-        - Se ele demonstrar interesse real nesta parte, inclua no final da sua resposta o bloco: \`\`\`json {"action": "update_status", "status": "limpa_nome"} \`\`\`
+        REGRAS DE OURO INVIOLÁVEIS (LEIA ANTES DE RESPONDER):
+        1. SE O BLOCO [BINGO: CLIENTE COM HISTÓRICO] OU [BINGO: CLIENTE COM CARRO EM MÃOS] TIVER DADOS, O CLIENTE É VIP E JÁ CADASTRADO.
+        2. É TERMINANTEMENTE PROIBIDO PEDIR PARA PREENCHER FORMULÁRIO OU ENVIAR O LINK /vender SE O CLIENTE JÁ TEM CARROS.
+        3. SE O CLIENTE DISSER QUE QUER VENDER (COMO NO HISTÓRICO ACIMA), E ELE JÁ TEM CARROS, DIGA: "Vi que você já tem ${otherModels.length > 0 ? otherModels.map(m => m.modelo).join(', ') : 'veículos'} em análise. Quer saber o status ou cadastrar um novo?".
 
         ${defaultRules}
+        
+        ${cleanSystemPrompt ? `### DIRETRIZES DO PAINEL (FILTRADAS): \n${cleanSystemPrompt}` : ''}
 
-        ${systemPrompt ? `### DIRETRIZES PERSONALIZADAS (Siga estas também): \n${systemPrompt}` : ''}
-        
-        ${proposalContext}
-        
-        ### CONTEXTO TÉCNICO:
+        ---
+        SISTEMA:
         FIPE: ${fipeContext}
         BANCOS: ${banksContext}
         REPAROS: ${repairContext}
-        
-        OUTROS MODELOS REGISTRADOS:
-        ${otherModels.length > 0 ? otherModels.map(m => `- ${m.marca} ${m.modelo}`).join('\n') : 'Nenhum'}
+        INVENTÁRIO ATUAL: ${otherModels.length > 0 ? otherModels.map(m => `- ${m.marca} ${m.modelo}`).join('\n') : 'Nenhum'}
 
         [REGRAS DE RESPOSTA]
         - Máximo de 4 linhas.
-        - Estilo WhatsApp (direto e sem saudações desnecessárias).
-        - Use {{nome}} para se referir ao cliente.
+        - Estilo WhatsApp.
+        - Se o cliente já tem carro, NÃO mande link de formulário.
       `;
       // Lógica para filtrar mensagens para a UI
     const today = new Date().toDateString();
