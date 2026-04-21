@@ -593,27 +593,31 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         \`\`\`
       `;
 
+      const hasAnyVehicle = !!(leadData?.marca && leadData?.modelo && leadData.marca !== 'N/A') || otherModels.length > 0;
       const isFormFilledStrict = !!(leadData?.marca && leadData?.modelo && leadData.marca !== 'N/A' && leadData.modelo !== 'N/A');
 
       const vehicleContext = isFormFilledStrict ? `
-### [DADOS DO VEÍCULO EM ANÁLISE]
+### [VEÍCULO ATUAL EM FOCO]
 - Marca: ${leadData.marca}
 - Modelo: ${leadData.modelo}
 - Ano: ${leadData.ano_fabricacao}/${leadData.ano_modelo || 'N/A'}
-- Placa: ${leadData.placa || 'N/A'}
 - Status: ${leadData.status || 'N/A'}
 
-[INSTRUÇÃO DE PRIORIDADE]: O CLIENTE JÁ PREENCHEU O FORMULÁRIO.
-1. NÃO peça para preencher novamente.
-2. Informe que nossa equipe técnica já recebeu os dados do ${leadData.marca} ${leadData.modelo} e está realizando a análise agora mesmo.
-3. Diga que assim que a proposta oficial for gerada, ele será avisado imediatamente.
-4. Pergunte se ele tem fotos adicionais ou alguma dúvida enquanto aguarda.
+[INSTRUÇÃO]: O cliente já preencheu os dados deste veículo. Foque na análise técnica e não peça para preencher formulários agora.
+` : hasAnyVehicle ? `
+### [CLIENTE COM VEÍCULOS NO INVENTÁRIO]
+- O cliente já tem ${otherModels.length + (leadData?.marca ? 1 : 0)} veículo(s) cadastrado(s) no sistema.
+- Veículos: ${otherModels.map(m => `${m.marca} ${m.modelo}`).join(', ')} ${leadData?.marca ? `e ${leadData.marca} ${leadData.modelo}` : ''}
+
+[INSTRUÇÃO DE PRIORIDADE]: O cliente já é nosso parceiro e tem veículos cadastrados. 
+1. NÃO diga que "não recebemos dados".
+2. Reconheça os veículos que ele já tem cadastrados.
+3. Se ele estiver falando de um NOVO veículo, aí sim peça para ele preencher um novo formulário em https://autocompra.online/vender.
+4. Se ele estiver perguntando sobre os veículos atuais, informe que a análise está em curso.
 ` : `
-### [STATUS: AGUARDANDO DADOS DO VEÍCULO]
-- **SITUAÇÃO:** O usuário quer vender um veículo, mas ainda não completou o cadastro técnico.
-- **SUA MISSÃO:** Explique que você está pronto para ajudar, mas precisa dos detalhes técnicos no link oficial para gerar uma oferta real.
-- **LINK:** https://autocompra.online/vender
-- **TOM:** Muito positivo e proativo. Diga: "Com certeza, eu te ajudo agora a vender seu carro! Só preciso que você preencha os dados rapidinho aqui: https://autocompra.online/vender"
+### [STATUS: NOVO LEAD - SEM VEÍCULOS]
+- O usuário ainda não completou nenhum cadastro técnico.
+- SUA MISSÃO: Induzi-lo ao link https://autocompra.online/vender de forma positiva.
 `;
 
       const finalSystemPrompt = `

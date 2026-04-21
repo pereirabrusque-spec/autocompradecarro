@@ -923,18 +923,20 @@ VEÍCULO EM NEGOCIAÇÃO:
                     } catch (e) {}
                 }
 
-            // Identificação do lead e status
+            const hasOtherVehicles = inventoryContext.includes("OUTROS VEÍCULOS");
             const isFormFilled = !!(vehicle && vehicle.marca && vehicle.modelo);
-            const leadStatus = isFormFilled ? "MORNO (Formulário Preenchido)" : "FRIO (Formulário NÃO Preenchido)";
+            const leadStatus = isFormFilled ? "MORNO (Formulário Preenchido)" : hasOtherVehicles ? "MORNO (Tem outros veículos no cadastro)" : "FRIO (Nenhum veículo cadastrado)";
             
             // Força o leadId a ser o do payload se o vehicle falhar (para novos leads recém criados)
             const activeLeadId = leadId || payload.lead_id;
 
-            console.log(`[BackgroundAIManager] 🌡️ Status do Lead [ID: ${messageId}]: ${leadStatus}. FormFilled: ${isFormFilled}`);
+            console.log(`[BackgroundAIManager] 🌡️ Status do Lead [ID: ${messageId}]: ${leadStatus}. FormFilled: ${isFormFilled}, HasOthers: ${hasOtherVehicles}`);
 
             const formStatusContext = isFormFilled 
-                ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** ${leadStatus}. \n**AÇÃO:** O cliente JÁ preencheu o formulário. NÃO peça para preencher novamente sob nenhuma hipótese. Informe que nossa equipe técnica já recebeu os dados do veículo (${vehicle?.marca || ''} ${vehicle?.modelo || ''}) e está realizando a análise técnica agora. Diga que assim que tivermos a proposta oficial, informaremos ele imediatamente.`
-                : `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** ${leadStatus}. \n**AÇÃO:** O cliente ainda não preencheu o formulário completo. Sua prioridade absoluta é ser amigável e induzi-lo ao link: https://autocompra.online/vender para análise técnica.`;
+                ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** ${leadStatus}. \n**AÇÃO:** O cliente JÁ preencheu o formulário deste veículo. NÃO peça para preencher novamente sob nenhuma hipótese. Informe que nossa equipe técnica já recebeu os dados do veículo (${vehicle?.marca || ''} ${vehicle?.modelo || ''}) e está realizando a análise técnica agora.`
+                : hasOtherVehicles
+                ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** ${leadStatus}. \n**AÇÃO:** O cliente já possui veículos cadastrados no sistema (veja em OUTROS VEÍCULOS). Reconheça isso e não peça para preencher formulário a menos que ele queira vender um NOVO carro não listado.`
+                : `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** ${leadStatus}. \n**AÇÃO:** O cliente ainda não preencheu o formulário completo. Sua prioridade absoluta é induzi-lo ao link: https://autocompra.online/vender para iniciar a análise técnica.`;
 
             const followUpContext = isFollowUp 
                 ? `\n[MODO FOLLOW-UP ATIVADO]
