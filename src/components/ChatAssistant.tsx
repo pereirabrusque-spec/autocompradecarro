@@ -92,15 +92,21 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
 
     // Se tiver leadId, busca outros modelos do mesmo vendedor
     if (leadId) {
-      const { data: lead } = await supabase.from('leads_veiculos').select('user_id').eq('id', leadId).single();
-      if (lead?.user_id) {
-        const { data: others } = await supabase
-          .from('leads_veiculos')
-          .select('marca, modelo, ano_modelo, preco_cliente, cor, quilometragem')
-          .eq('user_id', lead.user_id)
-          .neq('id', leadId)
-          .limit(10);
-        setOtherModels(others || []);
+      const { data: lead } = await supabase.from('leads_veiculos').select('user_id, email').eq('id', leadId).single();
+      if (lead) {
+        const filters: string[] = [];
+        if (lead.user_id) filters.push(`user_id.eq.${lead.user_id}`);
+        if (lead.email) filters.push(`email.eq.${lead.email}`);
+
+        if (filters.length > 0) {
+          const { data: others } = await supabase
+            .from('leads_veiculos')
+            .select('marca, modelo, ano_modelo, preco_cliente, cor, quilometragem')
+            .or(filters.join(','))
+            .neq('id', leadId)
+            .limit(10);
+          setOtherModels(others || []);
+        }
       }
     }
   };
@@ -553,13 +559,10 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         - **Persuasão:** Incentive o usuário a enviar os dados para avaliação. Diga: "Pode mandar os dados e fotos sem compromisso. Nossa avaliação é gratuita e você decide se aceita a proposta."
         - **Negociação/Estimativa:** Se o usuário pedir uma estimativa de valor ou quiser negociar e **AINDA NÃO** tiver preenchido o formulário, diga que para isso ele **PRECISA preencher o formulário completo** clicando em "Vender Meu Carro" ou fornecendo todos os dados aqui no chat. Se ele **JÁ PREENCHEU**, informe que os dados já estão com nossos especialistas e a proposta está sendo calculada.
 
-        ### 4. FLUXO DE ATENDIMENTO (Seja educado e prestativo)
-        1. **Boas-vindas:** Já peça o Modelo e Ano (se não tiver). Se o histórico já tiver uma saudação, NÃO repita.
-        2. **Análise:** Peça detalhes do problema (Dívida? Mecânica?).
-        3. **Documentação:** Peça foto do CRLV ou Placa/Renavam para consulta.
-        4. **Visual:** Peça fotos do carro (frente, traseira, laterais, interior).
-        5. **Financeiro:** Pergunte: Banco? Valor parcela? Quantas pagas? Quantas faltam? **Quanto deu de entrada?**
-        6. **ENCERRAMENTO:** Agradeça e diga que um consultor enviará a proposta em breve.
+        ### 4. FLUXO DE ATENDIMENTO (Prioridade ao Contexto)
+        1. **Saudação:** Seja breve. Se houver veículos no bloco acima, fale diretamente sobre eles.
+        2. **Análise:** Se não houver veículos, peça os dados básicos ou o link. Se houver, confirme a intenção de venda.
+        3. **ENCERRAMENTO:** Diga que os especialistas entrarão em contato.
 
         ### 5. REGRAS DE SAUDAÇÃO:
         - NUNCA diga "Bom dia", "Boa tarde" ou "Olá" se o histórico já mostrar que você já cumprimentou o cliente.
@@ -597,27 +600,25 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
       const isFormFilledStrict = !!(leadData?.marca && leadData?.modelo && leadData.marca !== 'N/A' && leadData.modelo !== 'N/A');
 
       const vehicleContext = isFormFilledStrict ? `
-### [VEÍCULO ATUAL EM FOCO]
-- Marca: ${leadData.marca}
-- Modelo: ${leadData.modelo}
-- Ano: ${leadData.ano_fabricacao}/${leadData.ano_modelo || 'N/A'}
-- Status: ${leadData.status || 'N/A'}
+### [DADOS DO VEÍCULO EM ANÁLISE]
+- VEÍCULO: ${leadData.marca} ${leadData.modelo} (${leadData.ano_fabricacao}/${leadData.ano_modelo || 'N/A'})
+- STATUS: ${leadData.status || 'Em Análise'}
 
-[INSTRUÇÃO]: O cliente já preencheu os dados deste veículo. Foque na análise técnica e não peça para preencher formulários agora.
+[REGRA ABSOLUTA]: O cliente JÁ PREENCHEU o formulário para este carro.
+1. NÃO peça para ele preencher nada.
+2. Informe que a análise técnica do ${leadData.modelo} está em andamento.
+3. Se ele perguntar por valores, diga que os especialistas estão calculando com base no ano e estado do carro.
 ` : hasAnyVehicle ? `
-### [CLIENTE COM VEÍCULOS NO INVENTÁRIO]
-- O cliente já tem ${otherModels.length + (leadData?.marca ? 1 : 0)} veículo(s) cadastrado(s) no sistema.
-- Veículos: ${otherModels.map(m => `${m.marca} ${m.modelo}`).join(', ')} ${leadData?.marca ? `e ${leadData.marca} ${leadData.modelo}` : ''}
+### [CLIENTE COM INVENTÁRIO]
+- O cliente já possui ${otherModels.length} veículo(s) cadastrado(s): ${otherModels.map(m => `${m.marca} ${m.modelo}`).join(', ')}.
 
-[INSTRUÇÃO DE PRIORIDADE]: O cliente já é nosso parceiro e tem veículos cadastrados. 
-1. NÃO diga que "não recebemos dados".
-2. Reconheça os veículos que ele já tem cadastrados.
-3. Se ele estiver falando de um NOVO veículo, aí sim peça para ele preencher um novo formulário em https://autocompra.online/vender.
-4. Se ele estiver perguntando sobre os veículos atuais, informe que a análise está em curso.
+[REGRA ABSOLUTA]: Este cliente já é cadastrado.
+1. NÃO peça para preencher o formulário inicial.
+2. Pergunte se ele deseja saber sobre a análise dos carros que ele já enviou ou se quer cadastrar um NOVO veículo (neste caso, mande o link: https://autocompra.online/vender).
 ` : `
-### [STATUS: NOVO LEAD - SEM VEÍCULOS]
-- O usuário ainda não completou nenhum cadastro técnico.
-- SUA MISSÃO: Induzi-lo ao link https://autocompra.online/vender de forma positiva.
+### [STATUS: NOVO CLIENTE]
+- Nenhum veículo no sistema.
+- SUA MISSÃO: Ser receptivo e levar o cliente ao formulário oficial: https://autocompra.online/vender.
 `;
 
       const finalSystemPrompt = `
@@ -629,8 +630,8 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
 
         ### REGRAS DE OURO:
         1. **FOCO EM AJUDAR:** Se o usuário quer vender, sua resposta deve ser sempre de auxílio. Nunca diga que não pode ajudar.
-        2. **SEM ALUCINAÇÃO:** Se o carro não estiver nos dados acima, explique educadamente que você ainda não recebeu as informações no sistema e peça para ele preencher o formulário para você poder analisar.
-        3. **DIRECIONAMENTO:** Sempre conduza o usuário para o formulário (https://autocompra.online/vender) se os dados técnicos ainda não foram preenchidos.
+        2. **VERIFICAÇÃO DE DADOS:** Antes de pedir para preencher o formulário, verifique os blocos [DADOS DO VEÍCULO] e [CLIENTE COM INVENTÁRIO] acima. Se houver veículos lá, o cliente JÁ é cadastrado.
+        3. **DIRECIONAMENTO INTELIGENTE:** Somente peça para preencher o formulário (https://autocompra.online/vender) se o cliente NÃO possuir nenhum veículo nos blocos acima, ou se ele quiser vender um NOVO carro além dos que já estão listados.
 
         ### REGRAS DE NEGÓCIO:
         NEGOCIAÇÃO COM O BANCO:
