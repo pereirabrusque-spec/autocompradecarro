@@ -1624,7 +1624,15 @@ export default function SellCar() {
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                   placeholder="(11) 99999-9999"
                   value={formData.ownerPhone}
-                  onChange={e => setFormData({...formData, ownerPhone: e.target.value})}
+                  onChange={e => {
+                    let val = e.target.value.replace(/\D/g, '');
+                    if (val.length > 11) val = val.slice(0, 11);
+                    let masked = val;
+                    if (val.length > 0) masked = `(${val.slice(0, 2)}`;
+                    if (val.length > 2) masked += `) ${val.slice(2, 7)}`;
+                    if (val.length > 7) masked += `-${val.slice(7, 11)}`;
+                    setFormData({...formData, ownerPhone: masked});
+                  }}
                 />
               </div>
               <div className="space-y-1">
@@ -1633,7 +1641,15 @@ export default function SellCar() {
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                   placeholder="(11) 99999-9999"
                   value={formData.ownerPhoneConfirm}
-                  onChange={e => setFormData({...formData, ownerPhoneConfirm: e.target.value})}
+                  onChange={e => {
+                    let val = e.target.value.replace(/\D/g, '');
+                    if (val.length > 11) val = val.slice(0, 11);
+                    let masked = val;
+                    if (val.length > 0) masked = `(${val.slice(0, 2)}`;
+                    if (val.length > 2) masked += `) ${val.slice(2, 7)}`;
+                    if (val.length > 7) masked += `-${val.slice(7, 11)}`;
+                    setFormData({...formData, ownerPhoneConfirm: masked});
+                  }}
                 />
               </div>
               <div className="space-y-1">

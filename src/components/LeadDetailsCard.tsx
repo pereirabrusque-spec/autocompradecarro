@@ -519,7 +519,8 @@ export default function LeadDetailsCard({
                 <button 
                   onClick={() => {
                     const phone = currentLead.telefone?.replace(/\D/g, '');
-                    const formattedPhone = phone?.startsWith('55') ? phone : `55${phone}`;
+                    const basePhone = phone?.replace(/^0+/, '');
+                    const formattedPhone = basePhone?.startsWith('55') ? basePhone : `55${basePhone}`;
                     const rawMessage = generateOwnerMessage();
                     const encodedMessage = encodeURIComponent(rawMessage);
                     window.open(`https://wa.me/${formattedPhone}?text=${encodedMessage}`, '_blank');
@@ -551,7 +552,8 @@ export default function LeadDetailsCard({
               <button 
                 onClick={async () => {
                   const phone = currentLead.telefone?.replace(/\D/g, '');
-                  const formattedPhone = phone?.startsWith('55') ? phone : `55${phone}`;
+                  const basePhone = phone?.replace(/^0+/, '');
+                  const formattedPhone = basePhone?.startsWith('55') ? basePhone : `55${basePhone}`;
                   const rawMessage = generateOwnerMessage();
                   const encodedMessage = encodeURIComponent(rawMessage);
                   
@@ -815,7 +817,9 @@ export default function LeadDetailsCard({
                                     alert('Este comprador não possui WhatsApp cadastrado.');
                                     return;
                                   }
-                                  const phone = rawPhone.startsWith('55') ? rawPhone : `55${rawPhone}`;
+                                  // Remover zero à esquerda se houver (ex: 047 -> 47)
+                                  const basePhone = rawPhone.replace(/^0+/, '');
+                                  const phone = basePhone.startsWith('55') ? basePhone : `55${basePhone}`;
 
                                   // Gerar mensagem robusta
                                   let message = `*Oportunidade de Veículo - #${currentLead.vehicle_code}*\n\n`;

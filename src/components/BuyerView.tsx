@@ -76,7 +76,11 @@ export default function BuyerView() {
         .select('value')
         .eq('key', 'WHATSAPP_NUMBER')
         .single();
-      if (data) setWhatsappNumber(data.value);
+      if (data) {
+        const cleanPhone = data.value.replace(/\D/g, '');
+        const formattedPhone = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
+        setWhatsappNumber(formattedPhone);
+      }
     };
     fetchSettings();
     
@@ -572,15 +576,17 @@ export default function BuyerView() {
 
               <div className="flex flex-col gap-4">
                 {whatsappNumber && (permissions?.send_whatsapp || profile?.role === 'buyer_master') && isWhatsAppEnabledInCRM && (
-                  <a
-                    href={`https://wa.me/${whatsappNumber}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    onClick={() => {
+                      const clean = whatsappNumber.replace(/\D/g, '').replace(/^0+/, '');
+                      const withPrefix = clean.startsWith('55') ? clean : `55${clean}`;
+                      window.open(`https://wa.me/${withPrefix}`, '_blank');
+                    }}
                     className="w-full py-5 bg-emerald-500 text-white rounded-[24px] font-bold hover:bg-emerald-600 transition-all flex items-center justify-center gap-3 shadow-lg shadow-emerald-200 animate-pulse-soft"
                   >
                     <MessageCircle className="w-5 h-5" />
                     WhatsApp Equipe
-                  </a>
+                  </button>
                 )}
                 
                 {profile?.role === 'buyer_master' && selectedLead.telefone && (

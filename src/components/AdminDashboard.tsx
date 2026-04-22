@@ -3054,7 +3054,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
       const message = generateBuyerMessage(lead, buyerSendSettings, buyer.name);
       const encodedMessage = encodeURIComponent(message);
       const rawPhone = buyer.phone.replace(/\D/g, '');
-      const formattedPhone = rawPhone.startsWith('55') ? rawPhone : `55${rawPhone}`;
+      const basePhone = rawPhone.replace(/^0+/, '');
+      const formattedPhone = basePhone.startsWith('55') ? basePhone : `55${basePhone}`;
       const whatsappUrl = `https://wa.me/${formattedPhone}?text=${encodedMessage}`;
       
       // Track sent lead
@@ -4718,7 +4719,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                         onClick={(e) => { 
                                           e.stopPropagation(); 
                                           const phone = lead.telefone?.replace(/\D/g, '');
-                                          const formattedPhone = phone?.startsWith('55') ? phone : `55${phone}`;
+                                          const basePhone = phone?.replace(/^0+/, '');
+                                          const formattedPhone = basePhone?.startsWith('55') ? basePhone : `55${basePhone}`;
                                           const calc = getProposalResult(lead);
                                           const encodedMessage = generateOwnerMessage(lead, calc);
                                           window.open(`https://wa.me/${formattedPhone}?text=${encodedMessage}`, '_blank');
@@ -4802,9 +4804,17 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">WhatsApp (com DDD)</label>
                       <input 
                         className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-accent/20"
-                        placeholder="Ex: 11999999999"
+                        placeholder="(11) 99999-9999"
                         value={newBuyer.phone}
-                        onChange={(e) => setNewBuyer({...newBuyer, phone: e.target.value})}
+                        onChange={(e) => {
+                          let val = e.target.value.replace(/\D/g, '');
+                          if (val.length > 11) val = val.slice(0, 11);
+                          let masked = val;
+                          if (val.length > 0) masked = `(${val.slice(0, 2)}`;
+                          if (val.length > 2) masked += `) ${val.slice(2, 7)}`;
+                          if (val.length > 7) masked += `-${val.slice(7, 11)}`;
+                          setNewBuyer({...newBuyer, phone: masked});
+                        }}
                       />
                     </div>
                     <div className="space-y-1">
@@ -5182,9 +5192,17 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">WhatsApp (com DDD)</label>
                       <input 
                         className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-accent/20"
-                        placeholder="Ex: 11999999999"
+                        placeholder="(11) 99999-9999"
                         value={newBuyer.phone}
-                        onChange={(e) => setNewBuyer({...newBuyer, phone: e.target.value})}
+                        onChange={(e) => {
+                          let val = e.target.value.replace(/\D/g, '');
+                          if (val.length > 11) val = val.slice(0, 11);
+                          let masked = val;
+                          if (val.length > 0) masked = `(${val.slice(0, 2)}`;
+                          if (val.length > 2) masked += `) ${val.slice(2, 7)}`;
+                          if (val.length > 7) masked += `-${val.slice(7, 11)}`;
+                          setNewBuyer({...newBuyer, phone: masked});
+                        }}
                       />
                     </div>
                     <div className="space-y-1">
