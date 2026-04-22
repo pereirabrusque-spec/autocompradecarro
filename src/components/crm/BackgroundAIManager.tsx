@@ -44,21 +44,22 @@ export const BackgroundAIManager = () => {
 
     const handleAILearning = async (message: any, type: 'internal' | 'public') => {
         try {
-            const role = 'Atendente';
+            const role = message.remetente === 'cliente' || message.sender_role === 'buyer' ? 'Cliente' : 'Atendente/IA';
             const content = message.content || message.conteudo;
-            if (!content) return;
+            if (!content || content.length < 10) return;
 
-            const prompt = `Analise a nova mensagem do ${role} e extraia informações relevantes para a memória da IA (preferências do cliente, urgência, detalhes técnicos do veículo, condições de negociação, etc).
+            const prompt = `Analise a nova mensagem de ${role} e extraia informações relevantes para a memória da IA (preferências do cliente, urgência, detalhes técnicos do veículo, condições de negociação, preço pretendido, etc).
                 
                 Mensagem: ${content}`;
             
-            const systemInstruction = "Você é um assistente que monitora conversas de compra e venda de veículos para extrair conhecimento estratégico. Retorne apenas os pontos novos e relevantes de forma ultra-concisa. Se não houver nada relevante, retorne 'NADA'.";
+            const systemInstruction = "Você é um assistente que monitora conversas de compra e venda de veículos para extrair conhecimento estratégico. Retorne apenas fatos novos e relevantes de forma ultra-concisa (ex: 'Cliente tem pressa', 'Veículo tem teto solar'). Se não houver nada novo ou relevante, retorne 'NADA'.";
 
             const response = await AIService.generateContent(prompt, systemInstruction);
             
             const extractedInfo = response.text;
             if (extractedInfo && extractedInfo.trim().toUpperCase() !== 'NADA' && extractedInfo.trim().length > 5) {
-                const newMemory = `${aiMemoryRef.current}\n[${new Date().toLocaleString()}] ${extractedInfo}\n`;
+                const timestamp = new Date().toLocaleString('pt-BR');
+                const newMemory = `${aiMemoryRef.current}\n[${timestamp}] (${role}) ${extractedInfo}\n`.slice(-10000); // Mantém os últimos 10k caracteres
                 await supabase.from('settings').upsert({ key: 'AI_MEMORY', value: newMemory }, { onConflict: 'key' });
                 setAiMemory(newMemory);
             }
@@ -929,7 +930,7 @@ VEÍCULO EM NEGOCIAÇÃO:
                 }
 
             const hasOtherVehicles = inventoryContext.includes("OUTROS VEÍCULOS") || (othersData && othersData.length > 0);
-            const isFormFilled = !!(vehicle && vehicle.marca && vehicle.modelo && vehicle.marca !== 'N/A');
+            const isFormFilled = !!(vehicle && vehicle.marca && vehicle.modelo && vehicle.marca !== 'N/A' && vehicle.modelo !== 'N/A');
             const leadStatus = isFormFilled ? "MORNO (Carro Atual Identificado)" : hasOtherVehicles ? "MORNO (Possui Inventário Anterior)" : "FRIO (Novo Lead)";
             
             // Força o leadId a ser o do payload se o vehicle falhar (para novos leads recém criados)
@@ -938,10 +939,10 @@ VEÍCULO EM NEGOCIAÇÃO:
             console.log(`[BackgroundAIManager] 🌡️ Status do Lead [ID: ${messageId}]: ${leadStatus}. FormFilled: ${isFormFilled}, HasOthers: ${hasOtherVehicles}`);
 
             const formStatusContext = isFormFilled 
-                ? `\n[SITUAÇÃO]: O cliente já preencheu o formulário deste carro (${vehicle?.marca} ${vehicle?.modelo}). NÃO peça link de formulário! Foque na análise em curso.`
+                ? `\n[SITUAÇÃO DE PRIORIDADE]: O cliente já preencheu o formulário deste carro (${vehicle?.marca} ${vehicle?.modelo}). NUNCA peça link de formulário! Se ele perguntar "quais carros tenho", liste o ${vehicle?.marca} ${vehicle?.modelo} e cite que a análise técnica está em andamento.`
                 : hasOtherVehicles
-                ? `\n[SITUAÇÃO]: O cliente já tem frota cadastrada conosco. Ele já nos enviou veículos anteriormente. NÃO trate como novo lead. Pergunte se ele quer falar sobre os carros antigos ou cadastrar um novo.`
-                : `\n[SITUAÇÃO]: O cliente é novo e não tem nenhum dado no sistema. Induza-o ao link https://autocompra.online/vender de forma amigável.`;
+                ? `\n[SITUAÇÃO DE PRIORIDADE]: O cliente já tem frota cadastrada conosco. Ele já nos enviou veículos anteriormente. NADA DE RESPOSTAS GENÉRICAS. Liste os carros que ele já tem: ${othersData.map(v => v.modelo).join(', ')}. Pergunte se ele quer falar sobre esses ou cadastrar um novo.`
+                : `\n[SITUAÇÃO]: O cliente é novo e não tem nenhum dado no sistema. Induza-o ao link https://autocompra.online/vender de forma amigável para que possamos avaliar o carro dele.`;
 
             const followUpContext = isFollowUp 
                 ? `\n[MODO FOLLOW-UP ATIVADO]
@@ -962,17 +963,20 @@ Seja amigável mas incisivo. Verifique se a conversa não foi finalizada antes d
 
                 const activePrompt = `
 VOCÊ É O LUIZ — O ASSISTENTE INTELIGENTE DA AUTO COMPRA ONLINE.
+VOCÊ TEM ACESSO TOTAL AO SISTEMA E É AUTO-DIDATA. VOCÊ APRENDE COM O HISTÓRICO.
 
 [SITUAÇÃO DO CLIENTE]: ${leadStatus}.
 NOME: ${clientName}.
+EMAIL: ${clientEmail}.
 VEÍCULOS NO SISTEMA: Verifique [VEÍCULO EM NEGOCIAÇÃO] e [OUTROS VEÍCULOS] no final deste prompt.
 
-### REGRAS DE OURO (NÃO NEGOCIÁVEIS):
-1. SE O CLIENTE JÁ TEM CARROS (STATUS MORNO), NÃO PEÇA PARA PREENCHER FORMULÁRIO. Fale sobre os carros e a análise em curso.
-2. SÓ PEÇA FORMULÁRIO (https://autocompra.online/vender) SE O CLIENTE FOR "FRIO" (ZERO VEÍCULOS NO SISTEMA).
-3. PROIBIDO DIZER QUE NÃO PODE AJUDAR. Você é um facilitador de negócios.
+### REGRAS DE OURO PARA HUMANIZAÇÃO E RESOLUÇÃO:
+1. **NUNCA diga "não posso ajudar" ou "desculpe"**. Se você não sabe algo, diga: "Vou validar essa informação específica com a nossa técnica agora mesmo, mas já adianto que vejo aqui seu ${vehicle?.modelo || 'cadastro'}...".
+2. **RESOLVA NA HORA**: Se o cliente perguntar o que ele tem conosco, você DEVE listar os veículos.
+3. SE O CLIENTE JÁ TEM CARROS (STATUS MORNO), NÃO PEÇA PARA PREENCHER FORMULÁRIO. Fale sobre os carros e a análise em curso.
+4. SÓ PEÇA FORMULÁRIO (https://autocompra.online/vender) SE O CLIENTE FOR "FRIO" (ZERO VEÍCULOS NO SISTEMA).
 
-### DIRETRIZES ADICIONAIS:
+### DIRETRIZES DA GERÊNCIA:
 ${aiPromptRef.current}
 
 INSTRUÇÃO DE COMPORTAMENTO DETALHADA:

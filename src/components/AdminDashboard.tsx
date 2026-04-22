@@ -3002,12 +3002,24 @@ Podemos prosseguir com o agendamento da vistoria?`;
       msg += `Bancos: ${lead.bancos === 'sim' ? 'Sim' : 'Não'}\n\n`;
     }
 
-    if (settings.midias && lead.fotos && lead.fotos.length > 0) {
-      msg += `📸 *Fotos do Veículo:*\n`;
-      lead.fotos.forEach((foto: string, index: number) => {
-        msg += `Foto ${index + 1}: ${foto}\n`;
-      });
-      msg += `\n`;
+    if (settings.midias) {
+      const mediaItems = [
+        ...(lead.foto_principal ? [lead.foto_principal] : []),
+        ...(Array.isArray(lead.fotos) ? lead.fotos : (lead.fotos_url ? [lead.fotos_url] : [])),
+        ...(lead.foto1 ? [lead.foto1] : []),
+        ...(lead.foto2 ? [lead.foto2] : []),
+        ...(lead.foto3 ? [lead.foto3] : []),
+        ...(Array.isArray(lead.videos) ? lead.videos : (lead.videos_url ? [lead.videos_url] : []))
+      ].filter((item, index, self) => item && self.indexOf(item) === index);
+
+      if (mediaItems.length > 0) {
+        msg += `📸 *Fotos do Veículo:*\n`;
+        mediaItems.slice(0, 10).forEach((foto: string, index: number) => {
+          msg += `Foto ${index + 1}: ${foto}\n`;
+        });
+        if (mediaItems.length > 10) msg += `... e mais ${mediaItems.length - 10} arquivos.\n`;
+        msg += `\n`;
+      }
     }
 
     if (settings.observacoes && lead.observacoes) {
@@ -3041,7 +3053,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
       const message = generateBuyerMessage(lead, buyerSendSettings, buyer.name);
       const encodedMessage = encodeURIComponent(message);
-      const whatsappUrl = `https://wa.me/55${buyer.phone.replace(/\D/g, '')}?text=${encodedMessage}`;
+      const rawPhone = buyer.phone.replace(/\D/g, '');
+      const formattedPhone = rawPhone.startsWith('55') ? rawPhone : `55${rawPhone}`;
+      const whatsappUrl = `https://wa.me/${formattedPhone}?text=${encodedMessage}`;
       
       // Track sent lead
       const { error } = await supabase.from('sent_leads').insert({ lead_id: lead.id, buyer_id: buyer.id });

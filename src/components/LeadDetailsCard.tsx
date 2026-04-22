@@ -810,20 +810,56 @@ export default function LeadDetailsCard({
                               <button 
                                 key={buyer.id} 
                                 onClick={() => {
-                                  const phone = buyer.phone?.replace(/\D/g, '');
-                                  if (!phone) {
+                                  const rawPhone = buyer.phone?.replace(/\D/g, '');
+                                  if (!rawPhone) {
                                     alert('Este comprador não possui WhatsApp cadastrado.');
                                     return;
                                   }
+                                  const phone = rawPhone.startsWith('55') ? rawPhone : `55${rawPhone}`;
 
-                                  // Gerar mensagem
+                                  // Gerar mensagem robusta
                                   let message = `*Oportunidade de Veículo - #${currentLead.vehicle_code}*\n\n`;
-                                  message += `*Veículo:* ${currentLead.marca} ${currentLead.modelo}\n`;
-                                  message += `*Ano:* ${currentLead.ano_modelo}\n`;
-                                  message += `*Cor:* ${currentLead.cor}\n`;
+                                  message += `*Veículo:* ${currentLead.marca || 'N/A'} ${currentLead.modelo || 'N/A'}\n`;
+                                  message += `*Ano:* ${currentLead.ano_fabricacao ? currentLead.ano_fabricacao + '/' : ''}${currentLead.ano_modelo || 'N/A'}\n`;
+                                  message += `*Cor:* ${currentLead.cor || 'N/A'}\n`;
+                                  message += `*Câmbio:* ${currentLead.cambio || 'N/A'}\n`;
+                                  message += `*Combustível:* ${currentLead.combustivel || 'N/A'}\n`;
                                   message += `*KM:* ${currentLead.quilometragem || currentLead.mileage || 'N/A'}\n`;
                                   message += `*Placa:* ${currentLead.placa || 'N/A'}\n`;
                                   
+                                  if (currentLead.valor_fipe) {
+                                    message += `*FIPE:* ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(currentLead.valor_fipe)}\n`;
+                                  }
+
+                                  // Financiamento e Dívidas
+                                  if (currentLead.financiado === 'sim' || currentLead.banco_financiamento) {
+                                    message += `\n*Financiamento:*\n`;
+                                    message += `- Banco: ${currentLead.banco_financiamento || 'N/A'}\n`;
+                                    message += `- Parcela: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(currentLead.valor_parcela || 0)}\n`;
+                                    message += `- Parcelas Pagas: ${currentLead.parcelas_pagas || 0}/${currentLead.total_parcelas || 0}\n`;
+                                  }
+
+                                  if (currentLead.multas) {
+                                    message += `\n*Dívidas:* IPVA/Multas: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(currentLead.multas)}\n`;
+                                  }
+
+                                  // Histórico
+                                  const historyFields = [
+                                    { label: 'Leilão', key: 'passagem_leilao' },
+                                    { label: 'Sinistro', key: 'tem_sinistro' },
+                                    { label: 'Furto/Roubo', key: 'historico_furto_roubo' },
+                                    { label: 'Bloqueio Judicial', key: 'renajud_bloqueio' }
+                                  ];
+                                  let historyMsg = '';
+                                  historyFields.forEach(f => {
+                                    if (currentLead[f.key] === 'sim' || currentLead[f.key] === true) {
+                                      historyMsg += `- ${f.label}: Sim\n`;
+                                    }
+                                  });
+                                  if (historyMsg) {
+                                    message += `\n*Histórico/Restrições:*\n${historyMsg}`;
+                                  }
+
                                   if (currentLead.observacoes) {
                                     message += `\n*Descrição:* ${currentLead.observacoes}\n`;
                                   }

@@ -100,8 +100,8 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         filters.push(`email.ilike.${email}`);
     }
 
-    if (leadId) {
-      const { data: currentLead } = await supabase.from('leads_veiculos').select('user_id, email, telefone').eq('id', leadId).maybeSingle();
+    if (leadIdRef.current) {
+      const { data: currentLead } = await supabase.from('leads_veiculos').select('user_id, email, telefone').eq('id', leadIdRef.current).maybeSingle();
       if (currentLead) {
         if (currentLead.user_id) filters.push(`user_id.eq.${currentLead.user_id}`);
         if (currentLead.email) {
@@ -114,15 +114,17 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
 
     const uniqueFilters = Array.from(new Set(filters));
     if (uniqueFilters.length > 0) {
+      console.log("[ChatAssistant] Buscando inventário com filtros:", uniqueFilters);
       const { data: others } = await supabase
         .from('leads_veiculos')
-        .select('marca, modelo, ano_modelo, preco_cliente, cor, quilometragem, status')
+        .select('*')
         .or(uniqueFilters.join(','))
-        .neq('id', leadId || '')
+        .order('created_at', { ascending: false })
         .limit(15);
       
       // Filtra apenas os que realmente têm dados de carro preenchidos
-      const validOthers = (others || []).filter(v => v.marca && v.modelo && v.marca !== 'N/A');
+      const validOthers = (others || []).filter(v => v.marca && v.modelo && v.marca !== 'N/A' && v.id !== leadIdRef.current);
+      console.log("[ChatAssistant] Inventário encontrado:", validOthers.length, "veículos.");
       setOtherModels(validOthers);
     }
   };
@@ -645,6 +647,13 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
 
       const finalSystemPrompt = `
         VOCÊ É O LUIZ — Especialista Sênior da AutoCompra.
+        Sua personalidade é humanizada, proativa e focada em resolver o problema do cliente. 
+        Você é auto-didata e aprende com cada interação, por isso use a memória do sistema abaixo com prioridade.
+        **NUNCA use desculpas genéricas como "não posso ajudar com isso"**. Se você não tiver uma informação técnica, diga que está consultando nossos especialistas humanos e traga o que você CONSEGUE ver (como o histórico do cliente).
+
+        ### [MEMÓRIA E APRENDIZADO DA IA]
+        ${aiMemory}
+        ${settings['AI_CRM_MEMORY'] || ''}
         
         ### [VIGILÂNCIA DE ESTADO DO CLIENTE — PRIORIDADE MÁXIMA]
         ${luizContextLog}
@@ -653,7 +662,8 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         REGRAS DE OURO INVIOLÁVEIS (LEIA ANTES DE RESPONDER):
         1. SE O BLOCO [BINGO: CLIENTE COM HISTÓRICO] OU [BINGO: CLIENTE COM CARRO EM MÃOS] TIVER DADOS, O CLIENTE É VIP E JÁ CADASTRADO.
         2. É TERMINANTEMENTE PROIBIDO PEDIR PARA PREENCHER FORMULÁRIO OU ENVIAR O LINK /vender SE O CLIENTE JÁ TEM CARROS.
-        3. SE O CLIENTE DISSER QUE QUER VENDER (COMO NO HISTÓRICO ACIMA), E ELE JÁ TEM CARROS, DIGA: "Vi que você já tem ${otherModels.length > 0 ? otherModels.map(m => m.modelo).join(', ') : 'veículos'} em análise. Quer saber o status ou cadastrar um novo?".
+        3. SE O CLIENTE PEDIR "MEU ORÇAMENTO" OU "QUAIS CARROS TENHO", USE A LISTA DE INVENTÁRIO ABAIXO E RESPONDA COM DETALHES.
+        4. SE O CLIENTE DISSER QUE QUER VENDER (COMO NO HISTÓRICO ACIMA), E ELE JÁ TEM CARROS, DIGA: "Vi que você já tem ${otherModels.length > 0 ? otherModels.map(m => m.modelo).join(', ') : 'veículos'} em análise. Quer saber o status ou cadastrar um novo?".
 
         ${defaultRules}
         
@@ -664,7 +674,8 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         FIPE: ${fipeContext}
         BANCOS: ${banksContext}
         REPAROS: ${repairContext}
-        INVENTÁRIO ATUAL: ${otherModels.length > 0 ? otherModels.map(m => `- ${m.marca} ${m.modelo}`).join('\n') : 'Nenhum'}
+        INVENTÁRIO ATUAL DO CLIENTE (MÁXIMA PRIORIDADE): 
+        ${otherModels.length > 0 ? otherModels.map(m => `- ${m.marca} ${m.modelo} (${m.ano_modelo}) | Status: ${m.status || 'Em análise'}`).join('\n') : 'Nenhum veículo cadastrado ainda.'}
 
         [REGRAS DE RESPOSTA]
         - Máximo de 4 linhas.
