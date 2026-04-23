@@ -604,15 +604,15 @@ ${isBuyerContext ?
 Seja amigável mas incisivo. Verifique se a conversa não foi finalizada antes de enviar.`
                     : "";
 
-                const formStatusContext = isBuyerContext
-                    ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**CONTEXTO DE COMPRA:** O cliente é um COMPRADOR interessado no veículo ${specificLead?.marca} ${specificLead?.modelo}. \n**AÇÃO:** Seja um vendedor persuasivo. Fale sobre as qualidades deste veículo específico, condições de pagamento e incentive o fechamento. NÃO peça para preencher formulário de venda.`
+                const formStatusContext = finalIsBuyer
+                    ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**CONTEXTO DE COMPRA:** O cliente é um COMPRADOR interessado no veículo ${specificLead?.marca} ${specificLead?.modelo}. \n**AÇÃO:** Seja um vendedor persuasivo. Fale sobre as qualidades deste veículo específico, condições de pagamento e incentive o fechamento. NÃO peça para preencher formulário de venda. Use as regras de comprador abaixo.`
                     : (isFormFilled 
                         ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente é um VENDEDOR que JÁ PREENCHEU o formulário. \n**AÇÃO:** Fale sobre o veículo dele, demonstre interesse técnico e informe que a proposta oficial está sendo analisada pela nossa equipe técnica e será enviada em breve. NÃO peça para preencher o formulário novamente. Foque em manter o cliente engajado enquanto aguarda.`
                         : `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente é um VENDEDOR que AINDA NÃO preencheu o formulário. \n**AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação.`);
 
                 const clientName = senderProfile?.full_name || "Cliente";
                 const systemPromptCRM = `
-${aiCrmPromptRef.current}
+${finalIsBuyer ? aiPromptRef.current : aiCrmPromptRef.current}
 
 VOCÊ É UM AGENTE DE ATENDIMENTO DE ELITE DA AUTO COMPRA ONLINE.
 ESTE É UM CHAT INTERNO COM UM ${finalIsBuyer ? 'COMPRADOR' : 'VENDEDOR'}: ${clientName}.
@@ -624,7 +624,7 @@ REGRAS DE OURO:
 4. Use o contexto do veículo abaixo para responder dúvidas técnicas ou financeiras.
 5. Se não souber algo, sugira que um especialista humano irá assumir em instantes.
 
-MEMÓRIA DO SISTEMA: ${aiCrmMemoryRef.current}
+MEMÓRIA DO SISTEMA: ${finalIsBuyer ? aiMemoryRef.current : aiCrmMemoryRef.current}
 `;
 
                 const fullPrompt = `

@@ -63,6 +63,18 @@ function AppContent() {
   const { settings } = useAssets();
   const [showAuthModal, setShowAuthModal] = useState(false);
 
+  useEffect(() => {
+    // Tenta carregar tema e dados básicos de forma segura para evitar white screen no iOS
+    try {
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme) {
+        document.documentElement.classList.toggle('dark', savedTheme === 'dark');
+      }
+    } catch (e) {
+      console.warn('[App] LocalStorage inacessível:', e);
+    }
+  }, []);
+
   const isBuyerMaster = profile?.role === 'buyer_master';
 
   const specialistButtonEnabled = settings['SPECIALIST_BUTTON_ENABLED'] === 'true';
@@ -91,7 +103,14 @@ function AppContent() {
   const showWhatsApp = (primaryContact === 'whatsapp' || (specialistButtonEnabled && specialistAction === 'whatsapp')) && whatsappEnabled;
   const showTawkTo = primaryContact === 'tawkto' && tawkToEnabled;
 
-  const buyerSendSettings = settings['BUYER_SEND_SETTINGS'] ? JSON.parse(settings['BUYER_SEND_SETTINGS']) : {};
+  const buyerSendSettings = (() => {
+    try {
+      return settings['BUYER_SEND_SETTINGS'] ? JSON.parse(settings['BUYER_SEND_SETTINGS']) : {};
+    } catch (e) {
+      console.warn('[App] Erro ao parsear BUYER_SEND_SETTINGS:', e);
+      return {};
+    }
+  })();
   const isWhatsAppEnabledInCRM = buyerSendSettings.whatsapp !== false;
 
   useEffect(() => {

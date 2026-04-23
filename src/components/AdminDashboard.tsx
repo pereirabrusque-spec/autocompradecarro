@@ -139,10 +139,13 @@ export default function AdminDashboard() {
   const [socialTiktok, setSocialTiktok] = useState('');
   const [socialLinkedin, setSocialLinkedin] = useState('');
   const [isGlobalAiEnabled, setIsGlobalAiEnabled] = useState(false);
+  const [isBuyerAiEnabled, setIsBuyerAiEnabled] = useState(true);
   const isGlobalAiEnabledRef = useRef(false);
+  const isBuyerAiEnabledRef = useRef(true);
   useEffect(() => {
     isGlobalAiEnabledRef.current = isGlobalAiEnabled;
-  }, [isGlobalAiEnabled]);
+    isBuyerAiEnabledRef.current = isBuyerAiEnabled;
+  }, [isGlobalAiEnabled, isBuyerAiEnabled]);
 
   const [isUpdatingAi, setIsUpdatingAi] = useState(false);
   const [chatEnabled, setChatEnabled] = useState(true);
@@ -1238,6 +1241,11 @@ export default function AdminDashboard() {
           setIsGlobalAiEnabled(aiCrmEnabledSetting.value === 'true');
         }
 
+        const aiBuyerEnabledSetting = settingsData.find((s: any) => s.key === 'AI_BUYER_ENABLED');
+        if (aiBuyerEnabledSetting) {
+          setIsBuyerAiEnabled(aiBuyerEnabledSetting.value === 'true');
+        }
+
         const tawkEnabledSetting = settingsData.find((s: any) => s.key === 'TAWKTO_ENABLED');
         if (tawkEnabledSetting) setTawkToEnabled(tawkEnabledSetting.value === 'true');
 
@@ -1388,6 +1396,9 @@ export default function AdminDashboard() {
             if (key === 'AI_CRM_ENABLED') {
               console.log('[AdminDashboard] AI Global status updated via Realtime:', value);
               setIsGlobalAiEnabled(value === 'true');
+            }
+            if (key === 'AI_BUYER_ENABLED') {
+              setIsBuyerAiEnabled(value === 'true');
             }
             if (key === 'AUTO_PROPOSAL_ENABLED') {
               setAutoProposalEnabled(value === 'true');
@@ -2778,6 +2789,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
         { key: 'AI_CRM_PROMPT', value: aiCrmPrompt },
         { key: 'AI_CRM_MEMORY', value: aiCrmMemory },
         { key: 'AI_CRM_ENABLED', value: isGlobalAiEnabled ? 'true' : 'false' },
+        { key: 'AI_BUYER_ENABLED', value: isBuyerAiEnabled ? 'true' : 'false' },
         { key: 'CHAT_HEIGHT', value: chatHeight },
         { key: 'CHAT_WIDTH', value: chatWidth },
         { key: 'CHAT_COLOR', value: chatColor },
@@ -3884,10 +3896,28 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   <h2 className="text-2xl font-bold">Configurações de IA</h2>
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-3 px-4 py-2 bg-slate-50 rounded-2xl border border-slate-100">
-                      <Bot className={`w-5 h-5 ${isGlobalAiEnabled ? 'text-accent' : 'text-slate-300'}`} />
-                      <span className="text-sm font-bold text-slate-700">IA Global</span>
+                      <Bot className={`w-5 h-5 ${isBuyerAiEnabled ? 'text-amber-500' : 'text-slate-300'}`} />
+                      <span className="text-sm font-bold text-slate-700">IA Comprador</span>
                       <button
-                        onClick={() => setIsGlobalAiEnabled(!isGlobalAiEnabled)}
+                        onClick={() => {
+                          const newVal = !isBuyerAiEnabled;
+                          setIsBuyerAiEnabled(newVal);
+                          supabase.from('settings').upsert({ key: 'AI_BUYER_ENABLED', value: newVal.toString() });
+                        }}
+                        className={`w-12 h-6 rounded-full transition-all relative ${isBuyerAiEnabled ? 'bg-amber-500' : 'bg-slate-300'}`}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${isBuyerAiEnabled ? 'left-7' : 'left-1'}`} />
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-3 px-4 py-2 bg-slate-50 rounded-2xl border border-slate-100">
+                      <Bot className={`w-5 h-5 ${isGlobalAiEnabled ? 'text-accent' : 'text-slate-300'}`} />
+                      <span className="text-sm font-bold text-slate-700">IA Vendedor</span>
+                      <button
+                        onClick={() => {
+                          const newVal = !isGlobalAiEnabled;
+                          setIsGlobalAiEnabled(newVal);
+                          supabase.from('settings').upsert({ key: 'AI_CRM_ENABLED', value: newVal.toString() });
+                        }}
                         className={`w-12 h-6 rounded-full transition-all relative ${isGlobalAiEnabled ? 'bg-accent' : 'bg-slate-300'}`}
                       >
                         <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${isGlobalAiEnabled ? 'left-7' : 'left-1'}`} />

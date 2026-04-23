@@ -21,18 +21,23 @@ export default function NotificationPermissionModal() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleAllow = async () => {
-    if (!('Notification' in window)) return;
-    
-    setIsProcessing(true);
     try {
+      if (!('Notification' in window)) {
+        console.warn('Notificações não suportadas neste navegador.');
+        return;
+      }
+      
+      setIsProcessing(true);
+      console.log('[NotificationModal] Solicitando permissão...');
+      
       // Timeout to prevent hanging in iframes if permission dialog never appears
       const permissionPromise = Notification.requestPermission();
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout')), 10000)
+        setTimeout(() => reject(new Error('Timeout')), 8000)
       );
 
       const permission = await Promise.race([permissionPromise, timeoutPromise]) as NotificationPermission;
-      console.log('[NotificationModal] Permission response:', permission);
+      console.log('[NotificationModal] Resposta da permissão:', permission);
       
       if (permission === 'granted') {
         new Notification('Notificações ativadas!', {
@@ -42,7 +47,8 @@ export default function NotificationPermissionModal() {
       }
       setIsOpen(false);
     } catch (error) {
-      console.error('Error requesting notification permission:', error);
+      console.warn('[NotificationModal] Erro ou timeout ao solicitar permissão:', error);
+      // Fecha o modal mesmo se der erro para não travar a interface
       setIsOpen(false);
     } finally {
       setIsProcessing(false);

@@ -186,14 +186,14 @@ export class AIService {
         updateData.error_count = 0; // Reseta erros se ficou OK
       }
       
-      // Tentativa de atualizar com campos extras (podem falhar se as colunas não existirem)
+      // Tentativa de atualizar o status no banco
       // Executamos em background para não travar a geração
       (async () => {
         try {
-          const { error } = await supabase.from('api_keys').update({ ...updateData, last_test_at: now }).eq('id', id);
+          // Nota: Removemos 'last_test_at' pois a coluna não existe no schema atual e causava erros 400
+          const { error } = await supabase.from('api_keys').update(updateData).eq('id', id);
           if (error) {
-            console.warn('[AIService] Erro ao atualizar status (tentativa 1):', error.message);
-            await supabase.from('api_keys').update(updateData).eq('id', id);
+            console.warn('[AIService] Erro ao atualizar status no banco:', error.message);
           }
         } catch (err) {
           console.error('[AIService] Erro crítico ao atualizar status no banco:', err);
@@ -385,7 +385,8 @@ export class AIService {
       // Se a chave não está OK, vamos verificar se vale a pena testar agora
       // No re-teste automático (autoOnlyNonOk), testamos com frequência reduzida (15 min)
       if (autoOnlyNonOk && apiKey.status !== 'ok') {
-        const lastTest = apiKey.last_test_at || apiKey.last_used;
+        // Fallback para last_used se last_test_at não existir
+        const lastTest = apiKey.last_used;
         const lastTestedTime = lastTest ? new Date(lastTest).getTime() : 0;
         const minutesSinceLastTest = (Date.now() - lastTestedTime) / (1000 * 60);
         

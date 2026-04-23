@@ -10,11 +10,23 @@ export default function GlobalAIResponder() {
   const processingMessages = useRef<Set<string>>(new Set());
   const aiEnabled = useRef<boolean>(true);
 
+  const aiSettings = useRef({ prompt: '', memory: '' });
+
   useEffect(() => {
-    // Busca configuração de IA ativada
+    // Busca configuração de IA ativada e os prompts/memória do comprador
     const fetchSettings = async () => {
-      const { data } = await supabase.from('settings').select('value').eq('key', 'AI_CRM_ENABLED').maybeSingle();
-      if (data) aiEnabled.current = data.value === 'true';
+      const { data } = await supabase.from('settings').select('key, value').in('key', ['AI_CRM_ENABLED', 'AI_SYSTEM_PROMPT', 'AI_MEMORY']);
+      if (data) {
+        const enabled = data.find(s => s.key === 'AI_CRM_ENABLED');
+        const prompt = data.find(s => s.key === 'AI_SYSTEM_PROMPT');
+        const memory = data.find(s => s.key === 'AI_MEMORY');
+        
+        if (enabled) aiEnabled.current = enabled.value === 'true';
+        aiSettings.current = {
+          prompt: prompt?.value || '',
+          memory: memory?.value || ''
+        };
+      }
     };
     fetchSettings();
 
@@ -136,15 +148,23 @@ DADOS DO VEÍCULO EM QUESTÃO:
 Você é o Assistente Especialista da AUTOCOMPRA, focado em investidores e compradores de veículos de repasse.
 Seu objetivo é sanar dúvidas técnicas, agendar visitas e facilitar o fechamento para compradores (Padrão, Premium e Master).
 
-CLIENTE: ${profile.full_name || 'Comprador'}
-NÍVEL: ${profile.role === 'buyer_master' ? 'Master' : profile.role === 'buyer_premium' ? 'Premium' : 'Comprador'}
+[CONFIGURAÇÕES DO PAINEL - REGRAS DO COMPRADOR]
+${aiSettings.current.prompt}
 
-DIRETRIZES:
+[MEMÓRIA DO AGENTE COMPRADOR]
+${aiSettings.current.memory}
+
+DADOS DO CLIENTE:
+- Nome: ${profile.full_name || 'Comprador'}
+- Nível: ${profile.role === 'buyer_master' ? 'Master' : profile.role === 'buyer_premium' ? 'Premium' : 'Comprador'}
+
+DIRETRIZES GERAIS:
 1. Seja técnico, profissional e direto.
 2. Compradores Master têm prioridade e acesso a todos os dados.
 3. Se o comprador perguntar sobre visita, diga que verificará a agenda e retornará em breve.
 4. Se perguntar sobre preço, foque na margem de lucro que o veículo de repasse proporciona.
 5. Máximo de 4 linhas por resposta.
+6. Estilo WhatsApp.
 
 ${leadContext}
 `;

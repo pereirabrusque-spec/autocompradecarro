@@ -444,12 +444,20 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
       try {
         const { data, error } = await supabase
           .from('settings')
-          .select('value')
-          .eq('key', 'AI_CRM_ENABLED')
-          .maybeSingle();
+          .select('key, value')
+          .in('key', ['AI_CRM_ENABLED', 'AI_BUYER_ENABLED']);
         
         if (data) {
-          setIsAiEnabled(data.value === 'true');
+          const crmEnabled = data.find(s => s.key === 'AI_CRM_ENABLED');
+          const buyerEnabled = data.find(s => s.key === 'AI_BUYER_ENABLED');
+          
+          if (buyerEnabled) {
+            setIsAiEnabled(buyerEnabled.value === 'true');
+          } else if (crmEnabled) {
+            setIsAiEnabled(crmEnabled.value === 'true');
+          } else {
+            setIsAiEnabled(true);
+          }
         }
       } catch (err) {
         console.error("[ChatAssistant] Erro ao buscar configurações de IA:", err);
