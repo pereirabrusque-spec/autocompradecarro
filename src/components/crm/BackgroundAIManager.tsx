@@ -757,6 +757,11 @@ RESPONDA DIRETAMENTE AO REMETENTE.
             return;
         }
 
+        if (payload.metadata?.from_chat_widget) {
+            console.log(`[BackgroundAIManager] 🛑 handlePublicMessage ABORT [ID: ${messageId}]: Mensagem originada do WIDGET frontend (from_chat_widget: true) - o ChatAssistant já está processando.`);
+            return;
+        }
+
         const remetente = (payload.remetente || '').toLowerCase();
         if (remetente === 'cliente' || isFollowUp) {
             const leadId = payload.lead_id;
