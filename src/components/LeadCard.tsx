@@ -8,10 +8,15 @@ interface LeadCardProps {
   onReserve: (e: React.MouseEvent) => void;
   onClone?: (e: React.MouseEvent) => void;
   hideClientInfo?: boolean;
+  permissions?: any;
 }
 
-export const LeadCard: React.FC<LeadCardProps> = ({ lead, suggestedValue, onClick, onReserve, onClone, hideClientInfo = false }) => {
+export const LeadCard: React.FC<LeadCardProps> = ({ lead, suggestedValue, onClick, onReserve, onClone, hideClientInfo = false, permissions }) => {
   const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+
+  const shouldHidePrice = permissions?.show_price === false;
+  const shouldHidePhotos = permissions?.show_photos === false;
+  const actualHideClientInfo = hideClientInfo || permissions?.show_details === false;
 
   return (
     <div 
@@ -54,7 +59,12 @@ export const LeadCard: React.FC<LeadCardProps> = ({ lead, suggestedValue, onClic
 
       {/* Main Photo */}
       <div className="h-40 -mx-6 -mt-6 mb-4 bg-slate-100 relative overflow-hidden">
-        {lead.fotos && lead.fotos.length > 0 ? (
+        {shouldHidePhotos ? (
+          <div className="w-full h-full flex items-center justify-center text-slate-300 bg-slate-800">
+             <Car className="w-12 h-12 opacity-20" />
+             <span className="absolute text-[10px] text-white/40 font-bold uppercase tracking-widest">Fotos Ocultas</span>
+          </div>
+        ) : lead.fotos && lead.fotos.length > 0 ? (
           <img src={lead.fotos[0]} alt="Veículo" className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-slate-300">
@@ -102,7 +112,7 @@ export const LeadCard: React.FC<LeadCardProps> = ({ lead, suggestedValue, onClic
         <div className="space-y-1">
           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Preço Desejado</p>
           <p className="text-sm font-black text-slate-900">
-            {formatCurrency(lead.preco_cliente)}
+            {shouldHidePrice ? 'R$ ??.???' : formatCurrency(lead.preco_cliente)}
           </p>
         </div>
       </div>
@@ -114,7 +124,7 @@ export const LeadCard: React.FC<LeadCardProps> = ({ lead, suggestedValue, onClic
             Sugestão IA
           </p>
           <p className="text-lg font-black text-white">
-            {suggestedValue ? formatCurrency(suggestedValue) : 'Calculando...'}
+            {shouldHidePrice ? 'R$ ??.???' : suggestedValue ? formatCurrency(suggestedValue) : 'Calculando...'}
           </p>
         </div>
         <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white">
@@ -125,14 +135,14 @@ export const LeadCard: React.FC<LeadCardProps> = ({ lead, suggestedValue, onClic
       <div className="pt-4 border-t border-slate-100 flex justify-between items-center">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-400">
-            {hideClientInfo ? '??' : lead.cliente_nome?.substring(0, 2).toUpperCase()}
+            {actualHideClientInfo ? '??' : lead.cliente_nome?.substring(0, 2).toUpperCase()}
           </div>
           <div>
             <p className="text-[11px] font-bold text-slate-900 leading-none">
-              {hideClientInfo ? 'Cliente Oculto' : lead.cliente_nome}
+              {actualHideClientInfo ? 'Cliente Oculto' : lead.cliente_nome}
             </p>
             <p className="text-[9px] text-slate-400 mt-1">
-              {hideClientInfo ? '(Dados Protegidos)' : lead.telefone}
+              {actualHideClientInfo ? '(Dados Protegidos)' : lead.telefone}
             </p>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, MessageCircle, MessageSquare, Send, FileText, Edit2, ArrowLeft, ChevronLeft, ChevronRight, Upload, DollarSign, User, ShieldCheck, Copy, AlertTriangle } from 'lucide-react';
+import { X, Save, MessageCircle, MessageSquare, Send, FileText, Edit2, ArrowLeft, ChevronLeft, ChevronRight, Upload, DollarSign, User, ShieldCheck, Copy, AlertTriangle, Car } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AIService } from '../services/aiService';
 import { Type } from "@google/genai";
@@ -21,6 +21,7 @@ interface LeadDetailsCardProps {
   repairCosts?: any[];
   forceShowWhatsAppBuyerModal?: boolean;
   userRole?: string;
+  permissions?: any;
 }
 
 export default function LeadDetailsCard({ 
@@ -37,11 +38,16 @@ export default function LeadDetailsCard({
   profitMarginPercentage = 20,
   repairCosts = [],
   forceShowWhatsAppBuyerModal,
-  userRole 
+  userRole, 
+  permissions
 }: LeadDetailsCardProps) {
   console.log("LeadDetailsCard received lead:", lead);
   const [currentLead, setCurrentLead] = useState(lead || {});
   const [repairModal, setRepairModal] = useState<{ field: string | null; value: string }>({ field: null, value: '' });
+
+  const shouldHidePrice = permissions?.show_price === false;
+  const shouldHidePhotos = permissions?.show_photos === false;
+  const actualHideClientInfo = permissions?.show_details === false;
 
 
   const checkboxFields = [
@@ -98,6 +104,14 @@ export default function LeadDetailsCard({
   ].filter((item, index, self) => item && self.indexOf(item) === index); // Remove duplicates and nulls
 
   const renderMedia = (item: string, index: number) => {
+    if (shouldHidePhotos) {
+      return (
+        <div key={index} className="w-full h-64 bg-slate-800 rounded-2xl flex flex-col items-center justify-center gap-2">
+           <Car className="w-16 h-16 text-white/10" />
+           <span className="text-white/40 font-bold uppercase tracking-widest text-xs">Mídia Oculta</span>
+        </div>
+      );
+    }
     const isVideo = item.match(/\.(mp4|webm|ogg)$/i);
     if (isVideo) {
       return (
@@ -469,9 +483,9 @@ export default function LeadDetailsCard({
             <div className="flex flex-col">
               <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Cliente</span>
               <span className="text-xs font-bold text-slate-700 truncate">
-                {userRole === 'buyer_premium' ? 'Oculto' : (currentLead.cliente_nome || 'N/A')}
-              </span>
-            </div>
+               {actualHideClientInfo ? 'Oculto' : (currentLead.cliente_nome || 'N/A')}
+            </span>
+          </div>
           </div>
           
           {/* Botões de Ação no Topo */}
@@ -694,7 +708,7 @@ export default function LeadDetailsCard({
                   }}
                   className="bg-slate-800 p-4 rounded-[32px] aspect-video flex items-center justify-center border border-white/10 cursor-pointer hover:bg-slate-700 transition-colors relative overflow-hidden shadow-xl group"
                 >
-                  {currentLead.crlv_url && userRole !== 'buyer_premium' ? (
+                  {currentLead.crlv_url && !actualHideClientInfo ? (
                     currentLead.crlv_url.toLowerCase().includes('.pdf') ? (
                       <div className="flex flex-col items-center gap-2">
                         <FileText className="w-12 h-12 text-blue-400" />
@@ -707,13 +721,13 @@ export default function LeadDetailsCard({
                     <div className="flex flex-col items-center gap-2 text-white/40">
                       <FileText className="w-12 h-12" />
                       <span className="text-xs font-bold uppercase tracking-widest">
-                        {userRole === 'buyer_premium' ? 'Documento Restrito' : 'CRLV não disponível'}
+                        {actualHideClientInfo ? 'Documento Restrito' : 'CRLV não disponível'}
                       </span>
                     </div>
                   )}
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                     <span className="text-white opacity-0 group-hover:opacity-100 font-bold text-xs bg-black/50 px-3 py-1.5 rounded-full">
-                      {userRole === 'buyer_premium' ? 'Restrito' : 'Clique para Ver Detalhes'}
+                      {actualHideClientInfo ? 'Restrito' : 'Clique para Ver Detalhes'}
                     </span>
                   </div>
                 </div>
@@ -723,7 +737,7 @@ export default function LeadDetailsCard({
               <div className="flex gap-2 w-full">
                 <button 
                   onClick={() => {
-                    if (userRole === 'buyer_premium') {
+                    if (actualHideClientInfo) {
                       alert('Acesso detalhado restrito para sua categoria.');
                       return;
                     }
@@ -731,7 +745,7 @@ export default function LeadDetailsCard({
                   }} 
                   className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-slate-800 transition-all shadow-lg transform hover:scale-[1.01] active:scale-[0.99]"
                 >
-                  <FileText className="w-5 h-5" /> {userRole === 'buyer_premium' ? 'Acesso Restrito' : 'Avaliar Veículo'}
+                  <FileText className="w-5 h-5" /> {actualHideClientInfo ? 'Acesso Restrito' : 'Avaliar Veículo'}
                 </button>
                 {onClone && (
                   <button 

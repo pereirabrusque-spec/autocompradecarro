@@ -40,8 +40,8 @@ export default function Hero() {
     <section 
       className="relative flex items-center overflow-hidden bg-black" 
       style={{ 
-        height: settings['BANNER_HEIGHT'] || '100vh',
-        minHeight: settings['BANNER_HEIGHT'] || '100vh' 
+        height: settings['BANNER_HEIGHT'] || '100dvh',
+        minHeight: settings['BANNER_HEIGHT'] || '100dvh' 
       }}
     >
       {/* Background Image/Video Carousel */}
@@ -95,8 +95,8 @@ export default function Hero() {
             <h1 
               className="font-display font-black tracking-tighter drop-shadow-2xl text-white"
               style={{ 
-                fontSize: 'clamp(2rem, 15vw, 4.5rem)',
-                lineHeight: '1.0',
+                fontSize: 'clamp(1.2rem, 8vw, 4.5rem)',
+                lineHeight: '1.1',
                 wordBreak: 'break-word',
                 maxWidth: '100%'
               }}

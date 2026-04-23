@@ -204,7 +204,35 @@ export default function AdminDashboard() {
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
 
   const filteredLeads = useMemo(() => {
-    return leads
+    let baseLeads = leads;
+
+    // Filter leads for buyers: only those they are authorized to see
+    if (userProfile?.role?.includes('buyer')) {
+      // Find the specific buyer ID for this user email
+      const myBuyer = interestedBuyers.find(b => b.email === userProfile.email);
+      if (myBuyer) {
+        const authorizedLeadIds = new Set(
+          buyerAuthorizations
+            .filter(a => a.buyer_id === myBuyer.id)
+            .map(a => a.lead_id)
+        );
+        baseLeads = baseLeads.filter(l => authorizedLeadIds.has(l.id));
+      } else {
+        // If they are a buyer but not in the interestedBuyers table yet, search by email in invitations
+        const authorizedLeadIds = new Set(
+          buyerAuthorizations
+            .filter(a => a.buyer_email === userProfile.email) // in case we use email fallback
+            .map(a => a.lead_id)
+        );
+        if (authorizedLeadIds.size > 0) {
+           baseLeads = baseLeads.filter(l => authorizedLeadIds.has(l.id));
+        } else {
+           baseLeads = []; // No authorizations found
+        }
+      }
+    }
+
+    return baseLeads
       .filter(l => {
         if (activeLeadTab === 'todos') return l.status !== 'perdido' && l.status !== 'vendido';
         if (activeLeadTab === 'frio') return l.status === 'frio';
@@ -639,18 +667,73 @@ export default function AdminDashboard() {
       setIsLoading(true);
       addLog('Iniciando busca de dados...', 'info');
       try {
-        console.log('Fetching leads from Supabase...');
-      const { data: leadsData, error: leadsError } = await supabase
-        .from('leads_veiculos')
-        .select('*')
-        .order('created_at', { ascending: false });
+        console.log('Fetching all data in parallel from Supabase...');
+        
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      if (leadsError) {
-        addLog('Erro ao buscar leads', 'error', leadsError);
-        console.error('Error fetching leads:', leadsError);
-        alert(`Erro ao buscar leads: ${leadsError.message}`);
-        throw leadsError;
-      }
+        const [
+          leadsResult,
+          profilesResult,
+          assetsResult,
+          banksResult,
+          repairResult,
+          fipeResult,
+          apiKeysResult,
+          providersResult,
+          buyersResult,
+          authsResult,
+          sentResult,
+          messagesResult,
+          internalMessagesResult,
+          settingsResult
+        ] = await Promise.all([
+          supabase.from('leads_veiculos').select('*').order('created_at', { ascending: false }),
+          supabase.from('profiles').select('*'),
+          supabase.from('banners').select('*').order('ordem', { ascending: true }),
+          supabase.from('banks').select('*').order('name'),
+          supabase.from('repair_costs').select('*').order('part_name'),
+          supabase.from('fipe_rules').select('*').order('condition_name'),
+          supabase.from('api_keys').select('*').order('created_at', { ascending: false }),
+          supabase.from('providers').select('*').order('name'),
+          supabase.from('interested_buyers').select('*').order('created_at', { ascending: false }),
+          supabase.from('buyer_crm_permissions').select('*'),
+          supabase.from('sent_leads').select('*'),
+          supabase
+            .from('mensagens')
+            .select('*, leads_veiculos(*)')
+            .gte('created_at', thirtyDaysAgo.toISOString())
+            .order('created_at', { ascending: false })
+            .limit(1000),
+          supabase.from('internal_messages')
+            .select('*')
+            .gte('created_at', thirtyDaysAgo.toISOString())
+            .order('created_at', { ascending: false })
+            .limit(1000),
+          supabase.from('settings').select('*')
+        ]);
+
+        const leadsData = leadsResult.data;
+        const leadsError = leadsResult.error;
+        const profilesData = profilesResult.data;
+        const assetsData = assetsResult.data;
+        const banksData = banksResult.data;
+        const repairData = repairResult.data;
+        const fipeData = fipeResult.data;
+        const apiKeysData = apiKeysResult.data;
+        const providersData = providersResult.data;
+        const buyersData = buyersResult.data;
+        const authsData = authsResult.data;
+        const sentData = sentResult.data;
+        const messagesData = messagesResult.data;
+        const internalMessagesData = internalMessagesResult.data;
+        const settingsData = settingsResult.data;
+
+        if (leadsError) {
+          addLog('Erro ao buscar leads', 'error', leadsError);
+          console.error('Error fetching leads:', leadsError);
+          throw leadsError;
+        }
 
       // Check for expired reservations
       const now = new Date();
@@ -682,10 +765,6 @@ export default function AdminDashboard() {
       addLog(`Leads buscados: ${processedLeadsData?.length || 0}`, 'debug');
       console.log('Leads fetched successfully:', processedLeadsData);
 
-      // Fetch all profiles to find "frias" leads
-      const { data: profilesData, error: profilesError } = await supabase.from('profiles').select('*');
-      if (profilesError) console.error('Erro ao buscar profiles:', profilesError);
-      
       // Deduplicate leads from leads_veiculos (keep most recent per email if it's a cold lead)
       const uniqueLeads: any[] = [];
       const seenEmails = new Set<string>();
@@ -790,19 +869,15 @@ export default function AdminDashboard() {
       console.log("[AdminDashboard] Total leads processed:", allLeads.length);
       addLog(`Total de leads processados: ${allLeads.length}`, 'debug');
       
-      const { data: assetsData, error: assetsError } = await supabase
-        .from('banners')
-        .select('*')
-        .order('ordem', { ascending: true });
+      if (assetsData) setDbAssets(assetsData);
+      if (banksData) setBanks(banksData);
+      if (repairData) setRepairCosts(repairData);
+      if (fipeData) setFipeRules(fipeData);
+      if (apiKeysData) setApiKeys(apiKeysData);
+      if (providersData) setProviders(providersData);
+      if (sentData) setSentLeads(sentData);
+      if (authsData) setBuyerAuthorizations(authsData);
 
-      if (assetsError) throw assetsError;
-
-      const { data: banksData } = await supabase.from('banks').select('*').order('name');
-      const { data: repairData } = await supabase.from('repair_costs').select('*').order('part_name');
-      const { data: fipeData } = await supabase.from('fipe_rules').select('*').order('condition_name');
-      const { data: apiKeysData } = await supabase.from('api_keys').select('*').order('created_at', { ascending: false });
-      const { data: providersData } = await supabase.from('providers').select('*').order('name');
-      
       const profileMap = new Map();
       profilesData?.forEach(p => {
         if (p.email) profileMap.set(p.email, p);
@@ -810,20 +885,10 @@ export default function AdminDashboard() {
 
       console.log('Profiles buscados:', profilesData);
 
-      const { data: buyersData, error: buyersError } = await supabase.from('interested_buyers').select('*').order('created_at', { ascending: false });
-      if (buyersError) console.error('Erro ao buscar buyers:', buyersError);
-      else console.log('Buyers buscados:', buyersData);
-      const { data: authsData } = await supabase.from('buyer_crm_permissions').select('*');
-      const { data: sentData } = await supabase.from('sent_leads').select('*');
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-      const { data: messagesData } = await supabase
-        .from('mensagens')
-        .select('*, leads_veiculos(*)')
-        .gte('created_at', thirtyDaysAgo.toISOString())
-        .order('created_at', { ascending: false })
-        .limit(1000);
+      const { data: buyersDataResult, error: buyersError } = await supabase.from('interested_buyers').select('*').order('created_at', { ascending: false });
+      if (buyersDataResult) console.log('Buyers buscados:', buyersDataResult);
+      
+      const buyersDataMerged = buyersDataResult || [];
       
       // Group messages by email or name+phone to create conversation list
       const groupedConversations: any[] = [];
@@ -933,19 +998,15 @@ export default function AdminDashboard() {
       setApiKeys(sortedApiKeys);
       setProviders(providersData || []);
       setUsers(profilesData || []);
-      setInterestedBuyers(buyersData || []);
+      setInterestedBuyers(buyersDataMerged);
       setBuyerAuthorizations(authsData || []);
       setSentLeads(sentData || []);
       
-      // Group internal messages and populate internalConversations
-      // Optimized: Fetch only messages from the last 30 days to improve agility
-      const { data: internalMessagesData } = await supabase
-        .from('internal_messages')
-        .select('*')
-        .gt('created_at', thirtyDaysAgo.toISOString())
-        .order('created_at', { ascending: false })
-        .limit(1000);
+      // Already declared above
+      // const internalMessagesData = internalMessagesResult.data;
+      // const settingsData = settingsResult.data;
 
+      // Group internal messages and populate internalConversations
       const groupedInternal: any[] = [];
       const internalIds = new Set();
       
@@ -960,13 +1021,14 @@ export default function AdminDashboard() {
           }
 
           if (otherId && !internalIds.has(otherId)) {
-            internalIds.add(otherId);
             const otherProfile = (profilesData || []).find((u: any) => u.id === otherId);
             
             // Only show in "Equipe" if they are admin or seller/user (vendedor)
             if (otherProfile && (otherProfile.role === 'admin' || otherProfile.role === 'user' || otherProfile.role === 'seller')) {
               // Exclude buyers even if they somehow have admin role (safety check)
-              if (otherProfile.role?.includes('buyer')) return;
+              if (otherProfile.role?.includes('buyer') && !userProfileRef.current.role?.includes('buyer')) return;
+              
+              internalIds.add(otherId);
               const readCol = internalMessagesData && internalMessagesData.length > 0 && 'is_read' in internalMessagesData[0] ? 'is_read' : 'read';
               const unreadCount = internalMessagesData.filter((m: any) => 
                 m.sender_id === otherId && m.receiver_id === userProfileRef.current.id && !m[readCol]
@@ -1028,9 +1090,11 @@ export default function AdminDashboard() {
 
           if (otherId && !compradorIds.has(otherId) && !internalIds.has(otherId)) {
             const otherProfile = (profilesData || []).find((u: any) => u.id === otherId);
-            if (otherProfile && otherProfile.role?.toLowerCase().includes('buyer')) {
+            const isMeBuyer = userProfileRef.current.role?.includes('buyer');
+            const isOtherBuyer = otherProfile?.role?.includes('buyer');
+            if (otherProfile && (isMeBuyer || isOtherBuyer)) {
               compradorIds.add(otherId);
-              const readCol = internalMessagesData && internalMessagesData.length > 0 && 'is_read' in internalMessagesData[0] ? 'is_read' : 'read';
+              const readCol = 'read';
               const unreadCount = internalMessagesData.filter((m: any) => 
                 m.sender_id === otherId && m.receiver_id === userProfileRef.current.id && !m[readCol]
               ).length;
@@ -1089,9 +1153,9 @@ export default function AdminDashboard() {
       }
 
       // Fetch settings from Supabase
-      const { data: settingsData, error: settingsError } = await supabase.from('settings').select('*');
+      // Already fetched in parallel above, skipped redundant fetch
       
-      if (!settingsError && settingsData) {
+      if (settingsData) {
         const aiPromptSetting = settingsData.find((s: any) => s.key === 'AI_SYSTEM_PROMPT');
         if (aiPromptSetting) {
           setAiSystemPrompt(aiPromptSetting.value);
@@ -3273,9 +3337,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 { id: 'hero', label: 'Site', icon: ImageIcon, roles: ['admin'] },
                 { id: 'assets', label: 'Fotos', icon: Maximize2, roles: ['admin'] },
                 { id: 'footer', label: 'Rodapé', icon: Info, roles: ['admin'] },
-                { id: 'leads', label: 'Leads', icon: Car, roles: ['admin', 'buyer_premium', 'buyer_master', 'user', 'seller'] },
+                { id: 'leads', label: 'Leads', icon: Car, roles: ['admin', 'buyer', 'buyer_premium', 'buyer_master', 'user', 'seller'] },
                 { id: 'crm', label: 'CRM Compradores', icon: UserPlus, roles: ['admin'] },
-                { id: 'messages', label: 'Mensagens', icon: MessageCircle, badge: conversations.reduce((acc, curr) => acc + (curr.unread || 0), 0), roles: ['admin', 'user', 'seller'] },
+                { id: 'messages', label: 'Mensagens', icon: MessageCircle, badge: conversations.reduce((acc, curr) => acc + (curr.unread || 0), 0), roles: ['admin', 'user', 'seller', 'buyer', 'buyer_premium', 'buyer_master'] },
                 { id: 'crm_chat', label: 'CRM Chat', icon: MessageCircle, roles: ['admin', 'buyer', 'buyer_premium', 'buyer_master'] },
                 { id: 'users', label: 'Equipe & CRM', icon: Users, roles: ['admin'] },
                 { id: 'settings', label: 'Config', icon: Settings, roles: ['admin'] },
@@ -3285,7 +3349,14 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 { id: 'cooperatives', label: 'Cooperativas', icon: Wallet, roles: ['admin'] },
                 { id: 'tags', label: 'Marketing', icon: BarChart3, roles: ['admin'] },
                 { id: 'logs', label: 'Logs', icon: Database, roles: ['admin'] },
-              ].filter(tab => !tab.roles || tab.roles.includes(userProfile?.role) || currentUser?.email === 'pereira.brusque@gmail.com').map((tab) => (
+              ].filter(tab => {
+                if (!tab.roles) return true;
+                const hasRole = tab.roles.includes(userProfile?.role);
+                if (tab.id === 'leads' && userProfile?.role?.includes('buyer')) {
+                  return userProfile.view_auth === true;
+                }
+                return hasRole || currentUser?.email === 'pereira.brusque@gmail.com';
+              }).map((tab) => (
                 <button 
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)} 
@@ -4585,6 +4656,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                             lead={lead} 
                             suggestedValue={getProposalResult(lead)?.finalValue || 0}
                             hideClientInfo={userProfile?.role === 'buyer_premium'}
+                            permissions={userProfile?.role?.includes('buyer') ? buyerPermissions : null}
                             onClick={() => {
                               setSelectedLead(lead);
                               setProposalCalculator(getProposalResult(lead));
@@ -4620,41 +4692,14 @@ Podemos prosseguir com o agendamento da vistoria?`;
                           </tr>
                         </thead>
                           <tbody>
-                            {leads
-                              .filter(l => {
-                                if (activeLeadTab === 'todos') return true;
-                                if (activeLeadTab === 'frio') return l.status === 'frio';
-                                if (activeLeadTab === 'reservado') return l.status === 'reservado';
-                                if (activeLeadTab === 'proposta_enviada') return l.status === 'proposta_enviada' || l.status === 'novo' || l.status === 'em_contato';
-                                return l.status === activeLeadTab;
-                              })
-                              .filter(l => !searchCode || (l.vehicle_code && l.vehicle_code.includes(searchCode)))
-                              .filter(l => !filterBrand || l.marca === filterBrand)
-                              .filter(l => !filterYear || l.ano_modelo === parseInt(filterYear))
-                              .filter(l => !filterMinPrice || (l.preco_cliente || 0) >= parseFloat(filterMinPrice))
-                              .filter(l => !filterMaxPrice || (l.preco_cliente || 0) <= parseFloat(filterMaxPrice))
-                              .filter(l => {
-                                if (!filterStartDate && !filterEndDate) return true;
-                                const leadDate = new Date(l.created_at);
-                                leadDate.setHours(0, 0, 0, 0);
-                                
-                                if (filterStartDate) {
-                                  const start = new Date(filterStartDate);
-                                  start.setHours(0, 0, 0, 0);
-                                  // Adjust for timezone offset to ensure correct local date comparison
-                                  start.setMinutes(start.getMinutes() + start.getTimezoneOffset());
-                                  if (leadDate < start) return false;
-                                }
-                                if (filterEndDate) {
-                                  const end = new Date(filterEndDate);
-                                  end.setHours(0, 0, 0, 0);
-                                  end.setMinutes(end.getMinutes() + end.getTimezoneOffset());
-                                  if (leadDate > end) return false;
-                                }
-                                return true;
-                              })
+                            {filteredLeads
                               .map((lead) => {
                                  const profile = lead.email ? users.find(u => u.email === lead.email) : null;
+                                 const isBuyer = userProfile?.role?.includes('buyer');
+                                 const shouldHidePrice = isBuyer && !buyerPermissions.show_price;
+                                 const shouldHidePhotos = isBuyer && !buyerPermissions.show_photos;
+                                 const actualHideClientInfo = isBuyer && (!buyerPermissions.show_details || userProfile?.role === 'buyer_premium');
+
                                  return (
                               <tr key={lead.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer group" onClick={() => {
                                 setSelectedLead(lead);
@@ -4707,7 +4752,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 <td className="px-2 py-1.5">
                                   <div className="flex items-center gap-2.5">
                                     <div className="w-8 h-8 rounded-lg bg-slate-100 overflow-hidden flex-shrink-0 border border-slate-200">
-                                      {lead.fotos && lead.fotos[0] ? (
+                                      {shouldHidePhotos ? (
+                                        <div className="w-full h-full bg-slate-800 flex items-center justify-center text-[8px] text-white/40 font-bold uppercase tracking-tight">HIDDEN</div>
+                                      ) : lead.fotos && lead.fotos[0] ? (
                                         <img src={lead.fotos[0]} alt="Veículo" className="w-full h-full object-cover" />
                                       ) : (
                                         <div className="w-full h-full flex items-center justify-center text-slate-300">
@@ -4730,7 +4777,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                         {(lead.marca || lead.modelo) && (
                                           <p className="text-[11px] font-black text-slate-900 truncate leading-tight">{lead.marca} {lead.modelo}</p>
                                         )}
-                                        <p className="text-[10px] text-slate-500 truncate">{profile?.full_name || lead.cliente_nome}</p>
+                                        <p className="text-[10px] text-slate-500 truncate">{actualHideClientInfo ? 'Cliente Oculto' : (profile?.full_name || lead.cliente_nome)}</p>
                                       </div>
                                     </div>
                                   </div>
@@ -4742,15 +4789,15 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 </td>
                                 <td className="px-2 px-1 py-1.5 text-[11px] font-bold text-slate-900">{lead.ano_modelo}</td>
                                 <td className="px-2 pl-1 py-1.5 text-[11px] font-bold text-slate-900">
-                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.valor_fipe || 0)}
+                                  {shouldHidePrice ? 'R$ ??.???' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.valor_fipe || 0)}
                                 </td>
                                 <td className="px-2 py-1.5 text-[11px] font-black text-emerald-600">
-                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.preco_cliente || 0)}
+                                  {shouldHidePrice ? 'R$ ??.???' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.preco_cliente || 0)}
                                 </td>
                                 <td className="px-2 py-1.5">
                                   <div className="flex flex-col">
                                     <span className={`text-[11px] font-black ${getProposalClass(getProposalResult(lead)?.finalValue || 0, lead.tipo_veiculo) || 'text-accent'}`}>
-                                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(getProposalResult(lead)?.finalValue || 0)}
+                                      {shouldHidePrice ? 'R$ ??.???' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(getProposalResult(lead)?.finalValue || 0)}
                                     </span>
                                     {getProposalResult(lead)?.previousProposalValue && (
                                       <span className="text-[9px] text-slate-400 font-medium">
@@ -4766,7 +4813,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 </td>
                                 <td className="px-2 py-1.5">
                                   <div className="flex items-center gap-1">
-                                    {lead.telefone && (
+                                    {lead.telefone && !actualHideClientInfo && (
                                       <button 
                                         onClick={(e) => { 
                                           e.stopPropagation(); 
@@ -6826,6 +6873,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
           profitMarginPercentage={profitMarginPercentage}
           repairCosts={repairCosts}
           userRole={userProfile?.role}
+          permissions={userProfile?.role?.includes('buyer') ? buyerPermissions : null}
           onSave={handleSaveLead}
           onDelete={handleDeleteLead}
           onClone={handleCloneVehicle}
