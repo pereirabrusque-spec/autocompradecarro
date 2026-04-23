@@ -7,6 +7,7 @@ import { logToStorage } from '../../lib/logger';
 export const BackgroundAIManager = () => {
     console.log("[BackgroundAIManager] 🏗️ Renderizando componente...");
     const [isAiEnabled, setIsAiEnabled] = useState(false);
+    const [isAiBuyerEnabled, setIsAiBuyerEnabled] = useState(false);
     const [autoProposalEnabled, setAutoProposalEnabled] = useState(false);
     const [aiPrompt, setAiPrompt] = useState('');
     const [aiCrmPrompt, setAiCrmPrompt] = useState('');
@@ -25,6 +26,7 @@ export const BackgroundAIManager = () => {
     const [repairCosts, setRepairCosts] = useState<any[]>([]);
 
     const isAiEnabledRef = useRef(false);
+    const isAiBuyerEnabledRef = useRef(false);
     const autoProposalEnabledRef = useRef(false);
     const aiPromptRef = useRef('');
     const aiCrmPromptRef = useRef('');
@@ -133,20 +135,25 @@ export const BackgroundAIManager = () => {
     }, [isAiEnabled]);
 
     useEffect(() => {
+        isAiBuyerEnabledRef.current = isAiBuyerEnabled;
+    }, [isAiBuyerEnabled]);
+
+    useEffect(() => {
         console.log("[BackgroundAIManager] 🚀 Componente montado. Buscando configurações...");
         console.log("[BackgroundAIManager] 👤 Current User ID (Ref):", currentUserIdRef.current);
-        console.log("[BackgroundAIManager] 🤖 IA Enabled (Ref):", isAiEnabledRef.current);
+        console.log("[BackgroundAIManager] 🤖 IA Global Enabled (Ref):", isAiEnabledRef.current);
+        console.log("[BackgroundAIManager] 🤖 IA Buyer Enabled (Ref):", isAiBuyerEnabledRef.current);
         
         // Heartbeat to confirm it's alive
         const heartbeat = setInterval(() => {
-            console.log("[BackgroundAIManager] ❤️ Heartbeat - IA is alive. Enabled:", isAiEnabledRef.current, "User:", currentUserIdRef.current);
+            console.log("[BackgroundAIManager] ❤️ Heartbeat - IA is alive. Global:", isAiEnabledRef.current, "Buyer:", isAiBuyerEnabledRef.current, "User:", currentUserIdRef.current);
             // Re-trigger scan every 5 minutes just in case subscription missed something
             scanForOpenMessages();
         }, 5 * 60 * 1000); 
 
         // Load initial settings
         supabase.from('settings').select('key, value').in('key', [
-            'AI_SYSTEM_PROMPT', 'AI_CRM_PROMPT', 'AI_CRM_ENABLED', 'AI_MEMORY', 'AI_CRM_MEMORY', 'AUTO_PROPOSAL_ENABLED',
+            'AI_SYSTEM_PROMPT', 'AI_CRM_PROMPT', 'AI_CRM_ENABLED', 'AI_BUYER_ENABLED', 'AI_MEMORY', 'AI_CRM_MEMORY', 'AUTO_PROPOSAL_ENABLED',
             'COOPERATIVE_DISCOUNT_PERCENTAGE', 'PROFIT_MARGIN_PERCENTAGE', 'JUROS_ATRASO', 'RESPONSE_MODE', 'WEBHOOK_URL'
         ]).then(({ data, error }) => {
             if (error) {
@@ -158,6 +165,7 @@ export const BackgroundAIManager = () => {
                 const prompt = data.find(s => s.key === 'AI_SYSTEM_PROMPT');
                 const crmPrompt = data.find(s => s.key === 'AI_CRM_PROMPT');
                 const enabled = data.find(s => s.key === 'AI_CRM_ENABLED');
+                const buyerEnabled = data.find(s => s.key === 'AI_BUYER_ENABLED');
                 const autoProposal = data.find(s => s.key === 'AUTO_PROPOSAL_ENABLED');
                 const memory = data.find(s => s.key === 'AI_MEMORY');
                 const crmMemory = data.find(s => s.key === 'AI_CRM_MEMORY');
@@ -173,6 +181,11 @@ export const BackgroundAIManager = () => {
                     const isEnabled = enabled.value === 'true';
                     setIsAiEnabled(isEnabled);
                     isAiEnabledRef.current = isEnabled;
+                }
+                if (buyerEnabled) {
+                    const isBuyerE = buyerEnabled.value === 'true';
+                    setIsAiBuyerEnabled(isBuyerE);
+                    isAiBuyerEnabledRef.current = isBuyerE;
                 }
                 if (autoProposal) setAutoProposalEnabled(autoProposal.value === 'true');
                 if (memory) setAiMemory(memory.value);
@@ -235,6 +248,10 @@ export const BackgroundAIManager = () => {
                     if (key === 'AI_CRM_ENABLED') {
                         setIsAiEnabled(value === 'true');
                         isAiEnabledRef.current = value === 'true';
+                    }
+                    if (key === 'AI_BUYER_ENABLED') {
+                        setIsAiBuyerEnabled(value === 'true');
+                        isAiBuyerEnabledRef.current = value === 'true';
                     }
                     if (key === 'AUTO_PROPOSAL_ENABLED') {
                         setAutoProposalEnabled(value === 'true');
@@ -433,16 +450,16 @@ export const BackgroundAIManager = () => {
             console.log(`[BackgroundAIManager] 🔍 Processando mensagem interna (${messageId}). isBuyer: ${finalIsBuyer}, isSeller: ${finalIsSeller}, lead_id: ${payload.lead_id}`);
             console.log(`[BackgroundAIManager] 👤 Perfil do remetente:`, senderProfile?.full_name, 'Role:', senderProfile?.role);
 
-            const isGlobalAiEnabled = isAiEnabledRef.current;
-            console.log(`[BackgroundAIManager] 🤖 IA Global: ${isGlobalAiEnabled}`);
-
             if (payload.sender_id === uid) {
                 handleAILearning(payload, 'internal');
                 return;
             }
 
-            if (!isGlobalAiEnabled) {
-                console.log(`[BackgroundAIManager] ⏭️ IA ignorando resposta para ${senderId} (Global: ${isGlobalAiEnabled}).`);
+            const activeAiSetting = finalIsBuyer ? isAiBuyerEnabledRef.current : isAiEnabledRef.current;
+            console.log(`[BackgroundAIManager] 🤖 Status da IA para este contexto (Buyer Context: ${finalIsBuyer}):`, activeAiSetting);
+
+            if (!activeAiSetting) {
+                console.log(`[BackgroundAIManager] ⏭️ IA ignorando resposta para ${senderId} - Toggle de IA desativado para este fluxo.`);
                 return;
             }
 
@@ -612,10 +629,10 @@ Seja amigável mas incisivo. Verifique se a conversa não foi finalizada antes d
 
                 const clientName = senderProfile?.full_name || "Cliente";
                 const systemPromptCRM = `
-${finalIsBuyer ? aiPromptRef.current : aiCrmPromptRef.current}
+${finalIsBuyer ? aiCrmPromptRef.current : aiPromptRef.current}
 
 VOCÊ É UM AGENTE DE ATENDIMENTO DE ELITE DA AUTO COMPRA ONLINE.
-ESTE É UM CHAT INTERNO COM UM ${finalIsBuyer ? 'COMPRADOR' : 'VENDEDOR'}: ${clientName}.
+ESTE É UM CHAT INTERNO COM UM ${finalIsBuyer ? 'COMPRADOR/INVESTIDOR' : 'VENDEDOR'}: ${clientName}.
 
 REGRAS DE OURO:
 1. NUNCA use o placeholder {{nome}}. Se quiser se referir ao nome do cliente, use: "${clientName}".
@@ -624,7 +641,7 @@ REGRAS DE OURO:
 4. Use o contexto do veículo abaixo para responder dúvidas técnicas ou financeiras.
 5. Se não souber algo, sugira que um especialista humano irá assumir em instantes.
 
-MEMÓRIA DO SISTEMA: ${finalIsBuyer ? aiMemoryRef.current : aiCrmMemoryRef.current}
+MEMÓRIA DO SISTEMA: ${finalIsBuyer ? aiCrmMemoryRef.current : aiMemoryRef.current}
 `;
 
                 const fullPrompt = `
@@ -1196,17 +1213,18 @@ REGRAS GERAIS:
 
     const scanForOpenMessages = async () => {
         const uid = currentUserIdRef.current;
-        const isEnabled = isAiEnabledRef.current;
+        const isGlobalEnabled = isAiEnabledRef.current;
+        const isBuyerEnabled = isAiBuyerEnabledRef.current;
         
-        console.log("[BackgroundAIManager] 🔍 scanForOpenMessages START. Enabled:", isEnabled, "UID:", uid, "Timestamp:", new Date().toISOString());
-        logToStorage(`Varredura de mensagens iniciada (IA: ${isEnabled ? 'ON' : 'OFF'})`, 'debug');
+        console.log("[BackgroundAIManager] 🔍 scanForOpenMessages START. Global:", isGlobalEnabled, "Buyer:", isBuyerEnabled, "UID:", uid, "Timestamp:", new Date().toISOString());
+        logToStorage(`Varredura de mensagens iniciada (IA Global: ${isGlobalEnabled ? 'ON' : 'OFF'} | IA Comprador: ${isBuyerEnabled ? 'ON' : 'OFF'})`, 'debug');
         
         if (!uid) {
             console.log("[BackgroundAIManager] 🔍 scanForOpenMessages ABORT: UID nulo (usuário não autenticado no ref).");
             return;
         }
-        if (!isEnabled) {
-            console.log("[BackgroundAIManager] 🔍 scanForOpenMessages ABORT: IA Global desligada no Ref.");
+        if (!isGlobalEnabled && !isBuyerEnabled) {
+            console.log("[BackgroundAIManager] 🔍 scanForOpenMessages ABORT: Ambas as IAs (Global e Comprador) desligadas.");
             return;
         }
 

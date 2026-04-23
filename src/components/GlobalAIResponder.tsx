@@ -15,11 +15,11 @@ export default function GlobalAIResponder() {
   useEffect(() => {
     // Busca configuração de IA ativada e os prompts/memória do comprador
     const fetchSettings = async () => {
-      const { data } = await supabase.from('settings').select('key, value').in('key', ['AI_CRM_ENABLED', 'AI_SYSTEM_PROMPT', 'AI_MEMORY']);
+      const { data } = await supabase.from('settings').select('key, value').in('key', ['AI_BUYER_ENABLED', 'AI_CRM_PROMPT', 'AI_CRM_MEMORY']);
       if (data) {
-        const enabled = data.find(s => s.key === 'AI_CRM_ENABLED');
-        const prompt = data.find(s => s.key === 'AI_SYSTEM_PROMPT');
-        const memory = data.find(s => s.key === 'AI_MEMORY');
+        const enabled = data.find(s => s.key === 'AI_BUYER_ENABLED');
+        const prompt = data.find(s => s.key === 'AI_CRM_PROMPT');
+        const memory = data.find(s => s.key === 'AI_CRM_MEMORY');
         
         if (enabled) aiEnabled.current = enabled.value === 'true';
         aiSettings.current = {
@@ -40,28 +40,43 @@ export default function GlobalAIResponder() {
 
       if (error || !recentMessages) return;
 
-      // Agrupar mensagens por conversa (usando o sender_id do comprador como chave)
-      // Nota: em internal_messages, se sender_id é o comprador, receiver_id é o admin (ou nulo).
-      // Se receiver_id é o comprador, sender_id é o admin.
+      // Agrupar mensagens por conversa (usando sempre o par de IDs)
+      // Como não sabemos quem é admin e quem é cliente a priori sem DB, vamos mapear remetentes.
+      const sendersIds = Array.from(new Set(recentMessages.map(m => m.sender_id)));
+      const { data: profiles } = await supabase.from('profiles').select('id, role').in('id', sendersIds);
+      
+      const isBuyerCheck = (id: string) => {
+        const p = profiles?.find(prof => prof.id === id);
+        return p && ['buyer', 'buyer_premium', 'buyer_master'].includes(p.role);
+      };
+
       const conversations = new Map<string, any[]>();
       recentMessages.forEach(m => {
-        const userId = m.sender_id === '00000000-0000-0000-0000-000000000000' ? m.receiver_id : m.sender_id;
-        if (!conversations.has(userId)) conversations.set(userId, []);
-        conversations.get(userId)?.push(m);
+          // Identify the buyer in this message
+          let buyerId = isBuyerCheck(m.sender_id) ? m.sender_id : (isBuyerCheck(m.receiver_id) ? m.receiver_id : null);
+          
+          if (buyerId) {
+              if (!conversations.has(buyerId)) conversations.set(buyerId, []);
+              conversations.get(buyerId)?.push(m);
+          }
       });
 
-      for (const [userId, msgs] of conversations.entries()) {
-        const lastMsg = msgs[0]; // Ordenado decrescente, então o primeiro é o último enviado
+      for (const [buyerId, msgs] of conversations.entries()) {
+        const lastMsg = msgs[0]; // Ordenado decrescente
         
-        // Se a última mensagem for do comprador e não do bot/admin, responde
-        if (lastMsg.sender_id === userId && !processingMessages.current.has(lastMsg.id)) {
-          console.log(`[GlobalAIResponder] Detectada mensagem não respondida de ${userId}. Iniciando resposta...`);
-          handleIncomingMessage(lastMsg);
+        // Se a última mensagem for do comprador (e não do bot/admin), responde
+        if (lastMsg.sender_id === buyerId && !processingMessages.current.has(lastMsg.id)) {
+          const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
+          if (timeDiff > 5000) { // Se já passou 5s e admin não respondeu
+            console.log(`[GlobalAIResponder] Detectada mensagem não respondida de ${buyerId}. Iniciando resposta...`);
+            handleIncomingMessage(lastMsg);
+          }
         }
       }
     };
 
     scanUnansweredMessages();
+    const interval = setInterval(scanUnansweredMessages, 30000); // Roda a varredura a cada 30 segundos como fallback
 
     // Inscrição para novas mensagens
     const channel = supabase
@@ -86,6 +101,7 @@ export default function GlobalAIResponder() {
       .subscribe();
 
     return () => {
+      clearInterval(interval);
       supabase.removeChannel(channel);
     };
   }, []);
@@ -123,6 +139,18 @@ export default function GlobalAIResponder() {
         console.log('[GlobalAIResponder] Admin ou usuário já responderam, pulando auto-resposta.');
         return;
       }
+
+      // 4.5 Buscar histórico da conversa
+      const { data: historyData } = await supabase
+        .from('internal_messages')
+        .select('*')
+        .or(`sender_id.eq.${msg.sender_id},receiver_id.eq.${msg.sender_id}`)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      const history = (historyData || []).reverse().map(m => 
+        `${m.sender_id === msg.sender_id ? 'Comprador' : 'Admin'}: ${m.content}`
+      ).join('\n');
 
       // 5. Buscar contexto do lead se houver
       let leadContext = '';
@@ -169,7 +197,7 @@ DIRETRIZES GERAIS:
 ${leadContext}
 `;
 
-      const prompt = `Mensagem do Comprador: ${msg.content}`;
+      const prompt = `HISTÓRICO DA CONVERSA:\n${history}\n\n[NOVA MENSAGEM DO COMPRADOR]: ${msg.content}\n\nResponda agora:`;
       
       const response = await AIService.generateContent(prompt, systemInstruction);
       const cleanResponse = response.text
