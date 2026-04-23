@@ -33,6 +33,7 @@ import ChatWidget from './components/ChatWidget';
 import InternalChat from './components/InternalChat';
 import FloatingPurchasingChat from './components/FloatingPurchasingChat';
 import BackgroundAIManager from './components/crm/BackgroundAIManager';
+import BackgroundAIManager from './components/crm/BackgroundAIManager';
 import AuthModal from './components/AuthModal';
 import { GoogleTags } from './components/GoogleTags';
 import NotificationPermissionModal from './components/NotificationPermissionModal';

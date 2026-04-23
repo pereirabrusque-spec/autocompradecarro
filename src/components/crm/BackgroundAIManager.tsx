@@ -1268,9 +1268,10 @@ REGRAS GERAIS:
                 const readCol = lastMsg.is_read !== undefined ? 'is_read' : 'read';
                 const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
                 
-                // Busca a última mensagem do CLIENTE nesta conversa (corrigido: sender_id deve ser o otherId)
+                // Busca a última mensagem do CLIENTE nesta conversa (ignorando mensagens do próprio admin)
                 const lastClientMsg = allInternal.find(m => 
                     m.sender_id === otherId && 
+                    m.receiver_id === uid &&
                     m.content && m.content.trim() !== ''
                 );
 
