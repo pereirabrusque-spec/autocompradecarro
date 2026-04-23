@@ -1245,15 +1245,17 @@ REGRAS GERAIS:
         }
 
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-        console.log("[BackgroundAIManager] 🔍 scanForOpenMessages: Buscando mensagens desde", thirtyDaysAgo);
+        console.log("[BackgroundAIManager] 🔍 scanForOpenMessages: Buscando mensagens desde", thirtyDaysAgo, "para UID:", uid);
 
         // 1. Escaneia mensagens internas (Compradores)
-        const { data: allInternal } = await supabase
+        const { data: allInternal, error: internalError } = await supabase
             .from('internal_messages')
             .select('*')
             .or(`receiver_id.eq.${uid},sender_id.eq.${uid},receiver_id.eq.00000000-0000-0000-0000-000000000000`)
             .gt('created_at', thirtyDaysAgo)
             .order('created_at', { ascending: false });
+
+        console.log(`[BackgroundAIManager] 🔍 scanForOpenMessages: Encontradas ${allInternal?.length || 0} mensagens internas. Error:`, internalError);
 
         if (allInternal) {
             const convs = new Map();
