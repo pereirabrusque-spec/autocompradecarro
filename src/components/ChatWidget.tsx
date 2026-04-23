@@ -403,7 +403,7 @@ export default function ChatWidget() {
         whileTap={{ scale: 0.9 }}
         type="button"
         onClick={handleToggle}
-        className="fixed bottom-6 right-6 z-[60] p-4 bg-accent text-white rounded-full shadow-2xl hover:bg-orange-600 transition-all flex items-center justify-center animate-pulse-soft"
+        className="fixed md:bottom-6 bottom-[calc(2rem+env(safe-area-inset-bottom))] right-6 z-[60] p-4 bg-accent text-white rounded-full shadow-2xl hover:bg-orange-600 transition-all flex items-center justify-center animate-pulse-soft"
       >
         {isOpen ? <X className="w-6 h-6" /> : <MessageSquare className="w-6 h-6" />}
         {unreadCount > 0 && (
@@ -415,7 +415,7 @@ export default function ChatWidget() {
 
       {/* Chat Window */}
       {isOpen && user && (
-        <div className="fixed bottom-24 right-6 z-50 w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col h-[500px] animate-in slide-in-from-bottom-10 fade-in duration-300">
+        <div className="fixed md:bottom-24 bottom-[calc(6.5rem+env(safe-area-inset-bottom))] right-6 z-50 w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col h-[500px] max-h-[70vh] animate-in slide-in-from-bottom-10 fade-in duration-300">
           {/* Header */}
           <div className="bg-slate-900 p-4 text-white flex justify-between items-center">
             <div>

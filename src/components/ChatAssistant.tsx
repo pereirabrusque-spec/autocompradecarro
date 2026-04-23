@@ -956,11 +956,12 @@ ${userText}`;
             initial={{ opacity: 0, y: 100, scale: 0.8 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 100, scale: 0.8 }}
+            className="fixed md:bottom-8 bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-4 md:right-8 bg-white rounded-[32px] shadow-2xl z-[60] flex flex-col overflow-hidden border border-slate-100"
             style={{ 
-              height: '80vh', 
-              width: window.innerWidth < 640 ? '95vw' : '450px' 
+              height: window.innerWidth < 640 ? 'calc(100vh - 120px)' : '80vh', 
+              width: window.innerWidth < 640 ? '92vw' : '450px',
+              maxWidth: '100%'
             }}
-            className="fixed bottom-8 right-8 bg-white rounded-[32px] shadow-2xl z-[60] flex flex-col overflow-hidden border border-slate-100"
           >
             <div className="p-6 bg-slate-900 text-white flex justify-between items-center">
               <div className="flex items-center gap-3">

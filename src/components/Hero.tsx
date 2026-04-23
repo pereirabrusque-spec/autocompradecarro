@@ -78,7 +78,7 @@ export default function Hero() {
         <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent z-10" />
       </div>
 
-      <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 md:pt-24 pb-12 flex flex-col justify-center h-full min-h-0">
+      <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-16 md:pt-24 md:pb-12 flex flex-col justify-center h-full min-h-0">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center w-full">
           <motion.div
             initial={{ opacity: 0, x: -50 }}
@@ -93,16 +93,17 @@ export default function Hero() {
             </div>
             
             <h1 
-              className="font-display font-black leading-[0.9] tracking-tighter drop-shadow-2xl text-white"
+              className="font-display font-black tracking-tighter drop-shadow-2xl text-white"
               style={{ 
-                fontSize: 'clamp(1.5rem, 10vh, 5.5rem)',
-                lineHeight: '0.9',
-                wordBreak: 'break-word'
+                fontSize: 'clamp(2rem, 15vw, 4.5rem)',
+                lineHeight: '1.0',
+                wordBreak: 'break-word',
+                maxWidth: '100%'
               }}
-              dangerouslySetInnerHTML={{ __html: currentBanner?.title || `<span class="text-red-600">Transforme</span> <span class="text-green-500">seu</span><br />
-              <span class="text-white">problema</span> <span class="text-red-600">em</span><br />
-              <span class="text-green-500">dinheiro</span> <span class="text-white">vivo</span><br />
-              <span class="text-red-600">agora.</span>` }}
+              dangerouslySetInnerHTML={{ __html: (currentBanner?.title ? currentBanner.title.replace(/<br\s*\/?>/gi, '<br class="hidden md:block" />') : `<span class="text-red-600">Transforme</span> <span class="text-green-500">seu</span><br class="hidden md:block" />
+              <span class="text-white">problema</span> <span class="text-red-600">em</span><br class="hidden md:block" />
+              <span class="text-green-500">dinheiro</span> <span class="text-white">vivo</span><br class="hidden md:block" />
+              <span class="text-red-600">agora.</span>`) }}
             />
 
             <p className="mt-4 text-sm md:text-lg lg:text-xl text-white/95 max-w-2xl font-medium leading-tight md:leading-relaxed drop-shadow-lg">

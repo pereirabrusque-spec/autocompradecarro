@@ -269,7 +269,7 @@ function AppContent() {
       
       {/* Floating Chat Buttons */}
       {view !== 'admin' && view !== 'buyer' && (
-        <div className="fixed bottom-6 right-6 flex flex-col gap-4 z-[50]">
+        <div className="fixed md:bottom-6 bottom-[calc(2rem+env(safe-area-inset-bottom))] right-6 flex flex-col gap-4 z-[50]">
           {/* Main Chat Assistant Button */}
           <button
             onClick={() => setIsChatOpen(true)}
