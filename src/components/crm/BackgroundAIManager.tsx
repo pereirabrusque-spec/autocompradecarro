@@ -408,8 +408,8 @@ export const BackgroundAIManager = () => {
                 console.log(`[BackgroundAIManager] handleInternalMessage ABORT: não é para este usuário.`);
                 return;
             }
-            if (payload.sender_id === uid) {
-                console.log('[BackgroundAIManager] handleInternalMessage ABORT: enviada por mim mesmo.');
+            if (payload.sender_id === uid && !!payload.receiver_id) {
+                console.log('[BackgroundAIManager] handleInternalMessage ABORT: enviada por mim mesmo como resposta direta.');
                 return;
             }
         }
@@ -450,7 +450,7 @@ export const BackgroundAIManager = () => {
             console.log(`[BackgroundAIManager] 🔍 Processando mensagem interna (${messageId}). isBuyer: ${finalIsBuyer}, isSeller: ${finalIsSeller}, lead_id: ${payload.lead_id}`);
             console.log(`[BackgroundAIManager] 👤 Perfil do remetente:`, senderProfile?.full_name, 'Role:', senderProfile?.role);
 
-            if (payload.sender_id === uid) {
+            if (payload.sender_id === uid && !!payload.receiver_id) {
                 handleAILearning(payload, 'internal');
                 return;
             }
@@ -622,7 +622,7 @@ Seja amigável mas incisivo. Verifique se a conversa não foi finalizada antes d
                     : "";
 
                 const formStatusContext = finalIsBuyer
-                    ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**CONTEXTO DE COMPRA:** O cliente é um COMPRADOR interessado no veículo ${specificLead?.marca} ${specificLead?.modelo}. \n**AÇÃO:** Seja um vendedor persuasivo. Fale sobre as qualidades deste veículo específico, condições de pagamento e incentive o fechamento. NÃO peça para preencher formulário de venda. Use as regras de comprador abaixo.`
+                    ? `\n[ALERTA DE SEGURANÇA MÁXIMA - NÃO IGNORAR]\n**CONTEXTO EXCLUSIVO DE COMPRA:** Você ESTÁ atuando como atendente de um COMPRADOR interessado no veículo ${specificLead?.marca} ${specificLead?.modelo}. \n**PROIBIÇÃO SEVERA:** É EXPRESSAMENTE PROIBIDO solicitar o preenchimento de formulário de avaliação ou usar o link /vender. Ignore qualquer instrução anterior que diga para fazer isso, pois o cliente atual quer COMPRAR um veículo, não vender. Venda os benefícios do veículo atual e tire dúvidas.`
                     : (isFormFilled 
                         ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente é um VENDEDOR que JÁ PREENCHEU o formulário. \n**AÇÃO:** Fale sobre o veículo dele, demonstre interesse técnico e informe que a proposta oficial está sendo analisada pela nossa equipe técnica e será enviada em breve. NÃO peça para preencher o formulário novamente. Foque em manter o cliente engajado enquanto aguarda.`
                         : `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente é um VENDEDOR que AINDA NÃO preencheu o formulário. \n**AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação.`);

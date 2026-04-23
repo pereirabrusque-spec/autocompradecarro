@@ -36,6 +36,8 @@ export default function AdminDashboard() {
   const [internalChatMessages, setInternalChatMessages] = useState<any[]>([]);
   const [compradorChatMessages, setCompradorChatMessages] = useState<any[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const isAdmin = userProfile?.role === 'admin' || currentUser?.email === 'pereira.brusque@gmail.com';
   const [googleAnalyticsId, setGoogleAnalyticsId] = useState('');
   const [googleAdsId, setGoogleAdsId] = useState('');
   const [googleAdsConversionLabel, setGoogleAdsConversionLabel] = useState('');
@@ -317,8 +319,6 @@ export default function AdminDashboard() {
       supabase.removeChannel(channel);
     };
   }, []);
-  const [userProfile, setUserProfile] = useState<any>(null);
-  const isAdmin = userProfile?.role === 'admin' || currentUser?.email === 'pereira.brusque@gmail.com';
 
   // Calculate User Stats for Dashboard
   const adminEmail = 'pereira.brusque@gmail.com';

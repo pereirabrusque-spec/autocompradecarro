@@ -347,9 +347,6 @@ function AppContent() {
         />
       )}
 
-      {/* Global AI Watcher for Buyers/Internal Chats */}
-      <GlobalAIResponder />
-
       {user && view !== 'admin' && profile?.role === 'seller' && (
         <InternalChat 
           hideFloatingButton={false} 
