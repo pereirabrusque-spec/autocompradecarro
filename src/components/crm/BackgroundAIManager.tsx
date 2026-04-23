@@ -1273,28 +1273,27 @@ REGRAS GERAIS:
                 const readCol = lastMsg.is_read !== undefined ? 'is_read' : 'read';
                 const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
                 
-                // Busca a última mensagem do CLIENTE nesta conversa (ignorando mensagens do próprio admin)
+                // Busca a última mensagem do CLIENTE nesta conversa (ignorando mensagens do próprio bot/admin)
                 const lastClientMsg = allInternal.find(m => 
                     m.sender_id === otherId && 
-                    m.receiver_id === uid &&
+                    m.receiver_id === uid && 
                     m.content && m.content.trim() !== ''
                 );
 
-                console.log(`[BackgroundAIManager] 🔍 SCAN DEBUG: Conv with ${otherId}. LastClientMsg: ${lastClientMsg?.id}. Content: "${lastClientMsg?.content}"`);
-
-                // Busca a última resposta SUCESSO (IA ou Admin Humano) APENAS nesta conversa específica com o otherId
-                const lastAdminSuccess = allInternal.find(m => 
+                // Busca a última resposta do BOT/ADMIN nesta conversa
+                const lastBotResponse = allInternal.find(m => 
                     m.sender_id === uid && 
-                    m.receiver_id === otherId && // CRÍTICO: Limitar à conversa deste cliente
-                    !m.metadata?.ai_failed &&
-                    !m.metadata?.is_fallback &&
-                    !m.metadata?.fallback
+                    m.receiver_id === otherId
                 );
-                
-                console.log(`[BackgroundAIManager] 🔍 SCAN DEBUG: LastAdminSuccess (para ${otherId}): ${lastAdminSuccess?.id}`);
 
-                const isAiFailed = lastClientMsg?.metadata?.ai_failed;
-                const lastFailedTime = lastClientMsg?.metadata?.failed_at ? new Date(lastClientMsg.metadata.failed_at).getTime() : 0;
+                // Só processa se a última mensagem for do cliente e não houver resposta do bot após ela
+                const isUnanswered = lastClientMsg && (!lastBotResponse || new Date(lastClientMsg.created_at) > new Date(lastBotResponse.created_at));
+                
+                console.log(`[BackgroundAIManager] 🔍 SCAN: Conv ${otherId}. Unanswered: ${isUnanswered}`);
+
+                if (!isUnanswered) {
+                    continue; // Pula se já estiver respondido
+                }
                 const shouldRetry = isAiFailed && (Date.now() - lastFailedTime > 30000); // Retry mais agressivo (30s) para forçar controle
 
                 if (lastClientMsg && (!lastAdminSuccess || new Date(lastClientMsg.created_at) > new Date(lastAdminSuccess.created_at))) {
