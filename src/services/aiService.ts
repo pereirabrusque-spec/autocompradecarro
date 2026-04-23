@@ -289,7 +289,7 @@ export class AIService {
       const apiKey = candidateKeys[attempts];
       if (!apiKey) break;
       
-      console.log(`[AIService] 🚀 Tentativa ${attempts + 1}/${maxAttempts} usando chave: ${apiKey.id} (${apiKey.provider} - ${apiKey.status})`);
+      console.log(`[AIService] 🚀 Tentativa ${attempts + 1}/${maxAttempts} usando chave: ${apiKey.id} (${apiKey.provider} - ${apiKey.status}) Serviço: ${apiKey.service}`);
 
       try {
         const result = await AIClientManager.execute(apiKey, prompt, systemInstruction, image);
