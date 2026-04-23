@@ -1341,7 +1341,6 @@ REGRAS GERAIS:
                 );
 
                 // Busca a última resposta SUCESSO (IA ou Admin Humano)
-                // MODIFICAÇÃO: Ignora explicitamente mensagens de FALLBACK enviadas pelo ChatAssistant
                 const lastAdminSuccess = allPublic.find(m => 
                     m.lead_id === leadId && 
                     (m.remetente?.toLowerCase() === 'admin' || m.remetente?.toLowerCase() === 'bot') &&
@@ -1352,6 +1351,8 @@ REGRAS GERAIS:
                     !m.conteudo.includes('Um consultor técnico já foi notificado') &&
                     !m.conteudo.includes('No momento nossos sistemas de análise automática estão passando por uma atualização')
                 );
+                
+                console.log(`[BackgroundAIManager] 🔍 SCAN DEBUG [Lead: ${leadId}]: LastClientMsgID: ${lastClientMsg?.id}, Content: "${lastClientMsg?.conteudo?.substring(0,20)}...". LastAdminSuccessID: ${lastAdminSuccess?.id}`);
 
                 const isAiFailed = lastClientMsg?.metadata?.ai_failed;
                 const lastFailedTime = lastClientMsg?.metadata?.failed_at ? new Date(lastClientMsg.metadata.failed_at).getTime() : 0;

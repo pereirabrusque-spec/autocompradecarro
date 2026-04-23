@@ -61,17 +61,15 @@ export class AIService {
 
     // Prioritize 'ok' status (green). 
     const sorted = (filteredData || []).sort((a, b) => {
+      // Regra: Chave "Em uso" atual (se OK) tem prioridade absoluta
+      if (a.id === this.lastSuccessfulKeyId && a.status === 'ok') return -1;
+      if (b.id === this.lastSuccessfulKeyId && b.status === 'ok') return 1;
+
       const statusOrder = { 'ok': 0, 'rate_limited': 1, 'no_credit': 2, 'disconnected': 3 };
       const orderA = statusOrder[a.status as keyof typeof statusOrder] ?? 4;
       const orderB = statusOrder[b.status as keyof typeof statusOrder] ?? 4;
       
       if (orderA !== orderB) return orderA - orderB;
-      
-      // If both have the same status, prioritize the last successful one
-      if (a.status === 'ok' && b.status === 'ok') {
-        if (a.id === this.lastSuccessfulKeyId) return -1;
-        if (b.id === this.lastSuccessfulKeyId) return 1;
-      }
       
       return 0;
     });
