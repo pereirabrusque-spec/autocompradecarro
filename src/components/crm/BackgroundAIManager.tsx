@@ -1268,23 +1268,25 @@ REGRAS GERAIS:
                 const readCol = lastMsg.is_read !== undefined ? 'is_read' : 'read';
                 const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
                 
-            // Busca a última mensagem do CLIENTE nesta conversa
-            const lastClientMsg = allInternal.find(m => 
-                (m.sender_id === otherId) && 
-                m.sender_id !== uid
-            );
+                // Busca a última mensagem do CLIENTE nesta conversa (ignorando mensagens do próprio admin)
+                const lastClientMsg = allInternal.find(m => 
+                    m.sender_id === otherId && 
+                    m.sender_id !== uid &&
+                    m.content && m.content.trim() !== ''
+                );
 
-            console.log(`[BackgroundAIManager] 🔍 SCAN DEBUG: Conv with ${otherId}. LastClientMsg: ${lastClientMsg?.id}. Content: "${lastClientMsg?.content}"`);
+                console.log(`[BackgroundAIManager] 🔍 SCAN DEBUG: Conv with ${otherId}. LastClientMsg: ${lastClientMsg?.id}. Content: "${lastClientMsg?.content}"`);
 
-            // Busca a última resposta SUCESSO (IA ou Admin Humano)
-            const lastAdminSuccess = allInternal.find(m => 
-                m.sender_id === uid && 
-                !m.metadata?.ai_failed &&
-                !m.metadata?.is_fallback &&
-                !m.metadata?.fallback
-            );
-            
-            console.log(`[BackgroundAIManager] 🔍 SCAN DEBUG: LastAdminSuccess: ${lastAdminSuccess?.id}`);
+                // Busca a última resposta SUCESSO (IA ou Admin Humano) APENAS nesta conversa específica com o otherId
+                const lastAdminSuccess = allInternal.find(m => 
+                    m.sender_id === uid && 
+                    m.receiver_id === otherId && // CRÍTICO: Limitar à conversa deste cliente
+                    !m.metadata?.ai_failed &&
+                    !m.metadata?.is_fallback &&
+                    !m.metadata?.fallback
+                );
+                
+                console.log(`[BackgroundAIManager] 🔍 SCAN DEBUG: LastAdminSuccess (para ${otherId}): ${lastAdminSuccess?.id}`);
 
                 const isAiFailed = lastClientMsg?.metadata?.ai_failed;
                 const lastFailedTime = lastClientMsg?.metadata?.failed_at ? new Date(lastClientMsg.metadata.failed_at).getTime() : 0;

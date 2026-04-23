@@ -217,26 +217,28 @@ export class AIService {
     let keys = await this.getActiveKeys();
     console.log('[AIService] Chaves ativas encontradas:', keys.length, 'IDs:', keys.map(k => k.id).join(', '));
     
-      // Filtra apenas chaves que estão marcadas como 'ok' (Verde)
-      // Ou chaves que estão 'no_credit' mas não foram testadas há mais de 15 minutos
-      const now = Date.now();
-      let candidateKeys = keys.filter(k => {
-        // Se a chave falhou nesta sessão específica, removemos imediatamente da lista para não tentar de novo
-        if (this.failedKeysInSession.has(k.id)) return false;
+    // Filtra apenas chaves que estão marcadas como 'ok' (Verde)
+    // Ou chaves que estão 'no_credit' mas não foram testadas há mais de 15 minutos
+    const now = Date.now();
+    let candidateKeys = keys.filter(k => {
+      console.log(`[AIService] Gerando candidato para chave ${k.id}, status: ${k.status}, failedInSession: ${this.failedKeysInSession.has(k.id)}`);
+      
+      // Se a chave falhou nesta sessão específica, removemos imediatamente da lista para não tentar de novo
+      if (this.failedKeysInSession.has(k.id)) return false;
 
-        // Se a chave está 'ok', permitimos
-        if (k.status === 'ok' || k.id === 'env-key') return true;
+      // Se a chave está 'ok', permitimos
+      if (k.status === 'ok' || k.id === 'env-key') return true;
+      
+      // Se a chave não está OK mas não está 'disconnected', permite tentar se passou tempo suficiente
+      if (k.status !== 'disconnected') {
+        const lastUsed = k.last_used ? new Date(k.last_used).getTime() : 0;
+        const minutesSinceLastUse = (now - lastUsed) / (1000 * 60);
         
-        // Se a chave não está OK mas não está 'disconnected', permite tentar se passou tempo suficiente
-        if (k.status !== 'disconnected') {
-          const lastUsed = k.last_used ? new Date(k.last_used).getTime() : 0;
-          const minutesSinceLastUse = (now - lastUsed) / (1000 * 60);
-          
-          // Fallback após 5 minutos para chaves com quota/limite (retry automático)
-          return minutesSinceLastUse > 5;
-        }
-        return false;
-      });
+        // Fallback após 5 minutos para chaves com quota/limite (retry automático)
+        return minutesSinceLastUse > 5;
+      }
+      return false;
+    });
     
     // Ordenação final para garantir que as 'ok' venham primeiro
     candidateKeys.sort((a, b) => {
