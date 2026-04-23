@@ -279,7 +279,7 @@ export const CRMChatContainer = ({ role, onOpenLead, onCloneLead, setToast }: { 
     <div className="flex h-full min-h-0 bg-white sm:rounded-2xl border border-slate-200 overflow-hidden w-full relative">
       {/* Buyer List */}
       <div className={`w-full sm:w-1/3 border-r border-slate-200 flex flex-col min-h-0 shrink-0 ${selectedConversationId ? 'hidden sm:flex' : 'flex'}`}>
-        <div className="p-4 border-b border-slate-100 font-bold flex justify-between items-center shrink-0">
+        <div className="p-4 border-b border-slate-100 font-bold flex justify-between items-center shrink-0 bg-white sticky top-0 z-10">
             <div className="flex items-center gap-2">
                 Conversas
                 <button 

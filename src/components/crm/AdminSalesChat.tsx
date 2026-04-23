@@ -346,7 +346,7 @@ export const AdminSalesChat = ({
 
   return (
     <div className="flex flex-col h-full bg-white">
-      <div className="p-4 border-b border-slate-100 flex justify-between items-center shrink-0">
+      <div className="p-4 border-b border-slate-100 flex justify-between items-center shrink-0 bg-white sticky top-0 z-10 shadow-sm">
         <div className="flex items-center gap-3">
             {userAvatar && <img src={userAvatar} alt="Avatar" className="w-10 h-10 rounded-full" />}
             <div>
@@ -477,8 +477,7 @@ export const AdminSalesChat = ({
             <ShieldCheck className="w-4 h-4" />
             Ver Proposta
           </button>
-          {/* Botão de Atendimento Humano removido conforme solicitado - sistema agora é 100% automatizado */}
-
+          
           {showProposalModal && (
             <ChatActionModal
               type="proposta"
