@@ -626,10 +626,19 @@ Seja amigável mas incisivo. Verifique se a conversa não foi finalizada antes d
                     : "";
 
                 const formStatusContext = finalIsBuyer
-                    ? `\n[ALERTA DE SEGURANÇA MÁXIMA - NÃO IGNORAR]\n**CONTEXTO EXCLUSIVO DE COMPRA:** Você ESTÁ atuando como atendente de um COMPRADOR interessado no veículo ${specificLead?.marca} ${specificLead?.modelo}. \n**PROIBIÇÃO SEVERA:** É EXPRESSAMENTE PROIBIDO solicitar o preenchimento de formulário de avaliação ou usar o link /vender. Ignore qualquer instrução anterior que diga para fazer isso, pois o cliente atual quer COMPRAR um veículo, não vender. Venda os benefícios do veículo atual e tire dúvidas.`
+                    ? `\n[ALERTA DE SEGURANÇA MÁXIMA - NÃO IGNORAR]\n**CONTEXTO EXCLUSIVO DE COMPRA:** Você ESTÁ atuando como atendente de um COMPRADOR interessado no veículo ${specificLead?.marca} ${specificLead?.modelo}. 
+**PROIBIÇÃO SEVERA:** É EXPRESSAMENTE PROIBIDO solicitar o preenchimento de formulário de avaliação ou usar o link /vender. Ignore qualquer instrução anterior que diga para fazer isso, pois o cliente atual quer COMPRAR um veículo, não vender. Venda os benefícios do veículo atual e tire dúvidas.
+**AUTO-CORREÇÃO CRÍTICA:** Analise a última mensagem enviada por você. 
+- Se você pediu formulário em um contexto de COMPRADOR, peça desculpas imediatamente pelo erro de contexto e retome o assunto de COMPRA.
+- Se você respondeu como COMPRADOR em um contexto de VENDEDOR, peça desculpas pela confusão e retome o assunto de AVALIAÇÃO/VENDAS.`
                     : (isFormFilled 
-                        ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente é um VENDEDOR que JÁ PREENCHEU o formulário. \n**AÇÃO:** Fale sobre o veículo dele, demonstre interesse técnico e informe que a proposta oficial está sendo analisada pela nossa equipe técnica e será enviada em breve. NÃO peça para preencher o formulário novamente. Foque em manter o cliente engajado enquanto aguarda.`
-                        : `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente é um VENDEDOR que AINDA NÃO preencheu o formulário. \n**AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação.`);
+                        ? `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente é um VENDEDOR que JÁ PREENCHEU o formulário. 
+**AÇÃO:** Fale sobre o veículo dele, demonstre interesse técnico e informe que a proposta oficial está sendo analisada pela nossa equipe técnica e será enviada em breve. NÃO peça para preencher o formulário novamente. Foque em manter o cliente engajado enquanto aguarda.
+**AUTO-CORREÇÃO CRÍTICA:** Analise a última mensagem enviada por você. 
+- Se você pediu formulário em um contexto de VENDEDOR (já preenchido), peça desculpas e siga o fluxo de aguardo de proposta.
+- Se você respondeu como COMPRADOR em um contexto de VENDEDOR, peça desculpas pela confusão e retome o assunto de AVALIAÇÃO/VENDAS.`
+                        : `\n[INSTRUÇÃO DE PRIORIDADE MÁXIMA]\n**STATUS DO CLIENTE:** O cliente é um VENDEDOR que AINDA NÃO preencheu o formulário. 
+**AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação.`);
 
                 const clientName = senderProfile?.full_name || "Cliente";
                 const systemPromptCRM = `
@@ -638,12 +647,15 @@ ${finalIsBuyer ? aiCrmPromptRef.current : aiPromptRef.current}
 VOCÊ É UM AGENTE DE ATENDIMENTO DE ELITE DA AUTO COMPRA ONLINE.
 ESTE É UM CHAT INTERNO COM UM ${finalIsBuyer ? 'COMPRADOR/INVESTIDOR' : 'VENDEDOR'}: ${clientName}.
 
+**REGRA DE PREVENÇÃO DE ATRASOS:** Se o cliente não responde há muito tempo, analise o contexto da última conversa de forma profunda antes de enviar qualquer mensagem. Se necessário, envie uma pergunta direta para destravar o cliente.
+
 REGRAS DE OURO:
 1. NUNCA use o placeholder {{nome}}. Se quiser se referir ao nome do cliente, use: "${clientName}".
 2. Identifique o tom da conversa e seja profissional mas acolhedor.
 3. Se for comprador MASTER ou PREMIUM, dê prioridade máxima.
 4. Use o contexto do veículo abaixo para responder dúvidas técnicas ou financeiras.
 5. Se não souber algo, sugira que um especialista humano irá assumir em instantes.
+6. **AUTO-REVISÃO:** Antes de responder, verifique se seu último tom condiz com o contexto atual (Chat de Compra vs Chat de Venda). Se cometeu erro de personalidade na última interação, peça desculpas de forma humilde e profissional.
 
 MEMÓRIA DO SISTEMA: ${finalIsBuyer ? aiCrmMemoryRef.current : aiMemoryRef.current}
 `;
