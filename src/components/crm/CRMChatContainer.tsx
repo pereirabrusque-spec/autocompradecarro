@@ -276,9 +276,9 @@ export const CRMChatContainer = ({ role, onOpenLead, onCloneLead, setToast }: { 
   };
 
   return (
-    <div className="flex h-[calc(100vh-100px)] bg-white rounded-2xl border border-slate-200 overflow-hidden w-full">
+    <div className="flex h-full min-h-0 bg-white sm:rounded-2xl border border-slate-200 overflow-hidden w-full relative">
       {/* Buyer List */}
-      <div className="w-1/3 border-r border-slate-200 flex flex-col shrink-0">
+      <div className={`w-full sm:w-1/3 border-r border-slate-200 flex flex-col shrink-0 ${selectedConversationId ? 'hidden sm:flex' : 'flex'}`}>
         <div className="p-4 border-b border-slate-100 font-bold flex justify-between items-center shrink-0">
             <div className="flex items-center gap-2">
                 Conversas
@@ -313,8 +313,8 @@ export const CRMChatContainer = ({ role, onOpenLead, onCloneLead, setToast }: { 
                     // Zera visualmente IMEDIATAMENTE
                     setUnreadCounts(prev => ({ ...prev, [conv.id]: 0 })); 
                 }}
-                className={`p-2 border-b border-slate-100 cursor-pointer hover:bg-slate-50 flex justify-between items-center ${selectedConversationId === conv.id ? 'bg-slate-100' : ''}`}
-                style={{ height: '48px' }}
+                className={`p-3 border-b border-slate-100 cursor-pointer hover:bg-slate-50 flex justify-between items-center ${selectedConversationId === conv.id ? 'bg-slate-100' : ''}`}
+                style={{ minHeight: '64px' }}
             >
                 <div className="flex items-center gap-3 overflow-hidden">
                     {conv.avatar_url ? (
@@ -324,8 +324,9 @@ export const CRMChatContainer = ({ role, onOpenLead, onCloneLead, setToast }: { 
                             {conv.full_name?.charAt(0) || '?'}
                         </div>
                     )}
-                    <div className="truncate">
+                    <div className="truncate flex flex-col">
                         <div className="font-bold text-sm truncate">{conv.full_name || 'Sem nome'}</div>
+                        <div className="text-[10px] text-slate-500 truncate">{conv.email}</div>
                         {conv.lead && (
                             <div className="text-[10px] text-slate-400 font-mono">
                                 #{conv.lead.vehicle_code || '----'}
@@ -344,18 +345,29 @@ export const CRMChatContainer = ({ role, onOpenLead, onCloneLead, setToast }: { 
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className={`flex-1 flex flex-col overflow-hidden bg-slate-50 ${selectedConversationId ? 'flex' : 'hidden sm:flex'}`}>
         {selectedConversationId ? (
-          <AdminSalesChat 
-            conversationId={selectedConversationId} 
-            role={role} 
-            onMessageRead={fetchConversations} // Passa a função para atualizar contadores
-            onOpenLead={onOpenLead}
-            onCloneLead={(lead) => onCloneLead && onCloneLead(lead, selectedConversationId)}
-            setToast={setToast}
-            isAiEnabled={isAiEnabled}
-            onToggleAi={toggleGlobalAi}
-          />
+          <>
+            <div className="sm:hidden p-3 bg-white border-b border-slate-100 flex items-center shrink-0">
+              <button 
+                onClick={() => setSelectedConversationId(null)}
+                className="flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900 px-2 py-1 rounded-lg hover:bg-slate-50 transition-colors"
+                id="back_to_list_btn"
+              >
+                Voltar
+              </button>
+            </div>
+            <AdminSalesChat 
+              conversationId={selectedConversationId} 
+              role={role} 
+              onMessageRead={fetchConversations} // Passa a função para atualizar contadores
+              onOpenLead={onOpenLead}
+              onCloneLead={(lead) => onCloneLead && onCloneLead(lead, selectedConversationId)}
+              setToast={setToast}
+              isAiEnabled={isAiEnabled}
+              onToggleAi={toggleGlobalAi}
+            />
+          </>
         ) : (
           <div className="h-full flex items-center justify-center text-slate-400">
             Selecione uma conversa
@@ -365,8 +377,8 @@ export const CRMChatContainer = ({ role, onOpenLead, onCloneLead, setToast }: { 
 
       {/* IA Rules Modal */}
       {showAiRules && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-[50vw] max-w-none shadow-xl">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-2xl shadow-xl">
             <div className="flex justify-between items-center mb-4">
                 <h4 className="font-bold text-lg">Configurar IA de Vendas</h4>
                 {/* Toggle de IA Automática removido conforme solicitado */}

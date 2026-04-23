@@ -41,7 +41,25 @@ import { authManager } from './lib/authManager';
 
 function AppContent() {
   const [view, setView] = useState<'home' | 'admin' | 'buyer' | 'login' | 'forgot-password' | 'reset-password' | 'sell' | 'auth-callback' | 'thank-you'>('home');
-  const { user, profile, isAdmin, isBuyer, isLoading } = useAuth();
+  const { user, profile, isAdmin, isBuyer, isLoading: authLoading } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Rescue timeout for iOS/Slow networks
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (isLoading) {
+        console.warn('[App] Rescue timeout triggered - forcing load');
+        setIsLoading(false);
+      }
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [isLoading]);
+
+  useEffect(() => {
+    if (!authLoading) {
+      setIsLoading(false);
+    }
+  }, [authLoading]);
   const { settings } = useAssets();
   const [showAuthModal, setShowAuthModal] = useState(false);
 
@@ -136,6 +154,10 @@ function AppContent() {
           setView('login');
         } else if (isAdmin) {
           setView('admin');
+        } else if (isBuyer) {
+          console.log('[DEBUG] Usuário é comprador em /admin, redirecionando para /comprar');
+          window.history.pushState({}, '', '/comprar');
+          setView('buyer');
         } else {
           window.history.pushState({}, '', '/');
           setView('home');
@@ -203,8 +225,21 @@ function AppContent() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent"></div>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 overflow-hidden relative">
+        <div className="relative z-10 flex flex-col items-center gap-8">
+          <div className="relative">
+            <div className="w-16 h-16 border-4 border-white/5 border-t-accent rounded-full animate-spin"></div>
+          </div>
+          
+          <div className="text-center space-y-2">
+            <h2 className="text-white font-bold text-lg tracking-tight">CARREGANDO</h2>
+            <div className="flex gap-1 justify-center">
+              <div className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+              <div className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+              <div className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce"></div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

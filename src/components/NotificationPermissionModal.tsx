@@ -18,11 +18,22 @@ export default function NotificationPermissionModal() {
     }
   }, [user]);
 
+  const [isProcessing, setIsProcessing] = useState(false);
+
   const handleAllow = async () => {
     if (!('Notification' in window)) return;
     
+    setIsProcessing(true);
     try {
-      const permission = await Notification.requestPermission();
+      // Timeout to prevent hanging in iframes if permission dialog never appears
+      const permissionPromise = Notification.requestPermission();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout')), 10000)
+      );
+
+      const permission = await Promise.race([permissionPromise, timeoutPromise]) as NotificationPermission;
+      console.log('[NotificationModal] Permission response:', permission);
+      
       if (permission === 'granted') {
         new Notification('Notificações ativadas!', {
           body: 'Você receberá alertas sobre suas negociações.',
@@ -33,6 +44,8 @@ export default function NotificationPermissionModal() {
     } catch (error) {
       console.error('Error requesting notification permission:', error);
       setIsOpen(false);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -89,9 +102,10 @@ export default function NotificationPermissionModal() {
                 </button>
                 <button
                   onClick={handleAllow}
-                  className="flex-1 py-3 px-4 bg-accent text-white font-bold rounded-xl hover:bg-orange-600 transition-colors text-sm shadow-lg shadow-accent/20"
+                  disabled={isProcessing}
+                  className="flex-1 py-3 px-4 bg-accent text-white font-bold rounded-xl hover:bg-orange-600 transition-colors text-sm shadow-lg shadow-accent/20 disabled:opacity-50"
                 >
-                  Ativar
+                  {isProcessing ? 'Processando...' : 'Ativar'}
                 </button>
               </div>
             </div>

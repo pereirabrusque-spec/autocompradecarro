@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/authContext';
-import { Send, MessageCircle, X } from 'lucide-react';
+import { Send, MessageCircle, X, Check, CheckCheck, Clock, MessageSquare } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 export default function InternalChat({ leadId, leadTitle, isOpen, onToggle, hideFloatingButton = false }: { leadId?: string, leadTitle?: string, isOpen?: boolean, onToggle?: () => void, hideFloatingButton?: boolean }) {
   const { user, profile, isAdmin } = useAuth();
@@ -13,6 +16,7 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle, hide
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isInitialLoad = useRef(true);
+  const [isTyping, setIsTyping] = useState(false);
 
   const [unreadCount, setUnreadCount] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -232,28 +236,33 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle, hide
   };
 
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMessage.trim() || !user) {
-      console.error('[InternalChat] handleSendMessage: No message or user');
+  const handleSendMessage = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    
+    if (!newMessage.trim() || !user || loading) {
+      console.warn('[InternalChat] handleSendMessage: No message, user or already loading');
       return;
     }
 
     setLoading(true);
-    console.log('[InternalChat] 📤 Enviando mensagem:', newMessage, 'User ID:', user.id, 'Lead ID:', leadId);
+    const messageToSend = newMessage;
+    setNewMessage(''); // Limpa imediatamente para melhor UX
+
+    console.log('[InternalChat] 📤 Enviando mensagem:', messageToSend, 'User ID:', user.id, 'Lead ID:', leadId);
     try {
       const { data, error } = await supabase.from('internal_messages').insert({
         sender_id: user.id,
-        content: newMessage,
+        content: messageToSend,
         lead_id: leadId || null,
       }).select();
 
       if (error) {
         console.error('[InternalChat] ❌ Erro ao enviar mensagem para o Supabase:', error);
+        setNewMessage(messageToSend); // Restaura se deu erro
+        alert('Erro ao enviar mensagem. Tente novamente.');
         throw error;
       }
       console.log('[InternalChat] ✅ Mensagem enviada com sucesso:', data);
-      setNewMessage('');
     } catch (error) {
       console.error('[InternalChat] 💥 Exceção ao enviar mensagem:', error);
     } finally {
@@ -284,7 +293,7 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle, hide
       )}
 
       {isOpen && (
-        <div className="fixed bottom-24 right-6 w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden z-50 h-[500px] animate-in slide-in-from-bottom-10 duration-300">
+        <div className="fixed bottom-0 sm:bottom-24 right-0 sm:right-6 w-full sm:max-w-sm bg-white sm:rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden z-[70] h-full sm:h-[500px] animate-in slide-in-from-bottom-10 duration-300">
           <div className="bg-slate-900 p-4 flex justify-between items-center text-white">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center overflow-hidden border-2 border-white/20">
@@ -304,53 +313,101 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle, hide
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 flex flex-col-reverse gap-4 bg-slate-50">
+          <div className="flex-1 overflow-y-auto p-4 flex flex-col-reverse gap-3 bg-slate-50 scrollbar-hide">
             <div ref={messagesEndRef} />
-            {messages.map((msg) => {
-              console.log(`[InternalChat] Renderizando mensagem ${msg.id}, profiles:`, msg.profiles);
-              return (
-                <div key={msg.id} className={`flex ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] p-3 rounded-2xl text-sm shadow-sm flex items-end gap-2 ${msg.sender_id === user?.id ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-slate-800 text-white rounded-tl-none'}`}>
-                    {msg.sender_id !== user?.id && (
-                      <img 
-                        src={msg.profiles?.avatar_url || attendantAvatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=100&h=100&auto=format&fit=crop'} 
-                        alt="Avatar" 
-                        className="w-6 h-6 rounded-full object-cover border border-white/20" 
-                        referrerPolicy="no-referrer"
-                      />
-                    )}
-                    <div>
-                      {msg.content}
-                      <p className={`text-[9px] mt-1 text-right ${msg.sender_id === user?.id ? 'text-blue-100' : 'text-slate-400'}`}>
-                        {msg.created_at ? `${new Date(msg.created_at).toLocaleDateString()} ${new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Data indisponível'}
-                      </p>
+            
+            <AnimatePresence initial={false}>
+              {isTyping && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  className="flex justify-start mb-2"
+                >
+                  <div className="bg-white border border-slate-200 px-4 py-2 rounded-2xl rounded-tl-none shadow-sm">
+                    <div className="flex gap-1">
+                      <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                </motion.div>
+              )}
+
+              {messages.map((msg, index) => {
+                const isMe = msg.sender_id === user?.id;
+                const showAvatar = !isMe && (index === messages.length - 1 || messages[index + 1]?.sender_id !== msg.sender_id);
+                
+                return (
+                  <motion.div 
+                    key={msg.id} 
+                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                    className={`flex ${isMe ? 'justify-end' : 'justify-start'} group`}
+                  >
+                    <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[85%]`}>
+                      <div className={`relative p-3 rounded-2xl shadow-sm transition-all hover:shadow-md ${
+                        isMe 
+                          ? 'bg-slate-900 text-white rounded-tr-none' 
+                          : 'bg-white border border-slate-200 text-slate-800 rounded-tl-none'
+                      }`}>
+                        <div className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">
+                          {msg.content}
+                        </div>
+                        
+                        <div className={`flex items-center gap-1 mt-1.5 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                          <span className={`text-[9px] font-medium uppercase tracking-tight ${isMe ? 'text-slate-400' : 'text-slate-400'}`}>
+                            {msg.created_at ? format(new Date(msg.created_at), 'HH:mm', { locale: ptBR }) : '--:--'}
+                          </span>
+                          {isMe && (
+                            msg.is_read ? (
+                              <CheckCheck className="w-3 h-3 text-blue-400" />
+                            ) : (
+                              <Check className="w-3 h-3 text-slate-500" />
+                            )
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+
             {messages.length === 0 && (
-              <div className="text-center text-slate-400 text-sm mt-10">
-                <p>Nenhuma mensagem ainda.</p>
-                <p>Envie uma mensagem para iniciar o atendimento.</p>
+              <div className="text-center py-20 px-6">
+                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <MessageCircle className="w-8 h-8 text-slate-400" />
+                </div>
+                <h4 className="text-slate-900 font-bold mb-1">Inicie uma conversa</h4>
+                <p className="text-slate-500 text-xs text-balance">
+                  Nossa equipe administrativa está pronta para te ajudar.
+                </p>
               </div>
             )}
           </div>
 
-          <form onSubmit={handleSendMessage} className="p-4 bg-white border-t border-slate-100 flex gap-2">
+          <form 
+            onSubmit={handleSendMessage} 
+            className="p-4 bg-white border-t border-slate-100 flex gap-2 shrink-0 pb-[calc(1rem+env(safe-area-inset-bottom))]"
+          >
             <input
               type="text"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder="Digite sua mensagem..."
               className="flex-1 p-3 border border-slate-200 rounded-xl text-sm outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all"
+              id="internal_chat_input"
             />
             <button 
-              type="submit" 
-              disabled={loading}
-              className="bg-slate-900 text-white p-3 rounded-xl hover:bg-slate-800 disabled:opacity-50 transition-colors"
+              type="button"
+              onClick={() => handleSendMessage()} 
+              disabled={loading || !newMessage.trim()}
+              className="bg-slate-900 text-white p-3 rounded-xl hover:bg-slate-800 disabled:opacity-50 transition-colors flex items-center justify-center shrink-0"
+              id="internal_chat_send_btn"
             >
-              <Send className="w-5 h-5" />
+              <Send className={`w-5 h-5 ${loading ? 'animate-pulse' : ''}`} />
             </button>
           </form>
         </div>

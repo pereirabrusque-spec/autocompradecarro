@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, memo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { AIService } from '../services/aiService';
 import { createClient } from '@supabase/supabase-js';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
@@ -660,15 +660,29 @@ export default function AdminDashboard() {
     }
     
     fetchDataDebounceRef.current = setTimeout(async () => {
-      if (isFetchingRef.current) return;
+      if (isFetchingRef.current || !currentUser) return;
       isFetchingRef.current = true;
       
       console.log("fetchData chamado (executando)");
       setIsLoading(true);
       addLog('Iniciando busca de dados...', 'info');
+      
       try {
-        console.log('Fetching all data in parallel from Supabase...');
+        console.log('Fetching critical user data...');
         
+        // 1. Fetch User Profile first
+        const { data: profile_res, error: profile_error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', currentUser.id)
+          .single();
+        
+        if (profile_res) {
+          setUserProfile(profile_res);
+          userProfileRef.current = profile_res;
+        }
+
+        console.log('Fetching all other data in parallel from Supabase...');
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -688,8 +702,8 @@ export default function AdminDashboard() {
           internalMessagesResult,
           settingsResult
         ] = await Promise.all([
-          supabase.from('leads_veiculos').select('*').order('created_at', { ascending: false }),
-          supabase.from('profiles').select('*'),
+          supabase.from('leads_veiculos').select('*').order('created_at', { ascending: false }).limit(1000),
+          supabase.from('profiles').select('*').order('created_at', { ascending: false }),
           supabase.from('banners').select('*').order('ordem', { ascending: true }),
           supabase.from('banks').select('*').order('name'),
           supabase.from('repair_costs').select('*').order('part_name'),
@@ -699,17 +713,8 @@ export default function AdminDashboard() {
           supabase.from('interested_buyers').select('*').order('created_at', { ascending: false }),
           supabase.from('buyer_crm_permissions').select('*'),
           supabase.from('sent_leads').select('*'),
-          supabase
-            .from('mensagens')
-            .select('*, leads_veiculos(*)')
-            .gte('created_at', thirtyDaysAgo.toISOString())
-            .order('created_at', { ascending: false })
-            .limit(1000),
-          supabase.from('internal_messages')
-            .select('*')
-            .gte('created_at', thirtyDaysAgo.toISOString())
-            .order('created_at', { ascending: false })
-            .limit(1000),
+          supabase.from('mensagens').select('*, leads_veiculos(*)').gte('created_at', thirtyDaysAgo.toISOString()).order('created_at', { ascending: false }).limit(500),
+          supabase.from('internal_messages').select('*').gte('created_at', thirtyDaysAgo.toISOString()).order('created_at', { ascending: false }).limit(500),
           supabase.from('settings').select('*')
         ]);
 
@@ -1023,10 +1028,10 @@ export default function AdminDashboard() {
           if (otherId && !internalIds.has(otherId)) {
             const otherProfile = (profilesData || []).find((u: any) => u.id === otherId);
             
-            // Only show in "Equipe" if they are admin or seller/user (vendedor)
+            // Only show in "Equipe" if they are team members (admin, user, seller)
             if (otherProfile && (otherProfile.role === 'admin' || otherProfile.role === 'user' || otherProfile.role === 'seller')) {
-              // Exclude buyers even if they somehow have admin role (safety check)
-              if (otherProfile.role?.includes('buyer') && !userProfileRef.current.role?.includes('buyer')) return;
+              // Non-admin users shouldn't see other buyers in "Equipe"
+              if (otherProfile.role?.includes('buyer')) return;
               
               internalIds.add(otherId);
               const readCol = internalMessagesData && internalMessagesData.length > 0 && 'is_read' in internalMessagesData[0] ? 'is_read' : 'read';
@@ -1090,9 +1095,11 @@ export default function AdminDashboard() {
 
           if (otherId && !compradorIds.has(otherId) && !internalIds.has(otherId)) {
             const otherProfile = (profilesData || []).find((u: any) => u.id === otherId);
-            const isMeBuyer = userProfileRef.current.role?.includes('buyer');
             const isOtherBuyer = otherProfile?.role?.includes('buyer');
-            if (otherProfile && (isMeBuyer || isOtherBuyer)) {
+            
+            // Only show in "Compradores" if the OTHER person is a buyer
+            // This prevents Admins/Sellers from appearing in this tab for the Buyer
+            if (otherProfile && isOtherBuyer) {
               compradorIds.add(otherId);
               const readCol = 'read';
               const unreadCount = internalMessagesData.filter((m: any) => 
@@ -3432,7 +3439,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
             className="h-full overflow-y-auto no-scrollbar"
           >
             {activeTab === 'crm_chat' && (
-              <div className="h-[700px] flex flex-col gap-4">
+              <div className="flex-grow flex flex-col min-h-0">
                 <CRMChatContainer 
                   role={userProfile?.role || 'admin'} 
                   onOpenLead={(lead) => {

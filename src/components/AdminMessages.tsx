@@ -1,7 +1,11 @@
 import React, { useRef, useEffect } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { MessageCircle, Send, Search, Mail, User, Users, ImageIcon, ShieldCheck, DollarSign, UserCheck, Loader2, Trash2, Copy, Check, CheckCircle, ShoppingBag, Bot } from 'lucide-react';
+import { MessageCircle, Send, Search, Mail, User, Users, ImageIcon, ShieldCheck, DollarSign, UserCheck, Loader2, Trash2, Copy, Check, CheckCircle, ShoppingBag, Bot, CheckCheck } from 'lucide-react';
+
+import { motion, AnimatePresence } from 'motion/react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface AdminMessagesProps {
   conversations: any[];
@@ -409,20 +413,26 @@ export default function AdminMessages({
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-start">
-                    <h4 className={`text-sm font-bold truncate ${conv.unread > 0 ? 'text-indigo-900' : 'text-slate-900'}`}>
-                      {conv.profile?.full_name || 'Usuário'}
-                    </h4>
-                    <div className="flex flex-col items-end gap-1">
-                      <span className="text-[10px] text-slate-400 whitespace-nowrap">{new Date(conv.last_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                      {conv.unread > 0 && (
-                        <span className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full animate-pulse">
-                          NÃO VISUALIZADA
-                        </span>
-                      )}
+                  <div className="flex justify-between items-start mb-1">
+                    <div className="flex flex-col min-w-0">
+                      <h4 className={`text-sm font-bold truncate ${conv.unread > 0 ? 'text-indigo-900' : 'text-slate-900'}`}>
+                        {conv.profile?.full_name || 'Usuário'}
+                      </h4>
+                      <p className="text-[10px] text-slate-500 truncate">{conv.profile?.email}</p>
                     </div>
+                    <span className="text-[10px] text-slate-400 whitespace-nowrap">{new Date(conv.last_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
-                  <p className={`text-xs truncate ${conv.unread > 0 ? 'text-indigo-700 font-medium' : 'text-slate-500'}`}>{conv.last_message}</p>
+                  
+                  <div className="flex justify-between items-center gap-2">
+                    <p className={`text-xs truncate flex-1 ${conv.unread > 0 ? 'text-indigo-700 font-medium' : 'text-slate-500'}`}>
+                      {conv.last_message}
+                    </p>
+                    {conv.unread > 0 && (
+                      <span className="bg-red-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full animate-pulse shrink-0">
+                        NÃO VISUALIZADA
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             ))
@@ -436,10 +446,10 @@ export default function AdminMessages({
                   setSelectedInternalChat(null);
                   fetchCompradorMessages(conv.id);
                 }}
-                className={`py-2 px-3 flex items-center gap-3 cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 relative ${selectedCompradorChat === conv.id ? 'bg-slate-50 border-l-4 border-l-emerald-600' : ''} ${conv.unread > 0 ? 'bg-emerald-50/50' : ''}`}
+                className={`py-3 px-3 flex items-center gap-3 cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 relative ${selectedCompradorChat === conv.id ? 'bg-slate-50 border-l-4 border-l-emerald-600' : ''} ${conv.unread > 0 ? 'bg-emerald-50/50' : ''}`}
               >
-                <div className="relative">
-                  <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                <div className="relative shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden flex items-center justify-center">
                     {conv.profile?.avatar_url ? (
                       <img src={conv.profile.avatar_url} alt={conv.profile.full_name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
@@ -450,21 +460,28 @@ export default function AdminMessages({
                     <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full" />
                   )}
                 </div>
+                
                 <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-start">
-                    <h4 className={`text-sm font-bold truncate ${conv.unread > 0 ? 'text-emerald-900' : 'text-slate-900'}`}>
-                      {conv.profile?.full_name || 'Comprador'}
-                    </h4>
-                    <div className="flex flex-col items-end gap-1">
-                      <span className="text-[10px] text-slate-400 whitespace-nowrap">{new Date(conv.last_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                      {conv.unread > 0 && (
-                        <span className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full animate-pulse">
-                          NÃO VISUALIZADA
-                        </span>
-                      )}
+                  <div className="flex justify-between items-start mb-1">
+                    <div className="flex flex-col min-w-0">
+                      <h4 className={`text-sm font-bold truncate ${conv.unread > 0 ? 'text-emerald-900' : 'text-slate-900'}`}>
+                        {conv.profile?.full_name || 'Comprador'}
+                      </h4>
+                      <p className="text-[10px] text-slate-500 truncate">{conv.profile?.email}</p>
                     </div>
+                    <span className="text-[10px] text-slate-400 whitespace-nowrap">{new Date(conv.last_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
-                  <p className={`text-xs truncate ${conv.unread > 0 ? 'text-emerald-700 font-medium' : 'text-slate-500'}`}>{conv.last_message}</p>
+                  
+                  <div className="flex justify-between items-center gap-2">
+                    <p className={`text-xs truncate flex-1 ${conv.unread > 0 ? 'text-emerald-700 font-medium' : 'text-slate-500'}`}>
+                      {conv.last_message}
+                    </p>
+                    {conv.unread > 0 && (
+                      <span className="bg-red-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full animate-pulse shrink-0">
+                        NÃO VISUALIZADA
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             ))
@@ -708,53 +725,61 @@ export default function AdminMessages({
               ref={leadsScrollRef}
               className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 scroll-smooth"
             >
+            <AnimatePresence initial={false}>
               {(chatMessages || []).map((msg) => (
-                <div 
+                <motion.div 
                   key={msg.id}
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.2 }}
                   className={`flex ${msg.remetente === 'admin' || msg.remetente === 'bot' ? 'justify-end' : 'justify-start'}`}
                 >
-                  <div className={`max-w-[70%] p-4 rounded-2xl text-sm shadow-sm ${
+                  <div className={`max-w-[80%] md:max-w-[70%] p-3.5 rounded-2xl text-[13px] shadow-sm ${
                     msg.remetente === 'admin' 
                       ? 'bg-slate-900 text-white rounded-tr-none' 
                       : msg.remetente === 'bot'
-                      ? 'bg-indigo-600 text-white rounded-tr-none'
-                      : 'bg-blue-50 text-blue-900 rounded-tl-none border border-blue-100'
+                      ? 'bg-blue-600 text-white rounded-tr-none'
+                      : 'bg-white border border-slate-200 text-slate-900 rounded-tl-none'
                   }`}>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-bold uppercase opacity-70">
-                        {msg.remetente === 'admin' ? 'Humano' : msg.remetente === 'bot' ? 'IA' : 'Cliente'}
+                    <div className="flex items-center gap-2 mb-1.5 border-b border-white/10 pb-1.5 last:border-0 last:pb-0">
+                      <span className="text-[9px] font-black uppercase tracking-widest opacity-60">
+                        {msg.remetente === 'admin' ? 'Atendimento' : msg.remetente === 'bot' ? 'Agente IA' : 'Cliente'}
                       </span>
                     </div>
-                    <div className="markdown-body prose prose-invert prose-sm max-w-none">
+                    <div className="markdown-body prose prose-invert prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-li:my-0">
                       <Markdown 
                         remarkPlugins={[remarkGfm]}
                         components={{
                           a: ({ node, ...props }) => (
-                            <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline" />
+                            <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline font-bold" />
                           ),
                           img: ({ node, ...props }) => (
-                            <img {...props} className="max-w-full rounded-lg my-2 shadow-md" referrerPolicy="no-referrer" />
-                          )
+                            <img {...props} className="max-w-full rounded-xl my-2 shadow-sm border border-white/10" referrerPolicy="no-referrer" />
+                          ),
+                          p: ({ children }) => <p className="mb-0 last:mb-0">{children}</p>
                         }}
                       >
                         {msg.conteudo}
                       </Markdown>
                     </div>
-                    <span className={`text-[9px] mt-1 flex items-center gap-1 opacity-70`}>
-                      {new Date(msg.created_at).toLocaleDateString([], { day: '2-digit', month: '2-digit' })} {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    <div className="flex items-center justify-end gap-1.5 mt-2 pt-1.5 border-t border-white/5">
+                      <span className={`text-[9px] font-bold opacity-60`}>
+                        {msg.created_at ? format(new Date(msg.created_at), 'HH:mm', { locale: ptBR }) : ''}
+                      </span>
                       {(msg.remetente === 'admin' || msg.remetente === 'bot') && (
-                        <div className="flex items-center ml-1">
+                        <div className="flex items-center">
                           {msg.lida ? (
-                            <CheckCircle className="w-2.5 h-2.5 text-blue-400" />
+                            <CheckCheck className="w-3 h-3 text-blue-400" />
                           ) : (
-                            <Check className="w-2.5 h-2.5 text-slate-400" />
+                            <Check className="w-3 h-3 text-white/40" />
                           )}
                         </div>
                       )}
-                    </span>
+                    </div>
                   </div>
-                </div>
+                </motion.div>
               ))}
+            </AnimatePresence>
             </div>
 
             {/* Input de Mensagem */}

@@ -41,11 +41,12 @@ export default function Hero() {
       className="relative flex items-center overflow-hidden bg-black" 
       style={{ 
         height: settings['BANNER_HEIGHT'] || '100dvh',
-        minHeight: settings['BANNER_HEIGHT'] || '100dvh' 
+        minHeight: '600px',
+        maxHeight: '100dvh'
       }}
     >
       {/* Background Image/Video Carousel */}
-      <div className="absolute inset-0 z-0">
+      <div className="absolute inset-0 z-0 overflow-hidden">
         <AnimatePresence mode='wait'>
           {currentBanner?.url?.match(/\.(mp4|webm|ogg)$/i) ? (
             <motion.video
@@ -56,21 +57,21 @@ export default function Hero() {
               playsInline
               onEnded={handleNextBanner}
               initial={{ opacity: 0 }}
-              animate={{ opacity: 0.6 }}
+              animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 1 }}
-              className="absolute inset-0 w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-cover opacity-60"
             />
           ) : (
             <motion.img 
               key={currentImageIndex}
               src={currentBanner ? currentBanner.url : fallbackImage} 
               initial={{ opacity: 0 }}
-              animate={{ opacity: 0.6 }}
+              animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 1 }}
               alt={currentBanner?.legenda || "Hero Background"} 
-              className="absolute inset-0 w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-cover opacity-60"
               referrerPolicy="no-referrer"
             />
           )}
@@ -78,8 +79,8 @@ export default function Hero() {
         <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent z-10" />
       </div>
 
-      <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-16 md:pt-24 md:pb-12 flex flex-col justify-center h-full min-h-0">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center w-full">
+      <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-8 md:pt-24 md:pb-12 flex flex-col justify-center h-full min-h-0">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 items-center w-full">
           <motion.div
             initial={{ opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
@@ -87,7 +88,7 @@ export default function Hero() {
             className="lg:col-span-8 flex flex-col justify-center"
           >
             <div className="mb-2">
-              <span className="inline-block px-3 py-1 text-[10px] md:text-xs font-black tracking-widest text-white uppercase bg-red-600 rounded-lg shadow-lg">
+              <span className="inline-block px-3 py-1 text-[8px] md:text-xs font-black tracking-widest text-white uppercase bg-red-600 rounded-lg shadow-lg">
                 {currentBanner?.badge_text || 'SOLUÇÃO IMEDIATA'}
               </span>
             </div>
@@ -95,8 +96,8 @@ export default function Hero() {
             <h1 
               className="font-display font-black tracking-tighter drop-shadow-2xl text-white"
               style={{ 
-                fontSize: 'clamp(1.2rem, 8vw, 4.5rem)',
-                lineHeight: '1.1',
+                fontSize: 'clamp(1.5rem, 8vw, 4.5rem)',
+                lineHeight: '1',
                 wordBreak: 'break-word',
                 maxWidth: '100%'
               }}

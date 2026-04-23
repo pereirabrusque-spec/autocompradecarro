@@ -2,8 +2,12 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { supabase } from '../../lib/supabase';
-import { Send, Bot, MessageCircle, Trash2, Loader2, Car, ShieldCheck } from 'lucide-react';
+import { Send, Bot, MessageCircle, Trash2, Loader2, Car, ShieldCheck, Check, CheckCheck } from 'lucide-react';
 import { ChatActionModal } from './ChatActionModal';
+
+import { motion, AnimatePresence } from 'motion/react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 export const AdminSalesChat = ({ 
   conversationId, 
@@ -509,28 +513,57 @@ export const AdminSalesChat = ({
         </div>
       </div>
       
-      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 min-h-0" ref={chatContainerRef}>
-        {(messages || []).map(m => (
-          <div key={m.id || Math.random()} className={`flex ${m.sender_id === currentUserId ? 'justify-end' : 'justify-start'}`}>
-            <div className={`p-3 rounded-xl text-sm max-w-[80%] ${m.sender_id === currentUserId ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-900'}`}>
-              <div className="markdown-body prose prose-sm max-w-none">
-                <Markdown 
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    a: ({ node, ...props }) => (
-                      <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline" />
-                    )
-                  }}
-                >
-                  {m.content}
-                </Markdown>
-              </div>
-              <span className="text-[9px] mt-1 block opacity-50">
-                {m.created_at ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-              </span>
-            </div>
-          </div>
-        ))}
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col-reverse gap-4 min-h-0 bg-slate-50/50" ref={chatContainerRef}>
+        <AnimatePresence initial={false}>
+          {(messages || []).map((m, index) => {
+            const isMe = m.sender_id === currentUserId;
+            const showAvatar = !isMe && (index === messages.length - 1 || messages[index+1]?.sender_id !== m.sender_id);
+
+            return (
+              <motion.div 
+                key={m.id || Math.random()} 
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
+              >
+                <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[85%]`}>
+                  <div className={`p-3 rounded-2xl text-[13px] shadow-sm transition-all hover:shadow-md ${
+                    isMe 
+                      ? 'bg-slate-900 text-white rounded-tr-none' 
+                      : 'bg-white border border-slate-200 text-slate-900 rounded-tl-none'
+                  }`}>
+                    <div className="markdown-body prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-li:my-0">
+                      <Markdown 
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          a: ({ node, ...props }) => (
+                            <a {...props} target="_blank" rel="noopener noreferrer" className={`${isMe ? 'text-blue-300' : 'text-blue-600'} hover:underline font-bold underline`} />
+                          ),
+                          p: ({ children }) => <p className="mb-0 last:mb-0">{children}</p>
+                        }}
+                      >
+                        {m.content}
+                      </Markdown>
+                    </div>
+                    
+                    <div className={`flex items-center gap-1.5 mt-2 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                      <span className={`text-[9px] font-bold uppercase tracking-wider opacity-60 ${isMe ? 'text-slate-300' : 'text-slate-500'}`}>
+                        {m.created_at ? format(new Date(m.created_at), 'HH:mm', { locale: ptBR }) : ''}
+                      </span>
+                      {isMe && (
+                        m.is_read ? (
+                          <CheckCheck className="w-3 h-3 text-blue-400" />
+                        ) : (
+                          <Check className="w-3 h-3 text-slate-500" />
+                        )
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
       </div>
       <div className="p-4 border-t border-slate-100 flex gap-2 shrink-0">
         <input 
