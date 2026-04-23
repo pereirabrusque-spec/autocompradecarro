@@ -525,7 +525,7 @@ class AIClientManager {
         const response = await fetch('/api/ai/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ apiKey, prompt, system_instruction: systemInstruction, image })
+          body: JSON.stringify({ apiKey, prompt, systemInstruction, image })
         });
 
         const data = await response.json().catch(() => ({}));
