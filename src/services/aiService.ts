@@ -221,26 +221,27 @@ export class AIService {
     // Ou chaves que estão 'no_credit' mas não foram testadas há mais de 15 minutos
     const now = Date.now();
     let candidateKeys = keys.filter(k => {
-      console.log(`[AIService] Gerando candidato para chave ${k.id}, status: ${k.status}, failedInSession: ${this.failedKeysInSession.has(k.id)}`);
-      
-      // Se a chave falhou nesta sessão específica, removemos imediatamente da lista para não tentar de novo
+      // Se a chave falhou nesta sessão, removemos da lista de candidatos desta iteração
       if (this.failedKeysInSession.has(k.id)) return false;
 
-      // Se a chave está 'ok', permitimos
+      // Se a chave está 'ok', sempre permitimos
       if (k.status === 'ok' || k.id === 'env-key') return true;
       
-      // Se a chave não está OK mas não está 'disconnected', permite tentar se passou tempo suficiente
+      // Se a chave não está OK, permite tentar apenas se passou tempo suficiente desde o último teste
+      // para evitar spam de chamadas em chaves que sabidamente falharam.
       if (k.status !== 'disconnected') {
         const lastUsed = k.last_used ? new Date(k.last_used).getTime() : 0;
         const minutesSinceLastUse = (now - lastUsed) / (1000 * 60);
-        
-        // Fallback após 5 minutos para chaves com quota/limite (retry automático)
-        return minutesSinceLastUse > 5;
+        return minutesSinceLastUse > 15; // 15 minutos de cooldown para retry
       }
       return false;
     });
-    
-    // Ordenação final para garantir que as 'ok' venham primeiro
+
+    // Ordenação final: 
+    // 1. ok (0)
+    // 2. rate_limited (1)
+    // 3. no_credit (2)
+    // 4. disconnected (3)
     candidateKeys.sort((a, b) => {
       const statusOrder = { 'ok': 0, 'rate_limited': 1, 'no_credit': 2, 'disconnected': 3 };
       const orderA = statusOrder[a.status as keyof typeof statusOrder] ?? 4;
@@ -248,13 +249,21 @@ export class AIService {
       
       if (orderA !== orderB) return orderA - orderB;
       
-      // Se ambos tiverem o mesmo status, prioriza a última chave de sucesso
+      // Se ambos tem o mesmo status, prioriza pela que teve sucesso por último
       if (a.id === this.lastSuccessfulKeyId) return -1;
       if (b.id === this.lastSuccessfulKeyId) return 1;
       
       return 0;
     });
-    console.log('[AIService] Chaves candidatas após filtro rigoroso:', candidateKeys.length, candidateKeys.map(k => `${k.id}(${k.status})`).join(', '));
+    
+    // Log para depuração
+    console.log('[AIService] Chaves candidatas filtradas e ordenadas:', candidateKeys.map(k => `${k.id}(${k.status})`));
+    
+    // Se a melhor chave candidata não estiver 'ok', vamos testar a conexão antes de usar, 
+    // mas de forma que não trave tudo.
+    if (candidateKeys.length > 0 && candidateKeys[0].status !== 'ok') {
+        console.warn(`[AIService] ⚠️ Melhor chave disponível (${candidateKeys[0].id}) não está 'ok'. Tentando prosseguir pois não há chaves 'ok' disponíveis.`);
+    }
     
     if (candidateKeys.length === 0) {
       console.warn('[AIService] Nenhuma chave de API disponível para processar a requisição.');

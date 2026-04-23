@@ -1155,12 +1155,17 @@ REGRAS GERAIS:
                     } else {
                         console.log("[BackgroundAIManager] 💬 ENVIANDO VIA CHAT (Lead ID:", activeLeadId, ")");
                         logToStorage(`Resposta IA enviada via Chat para lead ${activeLeadId}`, 'info');
-                        const { error: insertError } = await supabase.from('mensagens').insert({
+                        
+                        const insertPayload = {
                             lead_id: activeLeadId,
                             conteudo: textToSave,
                             remetente: 'bot',
                             metadata: { ai_handled: true, original_message_id: payload.id, is_follow_up: isFollowUp }
-                        });
+                        };
+                        
+                        console.log("[BackgroundAIManager] 💾 DEBUG INSERT PAYLOAD MENSAGENS:", insertPayload);
+                        
+                        const { error: insertError } = await supabase.from('mensagens').insert(insertPayload);
                         if (insertError) {
                             console.error("[BackgroundAIManager] ❌ Erro ao inserir resposta no CHAT:", insertError);
                         } else {
