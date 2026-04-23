@@ -272,7 +272,7 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle, hide
 
     const showFloatingButton = !hideFloatingButton;
 
-    console.log('[InternalChat] Renderizando. isOpen:', isOpen, 'messages:', messages.length, 'user:', user?.id);
+    console.log('[InternalChat] Renderizando. isOpen:', isOpen, 'showFloatingButton:', showFloatingButton, 'user:', user?.id, 'messages:', messages.length);
 
     return (
     <>
@@ -280,7 +280,7 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle, hide
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 bg-slate-900 text-white p-4 rounded-full shadow-lg hover:bg-slate-800 transition-all z-50 flex items-center gap-2 relative"
+          className="fixed bottom-6 right-6 bg-slate-900 text-white p-4 rounded-full shadow-lg hover:bg-slate-800 transition-all z-[9999] flex items-center gap-2"
         >
           <MessageCircle className="w-6 h-6" />
           <span className="font-bold text-sm hidden md:inline">Falar com Admin</span>
