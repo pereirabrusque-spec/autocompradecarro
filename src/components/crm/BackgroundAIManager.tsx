@@ -438,14 +438,18 @@ export const BackgroundAIManager = () => {
             const { data: userLeads } = await leadQuery;
             const existingLead = userLeads?.[0] || null;
 
-        const isBuyer = senderProfile?.role?.toLowerCase().includes('buyer') || 
-                            (payload.lead_id && payload.lead_id !== 'null' && payload.lead_id !== '');
-        const isSeller = senderProfile?.role?.toLowerCase().includes('seller') || 
-                            senderProfile?.role?.toLowerCase().includes('agent') || 
-                            (!isBuyer && !!existingLead);
+        // Regras estritas: Se for seller, NUNCA é comprador. Se for role buyer, É comprador.
+        const isAdminProfile = senderProfile?.role?.toLowerCase().includes('admin');
+        const isSellerRole = senderProfile?.role?.toLowerCase().includes('seller') || senderProfile?.role?.toLowerCase().includes('agent');
+        const isBuyerRole = senderProfile?.role?.toLowerCase().includes('buyer');
         
-        const finalIsBuyer = !!isBuyer || (payload.lead_id && payload.lead_id !== 'null' && payload.lead_id !== '');
-        const finalIsSeller = !finalIsBuyer && (isSeller || senderProfile?.role === 'user');
+        // Se a conversa é com um comprador, deve ter role de comprador.
+        // Se tiver lead_id, isso sozinho não define se a conversa é de compra ou venda.
+        const isBuyer = isBuyerRole; 
+        const isSeller = isSellerRole;
+        
+        const finalIsBuyer = isBuyer;
+        const finalIsSeller = isSeller || (!isBuyer && !isAdminProfile);
 
             console.log(`[BackgroundAIManager] 🔍 Processando mensagem interna (${messageId}). isBuyer: ${finalIsBuyer}, isSeller: ${finalIsSeller}, lead_id: ${payload.lead_id}`);
             console.log(`[BackgroundAIManager] 👤 Perfil do remetente:`, senderProfile?.full_name, 'Role:', senderProfile?.role);

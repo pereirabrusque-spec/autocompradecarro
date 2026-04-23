@@ -278,7 +278,7 @@ export const CRMChatContainer = ({ role, onOpenLead, onCloneLead, setToast }: { 
   return (
     <div className="flex h-full min-h-0 bg-white sm:rounded-2xl border border-slate-200 overflow-hidden w-full relative">
       {/* Buyer List */}
-      <div className={`w-full sm:w-1/3 border-r border-slate-200 flex flex-col shrink-0 ${selectedConversationId ? 'hidden sm:flex' : 'flex'}`}>
+      <div className={`w-full sm:w-1/3 border-r border-slate-200 flex flex-col min-h-0 shrink-0 ${selectedConversationId ? 'hidden sm:flex' : 'flex'}`}>
         <div className="p-4 border-b border-slate-100 font-bold flex justify-between items-center shrink-0">
             <div className="flex items-center gap-2">
                 Conversas
@@ -304,7 +304,7 @@ export const CRMChatContainer = ({ role, onOpenLead, onCloneLead, setToast }: { 
                 <Bot className="w-5 h-5" />
             </button>
         </div>
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto min-h-0">
             {conversations.map(conv => (
             <div 
                 key={conv.id} 
