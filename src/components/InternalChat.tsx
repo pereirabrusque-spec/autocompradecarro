@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/authContext';
 import { Send, MessageCircle, X, Check, CheckCheck, Clock, MessageSquare } from 'lucide-react';
@@ -276,7 +277,7 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle, hide
 
     return (
     <>
-      {showFloatingButton && (
+      {showFloatingButton && createPortal(
         <button
           type="button"
           onClick={() => setIsOpen(true)}
@@ -289,7 +290,8 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle, hide
               {unreadCount}
             </span>
           )}
-        </button>
+        </button>,
+        document.body
       )}
 
       {isOpen && (
