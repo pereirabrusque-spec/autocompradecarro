@@ -612,7 +612,6 @@ export default function BuyerView() {
         leadTitle={selectedLead ? `[#${selectedLead.vehicle_code}] ${selectedLead.marca} ${selectedLead.modelo} (${selectedLead.ano_modelo}) - ${selectedLead.cor}` : 'Atendimento Geral'} 
         isOpen={isChatOpen}
         onToggle={() => setIsChatOpen(!isChatOpen)}
-        hideFloatingButton={false}
       />
 
       {/* Notification Prompt Popup */}
