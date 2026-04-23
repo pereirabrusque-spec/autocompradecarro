@@ -212,7 +212,9 @@ function AppContent() {
   const renderContent = () => {
     switch (view) {
       case 'admin':
-        return isAdmin ? <AdminDashboard /> : null;
+        if (isAdmin) return <AdminDashboard />;
+        // Se cair aqui (mudou role e o useEffect ainda não disparou), mostra um loader ou redireciona
+        return <div className="min-h-screen flex items-center justify-center bg-slate-50"><div className="w-8 h-8 border-4 border-slate-900 border-t-transparent rounded-full animate-spin"></div></div>;
       case 'buyer':
         return (isBuyer || isAdmin) ? <BuyerView /> : null;
       case 'login':

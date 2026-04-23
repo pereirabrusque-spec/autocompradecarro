@@ -594,7 +594,15 @@ export default function SellModal() {
                             className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                             placeholder="(00) 00000-0000"
                             value={formData.owner_phone}
-                            onChange={e => setFormData({...formData, owner_phone: e.target.value})}
+                            onChange={e => {
+                                const v = e.target.value.replace(/\D/g, '');
+                                let f = v;
+                                if (v.length > 11) f = v.substring(0, 11);
+                                if (v.length > 10) f = v.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+                                else if (v.length > 6) f = v.replace(/(\d{2})(\d{4})(\d{0,4})/, '($1) $2-$3');
+                                else if (v.length > 2) f = v.replace(/(\d{2})(\d{0,5})/, '($1) $2');
+                                setFormData({...formData, owner_phone: f});
+                            }}
                           />
                         </div>
                       </div>

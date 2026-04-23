@@ -292,27 +292,77 @@ export default function AdminDashboard() {
   const isAdmin = userProfile?.role === 'admin' || currentUser?.email === 'pereira.brusque@gmail.com';
 
   // Calculate User Stats for Dashboard
+  const adminEmail = 'pereira.brusque@gmail.com';
+
+  const formatPhone = (v: string) => {
+    v = v.replace(/\D/g, '');
+    if (v.length > 11) v = v.substring(0, 11);
+    if (v.length > 10) {
+      return v.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+    } else if (v.length > 6) {
+      return v.replace(/(\d{2})(\d{4})(\d{0,4})/, '($1) $2-$3');
+    } else if (v.length > 2) {
+      return v.replace(/(\d{2})(\d{0,5})/, '($1) $2');
+    } else {
+      return v;
+    }
+  };
+
+  const getDayString = (date: any) => {
+    try {
+      const d = new Date(date);
+      if (isNaN(d.getTime())) return '-';
+      return d.toLocaleDateString('pt-BR');
+    } catch {
+      return '-';
+    }
+  };
+
+  const getTimeString = (date: any) => {
+    try {
+      const d = new Date(date);
+      if (isNaN(d.getTime())) return '';
+      return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return '';
+    }
+  };
+
+  const getDateTimeString = (date: any) => {
+    try {
+      const d = new Date(date);
+      if (isNaN(d.getTime())) return '-';
+      return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return '-';
+    }
+  };
+
   const userStats = {
-    online: users.filter(u => (new Date().getTime() - new Date(u.last_login).getTime()) < 300000).length,
+    online: users.filter(u => {
+      if (!u.last_login) return false;
+      const d = new Date(u.last_login);
+      return !isNaN(d.getTime()) && (new Date().getTime() - d.getTime()) < 300000;
+    }).length,
     buyers: {
-      total: users.filter(u => u.role === 'buyer').length,
-      online: users.filter(u => u.role === 'buyer' && (new Date().getTime() - new Date(u.last_login).getTime()) < 300000).length,
+      total: users.filter(u => u.role === 'buyer' || u.role === 'buyer_premium' || u.role === 'buyer_master').length,
+      online: users.filter(u => (u.role === 'buyer' || u.role === 'buyer_premium' || u.role === 'buyer_master') && u.last_login && !isNaN(new Date(u.last_login).getTime()) && (new Date().getTime() - new Date(u.last_login).getTime()) < 300000).length,
     },
     master: {
       total: users.filter(u => u.role === 'buyer_master').length,
-      online: users.filter(u => u.role === 'buyer_master' && (new Date().getTime() - new Date(u.last_login).getTime()) < 300000).length,
+      online: users.filter(u => u.role === 'buyer_master' && u.last_login && !isNaN(new Date(u.last_login).getTime()) && (new Date().getTime() - new Date(u.last_login).getTime()) < 300000).length,
     },
     premium: {
       total: users.filter(u => u.role === 'buyer_premium').length,
-      online: users.filter(u => u.role === 'buyer_premium' && (new Date().getTime() - new Date(u.last_login).getTime()) < 300000).length,
+      online: users.filter(u => u.role === 'buyer_premium' && u.last_login && !isNaN(new Date(u.last_login).getTime()) && (new Date().getTime() - new Date(u.last_login).getTime()) < 300000).length,
     },
     users: {
-      total: users.filter(u => u.role === 'user').length,
-      online: users.filter(u => u.role === 'user' && (new Date().getTime() - new Date(u.last_login).getTime()) < 300000).length,
+      total: users.filter(u => u.role === 'user' || u.role === 'seller' || u.role === 'agent').length,
+      online: users.filter(u => (u.role === 'user' || u.role === 'seller' || u.role === 'agent') && u.last_login && !isNaN(new Date(u.last_login).getTime()) && (new Date().getTime() - new Date(u.last_login).getTime()) < 300000).length,
     },
     admins: {
       total: users.filter(u => u.role === 'admin').length,
-      online: users.filter(u => u.role === 'admin' && (new Date().getTime() - new Date(u.last_login).getTime()) < 300000).length,
+      online: users.filter(u => u.role === 'admin' && u.last_login && !isNaN(new Date(u.last_login).getTime()) && (new Date().getTime() - new Date(u.last_login).getTime()) < 300000).length,
     }
   };
 
@@ -2254,7 +2304,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
     const headers = ['ID', 'Data', 'Marca', 'Modelo', 'Ano', 'KM', 'Preço', 'Cliente', 'WhatsApp', 'Email', 'Status'];
     const rows = leads.map(l => [
       l.vehicle_code,
-      new Date(l.created_at).toLocaleDateString(),
+      getDayString(l.created_at),
       l.marca,
       l.modelo,
       l.ano,
@@ -4268,31 +4318,33 @@ Podemos prosseguir com o agendamento da vistoria?`;
                               </td>
                               <td className="px-8 py-5">
                                 <p className="text-xs font-bold text-slate-600">
-                                  {user.created_at ? new Date(user.created_at).toLocaleDateString('pt-BR') : '-'}
+                                  {user.created_at ? getDayString(user.created_at) : '-'}
                                 </p>
                               </td>
                               <td className="px-8 py-5">
                                 <p className="text-xs font-bold text-slate-600">{user.phone || '-'}</p>
                               </td>
                               <td className="px-8 py-5">
-                                {userProfile?.role === 'admin' ? (
-                                  <select
-                                    value={user.role}
-                                    onChange={async (e) => {
-                                      const newRole = e.target.value;
-                                      addLog(`Alterando cargo de ${user.email} para ${newRole}`, 'info');
-                                      console.log('Updating role for:', user.id, 'to:', newRole);
-                                      const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', user.id);
-                                      console.log('Update result:', { error });
-                                      if (!error) {
-                                        refreshUsers();
-                                        addLog('Cargo alterado com sucesso', 'info');
-                                      } else {
-                                        addLog('Erro ao alterar cargo', 'error', error);
-                                      }
-                                    }}
-                                    className="bg-slate-100 border-none rounded-lg text-[10px] font-black uppercase tracking-widest p-1 cursor-pointer hover:bg-slate-200 transition-all"
-                                  >
+                                  {userProfile?.role === 'admin' ? (
+                                    <select
+                                      value={user.role || 'user'}
+                                      onChange={async (e) => {
+                                        const newRole = e.target.value;
+                                        addLog(`Alterando cargo de ${user.email} para ${newRole}`, 'info');
+                                        const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', user.id);
+                                        if (!error) {
+                                          refreshUsers();
+                                          addLog('Cargo alterado com sucesso', 'info');
+                                          // Se o usuário alterado for o próprio usuário logado, recarrega para atualizar permissões e evitar tela branca
+                                          if (user.id === currentUser?.id) {
+                                            window.location.reload();
+                                          }
+                                        } else {
+                                          addLog('Erro ao alterar cargo', 'error', error);
+                                        }
+                                      }}
+                                      className="bg-slate-100 border-none rounded-lg text-[10px] font-black uppercase tracking-widest p-1 cursor-pointer hover:bg-slate-200 transition-all"
+                                    >
                                     <option value="user">Usuário (Vendedor)</option>
                                     <option value="buyer">Comprador</option>
                                     <option value="buyer_premium">Comprador Premium</option>
@@ -4325,7 +4377,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                     </p>
                                     {!isOnline && user.last_login && (
                                       <p className="text-[10px] text-slate-400">
-                                        Visto em: {new Date(user.last_login).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                        Visto em: {getDateTimeString(user.last_login)}
                                       </p>
                                     )}
                                   </div>
@@ -4337,7 +4389,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                     <label className="flex items-center gap-2 cursor-pointer">
                                       <input 
                                         type="checkbox" 
-                                        checked={user.view_auth} 
+                                        checked={user.view_auth || false} 
                                         onChange={async (e) => {
                                           const { error } = await supabase.from('profiles').update({ view_auth: e.target.checked }).eq('id', user.id);
                                           if (!error) refreshUsers();
@@ -4611,7 +4663,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 setCurrentPhotoIndex(0);
                               }}>
                                 <td className="px-2 pr-1 py-1.5 text-[11px] font-bold text-slate-900">
-                                  {new Date(lead.created_at).toLocaleDateString()}
+                                  {getDayString(lead.created_at)}
                                 </td>
                                 <td className="px-2 pl-1 py-1.5">
                                   <select 
@@ -4937,7 +4989,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 <span className="text-xs text-slate-500">
                                   {(new Date().getTime() - new Date(user.last_login).getTime()) < 120000
                                     ? 'Online agora' 
-                                    : new Date(user.last_login).toLocaleString()}
+                                    : getDateTimeString(user.last_login) || '-'}
                                 </span>
                               </div>
                             </td>
@@ -5296,7 +5348,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                     {buyer.last_seen && (new Date().getTime() - new Date(buyer.last_seen).getTime() < 120000)
                                       ? 'Online agora'
                                       : buyer.last_seen 
-                                        ? `Visto ${new Date(buyer.last_seen).toLocaleString()}`
+                                        ? `Visto ${getDateTimeString(buyer.last_seen)}`
                                         : 'Nunca logou'}
                                   </p>
                                 </div>
@@ -6532,7 +6584,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   <input 
                     type="text" 
                     value={newUserForm.phone}
-                    onChange={e => setNewUserForm({...newUserForm, phone: e.target.value})}
+                    onChange={e => setNewUserForm({...newUserForm, phone: formatPhone(e.target.value)})}
                     className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-accent/20"
                     placeholder="(00) 00000-0000"
                   />
