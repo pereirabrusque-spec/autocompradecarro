@@ -20,10 +20,8 @@ import { logToStorage, getStorageLogs, clearStorageLogs } from '../lib/logger';
 import { ApiManagement } from './AdminDashboard/ApiManagement';
 import { TagsManagement } from './AdminDashboard/TagsManagement';
 
+// Use BackgroundAIManager directly to prevent Vite initialization bugs
 import { calculateProposal } from '../lib/proposalUtils';
-
-// Memoize BackgroundAIManager to prevent unnecessary re-renders when parent re-renders
-const MemoizedBackgroundAIManager = memo(BackgroundAIManager);
 
 export default function AdminDashboard() {
   const [leads, setLeads] = useState<any[]>([]);
@@ -3440,7 +3438,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
       <main className="flex-grow overflow-hidden px-4 sm:px-6 lg:px-8 py-4">
           {isAdmin || userProfile?.role === 'user' || userProfile?.role === 'seller' || userProfile?.role === 'agent' ? (
-            <MemoizedBackgroundAIManager />
+            <BackgroundAIManager />
           ) : null}
           <motion.div
             key={activeTab}
@@ -6925,7 +6923,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
   );
 }
 
-const BuyerPermissionsModal = ({ buyer, onClose }: { buyer: any, onClose: () => void }) => {
+function BuyerPermissionsModal({ buyer, onClose }: { buyer: any, onClose: () => void }) {
   const [form, setForm] = useState({
     show_photos: true,
     show_price: true,

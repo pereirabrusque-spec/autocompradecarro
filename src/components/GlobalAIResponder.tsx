@@ -176,9 +176,23 @@ ${leadContext}
         .replace(/{{[ ]*nome[ ]*}}/gi, profile.full_name)
         .replace(/\[[ ]*nome[ ]*\]/gi, profile.full_name);
 
-      // 7. Salvar resposta
+      // 7. Buscar um admin válido para ser o remetente (evitar UUID inválido 0000...)
+      let botSenderId = msg.receiver_id;
+      if (!botSenderId) {
+        const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'admin').limit(1);
+        if (admins && admins.length > 0) {
+          botSenderId = admins[0].id;
+        }
+      }
+
+      if (!botSenderId) {
+          console.error('[GlobalAIResponder] Nenhum admin válido encontrado para assumir a resposta.');
+          return;
+      }
+
+      // 8. Salvar resposta
       await supabase.from('internal_messages').insert({
-        sender_id: msg.receiver_id || '00000000-0000-0000-0000-000000000000', 
+        sender_id: botSenderId, 
         receiver_id: msg.sender_id,
         content: cleanResponse,
         lead_id: msg.lead_id
