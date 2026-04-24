@@ -804,6 +804,17 @@ RESPONDA DIRETAMENTE AO REMETENTE.
             timestamp: new Date().toISOString()
         });
         const uid = currentUserIdRef.current;
+        
+        // -- FIX: Ignore messages sent by this agent or already processed --
+        if (payload.sender_id === uid || payload.remetente?.toLowerCase() === 'bot' || payload.remetente?.toLowerCase() === 'admin') {
+            console.log("[BackgroundAIManager] ⚠️ handlePublicMessage ABORT: mensagem enviada pelo próprio agente ou admin.");
+            return;
+        }
+        if (payload.metadata?.ai_processed === true || payload.metadata?.from_ai === true) {
+            console.log("[BackgroundAIManager] ⚠️ handlePublicMessage ABORT: mensagem já processada pela IA.");
+            return;
+        }
+
         if (!uid) {
             console.log(`[BackgroundAIManager] ⚠️ handlePublicMessage ABORT [ID: ${messageId}]: UID nulo (currentUserIdRef é nulo).`);
             return;
@@ -1184,7 +1195,7 @@ REGRAS GERAIS:
                             lead_id: activeLeadId,
                             conteudo: textToSave,
                             remetente: 'bot',
-                            metadata: { ai_handled: true, original_message_id: payload.id, is_follow_up: isFollowUp }
+                            metadata: { ai_handled: true, original_message_id: payload.id, is_follow_up: isFollowUp, from_ai: true }
                         };
                         
                         console.log("[BackgroundAIManager] 💾 DEBUG INSERT PAYLOAD MENSAGENS:", insertPayload);
