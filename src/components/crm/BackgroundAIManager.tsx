@@ -715,6 +715,12 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                             lead_id: currentLeadId || null,
                             metadata: { is_follow_up: isFollowUp }
                         };
+
+                        if (!insertPayload.receiver_id) {
+                            console.error("[BackgroundAIManager] ❌ Abortando envio: receiver_id está null.");
+                            return;
+                        }
+
                         console.log("[BackgroundAIManager] 🧪 Payload envio internal_messages:", insertPayload);
                         const { error: insertError } = await supabase.from('internal_messages').insert(insertPayload);
                         
