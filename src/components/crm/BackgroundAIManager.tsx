@@ -708,13 +708,15 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                         }
                     } else {
                         console.log("[BackgroundAIManager] 💬 Respondendo diretamente no CHAT (Modo Chat ativo)");
-                        await supabase.from('internal_messages').insert({
+                        const insertPayload = {
                             receiver_id: senderId,
                             content: finalText,
                             sender_id: uid,
-                            lead_id: currentLeadId,
+                            lead_id: currentLeadId || null,
                             metadata: { is_follow_up: isFollowUp }
-                        });
+                        };
+                        console.log("[BackgroundAIManager] 🧪 Payload envio internal_messages:", insertPayload);
+                        await supabase.from('internal_messages').insert(insertPayload);
                     }
                     
                     const readCol = payload.is_read !== undefined ? 'is_read' : 'read';
