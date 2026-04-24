@@ -45,7 +45,7 @@ export default function AdminNavbar({
             ].filter(tab => {
               const isAdmin = userProfile?.role === 'admin' || currentUser?.email === 'pereira.brusque@gmail.com';
               if (tab.id === 'ai') return isAdmin;
-              return !tab.roles || tab.roles.includes(userProfile?.role) || currentUser?.email === 'pereira.brusque@gmail.com';
+              return !tab.roles || tab.roles.includes(userProfile?.role) || isAdmin;
             }).map((tab) => (
               <button 
                 key={tab.id}
