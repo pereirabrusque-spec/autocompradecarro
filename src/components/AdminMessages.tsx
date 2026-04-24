@@ -208,7 +208,7 @@ export default function AdminMessages({
   };
 
   return (
-    <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm flex h-full w-full">
+    <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm flex h-[calc(100vh-140px)] min-h-[600px] w-full">
       {/* Lista de Conversas (Esquerda) */}
       <div className="w-1/3 border-r border-slate-100 flex flex-col h-full overflow-hidden">
         <div className="p-6 border-b border-slate-100 shrink-0">
