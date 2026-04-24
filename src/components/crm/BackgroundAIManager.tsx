@@ -386,7 +386,7 @@ export const BackgroundAIManager = () => {
             console.log("[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: mensagem enviada pelo próprio agente.");
             return;
         }
-        if (payload.metadata?.ai_processed === true) {
+        if (payload.metadata?.ai_processed === true || payload.metadata?.from_ai === true) {
             console.log("[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: mensagem já processada pela IA.");
             return;
         }
@@ -723,7 +723,7 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                             content: finalText,
                             sender_id: uid,
                             lead_id: currentLeadId || null,
-                            metadata: { is_follow_up: isFollowUp }
+                            metadata: { is_follow_up: isFollowUp, from_ai: true, role: 'agent' }
                         };
 
                         if (!insertPayload.receiver_id) {
