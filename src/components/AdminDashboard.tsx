@@ -3367,6 +3367,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 { id: 'tags', label: 'Marketing', icon: BarChart3, roles: ['admin'] },
                 { id: 'logs', label: 'Logs', icon: Database, roles: ['admin'] },
               ].filter(tab => {
+                if (tab.id === 'ai') return userProfile?.role === 'admin' || currentUser?.email === 'pereira.brusque@gmail.com';                
                 if (!tab.roles) return true;
                 const hasRole = tab.roles.includes(userProfile?.role);
                 if (tab.id === 'leads' && userProfile?.role?.includes('buyer')) {

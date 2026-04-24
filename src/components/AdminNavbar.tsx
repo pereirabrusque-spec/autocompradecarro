@@ -43,7 +43,8 @@ export default function AdminNavbar({
               { id: 'footer', label: 'Rodapé', icon: Info, roles: ['admin'] },
               { id: 'logs', label: 'Logs', icon: Database, roles: ['admin'] },
             ].filter(tab => {
-              if (tab.id === 'ai' && currentUser?.email === 'pereira.brusque@gmail.com') return true;
+              const isAdmin = userProfile?.role === 'admin' || currentUser?.email === 'pereira.brusque@gmail.com';
+              if (tab.id === 'ai') return isAdmin;
               return !tab.roles || tab.roles.includes(userProfile?.role) || currentUser?.email === 'pereira.brusque@gmail.com';
             }).map((tab) => (
               <button 
