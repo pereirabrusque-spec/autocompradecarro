@@ -1232,156 +1232,172 @@ REGRAS GERAIS:
         }
     };
 
+    const isScanRunning = useRef(false);
+
     const scanForOpenMessages = async () => {
-        const uid = currentUserIdRef.current;
-        const isGlobalEnabled = isAiEnabledRef.current;
-        const isBuyerEnabled = isAiBuyerEnabledRef.current;
-        
-        console.log("[BackgroundAIManager] 🔍 scanForOpenMessages START. Global:", isGlobalEnabled, "Buyer:", isBuyerEnabled, "UID:", uid, "Timestamp:", new Date().toISOString());
-        logToStorage(`Varredura de mensagens iniciada (IA Global: ${isGlobalEnabled ? 'ON' : 'OFF'} | IA Comprador: ${isBuyerEnabled ? 'ON' : 'OFF'})`, 'debug');
-        
-        if (!uid) {
-            console.log("[BackgroundAIManager] 🔍 scanForOpenMessages ABORT: UID nulo (usuário não autenticado no ref).");
+        if (isScanRunning.current) {
+            console.log("[BackgroundAIManager] 🔍 scanForOpenMessages: Já em execução. Abortando.");
             return;
         }
-        if (!isGlobalEnabled && !isBuyerEnabled) {
-            console.log("[BackgroundAIManager] 🔍 scanForOpenMessages ABORT: Ambas as IAs (Global e Comprador) desligadas.");
-            return;
-        }
+        isScanRunning.current = true;
+        try {
+            const uid = currentUserIdRef.current;
+            const isGlobalEnabled = isAiEnabledRef.current;
+            const isBuyerEnabled = isAiBuyerEnabledRef.current;
+            
+            console.log("[BackgroundAIManager] 🔍 scanForOpenMessages START. Global:", isGlobalEnabled, "Buyer:", isBuyerEnabled, "UID:", uid, "Timestamp:", new Date().toISOString());
+            logToStorage(`Varredura de mensagens iniciada (IA Global: ${isGlobalEnabled ? 'ON' : 'OFF'} | IA Comprador: ${isBuyerEnabled ? 'ON' : 'OFF'})`, 'debug');
+            
+            if (!uid) {
+                console.log("[BackgroundAIManager] 🔍 scanForOpenMessages ABORT: UID nulo (usuário não autenticado no ref).");
+                return;
+            }
 
-        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-        console.log("[BackgroundAIManager] 🔍 scanForOpenMessages: Buscando mensagens desde", thirtyDaysAgo, "para UID:", uid);
+            if (!isGlobalEnabled && !isBuyerEnabled) {
+                console.log("[BackgroundAIManager] 🔍 scanForOpenMessages ABORT: Ambas as IAs (Global e Comprador) desligadas.");
+                return;
+            }
 
-        // 1. Escaneia mensagens internas (Compradores)
-        const { data: allInternal, error: internalError } = await supabase
-            .from('internal_messages')
-            .select('*')
-            .or(`receiver_id.eq.${uid},sender_id.eq.${uid},receiver_id.eq.00000000-0000-0000-0000-000000000000`)
-            .gt('created_at', thirtyDaysAgo)
-            .order('created_at', { ascending: false });
+            const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+            console.log("[BackgroundAIManager] 🔍 scanForOpenMessages: Buscando mensagens desde", thirtyDaysAgo, "para UID:", uid);
 
-        console.log(`[BackgroundAIManager] 🔍 scanForOpenMessages: Encontradas ${allInternal?.length || 0} mensagens internas. Error:`, internalError);
+            // 1. Escaneia mensagens internas (Compradores)
+            const { data: allInternal, error: internalError } = await supabase
+                .from('internal_messages')
+                .select('*')
+                .or(`receiver_id.eq.${uid},sender_id.eq.${uid},receiver_id.eq.00000000-0000-0000-0000-000000000000`)
+                .gt('created_at', thirtyDaysAgo)
+                .order('created_at', { ascending: false });
 
-        if (allInternal) {
-            const convs = new Map();
-            allInternal.forEach(m => {
-                const otherId = m.sender_id === uid ? m.receiver_id : m.sender_id;
-                if (!convs.has(otherId)) convs.set(otherId, m);
-            });
+            console.log(`[BackgroundAIManager] 🔍 scanForOpenMessages: Encontradas ${allInternal?.length || 0} mensagens internas. Error:`, internalError);
 
-            for (const [otherId, lastMsg] of convs.entries()) {
-                const readCol = lastMsg.is_read !== undefined ? 'is_read' : 'read';
-                const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
-                
-                // Busca a última resposta do BOT/ADMIN nesta conversa
-                const lastBotResponse = allInternal.find(m => 
-                    m.sender_id === uid && 
-                    m.receiver_id === otherId
-                );
+            if (allInternal) {
+                const convs = new Map();
+                allInternal.forEach(m => {
+                    const otherId = m.sender_id === uid ? m.receiver_id : m.sender_id;
+                    if (!convs.has(otherId)) convs.set(otherId, m);
+                });
 
-                // Busca TODAS as mensagens do CLIENTE nesta conversa que não foram respondidas pelo bot
-                const unansweredClientMsgs = allInternal.filter(m => 
-                    m.sender_id === otherId && 
-                    m.receiver_id === uid && 
-                    m.content && m.content.trim() !== '' &&
-                    (!lastBotResponse || new Date(m.created_at) > new Date(lastBotResponse.created_at))
-                );
+                for (const [otherId, lastMsg] of convs.entries()) {
+                    const readCol = lastMsg.is_read !== undefined ? 'is_read' : 'read';
+                    const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
+                    
+                    // Busca a última resposta do BOT/ADMIN nesta conversa
+                    const lastBotResponse = allInternal.find(m => 
+                        m.sender_id === uid && 
+                        m.receiver_id === otherId
+                    );
 
-                console.log(`[BackgroundAIManager] 🔍 SCAN: Conv ${otherId}. Unanswered messages count: ${unansweredClientMsgs.length}`);
+                    // Busca TODAS as mensagens do CLIENTE nesta conversa que não foram respondidas pelo bot
+                    const unansweredClientMsgs = allInternal.filter(m => 
+                        m.sender_id === otherId && 
+                        m.receiver_id === uid && 
+                        m.content && m.content.trim() !== '' &&
+                        (!lastBotResponse || new Date(m.created_at) > new Date(lastBotResponse.created_at))
+                    );
 
-                if (unansweredClientMsgs.length > 0) {
-                    for (const clientMsg of unansweredClientMsgs) {
-                        const isAiFailed = clientMsg.metadata?.ai_failed;
-                        const lastFailedTime = clientMsg.metadata?.failed_at ? new Date(clientMsg.metadata.failed_at).getTime() : 0;
-                        const shouldRetry = isAiFailed && (Date.now() - lastFailedTime > 30000); // Retry 30s
+                    console.log(`[BackgroundAIManager] 🔍 SCAN: Conv ${otherId}. Unanswered messages count: ${unansweredClientMsgs.length}`);
 
-                        if (!clientMsg.metadata?.ai_handled && (!isAiFailed || shouldRetry)) {
-                            console.log(`[BackgroundAIManager] 🔍 scanForOpenMessages: Processando mensagem interna pendente ${clientMsg.id} de ${otherId}.`);
-                            
-                            // Marca como lida imediatamente para evitar reprocessamento
-                            const readCol = 'read'; // Assuming 'read' is the standard
-                            await supabase.from('internal_messages')
-                                .update({ [readCol]: true })
-                                .eq('id', clientMsg.id);
+                    if (unansweredClientMsgs.length > 0) {
+                        for (const clientMsg of unansweredClientMsgs) {
+                            // REGRAS: Garantir que isAiFailed esteja definido
+                            const isAiFailed = clientMsg.metadata?.ai_failed ?? false;
+                            const lastFailedTime = clientMsg.metadata?.failed_at ? new Date(clientMsg.metadata.failed_at).getTime() : 0;
+                            const shouldRetry = isAiFailed && (Date.now() - lastFailedTime > 30000); // Retry 30s
 
-                            handleInternalMessage(clientMsg);
+                            if (!clientMsg.metadata?.ai_handled && (!isAiFailed || shouldRetry)) {
+                                console.log(`[BackgroundAIManager] 🔍 scanForOpenMessages: Processando mensagem interna pendente ${clientMsg.id} de ${otherId}.`);
+                                
+                                // Marca como lida imediatamente para evitar reprocessamento
+                                const readCol = 'read'; // Assuming 'read' is the standard
+                                await supabase.from('internal_messages')
+                                    .update({ [readCol]: true })
+                                    .eq('id', clientMsg.id);
+
+                                handleInternalMessage(clientMsg);
+                            }
+                        }
+                    }
+                    else if (lastMsg.metadata?.ai_handled) {
+                        // Já processado
+                    }
+                    else if (isAiFailed && !shouldRetry) {
+                        console.log(`[BackgroundAIManager] 🔍 scanForOpenMessages: Mensagem interna de ${otherId} falhou recentemente. Aguardando cooldown de retry.`);
+                    }
+                    else if (lastMsg.sender_id === uid && lastMsg[readCol] && !lastMsg.metadata?.followed_up) {
+                        if (timeDiff > 7200000) { // 2 horas
+                            handleInternalMessage(lastMsg, true);
                         }
                     }
                 }
-                else if (lastMsg.metadata?.ai_handled) {
-                    // Já processado
-                }
-                else if (isAiFailed && !shouldRetry) {
-                    console.log(`[BackgroundAIManager] 🔍 scanForOpenMessages: Mensagem interna de ${otherId} falhou recentemente. Aguardando cooldown de retry.`);
-                }
-                else if (lastMsg.sender_id === uid && lastMsg[readCol] && !lastMsg.metadata?.followed_up) {
-                    if (timeDiff > 7200000) { // 2 horas
-                        handleInternalMessage(lastMsg, true);
-                    }
-                }
             }
-        }
 
-        // 2. Escaneia mensagens públicas (Vendedores)
-        const { data: allPublic } = await supabase
-            .from('mensagens')
-            .select('*')
-            .gt('created_at', thirtyDaysAgo)
-            .order('created_at', { ascending: false });
+            // 2. Escaneia mensagens públicas (Vendedores)
+            const { data: allPublic } = await supabase
+                .from('mensagens')
+                .select('*')
+                .gt('created_at', thirtyDaysAgo)
+                .order('created_at', { ascending: false });
 
-        if (allPublic) {
-            const leads = new Map();
-            allPublic.forEach(m => {
-                if (!leads.has(m.lead_id)) leads.set(m.lead_id, m);
-            });
+            if (allPublic) {
+                const leads = new Map();
+                allPublic.forEach(m => {
+                    if (!leads.has(m.lead_id)) leads.set(m.lead_id, m);
+                });
 
-            for (const [leadId, lastMsg] of leads.entries()) {
-                const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
-                
-                // Busca a última mensagem do CLIENTE para este lead
-                const lastClientMsg = allPublic.find(m => 
-                    m.lead_id === leadId && 
-                    m.remetente?.toLowerCase() === 'cliente'
-                );
+                for (const [leadId, lastMsg] of leads.entries()) {
+                    const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
+                    
+                    // Busca a última mensagem do CLIENTE para este lead
+                    const lastClientMsg = allPublic.find(m => 
+                        m.lead_id === leadId && 
+                        m.remetente?.toLowerCase() === 'cliente'
+                    );
 
-                // Busca a última resposta SUCESSO (IA ou Admin Humano)
-                const lastAdminSuccess = allPublic.find(m => 
-                    m.lead_id === leadId && 
-                    (m.remetente?.toLowerCase() === 'admin' || m.remetente?.toLowerCase() === 'bot') &&
-                    !m.metadata?.ai_welcome && 
-                    !m.metadata?.ai_failed &&
-                    !m.metadata?.is_fallback &&
-                    !m.metadata?.fallback &&
-                    !m.conteudo.includes('Um consultor técnico já foi notificado') &&
-                    !m.conteudo.includes('No momento nossos sistemas de análise automática estão passando por uma atualização')
-                );
-                
-                console.log(`[BackgroundAIManager] 🔍 SCAN DEBUG [Lead: ${leadId}]: LastClientMsgID: ${lastClientMsg?.id}, Content: "${lastClientMsg?.conteudo?.substring(0,20)}...". LastAdminSuccessID: ${lastAdminSuccess?.id}`);
+                    // Busca a última resposta SUCESSO (IA ou Admin Humano)
+                    const lastAdminSuccess = allPublic.find(m => 
+                        m.lead_id === leadId && 
+                        (m.remetente?.toLowerCase() === 'admin' || m.remetente?.toLowerCase() === 'bot') &&
+                        !m.metadata?.ai_welcome && 
+                        !m.metadata?.ai_failed &&
+                        !m.metadata?.is_fallback &&
+                        !m.metadata?.fallback &&
+                        !m.conteudo.includes('Um consultor técnico já foi notificado') &&
+                        !m.conteudo.includes('No momento nossos sistemas de análise automática estão passando por uma atualização')
+                    );
+                    
+                    console.log(`[BackgroundAIManager] 🔍 SCAN DEBUG [Lead: ${leadId}]: LastClientMsgID: ${lastClientMsg?.id}, Content: "${lastClientMsg?.conteudo?.substring(0,20)}...". LastAdminSuccessID: ${lastAdminSuccess?.id}`);
 
-                const isAiFailed = lastClientMsg?.metadata?.ai_failed;
-                const lastFailedTime = lastClientMsg?.metadata?.failed_at ? new Date(lastClientMsg.metadata.failed_at).getTime() : 0;
-                const shouldRetry = isAiFailed && (Date.now() - lastFailedTime > 30000); // Retry mais agressivo (30s) para forçar controle
+                    const isAiFailed = lastClientMsg?.metadata?.ai_failed;
+                    const lastFailedTime = lastClientMsg?.metadata?.failed_at ? new Date(lastClientMsg.metadata.failed_at).getTime() : 0;
+                    const shouldRetry = isAiFailed && (Date.now() - lastFailedTime > 30000); // Retry mais agressivo (30s) para forçar controle
 
-                if (lastClientMsg && (!lastAdminSuccess || new Date(lastClientMsg.created_at) > new Date(lastAdminSuccess.created_at))) {
-                    if (!lastClientMsg.metadata?.ai_handled && (!isAiFailed || shouldRetry)) {
-                        if (timeDiff > 5000) { 
-                            console.log(`[BackgroundAIManager] 🔍 scanForOpenMessages: Detectada mensagem pública não respondida do lead ${leadId}. ${shouldRetry ? '(RETRY)' : ''} Processando...`);
-                            handlePublicMessage(lastClientMsg);
+                    if (lastClientMsg && (!lastAdminSuccess || new Date(lastClientMsg.created_at) > new Date(lastAdminSuccess.created_at))) {
+                        if (!lastClientMsg.metadata?.ai_handled && (!isAiFailed || shouldRetry)) {
+                            if (timeDiff > 5000) { 
+                                console.log(`[BackgroundAIManager] 🔍 scanForOpenMessages: Detectada mensagem pública não respondida do lead ${leadId}. ${shouldRetry ? '(RETRY)' : ''} Processando...`);
+                                handlePublicMessage(lastClientMsg);
+                            }
+                        }
+                    }
+                    else if (lastMsg.metadata?.ai_handled) {
+                        // Já processado
+                    }
+                    else if (isAiFailed && !shouldRetry) {
+                        console.log(`[BackgroundAIManager] 🔍 scanForOpenMessages: Mensagem do lead ${leadId} falhou recentemente. Aguardando cooldown de retry.`);
+                    }
+                    else if (lastMsg.remetente !== 'cliente' && lastMsg.lida && !lastMsg.metadata?.followed_up) {
+                        if (timeDiff > 7200000) { // 2 horas
+                            handlePublicMessage(lastMsg, true);
                         }
                     }
                 }
-                else if (lastMsg.metadata?.ai_handled) {
-                    // Já processado
-                }
-                else if (isAiFailed && !shouldRetry) {
-                    console.log(`[BackgroundAIManager] 🔍 scanForOpenMessages: Mensagem do lead ${leadId} falhou recentemente. Aguardando cooldown de retry.`);
-                }
-                else if (lastMsg.remetente !== 'cliente' && lastMsg.lida && !lastMsg.metadata?.followed_up) {
-                    if (timeDiff > 7200000) { // 2 horas
-                        handlePublicMessage(lastMsg, true);
-                    }
-                }
             }
+
+        } catch (error) {
+            console.error("[BackgroundAIManager] ❌ Erro inesperado no scan:", error);
+        } finally {
+            isScanRunning.current = false;
         }
     };
 
