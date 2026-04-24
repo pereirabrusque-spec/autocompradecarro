@@ -220,19 +220,32 @@ export const BackgroundAIManager = () => {
         const checkSession = async () => {
             const { data: { session } } = await supabase.auth.getSession();
             if (session?.user) {
-                setCurrentUserId(session.user.id);
-                currentUserIdRef.current = session.user.id;
+                const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).maybeSingle();
+                if (profile && (profile.role === 'admin' || profile.role === 'seller')) {
+                    setCurrentUserId(session.user.id);
+                    currentUserIdRef.current = session.user.id;
+                } else {
+                    console.log("[BackgroundAIManager] 🛑 Usuário não é admin/seller. BackgroundAIManager não será ativado para este cliente.");
+                    setCurrentUserId(null);
+                    currentUserIdRef.current = null;
+                }
             }
         };
         checkSession();
 
-        const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             console.log("[BackgroundAIManager] Auth state changed:", event, session?.user?.id);
             if (session?.user) {
-                setCurrentUserId(session.user.id);
-                currentUserIdRef.current = session.user.id;
-                // Force a scan when user changes/logs in
-                setTimeout(scanForOpenMessages, 1000);
+                const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).maybeSingle();
+                if (profile && (profile.role === 'admin' || profile.role === 'seller')) {
+                    setCurrentUserId(session.user.id);
+                    currentUserIdRef.current = session.user.id;
+                    // Force a scan when user changes/logs in
+                    setTimeout(scanForOpenMessages, 1000);
+                } else {
+                    setCurrentUserId(null);
+                    currentUserIdRef.current = null;
+                }
             } else {
                 setCurrentUserId(null);
                 currentUserIdRef.current = null;
@@ -773,6 +786,25 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                 }
             } catch (innerErr) {
                 console.error('[BackgroundAIManager] ❌ Erro ao processar mensagem interna (API/Supabase):', innerErr);
+                
+                // Marca a original como lida e processada_com_erro para evitar loop infinito
+                const readCol = payload.is_read !== undefined ? 'is_read' : 'read';
+                await supabase.from('internal_messages')
+                    .update({ 
+                        [readCol]: true,
+                        metadata: { ...(payload.metadata || {}), ai_handled: true, ai_error: String(innerErr) }
+                    })
+                    .eq('id', payload.id);
+                
+                // Envia fallback
+                const staticFallback = "Olá! Recebi sua mensagem. Tive uma falha no sistema de processamento, mas um administrador entrará em contato em breve.";
+                await supabase.from('internal_messages').insert({
+                    receiver_id: senderId,
+                    sender_id: uid,
+                    content: staticFallback,
+                    lead_id: currentLeadId || null,
+                    metadata: { is_fallback: true, role: 'agent', from_ai: true, ai_processed: true }
+                });
             }
         } // Closes if (isFollowUp || (payload.sender_id !== uid))
     } catch (err) {
@@ -1210,11 +1242,12 @@ REGRAS GERAIS:
                 console.error('[BackgroundAIManager] ❌ ERRO FATAL ao processar resposta para lead:', leadId, 'Msg:', payload.id);
                 console.error('[BackgroundAIManager] Stack Trace:', err);
                 
-                // Marca a mensagem como falha no metadado
+                // Marca a mensagem como falha no metadado e FINALIZA o manuseio (para evitar loop eterno)
                 await supabase.from('mensagens')
                     .update({ 
                         metadata: { 
                             ...(payload.metadata || {}), 
+                            ai_handled: true,
                             ai_failed: true, 
                             ai_error: String(err),
                             error_details: err instanceof Error ? err.stack : undefined,
