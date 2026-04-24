@@ -835,11 +835,16 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                 if (response && response.text) {
                     let rawBotText = response.text;
 
-                    // Content consistency check to prevent identity/content loops
-                    const prevResp = lastResponseContent.current.get(threadId);
-                    if (prevResp && (rawBotText === prevResp || (rawBotText.length > 50 && prevResp.includes(rawBotText.substring(0, 50))))) {
-                         console.warn("[BackgroundAIManager] Geração de conteúdo identico à resposta anterior em Internal. Diversificando...");
-                         rawBotText = `Entendi perfectamente sua posição, ${clientName}. Já analisei os detalhes que conversamos. Como prefere avançar agora?`;
+                    // Content consistency check against actual DB history
+                    const isDuplicateInHistory = (historyData || []).some(m => 
+                        m.content && rawBotText && 
+                        (m.content.trim().toLowerCase() === rawBotText.trim().toLowerCase() ||
+                         (m.content.length > 50 && rawBotText.includes(m.content.substring(0, 50))))
+                    );
+
+                    if (isDuplicateInHistory) {
+                        console.warn("[BackgroundAIManager] Resposta IA ignorada: conteúdo já existe no histórico da thread.");
+                        return;
                     }
                     
                     lastResponseContent.current.set(threadId, rawBotText);
@@ -1334,11 +1339,16 @@ REGRAS GERAIS:
                 if (response && response.text) {
                     let rawBotText = response.text;
 
-                    // Content consistency check to prevent identity/content loops
-                    const prevRespPublic = threadId ? lastResponseContent.current.get(threadId) : null;
-                    if (prevRespPublic && (rawBotText === prevRespPublic || (rawBotText.length > 50 && prevRespPublic.includes(rawBotText.substring(0, 50))))) {
-                         console.warn("[BackgroundAIManager] Geração de conteúdo público repetitivo detectado. Ajustando...");
-                         rawBotText = `Olá ${clientName}! Recebi sua mensagem. Já tenho os detalhes sobre o ${vehicle?.modelo || 'carro'} e estamos avançando na análise técnica. Há mais algum detalhe que você esqueceu de mencionar?`;
+                    // Content consistency check against actual DB history (Public)
+                    const isDuplicateInPublicHistory = (historyData || []).some(m => 
+                        (m.conteudo || m.content) && rawBotText && 
+                        ((m.conteudo || m.content).trim().toLowerCase() === rawBotText.trim().toLowerCase() ||
+                         ((m.conteudo || m.content).length > 50 && rawBotText.includes((m.conteudo || m.content).substring(0, 50))))
+                    );
+
+                    if (isDuplicateInPublicHistory) {
+                        console.warn("[BackgroundAIManager] Resposta IA pública ignorada: conteúdo já existe no histórico.");
+                        return;
                     }
                     
                     if (threadId) lastResponseContent.current.set(threadId, rawBotText);
@@ -1557,6 +1567,7 @@ REGRAS GERAIS:
                                               lastMsg.metadata?.role === 'admin' || 
                                               lastMsg.metadata?.role === 'seller' ||
                                               lastMsg.metadata?.role === 'bot' ||
+                                              lastMsg.metadata?.role === 'agent' ||
                                               lastMsg.metadata?.from_ai === true ||
                                               lastMsg.metadata?.ai_handled === true ||
                                               lastMsg.metadata?.system_handled === true ||
@@ -1604,12 +1615,13 @@ REGRAS GERAIS:
                     msgs.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
                     const lastMsg = msgs[0];
                     
-            const isLastMsgFromAdmin = lastMsg.remetente?.toLowerCase() === 'admin' || 
-                                      lastMsg.remetente?.toLowerCase() === 'bot' ||
-                                      lastMsg.metadata?.from_ai === true ||
-                                      lastMsg.metadata?.ai_handled === true ||
-                                      lastMsg.metadata?.system_handled === true ||
-                                      (lastMsg.conteudo && (lastMsg.conteudo.includes("Olá") && lastMsg.conteudo.includes("AutoCompra")));
+                    const isLastMsgFromAdmin = lastMsg.remetente?.toLowerCase() === 'admin' || 
+                                              lastMsg.remetente?.toLowerCase() === 'bot' ||
+                                              lastMsg.metadata?.from_ai === true ||
+                                              lastMsg.metadata?.ai_handled === true ||
+                                              lastMsg.metadata?.system_handled === true ||
+                                              lastMsg.metadata?.role === 'agent' ||
+                                              (lastMsg.conteudo && (lastMsg.conteudo.includes("Olá") && lastMsg.conteudo.includes("AutoCompra")));
                     
                     if (!isLastMsgFromAdmin) {
                         if (activeMessageProcessing.current.has(lastMsg.id)) {
