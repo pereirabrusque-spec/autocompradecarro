@@ -386,7 +386,7 @@ export const BackgroundAIManager = () => {
             console.log("[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: mensagem enviada pelo próprio agente.");
             return;
         }
-        if (payload.metadata?.ai_processed === true || payload.metadata?.from_ai === true) {
+        if (payload.metadata?.ai_processed === true || payload.metadata?.from_ai === true || payload.metadata?.processed_by_ai === true) {
             console.log("[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: mensagem já processada pela IA.");
             return;
         }
@@ -723,7 +723,7 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                             content: finalText,
                             sender_id: uid,
                             lead_id: currentLeadId || null,
-                            metadata: { is_follow_up: isFollowUp, from_ai: true, role: 'agent' }
+                            metadata: { is_follow_up: isFollowUp, from_ai: true, role: 'agent', ai_processed: true, processed_by_ai: true }
                         };
 
                         if (!insertPayload.receiver_id) {
@@ -744,7 +744,7 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                     await supabase.from('internal_messages')
                         .update({ 
                             [readCol]: true,
-                            metadata: { ...(payload.metadata || {}), ai_handled: true, ai_processed: true, followed_up: isFollowUp }
+                            metadata: { ...(payload.metadata || {}), ai_handled: true, ai_processed: true, processed_by_ai: true, followed_up: isFollowUp }
                         })
                         .eq('id', payload.id);
 
@@ -810,7 +810,7 @@ RESPONDA DIRETAMENTE AO REMETENTE.
             console.log("[BackgroundAIManager] ⚠️ handlePublicMessage ABORT: mensagem enviada pelo próprio agente ou admin.");
             return;
         }
-        if (payload.metadata?.ai_processed === true || payload.metadata?.from_ai === true) {
+        if (payload.metadata?.ai_processed === true || payload.metadata?.from_ai === true || payload.metadata?.processed_by_ai === true) {
             console.log("[BackgroundAIManager] ⚠️ handlePublicMessage ABORT: mensagem já processada pela IA.");
             return;
         }
@@ -1271,10 +1271,11 @@ REGRAS GERAIS:
     const activeMessageProcessing = useRef(new Set<string>());
 
     const scanForOpenMessages = async () => {
-        if (isScanRunning.current) {
+        if (isScanRunning.current || (window as any).isScanningMessages) {
             console.log("[BackgroundAIManager] 🔍 scanForOpenMessages: Já em execução. Abortando.");
             return;
         }
+        (window as any).isScanningMessages = true;
         isScanRunning.current = true;
         try {
             const uid = currentUserIdRef.current;
@@ -1402,6 +1403,7 @@ REGRAS GERAIS:
             console.error("[BackgroundAIManager] ❌ Erro inesperado no scan:", error);
         } finally {
             isScanRunning.current = false;
+            (window as any).isScanningMessages = false;
         }
     };
 
