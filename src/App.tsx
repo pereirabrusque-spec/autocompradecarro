@@ -213,7 +213,7 @@ function AppContent() {
     checkRoute();
     window.addEventListener('popstate', checkRoute);
     return () => window.removeEventListener('popstate', checkRoute);
-  }, [user, isAdmin, isLoading]);
+  }, [user, isAdmin, isBuyer, isLoading]);
 
   useEffect(() => {
     console.log('[DEBUG] handleAuthCallback view:', view, 'isLoading:', isLoading);

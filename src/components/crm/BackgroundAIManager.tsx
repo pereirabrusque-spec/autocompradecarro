@@ -631,7 +631,14 @@ export const BackgroundAIManager = () => {
                 }
 
                 const history = (historyData || []).reverse().map(m => {
-                    const isSystem = m.sender_id === uid || m.metadata?.from_ai || m.metadata?.ai_handled || m.metadata?.role === 'agent';
+                    const isSystem = m.sender_id === uid || 
+                                    m.metadata?.from_ai === true || 
+                                    m.metadata?.ai_handled === true || 
+                                    m.metadata?.system_handled === true ||
+                                    m.metadata?.role === 'agent' || 
+                                    m.metadata?.role === 'bot' || 
+                                    m.metadata?.role === 'admin' ||
+                                    m.metadata?.role === 'seller';
                     return `${isSystem ? 'Atendimento/Agente' : 'Cliente'}: ${m.content}`;
                 }).join('\n');
 
@@ -844,7 +851,7 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                     const isDuplicateInHistory = (historyData || []).some(m => 
                         m.content && rawBotText && 
                         (m.content.trim().toLowerCase() === rawBotText.trim().toLowerCase() ||
-                         (m.content.length > 50 && rawBotText.includes(m.content.substring(0, 50))))
+                         (m.content.length > 30 && rawBotText.toLowerCase().includes(m.content.toLowerCase().substring(0, 30))))
                     );
 
                     if (isDuplicateInHistory) {
@@ -1140,8 +1147,15 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                     .limit(50);
 
                 const history = (historyData || []).reverse().map(m => {
-                    const isSystem = m.remetente === 'bot' || m.remetente === 'admin' || m.metadata?.from_ai === true || m.metadata?.ai_handled === true || m.metadata?.role === 'agent';
-                    return `${isSystem ? 'Atendimento/Agente' : 'Cliente'}: ${m.conteudo || m.content}`;
+                    const isSystem = m.remetente === 'bot' || 
+                                    m.remetente === 'admin' || 
+                                    m.metadata?.from_ai === true || 
+                                    m.metadata?.ai_handled === true || 
+                                    m.metadata?.system_handled === true ||
+                                    m.metadata?.role === 'agent' ||
+                                    m.metadata?.role === 'bot' ||
+                                    m.metadata?.role === 'admin';
+                    return `${isSystem ? 'Atendimento/Agente (Luiz)' : 'Cliente'}: ${m.conteudo || m.content}`;
                 }).join('\n');
 
                 const { data: vehicle } = await supabase
@@ -1342,11 +1356,11 @@ REGRAS GERAIS:
 
                 const response = await AIService.generateContent(
                     fullPrompt,
-                    `Você é o AGENTE VIRTUAL especializado da AutoCompra.
+                    `Você é o Especialista LUIZ da AutoCompra.
                      
                      IDENTIDADE:
                      - Você NUNCA é o cliente.
-                     - Se não souber responder algo técnico, peça esclarecimentos: "Olá! Notei sua mensagem sobre o veículo. Para ser mais assertivo em minha análise, você poderia me detalhar melhor qual o seu objetivo ou dúvida técnica?"
+                     - Se as últimas 50 mensagens não permitirem uma resposta clara ou técnica, você DEVE perguntar: "Olá! Recebi sua mensagem, mas para que eu possa te ajudar da melhor forma, poderia me detalhar melhor o que precisa sobre esta negociação?"
                      
                      INSTRUÇÃO: Responda estritamente com base nos dados técnicos do veículo fornecidos no contexto. Se a informação não estiver nos dados, não invente. Seja direto, profissional e persuasivo.`,
                     imageBase64 || undefined

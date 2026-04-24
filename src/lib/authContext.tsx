@@ -172,7 +172,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    return () => subscription.unsubscribe();
+    // Real-time listener for profile changes (highly requested for role updates)
+    let profileSubscription: any = null;
+    
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        profileSubscription = supabase
+          .channel(`profile-${session.user.id}`)
+          .on('postgres_changes', 
+            { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${session.user.id}` }, 
+            (payload) => {
+              console.log('[AUTH] Profile real-time update received:', payload.new);
+              setProfile(payload.new as Profile);
+            }
+          )
+          .subscribe();
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+      if (profileSubscription) supabase.removeChannel(profileSubscription);
+    };
   }, []);
 
   useEffect(() => {
@@ -217,18 +238,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await refreshProfile();
   };
 
+  const isBuyerRole = profile?.role === 'buyer' || profile?.role === 'buyer_premium' || profile?.role === 'buyer_master';
+  const isSellerRole = profile?.role === 'seller' || profile?.role === 'user';
+  const isAdminRole = profile?.role === 'admin' || user?.email === 'pereira.brusque@gmail.com';
+
   const value = useMemo(() => ({
     user,
     profile,
     isLoading,
-    isAdmin: (profile?.role === 'admin' || profile?.role === 'seller') || user?.email === 'pereira.brusque@gmail.com',
-    isBuyer: profile?.role === 'buyer' || profile?.role === 'buyer_premium' || profile?.role === 'buyer_master' || profile?.role === 'user',
+    isAdmin: isAdminRole,
+    isBuyer: isBuyerRole,
+    isSeller: isSellerRole,
     signInWithGoogle,
     signOut,
     refreshProfile,
     promoteUser,
     updateNotificationPreference
-  }), [user, profile, isLoading]);
+  }), [user, profile, isLoading, isAdminRole, isBuyerRole, isSellerRole]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
