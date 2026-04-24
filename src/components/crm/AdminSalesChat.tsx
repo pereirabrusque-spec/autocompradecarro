@@ -537,13 +537,15 @@ export const AdminSalesChat = React.memo(({
                 <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[85%]`}>
                   <div className={`p-4 rounded-2xl text-[13px] shadow-sm transition-all hover:shadow-md ${
                     isMe 
-                      ? (m.metadata?.from_ai ? 'bg-indigo-600 text-white rounded-tr-none shadow-indigo-100/50' : 'bg-slate-900 text-white rounded-tr-none')
+                      ? (m.metadata?.from_ai || m.metadata?.ai_handled 
+                          ? 'bg-indigo-600 text-white rounded-tr-none shadow-indigo-100/50 border border-indigo-400/30' 
+                          : 'bg-slate-900 text-white rounded-tr-none')
                       : 'bg-white border border-slate-200 text-slate-900 rounded-tl-none'
                   }`}>
                     <div className="flex items-center gap-1.5 mb-1.5 border-b border-white/10 pb-1.5 last:border-0 last:pb-0">
-                      {m.metadata?.from_ai && <Bot className="w-3.5 h-3.5" />}
+                      {(m.metadata?.from_ai || m.metadata?.ai_handled) && <Bot className="w-3.5 h-3.5" />}
                       <span className="text-[10px] font-black uppercase tracking-widest opacity-80">
-                        {isMe ? (m.metadata?.from_ai ? 'Agente IA' : 'Atendimento') : 'Cliente'}
+                        {isMe ? (m.metadata?.from_ai || m.metadata?.ai_handled ? 'Agente IA' : 'Atendimento') : 'Cliente'}
                       </span>
                     </div>
                     <div className="markdown-body prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-li:my-0">

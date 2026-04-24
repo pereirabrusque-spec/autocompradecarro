@@ -380,6 +380,7 @@ export const BackgroundAIManager = () => {
                     conteudo: response.text,
                     metadata: { 
                         ai_handled: true, 
+                        from_ai: true,
                         ai_welcome: true, 
                         is_initial: true,
                         timestamp: new Date().toISOString() 
@@ -396,7 +397,7 @@ export const BackgroundAIManager = () => {
                 lead_id: lead.id,
                 remetente: 'bot',
                 conteudo: `Olá ${clientName}, sou o Luiz da AutoCompra. Seja bem-vindo! Já recebi seus dados e nossa equipe técnica está analisando tudo para te enviar a melhor proposta em instantes.`,
-                metadata: { ai_welcome: true, is_initial: true, fallback: true }
+                metadata: { ai_handled: true, from_ai: true, ai_welcome: true, is_initial: true, fallback: true }
             });
         }
     };
@@ -446,9 +447,26 @@ export const BackgroundAIManager = () => {
             // -- NEW: Thread Activity Lock & Content Similarity Prevention --
             if (isThreadLocked(threadId)) return;
 
+            // Check against entire recent history for duplication
+            const { data: recentHistory } = await supabase
+                .from('internal_messages')
+                .select('content, metadata')
+                .or(`sender_id.eq.${threadId},receiver_id.eq.${threadId}`)
+                .order('created_at', { ascending: false })
+                .limit(5);
+
+            if (recentHistory && recentHistory.some(m => 
+                m.content && payload.content && 
+                (m.content.trim().toLowerCase() === payload.content.trim().toLowerCase() ||
+                 (m.content.length > 50 && payload.content.includes(m.content.substring(0, 50))))
+            )) {
+                console.log(`[BackgroundAIManager] 🛑 handleInternalMessage ABORT: Conteúdo idêntico ou muito similar já existe no histórico recente da thread ${threadId}.`);
+                return;
+            }
+
             const lastResp = lastResponseContent.current.get(threadId);
-            if (lastResp && payload.content && payload.content.trim().toLowerCase().substring(0, 100) === lastResp.trim().toLowerCase().substring(0, 100)) {
-                console.log(`[BackgroundAIManager] 🛑 handleInternalMessage ABORT: Conteúdo repetido detectado para thread ${threadId}.`);
+            if (lastResp && payload.content && payload.content.trim().toLowerCase().substring(0, 50) === lastResp.trim().toLowerCase().substring(0, 50)) {
+                console.log(`[BackgroundAIManager] 🛑 handleInternalMessage ABORT: Conteúdo repetido detectado (cache) para thread ${threadId}.`);
                 return;
             }
 
@@ -550,7 +568,7 @@ export const BackgroundAIManager = () => {
             console.log(`[BackgroundAIManager] 👤 Perfil do remetente:`, senderProfile?.full_name, 'Role:', senderProfile?.role);
 
                     if (payload.sender_id === uid && !!payload.receiver_id) {
-                        handleAILearning(payload, history);
+                        handleAILearning(payload, "");
                         return;
                     }
 
@@ -942,9 +960,26 @@ RESPONDA DIRETAMENTE AO REMETENTE.
         // -- NEW: Thread Activity Lock & Content Similarity Prevention --
         if (threadId && isThreadLocked(threadId)) return;
 
+        // Check against entire recent history for duplication
+        const { data: recentPublicHistory } = await supabase
+            .from('mensagens')
+            .select('conteudo, metadata, remetente')
+            .eq('lead_id', threadId)
+            .order('created_at', { ascending: false })
+            .limit(5);
+
+        if (recentPublicHistory && recentPublicHistory.some(m => 
+            m.conteudo && payload.conteudo && 
+            (m.conteudo.trim().toLowerCase() === payload.conteudo.trim().toLowerCase() ||
+             (m.conteudo.length > 50 && payload.conteudo.includes(m.conteudo.substring(0, 50))))
+        )) {
+            console.log(`[BackgroundAIManager] 🛑 handlePublicMessage ABORT: Conteúdo idêntico ou muito similar já existe no histórico recente do lead ${threadId}.`);
+            return;
+        }
+
         const lastResp = threadId ? lastResponseContent.current.get(threadId) : null;
-        if (lastResp && payload.conteudo && payload.conteudo.trim().toLowerCase().substring(0, 100) === lastResp.trim().toLowerCase().substring(0, 100)) {
-            console.log(`[BackgroundAIManager] 🛑 handlePublicMessage ABORT: Conteúdo repetido detectado para lead ${threadId}.`);
+        if (lastResp && payload.conteudo && payload.conteudo.trim().toLowerCase().substring(0, 50) === lastResp.trim().toLowerCase().substring(0, 50)) {
+            console.log(`[BackgroundAIManager] 🛑 handlePublicMessage ABORT: Conteúdo repetido detectado (cache) para lead ${threadId}.`);
             return;
         }
         
@@ -1521,8 +1556,11 @@ REGRAS GERAIS:
                     const isLastMsgFromAdmin = lastMsg.sender_id === uid || 
                                               lastMsg.metadata?.role === 'admin' || 
                                               lastMsg.metadata?.role === 'seller' ||
+                                              lastMsg.metadata?.role === 'bot' ||
                                               lastMsg.metadata?.from_ai === true ||
-                                              lastMsg.metadata?.ai_handled === true;
+                                              lastMsg.metadata?.ai_handled === true ||
+                                              lastMsg.metadata?.system_handled === true ||
+                                              (lastMsg.content && (lastMsg.content.includes("Olá") && lastMsg.content.includes("AutoCompra")));
                     
                     if (!isLastMsgFromAdmin) {
                         if (activeMessageProcessing.current.has(lastMsg.id)) {
@@ -1570,7 +1608,8 @@ REGRAS GERAIS:
                                       lastMsg.remetente?.toLowerCase() === 'bot' ||
                                       lastMsg.metadata?.from_ai === true ||
                                       lastMsg.metadata?.ai_handled === true ||
-                                      lastMsg.metadata?.system_handled === true;
+                                      lastMsg.metadata?.system_handled === true ||
+                                      (lastMsg.conteudo && (lastMsg.conteudo.includes("Olá") && lastMsg.conteudo.includes("AutoCompra")));
                     
                     if (!isLastMsgFromAdmin) {
                         if (activeMessageProcessing.current.has(lastMsg.id)) {

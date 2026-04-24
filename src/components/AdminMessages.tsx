@@ -725,14 +725,14 @@ export default function AdminMessages({
                     <div className={`max-w-[80%] md:max-w-[70%] p-3.5 rounded-2xl text-[13px] shadow-sm ${
                       msg.remetente === 'admin' 
                         ? 'bg-slate-900 text-white rounded-tr-none' 
-                      : msg.remetente === 'bot' || msg.metadata?.from_ai
-                        ? 'bg-indigo-600 text-white rounded-tr-none shadow-indigo-100 shadow-md'
+                      : (msg.remetente === 'bot' || msg.metadata?.from_ai || msg.metadata?.ai_handled)
+                        ? 'bg-indigo-600 text-white rounded-tr-none shadow-indigo-100 shadow-md border border-indigo-400/30'
                         : 'bg-white border border-slate-200 text-slate-900 rounded-tl-none'
                     }`}>
                       <div className="flex items-center gap-2 mb-1.5 border-b border-white/10 pb-1.5 last:border-0 last:pb-0">
-                        {msg.metadata?.from_ai && <Bot className="w-3 h-3 text-white/80" />}
+                        {(msg.remetente === 'bot' || msg.metadata?.from_ai || msg.metadata?.ai_handled) && <Bot className="w-3 h-3 text-white/80" />}
                         <span className="text-[9px] font-black uppercase tracking-widest opacity-60">
-                          {msg.remetente === 'admin' ? 'Atendimento' : (msg.remetente === 'bot' || msg.metadata?.from_ai) ? 'Agente IA' : 'Cliente'}
+                          {msg.remetente === 'admin' ? 'Atendimento' : (msg.remetente === 'bot' || msg.metadata?.from_ai || msg.metadata?.ai_handled) ? 'Agente IA' : 'Cliente'}
                         </span>
                       </div>
                     <div className="markdown-body prose prose-invert prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-li:my-0">
