@@ -1246,6 +1246,7 @@ REGRAS GERAIS:
     };
 
     const isScanRunning = useRef(false);
+    const activeMessageProcessing = useRef(new Set<string>());
 
     const scanForOpenMessages = async () => {
         if (isScanRunning.current) {
@@ -1301,7 +1302,13 @@ REGRAS GERAIS:
                     const isLastMsgFromAdmin = lastMsg.sender_id === uid;
                     
                     if (!isLastMsgFromAdmin) {
-                        console.log(`[BackgroundAIManager] 🔍 SCAN: Conv ${otherId}. Detectada mensagem pendente de ${otherId}.`);
+                        if (activeMessageProcessing.current.has(lastMsg.id)) {
+                            console.log(`[BackgroundAIManager] 🛑 Mensagem interna ${lastMsg.id} já em processamento.`);
+                            continue;
+                        }
+                        
+                        console.log(`[BackgroundAIManager] 🔍 SCAN: Conv ${otherId}. Detectada mensagem pendente de ${otherId}. (ID: ${lastMsg.id})`);
+                        activeMessageProcessing.current.add(lastMsg.id);
                         
                         try {
                             // Garantir leadId (fallback para user.id)
@@ -1313,10 +1320,12 @@ REGRAS GERAIS:
 
                             if (!isAiHandled) {
                                 console.log(`[BackgroundAIManager] 🤖 IA processando mensagem pendente ${lastMsg.id} de ${otherId}.`);
-                                handleInternalMessage(lastMsg);
+                                await handleInternalMessage(lastMsg);
                             }
                         } catch (err) {
                             console.error(`[BackgroundAIManager] ❌ Erro ao processar mensagem ${lastMsg.id}:`, err);
+                        } finally {
+                            activeMessageProcessing.current.delete(lastMsg.id);
                         }
                     }
                 }
@@ -1343,17 +1352,25 @@ REGRAS GERAIS:
                     const isLastMsgFromAdmin = lastMsg.remetente?.toLowerCase() === 'admin' || lastMsg.remetente?.toLowerCase() === 'bot';
                     
                     if (!isLastMsgFromAdmin) {
-                        console.log(`[BackgroundAIManager] 🔍 SCAN: Lead ${leadId}. Detectada mensagem pendente.`);
+                        if (activeMessageProcessing.current.has(lastMsg.id)) {
+                            console.log(`[BackgroundAIManager] 🛑 Mensagem pública ${lastMsg.id} já em processamento.`);
+                            continue;
+                        }
+
+                        console.log(`[BackgroundAIManager] 🔍 SCAN: Lead ${leadId}. Detectada mensagem pendente de lead ${leadId}. (ID: ${lastMsg.id})`);
+                        
+                        activeMessageProcessing.current.add(lastMsg.id);
                         try {
-                            const isAiFailed = !!lastMsg.metadata?.ai_failed;
                             const isAiHandled = !!lastMsg.metadata?.ai_handled;
                             
                             if (!isAiHandled) {
                                 console.log(`[BackgroundAIManager] 🤖 IA processando mensagem pendente de lead ${leadId}.`);
-                                handlePublicMessage(lastMsg);
+                                await handlePublicMessage(lastMsg);
                             }
                         } catch (err) {
                             console.error(`[BackgroundAIManager] ❌ Erro ao processar lead ${leadId}:`, err);
+                        } finally {
+                            activeMessageProcessing.current.delete(lastMsg.id);
                         }
                     }
                 }
