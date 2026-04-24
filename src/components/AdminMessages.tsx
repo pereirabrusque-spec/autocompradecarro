@@ -211,7 +211,7 @@ export default function AdminMessages({
     <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm flex h-[calc(100vh-140px)] min-h-[600px] w-full">
       {/* Lista de Conversas (Esquerda) */}
       <div className="w-1/3 border-r border-slate-100 flex flex-col h-full overflow-hidden">
-        <div className="p-6 border-b border-slate-100 shrink-0">
+        <div className="p-6 border-b border-slate-100 shrink-0 bg-white sticky top-0 z-10">
           <div className="flex gap-2 mb-4">
             <button 
               onClick={() => setMessageTab('leads')}
@@ -722,18 +722,19 @@ export default function AdminMessages({
                   transition={{ duration: 0.2 }}
                   className={`flex ${msg.remetente === 'admin' || msg.remetente === 'bot' ? 'justify-end' : 'justify-start'}`}
                 >
-                  <div className={`max-w-[80%] md:max-w-[70%] p-3.5 rounded-2xl text-[13px] shadow-sm ${
-                    msg.remetente === 'admin' 
-                      ? 'bg-slate-900 text-white rounded-tr-none' 
-                      : msg.remetente === 'bot'
-                      ? 'bg-blue-600 text-white rounded-tr-none'
-                      : 'bg-white border border-slate-200 text-slate-900 rounded-tl-none'
-                  }`}>
-                    <div className="flex items-center gap-2 mb-1.5 border-b border-white/10 pb-1.5 last:border-0 last:pb-0">
-                      <span className="text-[9px] font-black uppercase tracking-widest opacity-60">
-                        {msg.remetente === 'admin' ? 'Atendimento' : msg.remetente === 'bot' ? 'Agente IA' : 'Cliente'}
-                      </span>
-                    </div>
+                    <div className={`max-w-[80%] md:max-w-[70%] p-3.5 rounded-2xl text-[13px] shadow-sm ${
+                      msg.remetente === 'admin' 
+                        ? 'bg-slate-900 text-white rounded-tr-none' 
+                      : msg.remetente === 'bot' || msg.metadata?.from_ai
+                        ? 'bg-indigo-600 text-white rounded-tr-none shadow-indigo-100 shadow-md'
+                        : 'bg-white border border-slate-200 text-slate-900 rounded-tl-none'
+                    }`}>
+                      <div className="flex items-center gap-2 mb-1.5 border-b border-white/10 pb-1.5 last:border-0 last:pb-0">
+                        {msg.metadata?.from_ai && <Bot className="w-3 h-3 text-white/80" />}
+                        <span className="text-[9px] font-black uppercase tracking-widest opacity-60">
+                          {msg.remetente === 'admin' ? 'Atendimento' : (msg.remetente === 'bot' || msg.metadata?.from_ai) ? 'Agente IA' : 'Cliente'}
+                        </span>
+                      </div>
                     <div className="markdown-body prose prose-invert prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-li:my-0">
                       <Markdown 
                         remarkPlugins={[remarkGfm]}
@@ -996,9 +997,17 @@ export default function AdminMessages({
                   >
                     <div className={`max-w-[70%] p-4 rounded-2xl text-sm shadow-sm ${
                       msg.sender_id !== (messageTab === 'buyers' ? selectedCompradorChat : selectedInternalChat)
-                        ? 'bg-slate-900 text-white rounded-tr-none' 
+                        ? (msg.metadata?.from_ai ? 'bg-indigo-600 text-white rounded-tr-none shadow-indigo-100 shadow-md' : 'bg-slate-900 text-white rounded-tr-none')
                         : 'bg-white border border-slate-200 text-slate-900 rounded-tl-none'
                     }`}>
+                      <div className="flex items-center gap-1.5 mb-1 opacity-70">
+                        {msg.metadata?.from_ai && <Bot className="w-3 h-3" />}
+                        <span className="text-[10px] font-black uppercase tracking-widest">
+                          {msg.sender_id !== (messageTab === 'buyers' ? selectedCompradorChat : selectedInternalChat)
+                            ? (msg.metadata?.from_ai ? 'Agente IA' : 'Você')
+                            : (messageTab === 'buyers' ? 'Comprador' : 'Membro')}
+                        </span>
+                      </div>
                       <p className="whitespace-pre-wrap">{msg.content}</p>
                       <span className={`text-[9px] mt-1 flex items-center gap-1 opacity-70`}>
                         {new Date(msg.created_at).toLocaleDateString([], { day: '2-digit', month: '2-digit' })} {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

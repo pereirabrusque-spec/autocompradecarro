@@ -537,9 +537,15 @@ export const AdminSalesChat = React.memo(({
                 <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[85%]`}>
                   <div className={`p-3 rounded-2xl text-[13px] shadow-sm transition-all hover:shadow-md ${
                     isMe 
-                      ? 'bg-slate-900 text-white rounded-tr-none' 
+                      ? (m.metadata?.from_ai ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-slate-900 text-white rounded-tr-none')
                       : 'bg-white border border-slate-200 text-slate-900 rounded-tl-none'
                   }`}>
+                    <div className="flex items-center gap-1.5 mb-1 opacity-70">
+                      {m.metadata?.from_ai && <Bot className="w-3 h-3" />}
+                      <span className="text-[10px] font-black uppercase tracking-widest">
+                        {isMe ? (m.metadata?.from_ai ? 'Agente IA' : 'Você') : 'Cliente'}
+                      </span>
+                    </div>
                     <div className="markdown-body prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-li:my-0">
                       <Markdown 
                         remarkPlugins={[remarkGfm]}

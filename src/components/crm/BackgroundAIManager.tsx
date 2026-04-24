@@ -411,15 +411,22 @@ export const BackgroundAIManager = () => {
             });
             const uid = currentUserIdRef.current;
             
-            // -- FIX: Ignore messages sent by this agent or already processed --
-            if (payload.sender_id === uid) {
-                console.log("[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: mensagem enviada pelo próprio agente.");
-                return;
-            }
-            if (payload.metadata?.ai_processed === true || payload.metadata?.from_ai === true || payload.metadata?.processed_by_ai === true || payload.metadata?.ai_generated === true) {
-                console.log("[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: mensagem já processada pela IA.");
-                return;
-            }
+        // -- FIX: Ignore messages sent by this agent or already processed --
+        if (payload.sender_id === uid) {
+            console.log("[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: mensagem enviada pelo próprio agente.");
+            return;
+        }
+        
+        const isBot = payload.metadata?.from_ai === true || 
+                     payload.metadata?.processed_by_ai === true || 
+                     payload.metadata?.ai_processed === true ||
+                     payload.metadata?.role === 'bot' ||
+                     payload.metadata?.role === 'agent_ai';
+
+        if (isBot) {
+            console.log("[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: mensagem identificada como BOT.");
+            return;
+        }
         
             if (!uid) {
                 console.log("[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: UID não disponível (currentUserIdRef é nulo).");
@@ -531,6 +538,18 @@ export const BackgroundAIManager = () => {
                     .or(`sender_id.eq.${senderId},receiver_id.eq.${senderId}`)
                     .order('created_at', { ascending: false })
                     .limit(50);
+
+                // -- NEW: Check if the VERY LAST message in history is from admin/bot --
+                if (historyData && historyData.length > 0) {
+                    const lastMsgInHistory = historyData[0];
+                    const isLastMsgMe = lastMsgInHistory.sender_id === uid;
+                    const isLastMsgBot = lastMsgInHistory.metadata?.from_ai === true || lastMsgInHistory.metadata?.role === 'bot' || lastMsgInHistory.metadata?.role === 'agent';
+                    
+                    if (isLastMsgMe || isLastMsgBot) {
+                        console.log(`[BackgroundAIManager] 🛑 handleInternalMessage ABORT: A última mensagem (${lastMsgInHistory.id}) já foi enviada por nós (Admin/BOT).`);
+                        return;
+                    }
+                }
 
                 const history = (historyData || []).reverse().map(m => 
                     `${m.sender_id === uid ? 'Admin' : 'Cliente'}: ${m.content} ${m.lead_id ? `(Ref: ${m.lead_id})` : ''}`
@@ -836,12 +855,24 @@ RESPONDA DIRETAMENTE AO REMETENTE.
         const uid = currentUserIdRef.current;
         
         // -- FIX: Ignore messages sent by this agent or already processed --
-        if (payload.sender_id === uid || payload.remetente?.toLowerCase() === 'bot' || payload.remetente?.toLowerCase() === 'admin') {
+        const isSelf = payload.sender_id === uid || 
+                      payload.remetente?.toLowerCase() === 'bot' || 
+                      payload.remetente?.toLowerCase() === 'admin' ||
+                      payload.metadata?.role === 'agent' ||
+                      payload.metadata?.role === 'bot';
+
+        if (isSelf) {
             console.log("[BackgroundAIManager] ⚠️ handlePublicMessage ABORT: mensagem enviada pelo próprio agente ou admin.");
             return;
         }
-        if (payload.metadata?.ai_processed === true || payload.metadata?.from_ai === true || payload.metadata?.processed_by_ai === true) {
-            console.log("[BackgroundAIManager] ⚠️ handlePublicMessage ABORT: mensagem já processada pela IA.");
+
+        const isBot = payload.metadata?.ai_processed === true || 
+                     payload.metadata?.from_ai === true || 
+                     payload.metadata?.processed_by_ai === true ||
+                     payload.metadata?.ai_handled === true;
+
+        if (isBot) {
+            console.log("[BackgroundAIManager] ⚠️ handlePublicMessage ABORT: mensagem já processada ou vinda da IA.");
             return;
         }
 
@@ -915,6 +946,23 @@ RESPONDA DIRETAMENTE AO REMETENTE.
             }
 
             const clienteNomeFromLead = leadData?.cliente_nome || "Cliente";
+
+            // -- NEW: Check if the VERY LAST message in the thread is from admin/bot --
+            const { data: lastThreadMsg } = await supabase
+                .from('mensagens')
+                .select('id, remetente, metadata')
+                .eq('lead_id', leadId)
+                .order('created_at', { ascending: false })
+                .limit(1);
+            
+            if (lastThreadMsg && lastThreadMsg.length > 0) {
+                const last = lastThreadMsg[0];
+                const isSystem = last.remetente === 'admin' || last.remetente === 'bot' || last.metadata?.from_ai === true;
+                if (isSystem) {
+                    console.log(`[BackgroundAIManager] 🛑 handlePublicMessage ABORT: A última mensagem do thread (${last.id}) já é do sistema.`);
+                    return;
+                }
+            }
             
             const delay = Math.floor(Math.random() * 5000) + 2000; // 2-7 segundos
             await new Promise(resolve => setTimeout(resolve, delay));
