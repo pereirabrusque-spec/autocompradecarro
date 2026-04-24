@@ -716,7 +716,12 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                             metadata: { is_follow_up: isFollowUp }
                         };
                         console.log("[BackgroundAIManager] 🧪 Payload envio internal_messages:", insertPayload);
-                        await supabase.from('internal_messages').insert(insertPayload);
+                        const { error: insertError } = await supabase.from('internal_messages').insert(insertPayload);
+                        
+                        if (insertError) {
+                            console.error("[BackgroundAIManager] ❌ ERRO AO INSERIR NO BANCO:", JSON.stringify(insertError, null, 2));
+                            throw insertError; // Re-lança para cair no bloco catch e gerar fallback
+                        }
                     }
                     
                     const readCol = payload.is_read !== undefined ? 'is_read' : 'read';
