@@ -381,6 +381,16 @@ export const BackgroundAIManager = () => {
         });
         const uid = currentUserIdRef.current;
         
+        // -- FIX: Ignore messages sent by this agent or already processed --
+        if (payload.sender_id === uid) {
+            console.log("[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: mensagem enviada pelo próprio agente.");
+            return;
+        }
+        if (payload.metadata?.ai_processed === true) {
+            console.log("[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: mensagem já processada pela IA.");
+            return;
+        }
+        
         if (!uid) {
             console.log("[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: UID não disponível (currentUserIdRef é nulo).");
             return;
@@ -734,7 +744,7 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                     await supabase.from('internal_messages')
                         .update({ 
                             [readCol]: true,
-                            metadata: { ...(payload.metadata || {}), ai_handled: true, followed_up: isFollowUp }
+                            metadata: { ...(payload.metadata || {}), ai_handled: true, ai_processed: true, followed_up: isFollowUp }
                         })
                         .eq('id', payload.id);
 
