@@ -1273,34 +1273,38 @@ REGRAS GERAIS:
                 const readCol = lastMsg.is_read !== undefined ? 'is_read' : 'read';
                 const timeDiff = Date.now() - new Date(lastMsg.created_at).getTime();
                 
-                // Busca a última mensagem do CLIENTE nesta conversa (ignorando mensagens do próprio bot/admin)
-                const lastClientMsg = allInternal.find(m => 
-                    m.sender_id === otherId && 
-                    m.receiver_id === uid && 
-                    m.content && m.content.trim() !== ''
-                );
-
                 // Busca a última resposta do BOT/ADMIN nesta conversa
                 const lastBotResponse = allInternal.find(m => 
                     m.sender_id === uid && 
                     m.receiver_id === otherId
                 );
 
-                // Só processa se a última mensagem for do cliente e não houver resposta do bot após ela
-                const isUnanswered = lastClientMsg && (!lastBotResponse || new Date(lastClientMsg.created_at) > new Date(lastBotResponse.created_at));
-                
-                console.log(`[BackgroundAIManager] 🔍 SCAN: Conv ${otherId}. Unanswered: ${isUnanswered}`);
+                // Busca TODAS as mensagens do CLIENTE nesta conversa que não foram respondidas pelo bot
+                const unansweredClientMsgs = allInternal.filter(m => 
+                    m.sender_id === otherId && 
+                    m.receiver_id === uid && 
+                    m.content && m.content.trim() !== '' &&
+                    (!lastBotResponse || new Date(m.created_at) > new Date(lastBotResponse.created_at))
+                );
 
-                if (!isUnanswered) {
-                    continue; // Pula se já estiver respondido
-                }
-                const shouldRetry = isAiFailed && (Date.now() - lastFailedTime > 30000); // Retry mais agressivo (30s) para forçar controle
+                console.log(`[BackgroundAIManager] 🔍 SCAN: Conv ${otherId}. Unanswered messages count: ${unansweredClientMsgs.length}`);
 
-                if (lastClientMsg && (!lastAdminSuccess || new Date(lastClientMsg.created_at) > new Date(lastAdminSuccess.created_at))) {
-                    if (!lastClientMsg.metadata?.ai_handled && (!isAiFailed || shouldRetry)) {
-                        if (timeDiff > 5000) { 
-                            console.log(`[BackgroundAIManager] 🔍 scanForOpenMessages: Detectada mensagem interna não respondida de ${otherId}. ${shouldRetry ? '(RETRY)' : ''} Processando...`);
-                            handleInternalMessage(lastClientMsg);
+                if (unansweredClientMsgs.length > 0) {
+                    for (const clientMsg of unansweredClientMsgs) {
+                        const isAiFailed = clientMsg.metadata?.ai_failed;
+                        const lastFailedTime = clientMsg.metadata?.failed_at ? new Date(clientMsg.metadata.failed_at).getTime() : 0;
+                        const shouldRetry = isAiFailed && (Date.now() - lastFailedTime > 30000); // Retry 30s
+
+                        if (!clientMsg.metadata?.ai_handled && (!isAiFailed || shouldRetry)) {
+                            console.log(`[BackgroundAIManager] 🔍 scanForOpenMessages: Processando mensagem interna pendente ${clientMsg.id} de ${otherId}.`);
+                            
+                            // Marca como lida imediatamente para evitar reprocessamento
+                            const readCol = 'read'; // Assuming 'read' is the standard
+                            await supabase.from('internal_messages')
+                                .update({ [readCol]: true })
+                                .eq('id', clientMsg.id);
+
+                            handleInternalMessage(clientMsg);
                         }
                     }
                 }

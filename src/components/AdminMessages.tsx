@@ -232,13 +232,6 @@ export default function AdminMessages({
               <ShieldCheck className="w-3 h-3" />
               EQUIPE
             </button>
-            <button 
-              onClick={() => setMessageTab('buyers')}
-              className={`flex-1 py-2 rounded-xl text-[10px] font-black transition-all flex items-center justify-center gap-1 ${messageTab === 'buyers' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 text-slate-600'}`}
-            >
-              <DollarSign className="w-3 h-3" />
-              COMPRADORES
-            </button>
           </div>
           
           {/* Controles de IA */}
