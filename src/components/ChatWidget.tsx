@@ -277,15 +277,14 @@ export default function ChatWidget() {
       const mappedInternal = (internalData || []).map(m => ({
         id: m.id,
         conteudo: m.content,
-        remetente: m.sender_id === user?.id ? 'cliente' : 'admin',
+        remetente: m.sender_id === user?.id ? 'cliente' : (m.metadata?.from_ai || m.metadata?.role === 'bot' ? 'bot' : 'admin'),
         created_at: m.created_at
       }));
 
       const mappedMensagens = (mensagensData || []).map(m => ({
         ...m,
-        // Ensure consistent format
         conteudo: m.conteudo,
-        remetente: m.remetente,
+        remetente: m.remetente === 'bot' ? 'bot' : (m.remetente === 'admin' ? 'admin' : 'cliente'),
         created_at: m.created_at
       }));
 
@@ -490,10 +489,12 @@ export default function ChatWidget() {
                       className={`flex ${msg.remetente === 'cliente' ? 'justify-end' : 'justify-start'}`}
                     >
                       <div 
-                        className={`max-w-[80%] p-3 rounded-2xl text-sm ${
+                        className={`max-w-[80%] p-3 rounded-2xl text-sm shadow-sm ${
                           msg.remetente === 'cliente' 
                             ? 'bg-accent text-white rounded-tr-none' 
-                            : 'bg-white border border-slate-200 text-slate-700 rounded-tl-none'
+                            : msg.remetente === 'bot'
+                              ? 'bg-indigo-600 text-white rounded-tl-none border border-indigo-400/30'
+                              : 'bg-slate-900 text-white rounded-tl-none'
                         }`}
                       >
                         <div className="markdown-body prose prose-sm max-w-none">
@@ -531,7 +532,7 @@ export default function ChatWidget() {
                             <FileText className="w-4 h-4" /> Ver Proposta Detalhada
                           </button>
                         )}
-                        <span className={`text-[10px] block mt-1 ${msg.remetente === 'cliente' ? 'text-white/60' : 'text-slate-400'}`}>
+                        <span className={`text-[10px] block mt-1 ${msg.remetente === 'cliente' || msg.remetente === 'bot' || msg.remetente === 'admin' ? 'text-white/60' : 'text-slate-400'}`}>
                           {new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                         </span>
                       </div>

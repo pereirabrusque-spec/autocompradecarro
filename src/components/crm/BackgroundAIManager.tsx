@@ -476,22 +476,29 @@ export const BackgroundAIManager = () => {
                               payload.metadata?.role === 'seller' ||
                               payload.metadata?.role === 'agent' ||
                               payload.metadata?.role === 'bot' ||
-                              payload.metadata?.from_ai === true;
+                              payload.metadata?.from_ai === true ||
+                              payload.metadata?.ai_handled === true ||
+                              payload.metadata?.system_handled === true;
 
         if (isSystemSender) {
             console.log("[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: mensagem enviada por admin, vendedor ou bot.");
             return;
         }
         
-        const isBot = payload.metadata?.ai_processed === true || 
-                     payload.metadata?.processed_by_ai === true || 
-                     payload.metadata?.ai_handled === true ||
-                     payload.metadata?.from_ai === true ||
-                     payload.metadata?.system_handled === true;
+        // Verificação dupla via banco de dados para evitar loops de concorrência
+        const { data: lastMsgsDB } = await supabase
+            .from('internal_messages')
+            .select('sender_id, metadata')
+            .or(`sender_id.eq.${threadId},receiver_id.eq.${threadId}`)
+            .order('created_at', { ascending: false })
+            .limit(1);
 
-        if (isBot) {
-            console.log("[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: mensagem identificada como já processada pela IA.");
-            return;
+        if (lastMsgsDB && lastMsgsDB.length > 0) {
+            const lm = lastMsgsDB[0];
+            if ((lm.sender_id === uid) || lm.metadata?.from_ai || lm.metadata?.ai_handled) {
+                console.log("[BackgroundAIManager] 🤖 handleInternalMessage ABORT: Última mensagem no DB já é de sistema/IA.");
+                return;
+            }
         }
         
             if (!uid) {
@@ -623,9 +630,10 @@ export const BackgroundAIManager = () => {
                     }
                 }
 
-                const history = (historyData || []).reverse().map(m => 
-                    `${m.sender_id === uid || m.metadata?.from_ai ? 'Atendimento/Agente' : 'Cliente'}: ${m.content}`
-                ).join('\n');
+                const history = (historyData || []).reverse().map(m => {
+                    const isSystem = m.sender_id === uid || m.metadata?.from_ai || m.metadata?.ai_handled || m.metadata?.role === 'agent';
+                    return `${isSystem ? 'Atendimento/Agente' : 'Cliente'}: ${m.content}`;
+                }).join('\n');
 
                 // Content similarity check to prevent repetition
                 const lastResponse = lastResponseContent.current.get(threadId);
@@ -789,22 +797,19 @@ Seja amigável mas incisivo. Verifique se a conversa não foi finalizada antes d
 ` : '';
 
                 const systemPromptCRM = `
-${finalIsBuyer ? aiCrmPromptRef.current : aiPromptRef.current}
+                IDENTIDADE DO AGENTE:
+                Você é o AGENTE DE ATENDIMENTO AUTOCOMPRA. 
+                Você NUNCA é o cliente. Suas mensagens devem ser de um consultor profissional.
+                
+                MISSÃO:
+                Responder de forma técnica, persuasiva e prestativa.
+                Se o contexto das últimas 50 mensagens não permitir uma resposta clara, pergunte educadamente: "Olá! Recebi sua mensagem, mas para que eu possa te ajudar da melhor forma, poderia me detalhar melhor o que precisa sobre esta negociação?"
 
-VOCÊ É UM AGENTE DE VENDAS DE ELITE DA AUTO COMPRA ONLINE.
-ESTE É UM CHAT INTERNO COM UM ${finalIsBuyer ? 'COMPRADOR/INVESTIDOR' : 'VENDEDOR'}: ${clientName}.
-${forceSaleInstructions}
-**REGRA DE PREVENÇÃO DE ATRASOS:** Se o cliente não responde há muito tempo, analise o contexto da última conversa de forma profunda antes de enviar qualquer mensagem. Se necessário, envie uma pergunta direta para destravar o cliente.
-
-REGRAS DE OURO:
-1. NUNCA use o placeholder {{nome}}. Se quiser se referir ao nome do cliente, use: "${clientName}".
-2. Identifique o tom da conversa e seja profissional mas focado em conversão.
-3. Se for comprador MASTER ou PREMIUM, dê prioridade máxima.
-4. Use o contexto do veículo abaixo para responder dúvidas técnicas ou financeiras.
-5. Se não souber algo, sugira que um especialista humano irá assumir em instantes.
-6. **AUTO-REVISÃO:** Antes de responder, verifique se seu último tom condiz com o contexto atual. Se cometeu erro de personalidade na última interação, peça desculpas de forma humilde e profissional.
-
-MEMÓRIA DO SISTEMA: ${finalIsBuyer ? aiCrmMemoryRef.current : aiMemoryRef.current}
+                ${finalIsBuyer ? aiCrmPromptRef.current : aiPromptRef.current}
+                
+                VOCÊ É UM AGENTE DE VENDAS DE ELITE DA AUTO COMPRA ONLINE.
+                ESTE É UM CHAT INTERNO COM UM ${finalIsBuyer ? 'COMPRADOR/INVESTIDOR' : 'VENDEDOR'}: ${clientName}.
+                ${forceSaleInstructions}
 `;
 
                 const fullPrompt = `
@@ -879,9 +884,10 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                                 is_follow_up: isFollowUp, 
                                 from_ai: true, 
                                 system_handled: true,
-                                role: 'agent', 
+                                role: 'bot', 
                                 ai_processed: true, 
-                                processed_by_ai: true 
+                                processed_by_ai: true,
+                                bot_identity: true
                             }
                         };
 
@@ -993,10 +999,13 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                       payload.remetente?.toLowerCase() === 'bot' || 
                       payload.remetente?.toLowerCase() === 'admin' ||
                       payload.metadata?.role === 'agent' ||
-                      payload.metadata?.role === 'bot';
+                      payload.metadata?.role === 'bot' ||
+                      payload.metadata?.from_ai === true ||
+                      payload.metadata?.ai_handled === true ||
+                      payload.metadata?.system_handled === true;
 
         if (isSelf) {
-            console.log("[BackgroundAIManager] ⚠️ handlePublicMessage ABORT: mensagem enviada pelo próprio agente ou admin.");
+            console.log("[BackgroundAIManager] ⚠️ handlePublicMessage ABORT: mensagem enviada pelo próprio agente, admin ou IA.");
             return;
         }
 
@@ -1130,9 +1139,10 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                     .order('created_at', { ascending: false })
                     .limit(50);
 
-                const history = (historyData || []).reverse().map(m => 
-                    `${m.remetente === 'cliente' ? 'Cliente' : 'Vendedor'}: ${m.conteudo}`
-                ).join('\n');
+                const history = (historyData || []).reverse().map(m => {
+                    const isSystem = m.remetente === 'bot' || m.remetente === 'admin' || m.metadata?.from_ai === true || m.metadata?.ai_handled === true || m.metadata?.role === 'agent';
+                    return `${isSystem ? 'Atendimento/Agente' : 'Cliente'}: ${m.conteudo || m.content}`;
+                }).join('\n');
 
                 const { data: vehicle } = await supabase
                     .from('leads_veiculos')
@@ -1332,7 +1342,13 @@ REGRAS GERAIS:
 
                 const response = await AIService.generateContent(
                     fullPrompt,
-                    "Você é um especialista de vendas altamente preciso. Responda estritamente com base nos dados técnicos do veículo fornecidos no contexto. Se a informação não estiver nos dados, não invente. Seja direto, profissional e persuasivo. NUNCA mencione ser uma IA ou que haverá contato humano posterior, você é o especialista responsável.",
+                    `Você é o AGENTE VIRTUAL especializado da AutoCompra.
+                     
+                     IDENTIDADE:
+                     - Você NUNCA é o cliente.
+                     - Se não souber responder algo técnico, peça esclarecimentos: "Olá! Notei sua mensagem sobre o veículo. Para ser mais assertivo em minha análise, você poderia me detalhar melhor qual o seu objetivo ou dúvida técnica?"
+                     
+                     INSTRUÇÃO: Responda estritamente com base nos dados técnicos do veículo fornecidos no contexto. Se a informação não estiver nos dados, não invente. Seja direto, profissional e persuasivo.`,
                     imageBase64 || undefined
                 );
                 
@@ -1431,7 +1447,8 @@ REGRAS GERAIS:
                                 system_handled: true,
                                 original_message_id: payload.id, 
                                 is_follow_up: isFollowUp, 
-                                from_ai: true 
+                                from_ai: true,
+                                role: 'bot'
                             }
                         };
                         
