@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { AdminSalesChat } from './AdminSalesChat';
 import { MessageCircle, Bot } from 'lucide-react';
 
-export const CRMChatContainer = ({ role, onOpenLead, onCloneLead, setToast }: { role: string, onOpenLead?: (lead: any) => void, onCloneLead?: (lead: any, buyerId?: string) => void, setToast?: (toast: any) => void }) => {
+export const CRMChatContainer = React.memo(({ role, onOpenLead, onCloneLead, setToast }: { role: string, onOpenLead?: (lead: any) => void, onCloneLead?: (lead: any, buyerId?: string) => void, setToast?: (toast: any) => void }) => {
   const [conversations, setConversations] = useState<any[]>([]);
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
@@ -358,6 +358,7 @@ export const CRMChatContainer = ({ role, onOpenLead, onCloneLead, setToast }: { 
               </button>
             </div>
             <AdminSalesChat 
+              key={selectedConversationId}
               conversationId={selectedConversationId} 
               role={role} 
               onMessageRead={fetchConversations} // Passa a função para atualizar contadores
@@ -405,4 +406,4 @@ export const CRMChatContainer = ({ role, onOpenLead, onCloneLead, setToast }: { 
       )}
     </div>
   );
-};
+});

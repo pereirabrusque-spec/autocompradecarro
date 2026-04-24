@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-export const AdminSalesChat = ({ 
+export const AdminSalesChat = React.memo(({ 
   conversationId, 
   role, 
   onMessageRead, 
@@ -333,20 +333,29 @@ export const AdminSalesChat = ({
     
     if (error) console.error('Error sending message:', error);
     else {
-        setMessages(prev => [data, ...prev]);
+        setMessages(prev => [...prev, data]);
         setInput('');
     }
   };
 
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  const isNearBottom = () => {
+    const el = chatContainerRef.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+  };
+
   useEffect(() => {
-    if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    // Só força o scroll se estiver perto do final ou carregando primeira vez
+    if (isNearBottom() || messages.length <= 15) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
 
   return (
-    <div className="flex flex-col h-full bg-white">
-      <div className="p-4 border-b border-slate-100 flex justify-between items-center shrink-0 bg-white z-10 shadow-sm">
+    <div className="flex flex-col h-full w-full bg-white relative">
+      <div className="p-4 border-b border-slate-100 flex justify-between items-center shrink-0 bg-white sticky top-0 z-10 shadow-sm">
         <div className="flex items-center gap-3">
             {userAvatar && <img src={userAvatar} alt="Avatar" className="w-10 h-10 rounded-full" />}
             <div>
@@ -562,9 +571,23 @@ export const AdminSalesChat = ({
               </motion.div>
             );
           })}
+          <div ref={bottomRef} className="h-4" />
         </AnimatePresence>
       </div>
-      <div className="p-4 border-t border-slate-100 flex gap-2 shrink-0">
+      
+      {!isNearBottom() && messages.length > 0 && (
+        <button 
+          onClick={() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' })}
+          className="absolute bottom-20 right-4 p-3 bg-indigo-600 text-white rounded-full shadow-lg hover:bg-indigo-700 transition-all z-20"
+          title="Ver novas mensagens"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+          </svg>
+        </button>
+      )}
+
+      <div className="p-4 border-t border-slate-100 flex gap-2 shrink-0 bg-white relative z-10">
         <input 
           value={input} 
           onChange={e => setInput(e.target.value)} 
@@ -572,8 +595,8 @@ export const AdminSalesChat = ({
           className="flex-1 p-2 border border-slate-200 rounded-lg text-sm"
           placeholder="Digite..."
         />
-        <button type="button" onClick={sendMessage} className="bg-slate-900 text-white p-2 rounded-lg"><Send className="w-4 h-4" /></button>
+        <button type="button" onClick={sendMessage} className="bg-slate-900 text-white p-3 rounded-lg flex items-center justify-center shrink-0 hover:bg-slate-800 transition-colors"><Send className="w-4 h-4" /></button>
       </div>
     </div>
   );
-};
+});
