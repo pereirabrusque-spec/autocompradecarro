@@ -411,20 +411,25 @@ export const BackgroundAIManager = () => {
             });
             const uid = currentUserIdRef.current;
             
-        // -- FIX: Ignore messages sent by this agent or already processed --
-        if (payload.sender_id === uid) {
-            console.log("[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: mensagem enviada pelo próprio agente.");
+        // -- FIX: Ignore messages sent by ANY admin/seller or already processed --
+        const isSystemSender = payload.sender_id === uid || 
+                              payload.metadata?.role === 'admin' || 
+                              payload.metadata?.role === 'seller' ||
+                              payload.metadata?.role === 'agent' ||
+                              payload.metadata?.role === 'bot' ||
+                              payload.metadata?.from_ai === true;
+
+        if (isSystemSender) {
+            console.log("[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: mensagem enviada por admin, vendedor ou bot.");
             return;
         }
         
-        const isBot = payload.metadata?.from_ai === true || 
+        const isBot = payload.metadata?.ai_processed === true || 
                      payload.metadata?.processed_by_ai === true || 
-                     payload.metadata?.ai_processed === true ||
-                     payload.metadata?.role === 'bot' ||
-                     payload.metadata?.role === 'agent_ai';
+                     payload.metadata?.ai_handled === true;
 
         if (isBot) {
-            console.log("[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: mensagem identificada como BOT.");
+            console.log("[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: mensagem identificada como já processada.");
             return;
         }
         
@@ -539,14 +544,18 @@ export const BackgroundAIManager = () => {
                     .order('created_at', { ascending: false })
                     .limit(50);
 
-                // -- NEW: Check if the VERY LAST message in history is from admin/bot --
+                // -- NEW: Check if the VERY LAST message in history is from ANY admin/bot --
                 if (historyData && historyData.length > 0) {
                     const lastMsgInHistory = historyData[0];
                     const isLastMsgMe = lastMsgInHistory.sender_id === uid;
-                    const isLastMsgBot = lastMsgInHistory.metadata?.from_ai === true || lastMsgInHistory.metadata?.role === 'bot' || lastMsgInHistory.metadata?.role === 'agent';
+                    const isLastMsgBot = lastMsgInHistory.metadata?.from_ai === true || 
+                                       lastMsgInHistory.metadata?.role === 'bot' || 
+                                       lastMsgInHistory.metadata?.role === 'agent' ||
+                                       lastMsgInHistory.metadata?.role === 'admin' ||
+                                       lastMsgInHistory.metadata?.role === 'seller';
                     
                     if (isLastMsgMe || isLastMsgBot) {
-                        console.log(`[BackgroundAIManager] 🛑 handleInternalMessage ABORT: A última mensagem (${lastMsgInHistory.id}) já foi enviada por nós (Admin/BOT).`);
+                        console.log(`[BackgroundAIManager] 🛑 handleInternalMessage ABORT: A última mensagem (${lastMsgInHistory.id}) já foi enviada por sistema (Admin/BOT/Seller).`);
                         return;
                     }
                 }
@@ -1231,13 +1240,15 @@ REGRAS GERAIS:
                             const data = JSON.parse(jsonMatch[1]);
                             textToSave = finalText.replace(jsonMatch[0], '').trim();
 
-                            if (data.action === 'update_status' && data.status) {
-                                console.log(`[BackgroundAIManager] 🔄 ATUALIZANDO STATUS DO LEAD PARA: ${data.status}`);
+                            if (data.action === 'update_status' && data.status && activeLeadId) {
+                                console.log(`[BackgroundAIManager] 🔄 ATUALIZANDO STATUS DO LEAD (${activeLeadId}) PARA: ${data.status}`);
+                                const updatePayload: any = { status: data.status };
+                                if (data.status === 'negociar' || data.status === 'limpa_nome') {
+                                    updatePayload.classificacao = 'quente';
+                                }
+                                
                                 await supabase.from('leads_veiculos')
-                                    .update({ 
-                                        status: data.status,
-                                        classificacao: data.status === 'negociar' || data.status === 'limpa_nome' ? 'quente' : undefined
-                                    })
+                                    .update(updatePayload)
                                     .eq('id', activeLeadId);
                             }
                         } catch (jsonErr) {
@@ -1334,6 +1345,7 @@ REGRAS GERAIS:
                         metadata: { 
                             ai_handled: true, 
                             is_fallback: true,
+                            from_ai: true,
                             original_message_id: payload.id,
                             error_ref: String(err)
                         }
@@ -1402,7 +1414,11 @@ REGRAS GERAIS:
                     const lastMsg = msgs[0];
                     
                     // Lógica robusta de "não respondida": se a última mensagem NÃO é do sistema/admin
-                    const isLastMsgFromAdmin = lastMsg.sender_id === uid;
+                    const isLastMsgFromAdmin = lastMsg.sender_id === uid || 
+                                              lastMsg.metadata?.role === 'admin' || 
+                                              lastMsg.metadata?.role === 'seller' ||
+                                              lastMsg.metadata?.from_ai === true ||
+                                              lastMsg.metadata?.ai_handled === true;
                     
                     if (!isLastMsgFromAdmin) {
                         if (activeMessageProcessing.current.has(lastMsg.id)) {
@@ -1414,13 +1430,7 @@ REGRAS GERAIS:
                         activeMessageProcessing.current.add(lastMsg.id);
                         
                         try {
-                            // Garantir leadId (fallback para user.id)
-                            const leadId = lastMsg.lead_id || otherId;
-
-                            // isAiFailed check seguro
-                            const isAiFailed = !!lastMsg.metadata?.ai_failed;
-                            const isAiHandled = !!lastMsg.metadata?.ai_handled;
-
+                            const isAiHandled = !!lastMsg.metadata?.ai_handled || !!lastMsg.metadata?.ai_processed;
                             if (!isAiHandled) {
                                 console.log(`[BackgroundAIManager] 🤖 IA processando mensagem pendente ${lastMsg.id} de ${otherId}.`);
                                 await handleInternalMessage(lastMsg);

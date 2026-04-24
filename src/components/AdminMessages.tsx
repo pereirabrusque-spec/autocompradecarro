@@ -210,8 +210,8 @@ export default function AdminMessages({
   return (
     <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm flex h-[calc(100vh-140px)] min-h-[600px] w-full">
       {/* Lista de Conversas (Esquerda) */}
-      <div className="w-1/3 border-r border-slate-100 flex flex-col h-full overflow-hidden">
-        <div className="p-6 border-b border-slate-100 shrink-0 bg-white sticky top-0 z-10">
+      <div className="w-1/3 border-r border-slate-100 flex flex-col h-full overflow-hidden bg-slate-50/20">
+        <div className="p-6 border-b border-slate-100 shrink-0 bg-white sticky top-0 z-20 shadow-sm">
           <div className="flex gap-2 mb-4">
             <button 
               onClick={() => setMessageTab('leads')}
@@ -288,7 +288,7 @@ export default function AdminMessages({
                   setProposalCalculator(calculateProposal(lead));
                 }
               }}
-              className={`py-2 px-3 flex items-center gap-3 cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 relative ${selectedConversation?.conversation_key === conv.conversation_key ? 'bg-slate-50 border-l-4 border-l-slate-900' : ''} ${conv.unread > 0 ? 'bg-blue-50/50' : ''}`}
+              className={`p-4 mx-3 my-2 rounded-2xl flex items-center gap-4 cursor-pointer hover:bg-white hover:shadow-md transition-all border border-transparent shadow-sm ${selectedConversation?.conversation_key === conv.conversation_key ? 'bg-white shadow-lg border-slate-100 ring-2 ring-slate-100/50 scale-[1.01] z-10' : 'bg-white/40 border-slate-50'}`}
             >
               <div className="relative">
                 <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden flex-shrink-0">
@@ -386,7 +386,7 @@ export default function AdminMessages({
                   setSelectedCompradorChat(null);
                   fetchInternalMessages(conv.id);
                 }}
-                className={`py-2 px-3 flex items-center gap-3 cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 relative ${selectedInternalChat === conv.id ? 'bg-slate-50 border-l-4 border-l-indigo-600' : ''} ${conv.unread > 0 ? 'bg-indigo-50/50' : ''}`}
+                className={`p-4 mx-3 my-2 rounded-2xl flex items-center gap-4 cursor-pointer hover:bg-white hover:shadow-md transition-all border border-transparent shadow-sm ${selectedInternalChat === conv.id ? 'bg-white shadow-xl border-indigo-100 ring-2 ring-indigo-500/20 scale-[1.01]' : 'bg-white/40'}`}
               >
                 <div className="relative">
                   <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
@@ -434,7 +434,7 @@ export default function AdminMessages({
                   setSelectedInternalChat(null);
                   fetchCompradorMessages(conv.id);
                 }}
-                className={`py-3 px-3 flex items-center gap-3 cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 relative ${selectedCompradorChat === conv.id ? 'bg-slate-50 border-l-4 border-l-emerald-600' : ''} ${conv.unread > 0 ? 'bg-emerald-50/50' : ''}`}
+                className={`p-4 mx-3 my-2 rounded-2xl flex items-center gap-4 cursor-pointer hover:bg-white hover:shadow-md transition-all border border-transparent shadow-sm ${selectedCompradorChat === conv.id ? 'bg-white shadow-xl border-emerald-100 ring-2 ring-emerald-500/20 scale-[1.01]' : 'bg-white/40'}`}
               >
                 <div className="relative shrink-0">
                   <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden flex items-center justify-center">
@@ -483,7 +483,7 @@ export default function AdminMessages({
           selectedConversation ? (
           <>
             {/* Cabeçalho do Chat */}
-            <div className="p-4 bg-white border-b border-slate-100 flex justify-between items-center z-20 shadow-sm shrink-0">
+            <div className="p-5 bg-white border-b border-slate-100 flex justify-between items-center sticky top-0 z-30 shadow-sm shrink-0 backdrop-blur-md bg-white/90">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden flex items-center justify-center">
                   {(() => {

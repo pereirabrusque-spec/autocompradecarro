@@ -278,9 +278,10 @@ export const CRMChatContainer = React.memo(({ role, onOpenLead, onCloneLead, set
   return (
     <div className="flex h-[calc(100vh-140px)] min-h-[600px] bg-white sm:rounded-2xl border border-slate-200 overflow-hidden w-full relative">
       {/* Buyer List */}
-      <div className={`w-full sm:w-1/3 border-r border-slate-200 flex flex-col min-h-0 shrink-0 ${selectedConversationId ? 'hidden sm:flex' : 'flex'}`}>
-        <div className="p-4 border-b border-slate-100 font-bold flex justify-between items-center shrink-0 bg-white sticky top-0 z-10 shadow-sm">
+      <div className={`w-full sm:w-1/3 border-r border-slate-200 flex flex-col min-h-0 shrink-0 bg-slate-50/10 ${selectedConversationId ? 'hidden sm:flex' : 'flex'}`}>
+        <div className="p-4 border-b border-slate-100 font-bold flex justify-between items-center shrink-0 bg-white sticky top-0 z-20 shadow-md">
             <div className="flex items-center gap-2">
+                <MessageCircle className="w-4 h-4 text-slate-400" />
                 Conversas
                 <button 
                     onClick={toggleGlobalAi}
@@ -298,13 +299,14 @@ export const CRMChatContainer = React.memo(({ role, onOpenLead, onCloneLead, set
             </div>
             <button 
                 onClick={() => setShowAiRules(true)}
-                className="p-1 rounded-full hover:bg-slate-100 text-slate-600"
+                className="p-1 px-3 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-all text-[10px] font-black uppercase tracking-wider flex items-center gap-2"
                 title="Configurar Memória IA"
             >
-                <Bot className="w-5 h-5" />
+                <Bot className="w-4 h-4" />
+                Config. IA
             </button>
         </div>
-        <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="flex-1 overflow-y-auto min-h-0 py-2">
             {conversations.map(conv => (
             <div 
                 key={conv.id} 
@@ -313,7 +315,7 @@ export const CRMChatContainer = React.memo(({ role, onOpenLead, onCloneLead, set
                     // Zera visualmente IMEDIATAMENTE
                     setUnreadCounts(prev => ({ ...prev, [conv.id]: 0 })); 
                 }}
-                className={`p-3 border-b border-slate-100 cursor-pointer hover:bg-slate-50 flex justify-between items-center ${selectedConversationId === conv.id ? 'bg-slate-100' : ''}`}
+                className={`p-4 mx-3 my-2 rounded-2xl cursor-pointer hover:bg-white hover:shadow-md transition-all flex justify-between items-center border border-transparent ${selectedConversationId === conv.id ? 'bg-white shadow-lg border-slate-100 ring-2 ring-slate-100 scale-[1.01] z-10' : 'bg-white/40'}`}
                 style={{ minHeight: '64px' }}
             >
                 <div className="flex items-center gap-3 overflow-hidden">
