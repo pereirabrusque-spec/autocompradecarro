@@ -94,28 +94,7 @@ export default function AdminMessages({
   const leadsScrollRef = useRef<HTMLDivElement>(null);
   const internalScrollRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll para o final das mensagens
-  useEffect(() => {
-    const scrollToBottom = () => {
-      if (leadsScrollRef.current) {
-        leadsScrollRef.current.scrollTop = leadsScrollRef.current.scrollHeight;
-      }
-    };
-    
-    const timeout = setTimeout(scrollToBottom, 100);
-    return () => clearTimeout(timeout);
-  }, [chatMessages, selectedConversation]);
-
-  useEffect(() => {
-    const scrollToBottom = () => {
-      if (internalScrollRef.current) {
-        internalScrollRef.current.scrollTop = internalScrollRef.current.scrollHeight;
-      }
-    };
-    
-    const timeout = setTimeout(scrollToBottom, 100);
-    return () => clearTimeout(timeout);
-  }, [internalChatMessages, compradorChatMessages, selectedInternalChat, selectedCompradorChat]);
+  // Os elementos usam flex-col-reverse, garantindo auto-scroll natural.
 
   const filteredConversations = (conversations || [])
     .filter(conv => 
@@ -139,12 +118,7 @@ export default function AdminMessages({
     )
     .sort((a, b) => new Date(b.last_message_at || b.last_time).getTime() - new Date(a.last_message_at || a.last_time).getTime());
 
-  useEffect(() => {
-    if (leadsScrollRef.current) {
-      leadsScrollRef.current.scrollTop = leadsScrollRef.current.scrollHeight;
-    }
-  }, [chatMessages, internalChatMessages, compradorChatMessages]);
-
+  // Atualização em batch
   useEffect(() => {
     if (messageTab === 'leads' && !selectedConversation && conversations.length > 0) {
       const firstConv = conversations[0];
@@ -716,10 +690,10 @@ export default function AdminMessages({
             {/* Mensagens */}
             <div 
               ref={leadsScrollRef}
-              className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 scroll-smooth"
+              className="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col-reverse gap-4"
             >
             <AnimatePresence initial={false}>
-              {(chatMessages || []).map((msg) => (
+              {[...(chatMessages || [])].reverse().map((msg) => (
                 <motion.div 
                   key={msg.id}
                   initial={{ opacity: 0, y: 10, scale: 0.95 }}
@@ -992,9 +966,9 @@ export default function AdminMessages({
               {/* Mensagens Internas / Compradores */}
               <div 
                 ref={internalScrollRef}
-                className="flex-1 overflow-y-auto p-6 space-y-4 scroll-smooth"
+                className="flex-1 overflow-y-auto p-6 flex flex-col-reverse gap-4"
               >
-                {(messageTab === 'buyers' ? compradorChatMessages : internalChatMessages || []).map((msg) => (
+                {[...(messageTab === 'buyers' ? compradorChatMessages : internalChatMessages || [])].reverse().map((msg) => (
                   <div 
                     key={msg.id}
                     className={`flex ${msg.sender_id !== (messageTab === 'buyers' ? selectedCompradorChat : selectedInternalChat) ? 'justify-end' : 'justify-start'}`}

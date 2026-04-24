@@ -135,7 +135,7 @@ export const AdminSalesChat = ({
       .from('internal_messages')
       .select('*')
       .or(`sender_id.eq.${conversationId},receiver_id.eq.${conversationId}`)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: false });
     
     if (error) {
       console.error('[AdminSalesChat] Erro ao buscar mensagens:', error);
