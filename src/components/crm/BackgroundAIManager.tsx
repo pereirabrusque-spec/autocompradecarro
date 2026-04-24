@@ -783,6 +783,7 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                         metadata: { 
                             ai_handled: true, 
                             is_fallback: true,
+                            from_ai: true,
                             original_message_id: payload.id,
                             error_ref: String(err)
                         }
