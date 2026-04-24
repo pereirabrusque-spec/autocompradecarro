@@ -46,29 +46,45 @@ export const BackgroundAIManager = () => {
     const jurosAtrasoRef = useRef(2);
     const repairCostsRef = useRef<any[]>([]);
 
-    const handleAILearning = async (message: any, type: 'internal' | 'public') => {
+    const lastResponseContent = useRef<Map<string, string>>(new Map()); // Thread ID -> Last response content
+
+    const handleAILearning = async (message: any, history: string = "") => {
         try {
             const role = message.remetente === 'cliente' || message.sender_role === 'buyer' ? 'Cliente' : 'Atendente/IA';
             const content = message.content || message.conteudo;
-            if (!content || content.length < 10) return;
+            if (!content || content.length < 5) return;
 
-            const prompt = `Analise a nova mensagem de ${role} e extraia informações relevantes para a memória da IA (preferências do cliente, urgência, detalhes técnicos do veículo, condições de negociação, preço pretendido, etc).
+            const prompt = `Analise a nova mensagem de ${role} e o contexto da conversa. Extraia informações cruciais para a memória persistente da IA sobre este usuário.
                 
-                Mensagem: ${content}`;
+                HISTÓRICO RECENTE:
+                ${history}
+
+                NOVA MENSAGEM: ${content}
+                
+                Foques:
+                - Preferências (marcas, modelos, cores)
+                - Necessidades financeiras (quitação de dívidas, valor pretendido)
+                - Comportamento (urgência, ceticismo, confiança)
+                - Dados técnicos relatados (km, estado do carro)`;
             
-            const systemInstruction = "Você é um assistente que monitora conversas de compra e venda de veículos para extrair conhecimento estratégico. Retorne apenas fatos novos e relevantes de forma ultra-concisa (ex: 'Cliente tem pressa', 'Veículo tem teto solar'). Se não houver nada novo ou relevante, retorne 'NADA'.";
+            const systemInstruction = "Você é a memória central do sistema AutoCompra. Retorne fatos novos e estratégicos de forma ultra-concisa. Se não houver nada relevante ou se for apenas saudação, retorne 'NADA'.";
 
             const response = await AIService.generateContent(prompt, systemInstruction);
             
             const extractedInfo = response.text;
             if (extractedInfo && extractedInfo.trim().toUpperCase() !== 'NADA' && extractedInfo.trim().length > 5) {
                 const timestamp = new Date().toLocaleString('pt-BR');
-                const newMemory = `${aiMemoryRef.current}\n[${timestamp}] (${role}) ${extractedInfo}\n`.slice(-10000); // Mantém os últimos 10k caracteres
-                await supabase.from('settings').upsert({ key: 'AI_MEMORY', value: newMemory }, { onConflict: 'key' });
-                setAiMemory(newMemory);
+                const newEntry = `[${timestamp}] ${extractedInfo}`;
+                
+                // Consolidação inteligente: Evita repetir a mesma informação
+                if (!aiMemoryRef.current.includes(extractedInfo.substring(0, 20))) {
+                    const updatedMemory = `${aiMemoryRef.current}\n${newEntry}\n`.slice(-10000);
+                    await supabase.from('settings').upsert({ key: 'AI_MEMORY', value: updatedMemory }, { onConflict: 'key' });
+                    setAiMemory(updatedMemory);
+                }
             }
         } catch (err) {
-            console.error('Erro no aprendizado da IA em Background:', err);
+            console.error('Erro no aprendizado da IA:', err);
         }
     };
 
@@ -427,8 +443,14 @@ export const BackgroundAIManager = () => {
             const uid = currentUserIdRef.current;
             const threadId = isFollowUp ? payload.receiver_id : payload.sender_id;
 
-            // -- NEW: Thread Activity Lock --
+            // -- NEW: Thread Activity Lock & Content Similarity Prevention --
             if (isThreadLocked(threadId)) return;
+
+            const lastResp = lastResponseContent.current.get(threadId);
+            if (lastResp && payload.content && payload.content.trim().toLowerCase().substring(0, 100) === lastResp.trim().toLowerCase().substring(0, 100)) {
+                console.log(`[BackgroundAIManager] 🛑 handleInternalMessage ABORT: Conteúdo repetido detectado para thread ${threadId}.`);
+                return;
+            }
 
             // -- FIX: Ignore messages sent by ANY admin/seller or already processed --
         const isSystemSender = payload.sender_id === uid || 
@@ -527,10 +549,10 @@ export const BackgroundAIManager = () => {
             console.log(`[BackgroundAIManager] 🔍 Processando mensagem interna (${messageId}). isBuyer: ${finalIsBuyer}, isSeller: ${finalIsSeller}, lead_id: ${payload.lead_id}`);
             console.log(`[BackgroundAIManager] 👤 Perfil do remetente:`, senderProfile?.full_name, 'Role:', senderProfile?.role);
 
-            if (payload.sender_id === uid && !!payload.receiver_id) {
-                handleAILearning(payload, 'internal');
-                return;
-            }
+                    if (payload.sender_id === uid && !!payload.receiver_id) {
+                        handleAILearning(payload, history);
+                        return;
+                    }
 
             const activeAiSetting = finalIsBuyer ? isAiBuyerEnabledRef.current : isAiEnabledRef.current;
             console.log(`[BackgroundAIManager] 🤖 Status da IA para este contexto (Buyer Context: ${finalIsBuyer}):`, activeAiSetting);
@@ -584,8 +606,15 @@ export const BackgroundAIManager = () => {
                 }
 
                 const history = (historyData || []).reverse().map(m => 
-                    `${m.sender_id === uid ? 'Admin' : 'Cliente'}: ${m.content} ${m.lead_id ? `(Ref: ${m.lead_id})` : ''}`
+                    `${m.sender_id === uid || m.metadata?.from_ai ? 'Atendimento/Agente' : 'Cliente'}: ${m.content}`
                 ).join('\n');
+
+                // Content similarity check to prevent repetition
+                const lastResponse = lastResponseContent.current.get(threadId);
+                if (lastResponse && payload.content && payload.content.trim().toLowerCase() === lastResponse.trim().toLowerCase()) {
+                    console.log(`[BackgroundAIManager] 🛑 handleInternalMessage ABORT: Conteúdo repetido detectado para thread ${threadId}.`);
+                    return;
+                }
 
                 let specificLead = null;
                 let vehicleContext = "";
@@ -786,7 +815,17 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                 console.log("[BackgroundAIManager] Internal AI Response received:", response ? "SUCCESS" : "NULL/EMPTY", response?.text?.substring(0, 50) + "...");
 
                 if (response && response.text) {
-                    const finalText = response.text.replace(/{{nome}}/g, clientName).replace(/{{cliente_nome}}/g, clientName);
+                    let rawBotText = response.text;
+
+                    // Content consistency check to prevent identity/content loops
+                    const prevResp = lastResponseContent.current.get(threadId);
+                    if (prevResp && (rawBotText === prevResp || (rawBotText.length > 50 && prevResp.includes(rawBotText.substring(0, 50))))) {
+                         console.warn("[BackgroundAIManager] Geração de conteúdo identico à resposta anterior em Internal. Diversificando...");
+                         rawBotText = `Entendi perfectamente sua posição, ${clientName}. Já analisei os detalhes que conversamos. Como prefere avançar agora?`;
+                    }
+                    
+                    lastResponseContent.current.set(threadId, rawBotText);
+                    const finalText = rawBotText.replace(/{{nome}}/g, clientName).replace(/{{cliente_nome}}/g, clientName);
                     
                     if (responseModeRef.current === 'webhook' && webhookUrlRef.current) {
                         console.log("[BackgroundAIManager] 🌐 Enviando para WEBHOOK (Modo Webhook ativo)");
@@ -900,8 +939,14 @@ RESPONDA DIRETAMENTE AO REMETENTE.
         const uid = currentUserIdRef.current;
         const threadId = payload.lead_id;
 
-        // -- NEW: Thread Activity Lock --
+        // -- NEW: Thread Activity Lock & Content Similarity Prevention --
         if (threadId && isThreadLocked(threadId)) return;
+
+        const lastResp = threadId ? lastResponseContent.current.get(threadId) : null;
+        if (lastResp && payload.conteudo && payload.conteudo.trim().toLowerCase().substring(0, 100) === lastResp.trim().toLowerCase().substring(0, 100)) {
+            console.log(`[BackgroundAIManager] 🛑 handlePublicMessage ABORT: Conteúdo repetido detectado para lead ${threadId}.`);
+            return;
+        }
         
         // -- FIX: Ignore messages sent by this agent or already processed --
         const isSelf = payload.sender_id === uid || 
@@ -1253,6 +1298,15 @@ REGRAS GERAIS:
                 
                 if (response && response.text) {
                     let rawBotText = response.text;
+
+                    // Content consistency check to prevent identity/content loops
+                    const prevRespPublic = threadId ? lastResponseContent.current.get(threadId) : null;
+                    if (prevRespPublic && (rawBotText === prevRespPublic || (rawBotText.length > 50 && prevRespPublic.includes(rawBotText.substring(0, 50))))) {
+                         console.warn("[BackgroundAIManager] Geração de conteúdo público repetitivo detectado. Ajustando...");
+                         rawBotText = `Olá ${clientName}! Recebi sua mensagem. Já tenho os detalhes sobre o ${vehicle?.modelo || 'carro'} e estamos avançando na análise técnica. Há mais algum detalhe que você esqueceu de mencionar?`;
+                    }
+                    
+                    if (threadId) lastResponseContent.current.set(threadId, rawBotText);
                     
                     // FILTRO DE SEGURANÇA (POST-PROCESSING): 
                     // Impede que o CRM mande formulário para quem já tem cadastro
@@ -1512,7 +1566,11 @@ REGRAS GERAIS:
                     msgs.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
                     const lastMsg = msgs[0];
                     
-                    const isLastMsgFromAdmin = lastMsg.remetente?.toLowerCase() === 'admin' || lastMsg.remetente?.toLowerCase() === 'bot';
+            const isLastMsgFromAdmin = lastMsg.remetente?.toLowerCase() === 'admin' || 
+                                      lastMsg.remetente?.toLowerCase() === 'bot' ||
+                                      lastMsg.metadata?.from_ai === true ||
+                                      lastMsg.metadata?.ai_handled === true ||
+                                      lastMsg.metadata?.system_handled === true;
                     
                     if (!isLastMsgFromAdmin) {
                         if (activeMessageProcessing.current.has(lastMsg.id)) {
