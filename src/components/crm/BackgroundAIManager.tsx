@@ -860,7 +860,7 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                     }
                     
                     lastResponseContent.current.set(threadId, rawBotText);
-                    const finalText = rawBotText.replace(/{{nome}}/g, clientName).replace(/{{cliente_nome}}/g, clientName);
+                    const finalText = rawBotText;
                     
                     if (responseModeRef.current === 'webhook' && webhookUrlRef.current) {
                         console.log("[BackgroundAIManager] 🌐 Enviando para WEBHOOK (Modo Webhook ativo)");
@@ -939,7 +939,7 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                     .eq('id', payload.id);
                 
                 // Envia fallback
-                const staticFallback = "Olá! Recebi sua mensagem. Tive uma falha no sistema de processamento, mas um administrador entrará em contato em breve.";
+                const staticFallback = `Olá! Recebi sua mensagem. Sou o Luiz, especialista da AutoCompra. Tive uma pequena instabilidade momentânea em meu sistema de análise, mas já estou verificando sua solicitação manualmente. Em instantes trarei o retorno definitivo.`;
                 await supabase.from('internal_messages').insert({
                     receiver_id: senderId,
                     sender_id: uid,
@@ -1505,7 +1505,7 @@ REGRAS GERAIS:
 
                 // ENVIAR RESPOSTA ESTÁTICA EM CASO DE FALHA DAS APIS
                 // Isso garante que o cliente nunca fique sem resposta, mesmo sem chaves de API válidas
-                const staticFallback = "Olá! Recebi sua mensagem. No momento nossos sistemas de análise automática estão passando por uma atualização rápida. Sou o especialista responsável por este atendimento e em instantes darei continuidade à sua análise pessoalmente. Por favor, aguarde só um momento!";
+                const staticFallback = `Olá! Sou o Luiz, especialista da AutoCompra. Recebi sua mensagem! No momento meus sistemas de análise estão passando por uma atualização rápida para te entregar a melhor oferta. Já estou processando sua solicitação pessoalmente e em breve te dou um retorno técnico definitivo. Se preferir, você também pode aguardar um momento que já te chamo!`;
                 
                 // VERIFICA SE JÁ ENVIAMOS FALLBACK PARA ESTA MENSAGEM (Evita flood se o scanner forçar retry)
                 const { data: existingPublicFallback } = await supabase
@@ -1527,7 +1527,9 @@ REGRAS GERAIS:
                             is_fallback: true,
                             from_ai: true,
                             original_message_id: payload.id,
-                            error_ref: String(err)
+                            error_ref: String(err),
+                            luiz_identity: true,
+                            role: 'bot'
                         }
                     });
                     console.log(`[BackgroundAIManager] 🛡️ Mensagem Estática de Fallback enviada para lead ${leadId} devido a erro de API.`);

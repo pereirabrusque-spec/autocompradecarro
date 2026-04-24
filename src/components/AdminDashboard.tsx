@@ -3441,9 +3441,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
       </header>
 
       <main className="flex-grow overflow-hidden px-4 sm:px-6 lg:px-8 py-4">
-          {isAdmin || userProfile?.role === 'user' || userProfile?.role === 'seller' || userProfile?.role === 'agent' ? (
-            <BackgroundAIManager />
-          ) : null}
           <motion.div
             key={activeTab}
             initial={{ opacity: 0, y: 10 }}

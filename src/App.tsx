@@ -355,7 +355,12 @@ function AppContent() {
         />
       )}
       
-      {user && <BackgroundAIManager />}
+      {user && profile?.role !== 'buyer' && profile?.role !== 'buyer_premium' && profile?.role !== 'buyer_master' && (
+        <BackgroundAIManager />
+      )}
+      {user && profile?.role !== 'buyer' && profile?.role !== 'buyer_premium' && profile?.role !== 'buyer_master' && (
+        <GlobalAIResponder />
+      )}
     </div>
   );
 }
