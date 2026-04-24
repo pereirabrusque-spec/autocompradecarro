@@ -1271,11 +1271,11 @@ REGRAS GERAIS:
     const activeMessageProcessing = useRef(new Set<string>());
 
     const scanForOpenMessages = async () => {
-        if (isScanRunning.current || (window as any).isScanningMessages) {
+        if (isScanRunning.current) {
             console.log("[BackgroundAIManager] 🔍 scanForOpenMessages: Já em execução. Abortando.");
             return;
         }
-        (window as any).isScanningMessages = true;
+        
         isScanRunning.current = true;
         try {
             const uid = currentUserIdRef.current;
@@ -1283,6 +1283,7 @@ REGRAS GERAIS:
             const isBuyerEnabled = isAiBuyerEnabledRef.current;
             
             console.log("[BackgroundAIManager] 🔍 scanForOpenMessages START. Global:", isGlobalEnabled, "Buyer:", isBuyerEnabled, "UID:", uid, "Timestamp:", new Date().toISOString());
+
             logToStorage(`Varredura de mensagens iniciada (IA Global: ${isGlobalEnabled ? 'ON' : 'OFF'} | IA Comprador: ${isBuyerEnabled ? 'ON' : 'OFF'})`, 'debug');
             
             if (!uid) {
