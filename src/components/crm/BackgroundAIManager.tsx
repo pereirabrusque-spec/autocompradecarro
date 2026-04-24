@@ -385,6 +385,21 @@ export const BackgroundAIManager = () => {
         }
     };
 
+    const processedThreads = useRef<Map<string, number>>(new Map()); // Thread ID -> Last processed timestamp
+
+    const isThreadLocked = (threadId: string) => {
+        const lastProcessed = processedThreads.current.get(threadId);
+        if (lastProcessed && Date.now() - lastProcessed < 15000) { // 15 seconds lock
+            console.log(`[BackgroundAIManager] 🔒 Thread ${threadId} está bloqueado por atividade recente.`);
+            return true;
+        }
+        return false;
+    };
+
+    const lockThread = (threadId: string) => {
+        processedThreads.current.set(threadId, Date.now());
+    };
+
     const handleInternalMessage = async (payload: any, isFollowUp = false) => {
         if (processedMessagesRef.current.has(payload.id)) {
             console.log(`[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: mensagem já processada em memória (${payload.id}).`);
@@ -410,8 +425,12 @@ export const BackgroundAIManager = () => {
                 timestamp: new Date().toISOString()
             });
             const uid = currentUserIdRef.current;
-            
-        // -- FIX: Ignore messages sent by ANY admin/seller or already processed --
+            const threadId = isFollowUp ? payload.receiver_id : payload.sender_id;
+
+            // -- NEW: Thread Activity Lock --
+            if (isThreadLocked(threadId)) return;
+
+            // -- FIX: Ignore messages sent by ANY admin/seller or already processed --
         const isSystemSender = payload.sender_id === uid || 
                               payload.metadata?.role === 'admin' || 
                               payload.metadata?.role === 'seller' ||
@@ -426,10 +445,12 @@ export const BackgroundAIManager = () => {
         
         const isBot = payload.metadata?.ai_processed === true || 
                      payload.metadata?.processed_by_ai === true || 
-                     payload.metadata?.ai_handled === true;
+                     payload.metadata?.ai_handled === true ||
+                     payload.metadata?.from_ai === true ||
+                     payload.metadata?.system_handled === true;
 
         if (isBot) {
-            console.log("[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: mensagem identificada como já processada.");
+            console.log("[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: mensagem identificada como já processada pela IA.");
             return;
         }
         
@@ -518,6 +539,8 @@ export const BackgroundAIManager = () => {
                 console.log(`[BackgroundAIManager] ⏭️ IA ignorando resposta para ${senderId} - Toggle de IA desativado para este fluxo.`);
                 return;
             }
+
+            lockThread(threadId); // Lock the thread before generating response
 
             const delay = Math.floor(Math.random() * 2000) + 1000; // 1-3 segundos para ser mais ágil
             await new Promise(resolve => setTimeout(resolve, delay));
@@ -790,7 +813,14 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                             content: finalText,
                             sender_id: uid,
                             lead_id: currentLeadId || null,
-                            metadata: { is_follow_up: isFollowUp, from_ai: true, role: 'agent', ai_processed: true, processed_by_ai: true }
+                            metadata: { 
+                                is_follow_up: isFollowUp, 
+                                from_ai: true, 
+                                system_handled: true,
+                                role: 'agent', 
+                                ai_processed: true, 
+                                processed_by_ai: true 
+                            }
                         };
 
                         if (!insertPayload.receiver_id) {
@@ -840,7 +870,13 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                     sender_id: uid,
                     content: staticFallback,
                     lead_id: currentLeadId || null,
-                    metadata: { is_fallback: true, role: 'agent', from_ai: true, ai_processed: true }
+                    metadata: { 
+                        is_fallback: true, 
+                        role: 'agent', 
+                        from_ai: true, 
+                        system_handled: true,
+                        ai_processed: true 
+                    }
                 });
             }
         } // Closes if (isFollowUp || (payload.sender_id !== uid))
@@ -862,6 +898,10 @@ RESPONDA DIRETAMENTE AO REMETENTE.
             timestamp: new Date().toISOString()
         });
         const uid = currentUserIdRef.current;
+        const threadId = payload.lead_id;
+
+        // -- NEW: Thread Activity Lock --
+        if (threadId && isThreadLocked(threadId)) return;
         
         // -- FIX: Ignore messages sent by this agent or already processed --
         const isSelf = payload.sender_id === uid || 
@@ -878,7 +918,8 @@ RESPONDA DIRETAMENTE AO REMETENTE.
         const isBot = payload.metadata?.ai_processed === true || 
                      payload.metadata?.from_ai === true || 
                      payload.metadata?.processed_by_ai === true ||
-                     payload.metadata?.ai_handled === true;
+                     payload.metadata?.ai_handled === true ||
+                     payload.metadata?.system_handled === true;
 
         if (isBot) {
             console.log("[BackgroundAIManager] ⚠️ handlePublicMessage ABORT: mensagem já processada ou vinda da IA.");
@@ -992,6 +1033,8 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                 console.log(`[BackgroundAIManager] 🛑 Já existe uma resposta posterior VÁLIDA para o lead [ID: ${messageId}] (${leadId}). Abortando.`);
                 return;
             }
+
+            if (threadId) lockThread(threadId); // Lock the thread before generating response
 
             try {
                 console.log(`[BackgroundAIManager] 🧠 Iniciando geração de resposta IA para [ID: ${messageId}]...`);
@@ -1284,7 +1327,13 @@ REGRAS GERAIS:
                             lead_id: activeLeadId,
                             conteudo: textToSave,
                             remetente: 'bot',
-                            metadata: { ai_handled: true, original_message_id: payload.id, is_follow_up: isFollowUp, from_ai: true }
+                            metadata: { 
+                                ai_handled: true, 
+                                system_handled: true,
+                                original_message_id: payload.id, 
+                                is_follow_up: isFollowUp, 
+                                from_ai: true 
+                            }
                         };
                         
                         console.log("[BackgroundAIManager] 💾 DEBUG INSERT PAYLOAD MENSAGENS:", insertPayload);
@@ -1344,6 +1393,7 @@ REGRAS GERAIS:
                         remetente: 'bot',
                         metadata: { 
                             ai_handled: true, 
+                            system_handled: true,
                             is_fallback: true,
                             from_ai: true,
                             original_message_id: payload.id,
