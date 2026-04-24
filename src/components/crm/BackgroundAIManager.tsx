@@ -36,6 +36,8 @@ export const BackgroundAIManager = () => {
     const webhookUrlRef = useRef('');
     const currentUserIdRef = useRef<string | null>(null);
     const lastProcessedImage = useRef<{ url: string, base64: string } | null>(null);
+    const isProcessingRef = useRef(false);
+    const processedMessagesRef = useRef(new Set<string>());
 
     const fipeRulesRef = useRef<any[]>([]);
     const banksRef = useRef<any[]>([]);
@@ -371,30 +373,45 @@ export const BackgroundAIManager = () => {
     };
 
     const handleInternalMessage = async (payload: any, isFollowUp = false) => {
-        console.log('[BackgroundAIManager] 📩 handleInternalMessage START:', { 
-            id: payload.id, 
-            content: payload.content, 
-            sender: payload.sender_id, 
-            receiver: payload.receiver_id, 
-            isFollowUp,
-            timestamp: new Date().toISOString()
-        });
-        const uid = currentUserIdRef.current;
-        
-        // -- FIX: Ignore messages sent by this agent or already processed --
-        if (payload.sender_id === uid) {
-            console.log("[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: mensagem enviada pelo próprio agente.");
-            return;
-        }
-        if (payload.metadata?.ai_processed === true || payload.metadata?.from_ai === true || payload.metadata?.processed_by_ai === true) {
-            console.log("[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: mensagem já processada pela IA.");
+        if (processedMessagesRef.current.has(payload.id)) {
+            console.log(`[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: mensagem já processada em memória (${payload.id}).`);
             return;
         }
         
-        if (!uid) {
-            console.log("[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: UID não disponível (currentUserIdRef é nulo).");
-            return;
+        // Add lock
+        if (isProcessingRef.current) {
+             console.log(`[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: IA já está processando outra mensagem.`);
+             return;
         }
+
+        isProcessingRef.current = true;
+        processedMessagesRef.current.add(payload.id);
+
+        try {
+            console.log('[BackgroundAIManager] 📩 handleInternalMessage START:', { 
+                id: payload.id, 
+                content: payload.content, 
+                sender: payload.sender_id, 
+                receiver: payload.receiver_id, 
+                isFollowUp,
+                timestamp: new Date().toISOString()
+            });
+            const uid = currentUserIdRef.current;
+            
+            // -- FIX: Ignore messages sent by this agent or already processed --
+            if (payload.sender_id === uid) {
+                console.log("[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: mensagem enviada pelo próprio agente.");
+                return;
+            }
+            if (payload.metadata?.ai_processed === true || payload.metadata?.from_ai === true || payload.metadata?.processed_by_ai === true || payload.metadata?.ai_generated === true) {
+                console.log("[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: mensagem já processada pela IA.");
+                return;
+            }
+        
+            if (!uid) {
+                console.log("[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: UID não disponível (currentUserIdRef é nulo).");
+                return;
+            }
 
         const isGlobalEnabled = isAiEnabledRef.current;
         console.log(`[BackgroundAIManager] handleInternalMessage check IA Global: ${isGlobalEnabled}`);
@@ -741,58 +758,30 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                     }
                     
                     const readCol = payload.is_read !== undefined ? 'is_read' : 'read';
-                    await supabase.from('internal_messages')
-                        .update({ 
-                            [readCol]: true,
-                            metadata: { ...(payload.metadata || {}), ai_handled: true, ai_processed: true, processed_by_ai: true, followed_up: isFollowUp }
-                        })
-                        .eq('id', payload.id);
-
-                    console.log(`[BackgroundAIManager] Resposta automática enviada para interna (FollowUp: ${isFollowUp})`);
+                    try {
+                        await supabase.from('internal_messages')
+                            .update({ 
+                                [readCol]: true,
+                                metadata: { ...(payload.metadata || {}), ai_handled: true, ai_processed: true, processed_by_ai: true, followed_up: isFollowUp }
+                            })
+                            .eq('id', payload.id);
+                        
+                        console.log(`[BackgroundAIManager] Resposta automática enviada para interna (FollowUp: ${isFollowUp})`);
+                    } catch (errInner) {
+                        console.error('[BackgroundAIManager] ❌ Erro ao atualizar mensagem interna:', errInner);
+                    }
                 }
-            } catch (err) {
-                console.error('[BackgroundAIManager] Erro ao processar resposta interna:', err);
-                await supabase.from('internal_messages')
-                    .update({ 
-                        metadata: { 
-                            ...(payload.metadata || {}), 
-                            ai_failed: true, 
-                            ai_error: String(err),
-                            failed_at: new Date().toISOString()
-                        } 
-                    })
-                    .eq('id', payload.id);
-
-                // ENVIAR RESPOSTA ESTÁTICA EM CASO DE FALHA DAS APIS (Assumir controle provisório)
-                const staticFallback = "Olá! Recebi sua mensagem interna. No momento meus sistemas de processamento automático estão passando por uma atualização. Continuarei tentando processar sua solicitação e em breve trarei a resposta técnica definitiva. Se preferir, um administrador também poderá assumir este chat em instantes.";
-                
-                // Verifica se já não enviamos esse fallback para ESSA mensagem específica para evitar spam
-                const { data: existingInternalFallback } = await supabase
-                    .from('internal_messages')
-                    .select('id')
-                    .eq('metadata->>original_message_id', payload.id)
-                    .or('metadata->>is_fallback.eq.true,metadata->>fallback.eq.true')
-                    .limit(1);
-
-                if (!existingInternalFallback || existingInternalFallback.length === 0) {
-                    await supabase.from('internal_messages').insert({
-                        receiver_id: senderId,
-                        sender_id: uid,
-                        content: staticFallback,
-                        lead_id: currentLeadId,
-                        metadata: { 
-                            ai_handled: true, 
-                            is_fallback: true,
-                            from_ai: true,
-                            original_message_id: payload.id,
-                            error_ref: String(err)
-                        }
-                    });
-                    console.log(`[BackgroundAIManager] 🛡️ Fallback interno enviado para ${senderId}.`);
-                }
+            } catch (innerErr) {
+                console.error('[BackgroundAIManager] ❌ Erro ao processar mensagem interna (API/Supabase):', innerErr);
             }
-        }
-    };
+        } // Closes if (isFollowUp || (payload.sender_id !== uid))
+    } catch (err) {
+        console.error('[BackgroundAIManager] ❌ Erro inesperado em handleInternalMessage:', err);
+    } finally {
+        isProcessingRef.current = false;
+        processedMessagesRef.current.delete(payload.id);
+    }
+};
 
     const handlePublicMessage = async (payload: any, isFollowUp = false) => {
         const messageId = payload.id;
