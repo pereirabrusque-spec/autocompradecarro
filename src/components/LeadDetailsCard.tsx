@@ -229,9 +229,23 @@ export default function LeadDetailsCard({
   const [showNovaPropostaModal, setShowNovaPropostaModal] = useState(false);
   const [showBuyerProposalModal, setShowBuyerProposalModal] = useState<{isOpen: boolean, type: 'as_is' | 'quitado' | null}>({isOpen: false, type: null});
   const [buyerProposalValue, setBuyerProposalValue] = useState('');
+  const [buyerProposals, setBuyerProposals] = useState<any[]>([]);
   const [novaPropostaValor, setNovaPropostaValor] = useState(0);
   const [proposalMessage, setProposalMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchBuyerProposals = async () => {
+        if (!currentLead.id) return;
+        const { data } = await supabase
+            .from('buyer_proposals')
+            .select('*')
+            .eq('lead_id', currentLead.id)
+            .order('created_at', { ascending: false });
+        if (data) setBuyerProposals(data);
+    };
+    fetchBuyerProposals();
+  }, [currentLead.id]);
 
   useEffect(() => {
     if (showProposalReview && currentLead.id) {
@@ -425,10 +439,28 @@ export default function LeadDetailsCard({
       }
       alert(`Proposta "${type === 'as_is' ? 'Como Está' : 'Quitado'}" gerada com sucesso: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(finalPrice)}`);
       setShowBuyerProposalModal({isOpen: false, type: null});
+      // Refresh list
+      const { data } = await supabase
+          .from('buyer_proposals')
+          .select('*')
+          .eq('lead_id', currentLead.id)
+          .order('created_at', { ascending: false });
+      if (data) setBuyerProposals(data);
     } catch (error: any) {
       console.error('Error generating proposal:', error);
       alert('Erro ao gerar proposta: ' + (error.message || 'Erro desconhecido'));
     }
+  };
+
+  const handleBuyerValueChange = (val: string) => {
+    // Basic currency formatting in input
+    const clean = val.replace(/\D/g, '');
+    if (clean === '') {
+        setBuyerProposalValue('');
+        return;
+    }
+    const num = parseInt(clean, 10) / 100;
+    setBuyerProposalValue(num.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
   };
 
   const handleSaveNovaProposta = async (valor: number) => {
@@ -681,7 +713,7 @@ export default function LeadDetailsCard({
                     <input 
                         type="text" 
                         value={buyerProposalValue}
-                        onChange={(e) => setBuyerProposalValue(e.target.value)}
+                        onChange={(e) => handleBuyerValueChange(e.target.value)}
                         className="w-full p-3 border rounded-xl mb-4"
                         placeholder="Valor"
                     />
@@ -689,6 +721,40 @@ export default function LeadDetailsCard({
                         <button onClick={() => setShowBuyerProposalModal({isOpen: false, type: null})} className="flex-1 py-2 bg-slate-200 rounded-lg">Cancelar</button>
                         <button onClick={generateBuyerProposal} className="flex-1 py-2 bg-emerald-600 text-white rounded-lg">Salvar Proposta</button>
                     </div>
+                </div>
+            </div>
+          )}
+
+          {/* Seção de Propostas de Compra (do Vendedor para o Admin) */}
+          {(userRole === 'admin' || userRole === 'seller') && currentLead.detalhes_proposta?.novas_propostas && currentLead.detalhes_proposta.novas_propostas.length > 0 && (
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm mb-6">
+                <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest mb-3">Propostas de Compra (Vendedor)</h3>
+                <div className="space-y-2">
+                    {currentLead.detalhes_proposta.novas_propostas.map((p: any, index: number) => (
+                        <div key={index} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
+                            <span className="font-bold text-sm text-slate-700">Proposta {index + 1}</span>
+                            <span className="font-bold text-sm text-blue-600">
+                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.valor)}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+          )}
+
+          {/* Seção de Propostas de Venda (do Admin para o Comprador) */}
+          {(userRole === 'admin' || userRole === 'buyer') && buyerProposals.length > 0 && (
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm mb-6">
+                <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest mb-3">Propostas para Comprador</h3>
+                <div className="space-y-2">
+                    {buyerProposals.map((p) => (
+                        <div key={p.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
+                            <span className="font-bold text-sm text-slate-700 capitalize">{p.type === 'as_is' ? 'Como Está' : 'Quitado'}</span>
+                            <span className="font-bold text-sm text-emerald-600">
+                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.final_price)}
+                            </span>
+                        </div>
+                    ))}
                 </div>
             </div>
           )}
