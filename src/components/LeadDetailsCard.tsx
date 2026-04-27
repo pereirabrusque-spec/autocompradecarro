@@ -429,7 +429,7 @@ export default function LeadDetailsCard({
           type,
           vehicle_price: calc.baseValue,
           fipe_price: calc.fipe,
-          final_price: finalPrice
+          proposta_final: finalPrice
         }]);
 
       if (error) {
@@ -750,7 +750,7 @@ export default function LeadDetailsCard({
                         <div key={p.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
                             <span className="font-bold text-sm text-slate-700 capitalize">{p.type === 'as_is' ? 'Como Está' : 'Quitado'}</span>
                             <span className="font-bold text-sm text-emerald-600">
-                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.final_price)}
+                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.proposta_final)}
                             </span>
                         </div>
                     ))}
