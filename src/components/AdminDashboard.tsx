@@ -42,6 +42,7 @@ export default function AdminDashboard() {
   const [googleAdsId, setGoogleAdsId] = useState('');
   const [googleAdsConversionLabel, setGoogleAdsConversionLabel] = useState('');
   const [interestedBuyers, setInterestedBuyers] = useState<any[]>([]);
+  const [buyerProposals, setBuyerProposals] = useState<any[]>([]); // Adicionado
   const [buyerAuthorizations, setBuyerAuthorizations] = useState<any[]>([]);
   const [sentLeads, setSentLeads] = useState<any[]>([]);
   const [conversations, setConversations] = useState<any[]>([]);
@@ -700,6 +701,7 @@ export default function AdminDashboard() {
           banksResult,
           repairResult,
           fipeResult,
+          buyerProposalsResult, // Adicionado
           apiKeysResult,
           providersResult,
           buyersResult,
@@ -715,6 +717,7 @@ export default function AdminDashboard() {
           supabase.from('banks').select('*').order('name'),
           supabase.from('repair_costs').select('*').order('part_name'),
           supabase.from('fipe_rules').select('*').order('condition_name'),
+          supabase.from('buyer_proposals').select('*'), // Adicionado
           supabase.from('api_keys').select('*').order('created_at', { ascending: false }),
           supabase.from('providers').select('*').order('name'),
           supabase.from('interested_buyers').select('*').order('created_at', { ascending: false }),
@@ -732,6 +735,7 @@ export default function AdminDashboard() {
         const banksData = banksResult.data;
         const repairData = repairResult.data;
         const fipeData = fipeResult.data;
+        const buyerProposalsData = buyerProposalsResult.data; // Adicionado
         const apiKeysData = apiKeysResult.data;
         const providersData = providersResult.data;
         const buyersData = buyersResult.data;
@@ -4730,6 +4734,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
                             <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Desejado</th>
                             <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Sugerido</th>
                             <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Contato</th>
+                            <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Como Está</th>
+                            <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Quitado</th>
                             <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 text-center">Ações</th>
                           </tr>
                         </thead>
@@ -4751,6 +4757,12 @@ Podemos prosseguir com o agendamento da vistoria?`;
                               }}>
                                 <td className="px-2 pr-1 py-1.5 text-[11px] font-bold text-slate-900">
                                   {getDayString(lead.created_at)}
+                                </td>
+                                <td className="px-2 py-1.5 text-[11px] font-bold text-slate-900">
+                                  {buyerProposals.find(p => p.lead_id === lead.id && p.type === 'as_is')?.proposta_final ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(buyerProposals.find(p => p.lead_id === lead.id && p.type === 'as_is').proposta_final) : '-'}
+                                </td>
+                                <td className="px-2 py-1.5 text-[11px] font-bold text-slate-900">
+                                  {buyerProposals.find(p => p.lead_id === lead.id && p.type === 'quitado')?.proposta_final ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(buyerProposals.find(p => p.lead_id === lead.id && p.type === 'quitado').proposta_final) : '-'}
                                 </td>
                                 <td className="px-2 pl-1 py-1.5">
                                   <select 
