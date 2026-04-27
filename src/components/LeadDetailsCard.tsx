@@ -416,40 +416,57 @@ export default function LeadDetailsCard({
 
   const generateBuyerProposal = async () => {
     const { type } = showBuyerProposalModal;
-    if (!type) return;
+    if (!type || !currentLead.id) return;
 
-    const finalPrice = parseFloat(buyerProposalValue.replace('.', '').replace(',', '.'));
+    const finalPrice = parseFloat(buyerProposalValue.replace(/\./g, '').replace(',', '.'));
     
-    console.log(`[LeadDetailsCard] Salvando proposta: ${type}, ${finalPrice}`);
+    console.log(`[LeadDetailsCard] Tentando salvar proposta: ${type}, ${finalPrice} para Lead ID: ${currentLead.id}`);
+    
     try {
-      const { error } = await supabase
+      // Usamos upsert para atualizar se já existir ou inserir se for novo
+      // Importante: requer que a constraint unique_lead_type (lead_id, type) exista no banco
+      const { error, data } = await supabase
         .from('buyer_proposals')
-        .insert([{
+        .upsert({
           lead_id: currentLead.id,
-          type,
-          vehicle_price: calc.baseValue,
-          fipe_price: calc.fipe,
+          type: type,
+          vehicle_price: calc.baseValue || 0,
+          fipe_price: calc.fipe || 0,
           discount_percent: type === 'quitado' ? 20 : 0,
-          proposta_final: finalPrice
-        }]);
+          proposta_final: finalPrice,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'lead_id,type'
+        })
+        .select();
 
       if (error) {
-          console.error('[LeadDetailsCard] Erro banco:', error);
-          alert(`Erro ao salvar no banco: ${error.message}`);
+          console.error('[LeadDetailsCard] Erro banco ao salvar:', error);
+          alert(`Erro ao salvar no banco: ${error.message}\nVerifique se as colunas 'type' e 'proposta_final' existem no Supabase.`);
           return;
       }
-      alert(`Proposta "${type === 'as_is' ? 'Como Está' : 'Quitado'}" salva com sucesso.`);
+
+      console.log('[LeadDetailsCard] Sucesso ao salvar:', data);
+      alert(`Proposta "${type === 'as_is' ? 'Como Está' : 'Quitado'}" salva com sucesso!`);
+      
+      // Fecha o modal
       setShowBuyerProposalModal({isOpen: false, type: null});
-      // Refresh list
-      const { data } = await supabase
+      
+      // Atualiza a lista local de propostas para que o usuário veja logo que fechar o modal
+      const { data: freshProposals } = await supabase
           .from('buyer_proposals')
           .select('*')
           .eq('lead_id', currentLead.id)
           .order('created_at', { ascending: false });
-      if (data) setBuyerProposals(data);
+      
+      if (freshProposals) {
+        setBuyerProposals(freshProposals);
+        // Notifica o dashboard para atualizar os valores na tabela principal
+        onRefresh(); 
+      }
     } catch (error: any) {
-      console.error('Error generating proposal:', error);
-      alert('Erro ao gerar proposta: ' + (error.message || 'Erro desconhecido'));
+      console.error('Error in save proposal workflow:', error);
+      alert('Erro crítico ao salvar proposta: ' + (error.message || 'Erro desconhecido'));
     }
   };
 

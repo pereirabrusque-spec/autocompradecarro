@@ -890,6 +890,7 @@ export default function AdminDashboard() {
       if (repairData) setRepairCosts(repairData);
       if (fipeData) setFipeRules(fipeData);
       if (apiKeysData) setApiKeys(apiKeysData);
+      if (buyerProposalsData) setBuyerProposals(buyerProposalsData);
       if (providersData) setProviders(providersData);
       if (sentData) setSentLeads(sentData);
       if (authsData) setBuyerAuthorizations(authsData);
@@ -4758,12 +4759,6 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                 <td className="px-2 pr-1 py-1.5 text-[11px] font-bold text-slate-900">
                                   {getDayString(lead.created_at)}
                                 </td>
-                                <td className="px-2 py-1.5 text-[11px] font-bold text-slate-900">
-                                  {buyerProposals.find(p => p.lead_id === lead.id && p.type === 'as_is')?.proposta_final ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(buyerProposals.find(p => p.lead_id === lead.id && p.type === 'as_is').proposta_final) : '-'}
-                                </td>
-                                <td className="px-2 py-1.5 text-[11px] font-bold text-slate-900">
-                                  {buyerProposals.find(p => p.lead_id === lead.id && p.type === 'quitado')?.proposta_final ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(buyerProposals.find(p => p.lead_id === lead.id && p.type === 'quitado').proposta_final) : '-'}
-                                </td>
                                 <td className="px-2 pl-1 py-1.5">
                                   <select 
                                     value={lead.status || 'novo'} 
@@ -4898,6 +4893,12 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                       </button>
                                     )}
                                   </div>
+                                </td>
+                                <td className="px-2 py-1.5 text-[11px] font-bold text-slate-900">
+                                  {buyerProposals.find(p => p.lead_id === lead.id && p.type === 'as_is')?.proposta_final ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(buyerProposals.find(p => p.lead_id === lead.id && p.type === 'as_is').proposta_final) : '-'}
+                                </td>
+                                <td className="px-2 py-1.5 text-[11px] font-bold text-slate-900">
+                                  {buyerProposals.find(p => p.lead_id === lead.id && p.type === 'quitado')?.proposta_final ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(buyerProposals.find(p => p.lead_id === lead.id && p.type === 'quitado').proposta_final) : '-'}
                                 </td>
                                 <td className="px-2 py-1.5">
                                   <div className="flex items-center gap-1">
