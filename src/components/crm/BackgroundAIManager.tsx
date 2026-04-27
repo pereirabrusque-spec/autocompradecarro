@@ -1558,6 +1558,26 @@ REGRAS GERAIS:
 
     const scanStartedAt = useRef<number>(0);
 
+    // --- SUBSCRICAO REALTIME PARA RESPONDERS EM TEMPO REAL ---
+    useEffect(() => {
+        const channel = supabase
+            .channel('bg_ai_manager_realtime')
+            .on('postgres_changes', { 
+                event: 'INSERT', 
+                schema: 'public', 
+                table: 'internal_messages' 
+            }, (payload) => {
+                console.log('[BackgroundAIManager] ⚡ Realtime INSERT detectado, disparando scan.');
+                scanForOpenMessages(); // Re-scan ou tratar a msg nova
+            })
+            .subscribe();
+            
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, []);
+    // ---------------------------------------------------------
+
     const scanForOpenMessages = async () => {
         // Safety: If scan is running for more than 5 minutes, force reset
         if (isScanRunning.current && Date.now() - scanStartedAt.current > 300000) {

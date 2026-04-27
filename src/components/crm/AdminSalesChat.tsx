@@ -242,47 +242,37 @@ export const AdminSalesChat = React.memo(({
       })
       .subscribe();
 
-    // Canal único por conversa para evitar conflitos
-    const channelName = `chat_${conversationId}_${currentUserId}`;
-    console.log(`[AdminSalesChat] Inscrevendo no canal: ${channelName}`);
+    // Canal único por conversa (broadcasting para todos os admins que veem a conversa)
+    const channelName = `internal:chat:${conversationId}`;
+    console.log(`[AdminSalesChat] Inscrevendo no canal broad: ${channelName}`);
     
     const subscription = supabase
       .channel(channelName)
       .on('postgres_changes', { 
         event: 'INSERT', 
         schema: 'public', 
-        table: 'internal_messages' 
+        table: 'internal_messages',
+        filter: `sender_id=eq.${conversationId},receiver_id=eq.${conversationId}`, 
       }, async (payload) => {
-        console.log('[AdminSalesChat] Payload recebido:', payload);
-        // Relevante se: eu sou o remetente OU eu sou o destinatário OU (destinatário é nulo e eu sou admin)
+        console.log('[AdminSalesChat] Nova mensagem realtime recebida:', payload);
+        
+        // Relevante (garantido pelo filtro, mas mantendo validação)
         const isRelevant = payload.new.sender_id === conversationId || 
                           payload.new.receiver_id === conversationId ||
                           (payload.new.sender_id === conversationId && !payload.new.receiver_id);
         
-        console.log('[AdminSalesChat] Mensagem é relevante?', isRelevant, 'Sender:', payload.new.sender_id, 'ConversationID:', conversationId);
-        
         if (isRelevant) {
-          console.log('[AdminSalesChat] Nova mensagem relevante recebida:', payload.new);
+          console.log('[AdminSalesChat] Adicionando nova mensagem via realtime:', payload.new);
           
           setMessages(prev => {
-            if (prev.some(m => m.id === payload.new.id)) {
-                console.log('[AdminSalesChat] Mensagem já existe no estado, ignorando');
-                return prev;
-            }
-            console.log('[AdminSalesChat] Adicionando nova mensagem ao estado');
+            if (prev.some(m => m.id === payload.new.id)) return prev;
             return [...prev, payload.new];
           });
           
-          // Se a mensagem tiver um lead_id, atualiza os leads
-          if (payload.new.lead_id) {
-            fetchLeadData();
-          }
+          if (payload.new.lead_id) fetchLeadData();
           
-          // Se a mensagem for do comprador (vinda do conversationId)
           if (payload.new.sender_id === conversationId) {
             console.log('[AdminSalesChat] Mensagem do comprador, marcando como lida...');
-            
-            // Marca como lida no banco
             const readColumn = payload.new.is_read !== undefined ? 'is_read' : 'read';
             supabase
               .from('internal_messages')
@@ -300,8 +290,6 @@ export const AdminSalesChat = React.memo(({
         schema: 'public', 
         table: 'internal_messages' 
       }, (payload) => {
-        // Atualiza apenas se for uma mudança relevante (ex: conteúdo alterado)
-        // Evitamos re-fetch total para não causar flicker ou sumiço de msgs novas
         if (payload.new.sender_id === conversationId || payload.new.receiver_id === conversationId) {
             setMessages(prev => prev.map(m => m.id === payload.new.id ? payload.new : m));
         }
