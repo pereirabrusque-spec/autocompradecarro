@@ -12,6 +12,8 @@ export const CRMChatContainer = React.memo(({ role, onOpenLead, onCloneLead, set
   const [isAiEnabled, setIsAiEnabled] = useState(false);
   const [isSavingPrompt, setIsSavingPrompt] = useState(false);
   const [isUpdatingAi, setIsUpdatingAi] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const setLoading = setIsLoading; // Compatibilidade com chamadas injetadas
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [propostaMode, setPropostaMode] = useState<'auto' | 'man'>('auto');
   
@@ -37,9 +39,10 @@ export const CRMChatContainer = React.memo(({ role, onOpenLead, onCloneLead, set
     aiPromptRef.current = aiPrompt;
   }, [aiPrompt]);
 
-  const fetchConversations = async (userId?: string) => {
+  const fetchConversations = async (userId?: string, silent = false) => {
       const uid = userId || currentUserId;
-      console.log('[CRMChatContainer] Buscando conversas para UID:', uid);
+      if (!uid) return;
+      if (!silent) setLoading(true);
       
       const { data: profiles } = await supabase
         .from('profiles')
@@ -117,6 +120,7 @@ export const CRMChatContainer = React.memo(({ role, onOpenLead, onCloneLead, set
             setUnreadCounts(counts);
         }
       }
+      if (!silent) setLoading(false);
     };
 
   useEffect(() => {
@@ -173,43 +177,27 @@ export const CRMChatContainer = React.memo(({ role, onOpenLead, onCloneLead, set
     console.log(`[CRMChatContainer] Inscrevendo no canal: ${channelName}`);
 
     const messageSubscription = supabase
-      .channel(channelName)
+      .channel('crm_global_chat_events')
       .on('postgres_changes', { 
-        event: 'INSERT', 
+        event: '*', 
         schema: 'public', 
         table: 'internal_messages' 
       }, async (payload) => {
-        console.log('[CRMChatContainer] Nova mensagem recebida:', payload.new);
-        
         const uid = currentUserIdRef.current;
-        const selId = selectedConversationIdRef.current;
+        if (!uid) return;
 
-        // Só processa se a mensagem for para o admin logado (receiver_id === uid ou null)
-        const isForMe = payload.new.receiver_id === uid || (!payload.new.receiver_id && uid);
-        
-        if (isForMe) {
-            const senderId = payload.new.sender_id;
-            console.log('[CRMChatContainer] Nova mensagem em tempo real para mim, atualizando...');
-            fetchConversations();
-            
-            // Tenta forçar o áudio de notificação ou foco se necessário
-            if (selId !== senderId) {
-                setUnreadCounts(prev => ({
-                    ...prev,
-                    [senderId]: (prev[senderId] || 0) + 1
-                }));
+        // Se for uma inserção de mensagem para este admin, busca conversas silenciosamente
+        if (payload.eventType === 'INSERT') {
+            const isForMe = payload.new.receiver_id === uid || (!payload.new.receiver_id && uid);
+            if (isForMe) {
+                fetchConversations(uid, true);
             }
+        } else {
+             // UPDATE ou DELETE também pedem atualização da lista
+             fetchConversations(uid, true);
         }
       })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'internal_messages' }, () => {
-        fetchConversations();
-      })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'internal_messages' }, () => {
-        fetchConversations();
-      })
-      .subscribe((status) => {
-        console.log(`[CRMChatContainer] Status da inscrição (${channelName}):`, status);
-      });
+      .subscribe();
 
     // Real-time subscription for profile changes (role updates)
     const profileSubscription = supabase

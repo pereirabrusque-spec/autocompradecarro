@@ -352,8 +352,8 @@ export default function ChatWidget() {
           .from('internal_messages')
           .insert([{
             sender_id: user.id,
-            receiver_id: null, // To be picked up by admin
-            content: messageText,
+            receiver_id: null, // To be picked up by admin/AI
+            conteudo: messageText,
             is_read: false,
             lead_id: activeLead.id !== user.id ? activeLead.id : null
           }]);
@@ -362,11 +362,15 @@ export default function ChatWidget() {
           throw error;
         }
 
-        // Broadcast a notification to the internal chat channel
-        supabase.channel(`internal:chat:${user.id}`).send({
+        // Broadcast to a global channel so any active admin/AI sees it immediately
+        supabase.channel('internal:chat:global').send({
           type: 'broadcast',
           event: 'new_message',
-          payload: { message: messageText, sender_id: user.id }
+          payload: { 
+            message: messageText, 
+            sender_id: user.id,
+            lead_id: activeLead.id
+          }
         });
       } else {
         const { error } = await supabase

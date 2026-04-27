@@ -517,13 +517,13 @@ export default function AdminDashboard() {
           const { error } = await supabase.from('buyer_proposals').insert(batch);
           if (error) console.error('[Migration] Erro no lote:', error);
         }
-        setToast({ show: true, message: `${newProposals.length} novas propostas geradas com sucesso!`, type: 'success' });
+        setToast({ message: `${newProposals.length} novas propostas geradas com sucesso!`, type: 'success' });
       } else {
-        setToast({ show: true, message: 'Todos os veículos já possuem propostas para compradores.', type: 'info' });
+        setToast({ message: 'Todos os veículos já possuem propostas para compradores.', type: 'success' });
       }
     } catch (err) {
       console.error('[Migration] Erro na migração:', err);
-      setToast({ show: true, message: 'Falha na migração automática.', type: 'error' });
+      setToast({ message: 'Falha na migração automática.', type: 'error' });
     } finally {
       setIsMigrating(false);
     }

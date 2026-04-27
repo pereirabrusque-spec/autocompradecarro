@@ -523,12 +523,13 @@ export const BackgroundAIManager = () => {
         if (!isFollowUp) {
             const isForMe = payload.receiver_id === uid || 
                             payload.receiver_id === '00000000-0000-0000-0000-000000000000' || 
-                            (!payload.receiver_id && uid);
+                            !payload.receiver_id ||
+                            (payload.receiver_id === uid);
             
             console.log(`[BackgroundAIManager] handleInternalMessage check isForMe: ${isForMe}, uid: ${uid}, receiver: ${payload.receiver_id}`);
 
-            if (!isForMe) {
-                console.log(`[BackgroundAIManager] handleInternalMessage ABORT: não é para este usuário.`);
+            if (!isForMe && payload.receiver_id) {
+                console.log(`[BackgroundAIManager] handleInternalMessage ABORT: não é para este usuário e tem destinatário.`);
                 return;
             }
             if (payload.sender_id === uid && !!payload.receiver_id) {
@@ -728,7 +729,7 @@ export const BackgroundAIManager = () => {
                     const { data: bProposals } = await supabase
                         .from('buyer_proposals')
                         .select('*')
-                        .eq('lead_id', leadId);
+                        .eq('lead_id', specificLead.id);
                     
                     const pAsIs = bProposals?.find(p => p.type === 'as_is');
                     const pQuitado = bProposals?.find(p => p.type === 'quitado');
@@ -1216,7 +1217,7 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                     const { data: bProposals } = await supabase
                         .from('buyer_proposals')
                         .select('*')
-                        .eq('lead_id', leadId);
+                        .eq('lead_id', vehicle.id);
                     
                     const pAsIs = bProposals?.find(p => p.type === 'as_is');
                     const pQuitado = bProposals?.find(p => p.type === 'quitado');
@@ -1375,7 +1376,7 @@ ${history}
 MENSAGEM ATUAL: ${payload.conteudo}
 
 [REGRAS E MEMÓRIA DO ${isBuyerRole ? 'COMPRADOR' : 'VENDEDOR'} - ORIGEM: MENU IA]
-${isBuyerRole ? aiBuyerPromptRef.current : aiPromptRef.current}
+${isBuyerRole ? aiCrmPromptRef.current : aiPromptRef.current}
 ${aiMemoryRef.current ? `\nMEMÓRIA APRENDIDA (CONSULTE ANTES DE RESPONDER):\n${aiMemoryRef.current}` : ''}
 
 REGRAS DE VALORES E PROPOSTAS:
@@ -1384,12 +1385,12 @@ ${isBuyerRole ? `
 - Se o comprador perguntar o valor do veículo, você DEVE verificar e informar ambos os valores se disponíveis:
   1. VALOR REPASSE "QUITADO": Este é o valor para o carro estar 100% em dia, quitado e pronto para transferência. Informe que este valor é negociável.
   2. VALOR REPASSE "COMO ESTÁ": Este é o valor para o carro ser entregue EXATAMENTE como está no momento, com todos os problemas relatados (Dívidas, Renajud, Financiamento, defeitos). 
-- REGRAS MANDATÓRIAS DE RESPOSTA:
-  - SE AMBOS OS VALORES EXISTIREM: Informe os dois e PERGUNTE qual modalidade ele prefere (Como está ou Quitado).
-  - SE SÓ TIVER "QUITADO": Informe que o valor quitado é X e o carro está em dia para transferência imediata.
-  - SE SÓ TIVER "COMO ESTÁ": Informe o valor e explique que é para o comprador assumir débitos/financiamento relatados.
-  - JUSTIFICATIVA: Sempre que falar do valor "COMO ESTÁ", cite itens do checklist (ex: "O valor é reduzido pois o veículo tem parcelas vencidas e pneus carecas conforme relatado").
-- Se os valores estiverem como "A calcular", diga que o veículo entrou agora e a precificação técnica está sendo finalizada.
+- REGRAS MANDATÓRIAS DE RESPOSTA (VALORES):
+  - SE AMBOS OS VALORES EXISTIREM: Você DEVE informar os dois valores e PERGUNTAR expressamente: "Como você prefere o veículo: 'Como está' (assumindo os detalhes relatados) ou 'Quitado' (pronto para transferência)?"
+  - SE APENAS "QUITADO" EXISTIR: Informe apenas este valor e diga: "Este veículo está disponível para entrega quitado, por R$ X, já em dia para transferência imediata."
+  - SE APENAS "COMO ESTÁ" EXISTIR: Informe o valor e explique: "Temos uma condição para este veículo 'como está' por R$ X. Nesta modalidade, o comprador assume os débitos de financiamento e demais pendências relatadas no formulário."
+  - JUSTIFICATIVA OBRIGATÓRIA: Sempre que citar o valor "COMO ESTÁ", você DEVE citar pelo menos 2 problemas do checklist/formulário para justificar o preço baixo (ex: "O valor é menor pois o carro possui parcelas vencidas e pneus carecas conforme relatado").
+- Se os valores estiverem como "A calcular", informe que a perícia técnica está sendo finalizada e o preço será liberado em breve.
 ` : (autoProposalEnabledRef.current && !requiresManualAnalysis ? 
     "VOCÊ ESTÁ AUTORIZADO A ENVIAR A PROPOSTA FINAL. Use o valor 'PROPOSTA FINAL CALCULADA' mencionado acima se o cliente perguntar sobre valores ou propostas." : 
     (requiresManualAnalysis ? 
