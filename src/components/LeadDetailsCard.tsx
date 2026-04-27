@@ -429,13 +429,14 @@ export default function LeadDetailsCard({
           type,
           vehicle_price: calc.baseValue,
           fipe_price: calc.fipe,
-          discount_percent: type === 'quitado' ? 20 : 0, // Added based on error
+          discount_percent: type === 'quitado' ? 20 : 0,
           proposta_final: finalPrice
         }]);
 
       if (error) {
           console.error('[LeadDetailsCard] Erro banco:', error);
-          throw error;
+          alert(`Erro ao salvar no banco: ${error.message}`);
+          return;
       }
       alert(`Proposta "${type === 'as_is' ? 'Como Está' : 'Quitado'}" salva com sucesso.`);
       setShowBuyerProposalModal({isOpen: false, type: null});
