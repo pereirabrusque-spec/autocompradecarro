@@ -429,7 +429,6 @@ export default function LeadDetailsCard({
           type,
           vehicle_price: calc.baseValue,
           fipe_price: calc.fipe,
-          discount_percent: type === 'quitado' ? 20 : 0,
           final_price: finalPrice
         }]);
 
@@ -437,7 +436,7 @@ export default function LeadDetailsCard({
           console.error('[LeadDetailsCard] Erro banco:', error);
           throw error;
       }
-      alert(`Proposta "${type === 'as_is' ? 'Como Está' : 'Quitado'}" gerada com sucesso: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(finalPrice)}`);
+      alert(`Proposta "${type === 'as_is' ? 'Como Está' : 'Quitado'}" salva com sucesso.`);
       setShowBuyerProposalModal({isOpen: false, type: null});
       // Refresh list
       const { data } = await supabase
