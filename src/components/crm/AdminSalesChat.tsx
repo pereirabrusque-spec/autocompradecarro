@@ -251,8 +251,7 @@ export const AdminSalesChat = React.memo(({
       .on('postgres_changes', { 
         event: 'INSERT', 
         schema: 'public', 
-        table: 'internal_messages',
-        filter: `sender_id=eq.${conversationId},receiver_id=eq.${conversationId}`, 
+        table: 'internal_messages'
       }, async (payload) => {
         console.log('[AdminSalesChat] Nova mensagem realtime recebida:', payload);
         
