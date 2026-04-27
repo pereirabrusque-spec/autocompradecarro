@@ -39,6 +39,8 @@ export default function BuyerView() {
   const [authorizedLeads, setAuthorizedLeads] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedLead, setSelectedLead] = useState<any>(null);
+  const [activeFilter, setActiveFilter] = useState<'all' | 'quitado' | 'as_is' | 'new'>('all');
+  const [allProposals, setAllProposals] = useState<any[]>([]);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -196,44 +198,76 @@ export default function BuyerView() {
       }
 
       // 2. Buscar leads
-      // Filtro profissional: Somente veículos com formulário completo e propostas para o comprador preenchidas
+      // Filtro profissional: Somente veículos com formulário completo
       const [{ data: leads, error: leadsError }, { data: proposals, error: proposalsError }] = await Promise.all([
         supabase.from('leads_veiculos').select('*').order('created_at', { ascending: false }),
         supabase.from('buyer_proposals').select('*')
       ]);
 
       if (leadsError) throw leadsError;
-      if (proposalsError) throw proposalsError;
+      if (proposalsError) {
+        console.warn('[BuyerView] Erro ao buscar propostas, continuando sem elas:', proposalsError);
+      }
 
-      const filteredLeads = (leads || []).filter(lead => {
-        // Verifica propostas do comprador
-        const leadProposals = (proposals || []).filter(p => p.lead_id === lead.id);
-        const hasAsIs = leadProposals.some(p => p.type === 'as_is');
-        const hasQuitado = leadProposals.some(p => p.type === 'quitado');
-        
-        // Regra do cliente: se Como Está for 0000, já está quitado e só precisa da proposta Quitada.
-        // Assumindo Como Está como 0 para indicar 00.
-        const isAlreadyQuitado = lead.valor_como_esta === 0; 
-        
-        const proposalsComplete = isAlreadyQuitado ? hasQuitado : (hasAsIs && hasQuitado);
+      const freshProposals = proposals || [];
+      setAllProposals(freshProposals);
 
-        // Critérios adicionais de formulário:
+      const analyzedLeads = (leads || []).filter(lead => {
+        // Critérios básicos de formulário para aparecer na vitrine
         const hasPhotos = lead.fotos && Array.isArray(lead.fotos) && lead.fotos.length > 0;
-        const hasClassification = (!!lead.classificacao && lead.classificacao !== 'Não informado') || lead.status === 'novo' || lead.status === 'proposta_enviada';
-        const hasBankInfo = (!!lead.banco_financiamento && lead.banco_financiamento !== 'Não informado') || lead.status === 'proposta_enviada';
         const hasBasicData = lead.valor_fipe > 0 && lead.quilometragem > 0;
-        
-        // O veículo só aparece se não estiver fechado ou reservado
-        return hasPhotos && hasClassification && hasBankInfo && hasBasicData && proposalsComplete && lead.status !== 'fechado' && lead.status !== 'reservado';
+        const isNotClosed = lead.status !== 'fechado' && lead.status !== 'reservado';
+
+        return hasPhotos && hasBasicData && isNotClosed;
       });
 
-      setAuthorizedLeads(filteredLeads);
+      setAuthorizedLeads(analyzedLeads);
     } catch (error) {
       console.error('Error fetching authorized leads:', error);
     } finally {
       setIsLoading(false);
     }
   };
+
+  const getFilteredLeads = () => {
+    return authorizedLeads.filter(lead => {
+      const leadProposals = allProposals.filter(p => p.lead_id === lead.id);
+      const hasAsIs = leadProposals.some(p => p.type === 'as_is');
+      const hasQuitado = leadProposals.some(p => p.type === 'quitado');
+      const hasAnyProposal = hasAsIs || hasQuitado;
+
+      if (activeFilter === 'new') {
+        return !hasAnyProposal; // Novos: Sem nenhuma proposta para comprador salva
+      }
+      if (activeFilter === 'quitado') {
+        return hasQuitado;
+      }
+      if (activeFilter === 'as_is') {
+        return hasAsIs;
+      }
+      
+      // Default 'all': Somente os que tem pelo menos uma proposta
+      return hasAnyProposal;
+    });
+  };
+
+  const getLeadPriceDisplay = (lead: any) => {
+    const leadProposals = allProposals.filter(p => p.lead_id === lead.id);
+    const pAsIs = leadProposals.find(p => p.type === 'as_is');
+    const pQuitado = leadProposals.find(p => p.type === 'quitado');
+
+    if (activeFilter === 'quitado' && pQuitado) {
+      return pQuitado.proposta_final;
+    }
+    if (activeFilter === 'as_is' && pAsIs) {
+      return pAsIs.proposta_final;
+    }
+    
+    // Se for 'all' ou 'new', ou não tiver o específico, mostra o maior deles ou o que tiver
+    return pQuitado?.proposta_final || pAsIs?.proposta_final || 0;
+  };
+
+  const filteredLeads = getFilteredLeads();
 
   useEffect(() => {
     console.log('Permissions:', permissions);
@@ -290,12 +324,41 @@ export default function BuyerView() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-12">
-        <div className="mb-12">
-          <h2 className="text-3xl font-display font-bold mb-2 text-slate-900">Estoque Disponível</h2>
-          <p className="text-slate-500">Veículos autorizados para sua visualização técnica.</p>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
+          <div>
+            <h2 className="text-3xl font-display font-bold mb-2 text-slate-900">Estoque Disponível</h2>
+            <p className="text-slate-500">Veículos autorizados para sua visualização técnica.</p>
+          </div>
+          
+          <div className="flex flex-wrap gap-2 p-1.5 bg-slate-100 rounded-[20px] border border-slate-200">
+            <button 
+              onClick={() => setActiveFilter('all')}
+              className={`px-6 py-2.5 rounded-2xl text-xs font-bold transition-all ${activeFilter === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Todos (Estoque)
+            </button>
+            <button 
+              onClick={() => setActiveFilter('quitado')}
+              className={`px-6 py-2.5 rounded-2xl text-xs font-bold transition-all ${activeFilter === 'quitado' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Quitados
+            </button>
+            <button 
+              onClick={() => setActiveFilter('as_is')}
+              className={`px-6 py-2.5 rounded-2xl text-xs font-bold transition-all ${activeFilter === 'as_is' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Como Está
+            </button>
+            <button 
+              onClick={() => setActiveFilter('new')}
+              className={`px-6 py-2.5 rounded-2xl text-xs font-bold transition-all ${activeFilter === 'new' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Novos (Aguardando Precificação)
+            </button>
+          </div>
         </div>
 
-        {authorizedLeads.length === 0 ? (
+        {filteredLeads.length === 0 ? (
           <div className="bg-white rounded-[32px] p-20 text-center border border-slate-100 shadow-sm">
             <Car className="w-16 h-16 text-slate-200 mx-auto mb-6" />
             <h3 className="text-xl font-bold text-slate-400 mb-2">Nenhum veículo autorizado</h3>
@@ -309,7 +372,7 @@ export default function BuyerView() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {authorizedLeads.map((lead) => (
+            {filteredLeads.map((lead) => (
               <motion.div
                 key={lead.id}
                 initial={{ opacity: 0, y: 20 }}
@@ -347,10 +410,12 @@ export default function BuyerView() {
                   
                   <div className="flex items-center justify-between pt-4 border-t border-slate-50">
                     <div>
-                      <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest">Valor FIPE</p>
+                      <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest">
+                        {activeFilter === 'new' ? 'Valor FIPE' : 'Valor Repasse'}
+                      </p>
                       <p className="text-lg font-black text-slate-900">
                         {permissions.show_price 
-                          ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.valor_fipe || 0)
+                          ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(activeFilter === 'new' ? lead.valor_fipe : getLeadPriceDisplay(lead))
                           : 'Sob Consulta'
                         }
                       </p>
@@ -471,15 +536,46 @@ export default function BuyerView() {
                 <div className="p-6 bg-slate-50 rounded-3xl">
                   <div className="flex items-center gap-2 text-slate-400 mb-2">
                     <DollarSign className="w-4 h-4" />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Valor FIPE</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest">Valor Repasse</span>
                   </div>
                   <p className="text-2xl font-bold text-slate-900">
                     {permissions.show_price 
-                      ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.valor_fipe || 0)
+                      ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(getLeadPriceDisplay(selectedLead))
                       : 'Sob Consulta'
                     }
                   </p>
                 </div>
+              </div>
+
+              <div className="space-y-4 mb-8">
+                {(() => {
+                  const props = allProposals.filter(p => p.lead_id === selectedLead.id);
+                  const pAsIs = props.find(p => p.type === 'as_is');
+                  const pQuitado = props.find(p => p.type === 'quitado');
+                  
+                  return (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {pAsIs && (
+                        <div className={`p-4 rounded-3xl border-2 transition-all ${activeFilter === 'as_is' ? 'border-accent bg-orange-50' : 'border-slate-100 bg-slate-50'}`}>
+                          <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Como Está</p>
+                          <p className="text-xl font-bold text-slate-900">
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pAsIs.proposta_final || 0)}
+                          </p>
+                          <p className="text-[10px] text-slate-500 mt-1">Com defeitos e problemas relatados</p>
+                        </div>
+                      )}
+                      {pQuitado && (
+                        <div className={`p-4 rounded-3xl border-2 transition-all ${activeFilter === 'quitado' ? 'border-accent bg-orange-50' : 'border-slate-100 bg-slate-50'}`}>
+                          <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Carro Quitado</p>
+                          <p className="text-xl font-bold text-slate-900">
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pQuitado.proposta_final || 0)}
+                          </p>
+                          <p className="text-[10px] text-slate-500 mt-1">Negociável com o comprador</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
               {permissions.show_client_data && (

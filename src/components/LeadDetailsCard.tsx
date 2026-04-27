@@ -410,23 +410,41 @@ export default function LeadDetailsCard({
     }
   };
 
-  const openBuyerProposalModal = (proposalType: 'as_is' | 'quitado') => {
+  const openBuyerProposalModal = async (proposalType: 'as_is' | 'quitado') => {
     let suggestedPrice = 0;
     
-    // Primeiro, verifica se já existe uma proposta salva desse tipo
-    const existingP = buyerProposals.find(p => p.type === proposalType);
+    // Refresh data before opening to ensure we have the latest from DB
+    console.log(`[LeadDetailsCard] Refreshing proposals before opening modal for: ${proposalType}`);
+    const { data: freshProposals } = await supabase
+        .from('buyer_proposals')
+        .select('*')
+        .eq('lead_id', currentLead.id);
     
-    if (existingP && existingP.proposta_final) {
-      suggestedPrice = existingP.proposta_final;
-      console.log(`[LeadDetailsCard] Usando valor existente para modal ${proposalType}: ${suggestedPrice}`);
+    if (freshProposals) {
+      setBuyerProposals(freshProposals);
+      
+      // Agora verifica se já existe uma proposta salva desse tipo nos dados RECÉM buscados
+      const existingP = freshProposals.find(p => p.type === proposalType);
+      
+      if (existingP && existingP.proposta_final) {
+        suggestedPrice = existingP.proposta_final;
+        console.log(`[LeadDetailsCard] Usando valor RECÉM carregado para modal ${proposalType}: ${suggestedPrice}`);
+      } else {
+        // Sugestão padrão se não houver salva
+        if (proposalType === 'as_is') {
+          suggestedPrice = calc.finalValue * 0.775; 
+        } else {
+          suggestedPrice = calc.fipe * 0.8;
+        }
+        console.log(`[LeadDetailsCard] Usando sugestão padrão após refresh para modal ${proposalType}: ${suggestedPrice}`);
+      }
     } else {
-      // Sugestão padrão se não houver salva
+      // Fallback caso falte internet/conexão rápida
       if (proposalType === 'as_is') {
         suggestedPrice = calc.finalValue * 0.775; 
       } else {
         suggestedPrice = calc.fipe * 0.8;
       }
-      console.log(`[LeadDetailsCard] Usando sugestão padrão para modal ${proposalType}: ${suggestedPrice}`);
     }
     
     setBuyerProposalValue(suggestedPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));

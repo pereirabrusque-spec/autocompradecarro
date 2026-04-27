@@ -149,6 +149,7 @@ export default function AdminDashboard() {
   }, [isGlobalAiEnabled, isBuyerAiEnabled]);
 
   const [isUpdatingAi, setIsUpdatingAi] = useState(false);
+  const [isMigrating, setIsMigrating] = useState(false);
   const [chatEnabled, setChatEnabled] = useState(true);
   const [chatHeight, setChatHeight] = useState('560');
   const [chatWidth, setChatWidth] = useState('360');
@@ -450,6 +451,70 @@ export default function AdminDashboard() {
       console.error('Error toggling auto proposal:', e);
     } finally {
       setIsUpdatingAi(false);
+    }
+  };
+
+  const handleMigrateBuyerProposals = async () => {
+    if (!confirm('Deseja gerar propostas base para COMPRADORES em todos os veículos antigos que ainda não possuem? Isso atualizará o banco de dados baseando-se nas regras de FIPE e margens atuais.')) return;
+    
+    setIsMigrating(true);
+    try {
+      // 1. Pegar todos os leads
+      const { data: leads } = await supabase.from('leads_veiculos').select('*');
+      if (!leads) return;
+      
+      // 2. Pegar todas as propostas existentes
+      const { data: existingProposals } = await supabase.from('buyer_proposals').select('lead_id, type');
+      
+      const newProposals: any[] = [];
+      
+      for (const lead of leads) {
+        // Ignora leads sem FIPE básica
+        if (!lead.valor_fipe) continue;
+        
+        // Calcula valores base usando a mesma lógica do sistema
+        const calc = getProposalResult(lead);
+        
+        // Verifica se 'as_is' existe
+        const hasAsIs = (existingProposals || []).some(p => p.lead_id === lead.id && p.type === 'as_is');
+        if (!hasAsIs) {
+          newProposals.push({
+            lead_id: lead.id,
+            type: 'as_is',
+            proposta_final: Math.round(calc.finalValue * 0.775),
+            vencimento: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+          });
+        }
+        
+        // Verifica se 'quitado' existe
+        const hasQuitado = (existingProposals || []).some(p => p.lead_id === lead.id && p.type === 'quitado');
+        if (!hasQuitado) {
+          newProposals.push({
+            lead_id: lead.id,
+            type: 'quitado',
+            proposta_final: Math.round(calc.fipe * 0.8),
+            vencimento: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+          });
+        }
+      }
+      
+      if (newProposals.length > 0) {
+        // Insere em lotes de 50 para estabilidade
+        const batchSize = 50;
+        for (let i = 0; i < newProposals.length; i += batchSize) {
+          const batch = newProposals.slice(i, i + batchSize);
+          const { error } = await supabase.from('buyer_proposals').insert(batch);
+          if (error) console.error('[Migration] Erro no lote:', error);
+        }
+        setToast({ show: true, message: `${newProposals.length} novas propostas geradas com sucesso!`, type: 'success' });
+      } else {
+        setToast({ show: true, message: 'Todos os veículos já possuem propostas para compradores.', type: 'info' });
+      }
+    } catch (err) {
+      console.error('[Migration] Erro na migração:', err);
+      setToast({ show: true, message: 'Falha na migração automática.', type: 'error' });
+    } finally {
+      setIsMigrating(false);
     }
   };
 
@@ -6081,6 +6146,26 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 {savingSettings ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                 Salvar Configurações do Chat
               </button>
+
+              <div className="mt-12 pt-8 border-t border-slate-100">
+                <div className="bg-blue-50 border border-blue-100 rounded-2xl p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <Database className="w-6 h-6 text-blue-600" />
+                    <h4 className="text-lg font-bold text-blue-900">Manutenção de Dados (Compradores)</h4>
+                  </div>
+                  <p className="text-sm text-blue-700 mb-6">
+                    Use o botão abaixo para gerar automaticamente propostas de "Como Está" e "Quitado" para todos os veículos antigos que estão no estoque mas ainda não foram precificados para compradores.
+                  </p>
+                  <button 
+                    onClick={handleMigrateBuyerProposals}
+                    disabled={isMigrating}
+                    className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-all disabled:opacity-50 shadow-sm"
+                  >
+                    {isMigrating ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />}
+                    {isMigrating ? 'Migrando Dados...' : 'Migrar e Precificar Veículos Antigos'}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}

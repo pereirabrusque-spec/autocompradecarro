@@ -722,20 +722,29 @@ export const BackgroundAIManager = () => {
                     const propostaFinal = proposalResult.finalValue;
                     requiresManualAnalysis = proposalResult.requiresManualAnalysis;
                     
+                    // --- BUSCA PROPOSTAS PARA COMPRADOR (NOVO) ---
+                    const { data: bProposals } = await supabase
+                        .from('buyer_proposals')
+                        .select('*')
+                        .eq('lead_id', leadId);
+                    
+                    const pAsIs = bProposals?.find(p => p.type === 'as_is');
+                    const pQuitado = bProposals?.find(p => p.type === 'quitado');
+
                     specificVehicleInfo = `
 DETALHES COMPLETOS DO VEÍCULO EM FOCO:
 - ID: ${specificLead.id}
 - Marca/Modelo: ${specificLead.marca} ${specificLead.modelo}
 - Ano: ${specificLead.ano_fabricacao}/${specificLead.ano_modelo}
 - Placa: ${specificLead.placa || 'N/A'}
-- Preço Sugerido/Cliente: R$ ${specificLead.preco_cliente || 'A consultar'}
-- PROPOSTA FINAL CALCULADA: R$ ${propostaFinal || 'A calcular'}
+${!finalIsBuyer ? `- Preço Sugerido/Cliente: R$ ${specificLead.preco_cliente || 'A consultar'}` : ''}
+${!finalIsBuyer ? `- PROPOSTA FINAL CALCULADA (Oferta ao Vendedor): R$ ${propostaFinal || 'A calcular'}` : ''}
+- VALOR TABELA FIPE: R$ ${proposalResult.fipe || 'N/A'}
+- VALOR REPASSE "COMO ESTÁ" (Para Investidor): R$ ${pAsIs?.proposta_final || 'A calcular'}
+- VALOR REPASSE "QUITADO" (Para Investidor): R$ ${pQuitado?.proposta_final || 'A calcular'}
 - Cor: ${specificLead.cor || 'Não informada'}
 - KM: ${specificLead.quilometragem || specificLead.km || '0'}
 - SITUAÇÃO FINANCEIRA: ${specificLead.situacao_financeira || 'Não informada'}
-- ENTRADA: R$ ${specificLead.entrada || '0'}
-- VALOR PARCELA: R$ ${specificLead.valor_parcela || '0'}
-- TOTAL PARCELAS: ${specificLead.total_parcelas || '0'}
 - BANCO: ${specificLead.banco_financiamento || 'Nenhum'}
 - Sinistro/Leilão: ${specificLead.tem_sinistro === 'sim' ? 'Sim' : 'Não'} / ${specificLead.passagem_leilao === 'sim' ? 'Sim' : 'Não'}
 - Observações: ${specificLead.observacoes || 'N/A'}
@@ -1074,10 +1083,12 @@ RESPONDA DIRETAMENTE AO REMETENTE.
             const profileId = leadData?.user_id || leadId;
             const { data: profile } = await supabase
                 .from('profiles')
-                .select('id, full_name, email')
+                .select('id, full_name, email, role')
                 .eq('id', profileId)
                 .maybeSingle();
-
+            
+            const isBuyerRole = profile?.role === 'buyer';
+            
             if (!leadData && profile) {
                 leadData = { cliente_nome: profile.full_name, email: profile.email, detalhes_proposta: {} };
             } else if (leadData && profile) {
@@ -1194,6 +1205,15 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                     });
                     const propostaFinal = proposalResult.finalValue;
                     requiresManualAnalysis = proposalResult.requiresManualAnalysis;
+
+                    // --- BUSCA PROPOSTAS PARA COMPRADOR (NOVO) ---
+                    const { data: bProposals } = await supabase
+                        .from('buyer_proposals')
+                        .select('*')
+                        .eq('lead_id', leadId);
+                    
+                    const pAsIs = bProposals?.find(p => p.type === 'as_is');
+                    const pQuitado = bProposals?.find(p => p.type === 'quitado');
                     
                     vehicleInfo = `
 VEÍCULO EM NEGOCIAÇÃO:
@@ -1201,8 +1221,11 @@ VEÍCULO EM NEGOCIAÇÃO:
 - Marca/Modelo: ${vehicle.marca || 'N/A'} ${vehicle.modelo || 'N/A'}
 - Ano: ${vehicle.ano_fabricacao || 'N/A'}/${vehicle.ano_modelo || 'N/A'}
 - Placa: ${vehicle.placa || 'N/A'}
-- Preço Sugerido/Cliente: R$ ${vehicle.preco_cliente || 'A consultar'}
-- PROPOSTA FINAL CALCULADA: R$ ${propostaFinal || 'A calcular'}
+${!isBuyerRole ? `- Preço Sugerido/Cliente: R$ ${vehicle.preco_cliente || 'A consultar'}` : ''}
+${!isBuyerRole ? `- PROPOSTA FINAL CALCULADA (Oferta ao Vendedor): R$ ${propostaFinal || 'A calcular'}` : ''}
+- TABELA FIPE: R$ ${proposalResult.fipe || 'N/A'}
+- VALOR REPASSE "COMO ESTÁ" (Para Investidor): R$ ${pAsIs?.proposta_final || 'A calcular'}
+- VALOR REPASSE "QUITADO" (Para Investidor): R$ ${pQuitado?.proposta_final || 'A calcular'}
 - KM: ${vehicle.quilometragem || vehicle.km || '0'}
 - Cor: ${vehicle.cor || 'Não informada'}
 - Sinistro/Leilão: ${vehicle.tem_sinistro === 'sim' ? 'Sim' : 'Não'} / ${vehicle.passagem_leilao === 'sim' ? 'Sim' : 'Não'}
