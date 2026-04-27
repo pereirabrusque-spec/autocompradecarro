@@ -36,8 +36,8 @@ export const BackgroundAIManager = () => {
     const webhookUrlRef = useRef('');
     const currentUserIdRef = useRef<string | null>(null);
     const lastProcessedImage = useRef<{ url: string, base64: string } | null>(null);
-    const isProcessingRef = useRef(false);
     const processedMessagesRef = useRef(new Set<string>());
+    const processingThreadsRef = useRef(new Set<string>()); // Thread-level locks
 
     const fipeRulesRef = useRef<any[]>([]);
     const banksRef = useRef<any[]>([]);
@@ -418,18 +418,19 @@ export const BackgroundAIManager = () => {
     };
 
     const handleInternalMessage = async (payload: any, isFollowUp = false) => {
+        const threadId = isFollowUp ? payload.receiver_id : payload.sender_id;
+
         if (processedMessagesRef.current.has(payload.id)) {
             console.log(`[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: mensagem já processada em memória (${payload.id}).`);
             return;
         }
         
-        // Add lock
-        if (isProcessingRef.current) {
-             console.log(`[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: IA já está processando outra mensagem.`);
+        if (processingThreadsRef.current.has(threadId)) {
+             console.log(`[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: Já processando thread ${threadId}.`);
              return;
         }
 
-        isProcessingRef.current = true;
+        processingThreadsRef.current.add(threadId);
         processedMessagesRef.current.add(payload.id);
 
         try {
@@ -748,7 +749,10 @@ DETALHES COMPLETOS DO VEÍCULO EM FOCO:
                         imageBase64 = lastProcessedImage.current.base64;
                     } else {
                         try {
-                            const imgResp = await fetch(vehiclePhoto);
+                            const controller = new AbortController();
+                            const timeoutId = setTimeout(() => controller.abort(), 8000);
+                            const imgResp = await fetch(vehiclePhoto, { signal: controller.signal });
+                            clearTimeout(timeoutId);
                             const blob = await imgResp.blob();
                             imageBase64 = await new Promise((resolve) => {
                                 const reader = new FileReader();
@@ -958,7 +962,7 @@ RESPONDA DIRETAMENTE AO REMETENTE.
     } catch (err) {
         console.error('[BackgroundAIManager] ❌ Erro inesperado em handleInternalMessage:', err);
     } finally {
-        isProcessingRef.current = false;
+        processingThreadsRef.current.delete(threadId);
         processedMessagesRef.current.delete(payload.id);
     }
 };
@@ -1098,7 +1102,7 @@ RESPONDA DIRETAMENTE AO REMETENTE.
 
             const clienteNomeFromLead = leadData?.cliente_nome || "Cliente";
 
-            // -- NEW: Check if the VERY LAST message in the thread is from admin/bot --
+            // -- REFORÇO: Check if the VERY LAST message in the thread is from admin/bot --
             const { data: lastThreadMsg } = await supabase
                 .from('mensagens')
                 .select('id, remetente, metadata')
@@ -1108,9 +1112,15 @@ RESPONDA DIRETAMENTE AO REMETENTE.
             
             if (lastThreadMsg && lastThreadMsg.length > 0) {
                 const last = lastThreadMsg[0];
-                const isSystem = last.remetente === 'admin' || last.remetente === 'bot' || last.metadata?.from_ai === true;
+                // Verifica remetente e metadados de forma mais robusta
+                const isSystem = last.remetente === 'admin' || 
+                                 last.remetente === 'bot' || 
+                                 last.metadata?.from_ai === true || 
+                                 last.metadata?.role === 'agent' ||
+                                 last.metadata?.role === 'bot';
+                
                 if (isSystem) {
-                    console.log(`[BackgroundAIManager] 🛑 handlePublicMessage ABORT: A última mensagem do thread (${last.id}) já é do sistema.`);
+                    console.log(`[BackgroundAIManager] 🛑 handlePublicMessage ABORT: A última mensagem do thread (${last.id}) já é do sistema/IA.`);
                     return;
                 }
             }
@@ -1231,7 +1241,10 @@ VEÍCULO EM NEGOCIAÇÃO:
                 let imageBase64 = "";
                 if (vehiclePhoto) {
                     try {
-                        const imgResp = await fetch(vehiclePhoto);
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 8000);
+                        const imgResp = await fetch(vehiclePhoto, { signal: controller.signal });
+                        clearTimeout(timeoutId);
                         const blob = await imgResp.blob();
                         imageBase64 = await new Promise((resolve) => {
                             const reader = new FileReader();
@@ -1543,13 +1556,22 @@ REGRAS GERAIS:
     const isScanRunning = useRef(false);
     const activeMessageProcessing = useRef(new Set<string>());
 
+    const scanStartedAt = useRef<number>(0);
+
     const scanForOpenMessages = async () => {
+        // Safety: If scan is running for more than 5 minutes, force reset
+        if (isScanRunning.current && Date.now() - scanStartedAt.current > 300000) {
+            console.warn("[BackgroundAIManager] ⚠️ Scan stuck for >5min. Force resetting.");
+            isScanRunning.current = false;
+        }
+
         if (isScanRunning.current) {
             console.log("[BackgroundAIManager] 🔍 scanForOpenMessages: Já em execução. Abortando.");
             return;
         }
         
         isScanRunning.current = true;
+        scanStartedAt.current = Date.now();
         try {
             const uid = currentUserIdRef.current;
             const isGlobalEnabled = isAiEnabledRef.current;
@@ -1569,15 +1591,15 @@ REGRAS GERAIS:
                 return;
             }
 
-            const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-            console.log("[BackgroundAIManager] 🔍 scanForOpenMessages: Buscando mensagens desde", thirtyDaysAgo, "para UID:", uid);
+            const scanPeriod = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(); // Reduced to 24h
+            console.log("[BackgroundAIManager] 🔍 scanForOpenMessages: Buscando mensagens desde", scanPeriod, "para UID:", uid);
 
             // 1. Escaneia mensagens internas (Compradores)
             const { data: allInternal, error: internalError } = await supabase
                 .from('internal_messages')
                 .select('*')
                 .or(`receiver_id.eq.${uid},sender_id.eq.${uid},receiver_id.eq.00000000-0000-0000-0000-000000000000`)
-                .gt('created_at', thirtyDaysAgo)
+                .gt('created_at', scanPeriod)
                 .order('created_at', { ascending: false });
 
             console.log(`[BackgroundAIManager] 🔍 scanForOpenMessages: Encontradas ${allInternal?.length || 0} mensagens internas. Error:`, internalError);
@@ -1615,26 +1637,20 @@ REGRAS GERAIS:
                         console.log(`[BackgroundAIManager] 🔍 SCAN: Conv ${otherId}. Detectada mensagem pendente de ${otherId}. (ID: ${lastMsg.id})`);
                         activeMessageProcessing.current.add(lastMsg.id);
                         
-                        try {
-                            const isAiHandled = !!lastMsg.metadata?.ai_handled || !!lastMsg.metadata?.ai_processed;
-                            if (!isAiHandled) {
-                                console.log(`[BackgroundAIManager] 🤖 IA processando mensagem pendente ${lastMsg.id} de ${otherId}.`);
-                                await handleInternalMessage(lastMsg);
-                            }
-                        } catch (err) {
-                            console.error(`[BackgroundAIManager] ❌ Erro ao processar mensagem ${lastMsg.id}:`, err);
-                        } finally {
+                        // Fire and forget (internal error handling exists) to avoid blocking the loop
+                        handleInternalMessage(lastMsg).finally(() => {
                             activeMessageProcessing.current.delete(lastMsg.id);
-                        }
+                        });
                     }
                 }
             }
 
             // 2. Escaneia mensagens públicas (Vendedores)
+            const scanPeriodPublic = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
             const { data: allPublic } = await supabase
                 .from('mensagens')
                 .select('*')
-                .gt('created_at', thirtyDaysAgo)
+                .gt('created_at', scanPeriodPublic)
                 .order('created_at', { ascending: false });
 
             if (allPublic) {
@@ -1665,18 +1681,9 @@ REGRAS GERAIS:
                         console.log(`[BackgroundAIManager] 🔍 SCAN: Lead ${leadId}. Detectada mensagem pendente de lead ${leadId}. (ID: ${lastMsg.id})`);
                         
                         activeMessageProcessing.current.add(lastMsg.id);
-                        try {
-                            const isAiHandled = !!lastMsg.metadata?.ai_handled;
-                            
-                            if (!isAiHandled) {
-                                console.log(`[BackgroundAIManager] 🤖 IA processando mensagem pendente de lead ${leadId}.`);
-                                await handlePublicMessage(lastMsg);
-                            }
-                        } catch (err) {
-                            console.error(`[BackgroundAIManager] ❌ Erro ao processar lead ${leadId}:`, err);
-                        } finally {
+                        handlePublicMessage(lastMsg).finally(() => {
                             activeMessageProcessing.current.delete(lastMsg.id);
-                        }
+                        });
                     }
                 }
             }
