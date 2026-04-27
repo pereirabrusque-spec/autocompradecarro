@@ -429,6 +429,7 @@ export default function LeadDetailsCard({
           type,
           vehicle_price: calc.baseValue,
           fipe_price: calc.fipe,
+          discount_percent: type === 'quitado' ? 20 : 0, // Added based on error
           proposta_final: finalPrice
         }]);
 
