@@ -196,51 +196,35 @@ export default function BuyerView() {
       }
 
       // 2. Buscar leads
-      // Filtro profissional: Somente veículos com formulário completo (fotos, situação, dados bancários, etc)
-      const { data, error } = await supabase
-        .from('leads_veiculos')
-        .select('*')
-        .order('created_at', { ascending: false });
+      // Filtro profissional: Somente veículos com formulário completo e propostas para o comprador preenchidas
+      const [{ data: leads, error: leadsError }, { data: proposals, error: proposalsError }] = await Promise.all([
+        supabase.from('leads_veiculos').select('*').order('created_at', { ascending: false }),
+        supabase.from('buyer_proposals').select('*')
+      ]);
 
-      if (error) throw error;
+      if (leadsError) throw leadsError;
+      if (proposalsError) throw proposalsError;
 
-      const filteredLeads = (data || []).filter(lead => {
-        // Critérios de formulário preenchido:
+      const filteredLeads = (leads || []).filter(lead => {
+        // Verifica propostas do comprador
+        const leadProposals = (proposals || []).filter(p => p.lead_id === lead.id);
+        const hasAsIs = leadProposals.some(p => p.type === 'as_is');
+        const hasQuitado = leadProposals.some(p => p.type === 'quitado');
+        
+        // Regra do cliente: se Como Está for 0000, já está quitado e só precisa da proposta Quitada.
+        // Assumindo Como Está como 0 para indicar 00.
+        const isAlreadyQuitado = lead.valor_como_esta === 0; 
+        
+        const proposalsComplete = isAlreadyQuitado ? hasQuitado : (hasAsIs && hasQuitado);
+
+        // Critérios adicionais de formulário:
         const hasPhotos = lead.fotos && Array.isArray(lead.fotos) && lead.fotos.length > 0;
         const hasClassification = (!!lead.classificacao && lead.classificacao !== 'Não informado') || lead.status === 'novo' || lead.status === 'proposta_enviada';
         const hasBankInfo = (!!lead.banco_financiamento && lead.banco_financiamento !== 'Não informado') || lead.status === 'proposta_enviada';
         const hasBasicData = lead.valor_fipe > 0 && lead.quilometragem > 0;
         
-        // Verifica se está reservado e se o tempo de reserva expirou (24 horas)
-        const reservaTimestamp = lead.detalhes_proposta?.reserva_timestamp || lead.reserva_timestamp;
-        if (lead.status === 'reservado' && reservaTimestamp) {
-          const reservaTime = new Date(reservaTimestamp).getTime();
-          const now = new Date().getTime();
-          const twentyFourHours = 24 * 60 * 60 * 1000;
-          
-          if (now - reservaTime > twentyFourHours) {
-            // Reserva expirou, volta para o estoque (proposta_enviada)
-            const updatedDetalhes = { ...(lead.detalhes_proposta || {}) };
-            delete updatedDetalhes.reserva_timestamp;
-
-            supabase.from('leads_veiculos')
-              .update({ 
-                status: 'proposta_enviada', 
-                reserva_timestamp: null,
-                detalhes_proposta: updatedDetalhes
-              })
-              .eq('id', lead.id)
-              .then(() => console.log(`[BuyerView] Reserva expirada revertida para lead: ${lead.id}`));
-            
-            // Como a atualização é assíncrona, vamos permitir que este lead apareça agora mesmo no estado local
-            // se ele atender aos outros critérios
-            return hasPhotos && hasClassification && hasBankInfo && hasBasicData;
-          }
-          return false; // Ainda reservado e dentro do prazo
-        }
-
         // O veículo só aparece se não estiver fechado ou reservado
-        return hasPhotos && hasClassification && hasBankInfo && hasBasicData && lead.status !== 'fechado' && lead.status !== 'reservado';
+        return hasPhotos && hasClassification && hasBankInfo && hasBasicData && proposalsComplete && lead.status !== 'fechado' && lead.status !== 'reservado';
       });
 
       setAuthorizedLeads(filteredLeads);
