@@ -22,78 +22,88 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
     console.log('[ChatActionModal] Estado de vehicles atualizado:', vehicles.length, vehicles);
   }, [vehicles]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
+  const fetchData = async () => {
+    setLoading(true);
+    
+    try {
+      const [fipeRules, jurosAtraso, banks, configData] = await Promise.all([
+        supabase.from('fipe_rules').select('*'),
+        supabase.from('settings').select('value').eq('key', 'juros_atraso').single(),
+        supabase.from('banks').select('*'),
+        supabase.from('settings').select('value').eq('key', 'cooperative_discount').single()
+      ]);
       
-      try {
-        const [fipeRules, jurosAtraso, banks, configData] = await Promise.all([
-          supabase.from('fipe_rules').select('*'),
-          supabase.from('settings').select('value').eq('key', 'juros_atraso').single(),
-          supabase.from('banks').select('*'),
-          supabase.from('settings').select('value').eq('key', 'cooperative_discount').single()
-        ]);
+      setConfig({
+        fipeRules: fipeRules.data || [],
+        jurosAtraso: Number(jurosAtraso.data?.value) || 0,
+        banks: banks.data || [],
+        cooperativeDiscount: Number(configData.data?.value) || 0
+      });
+
+      if (type === 'proposta' || type === 'clonar') {
+        const allLeadIds = new Set<string>();
         
-        setConfig({
-          fipeRules: fipeRules.data || [],
-          jurosAtraso: Number(jurosAtraso.data?.value) || 0,
-          banks: banks.data || [],
-          cooperativeDiscount: Number(configData.data?.value) || 0
+        // 1. Leads from internal_messages (primary source for "vehicles in conversation")
+        const { data: msgsWithLeads } = await supabase
+          .from('internal_messages')
+          .select('lead_id')
+          .or(`sender_id.eq.${conversationId},receiver_id.eq.${conversationId}`)
+          .not('lead_id', 'is', null);
+        
+        msgsWithLeads?.forEach(m => {
+          if (m.lead_id) allLeadIds.add(m.lead_id);
         });
 
-        if (type === 'proposta' || type === 'clonar') {
-          const allLeadIds = new Set<string>();
-          
-          // 1. Leads from internal_messages (primary source for "vehicles in conversation")
-          const { data: msgsWithLeads } = await supabase
-            .from('internal_messages')
-            .select('lead_id')
-            .or(`sender_id.eq.${conversationId},receiver_id.eq.${conversationId}`)
-            .not('lead_id', 'is', null);
-          
-          msgsWithLeads?.forEach(m => {
-            if (m.lead_id) allLeadIds.add(m.lead_id);
-          });
+        // 2. Fallback: If conversationId itself is a lead_id
+        const { data: leadById } = await supabase
+          .from('leads_veiculos')
+          .select('id')
+          .eq('id', conversationId);
+        leadById?.forEach(l => allLeadIds.add(l.id));
 
-          // 2. Fallback: If conversationId itself is a lead_id
-          const { data: leadById } = await supabase
+        if (allLeadIds.size > 0) {
+          const { data: finalLeads, error: fetchError } = await supabase
             .from('leads_veiculos')
-            .select('id')
-            .eq('id', conversationId);
-          leadById?.forEach(l => allLeadIds.add(l.id));
-
-          if (allLeadIds.size > 0) {
-            const { data: finalLeads, error: fetchError } = await supabase
-              .from('leads_veiculos')
-              .select('*')
-              .in('id', Array.from(allLeadIds));
+            .select('*')
+            .in('id', Array.from(allLeadIds));
+          
+          if (finalLeads) {
+            const enrichedData = finalLeads.map(v => ({
+              ...v,
+              marca: v.marca || 'N/A',
+              modelo: v.modelo || 'N/A',
+              ano_fabricacao: v.ano_fabricacao || 'N/A'
+            }));
+            setVehicles(enrichedData);
             
-            if (finalLeads) {
-              const enrichedData = finalLeads.map(v => ({
-                ...v,
-                marca: v.marca || 'N/A',
-                modelo: v.modelo || 'N/A',
-                ano_fabricacao: v.ano_fabricacao || 'N/A'
-              }));
-              setVehicles(enrichedData);
-              
-              if (enrichedData.length === 1) {
-                console.log('[ChatActionModal] Apenas um veículo encontrado na conversa, auto-selecionando...');
-                setSelectedVehicle(enrichedData[0]);
+            if (enrichedData.length === 1) {
+              console.log('[ChatActionModal] Apenas um veículo encontrado na conversa, auto-selecionando...');
+              if (!selectedVehicle) setSelectedVehicle(enrichedData[0]);
+              else {
+                // Se já houver um selecionado, atualiza ele com os dados novos
+                const updated = enrichedData.find(v => v.id === selectedVehicle.id);
+                if (updated) setSelectedVehicle(updated);
               }
-            } else if (fetchError) {
-              console.error('Erro ao buscar veículos:', fetchError);
+            } else if (selectedVehicle) {
+              // Se tiver múltiplos mas um estiver aberto, atualiza o aberto
+              const updated = enrichedData.find(v => v.id === selectedVehicle.id);
+              if (updated) setSelectedVehicle(updated);
             }
-          } else {
-            setVehicles([]);
+          } else if (fetchError) {
+            console.error('Erro ao buscar veículos:', fetchError);
           }
+        } else {
+          setVehicles([]);
         }
-      } catch (err) {
-        console.error('Erro no fetchData:', err);
-      } finally {
-        setLoading(false);
       }
-    };
+    } catch (err) {
+      console.error('Erro no fetchData:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
   }, [type, conversationId]);
 
@@ -133,20 +143,7 @@ export const ChatActionModal: React.FC<ChatActionModalProps> = ({ type, conversa
   };
 
   const handleRefresh = async () => {
-    // Re-fetch data
-    const [fipeRules, jurosAtraso, banks, configData] = await Promise.all([
-      supabase.from('fipe_rules').select('*'),
-      supabase.from('settings').select('value').eq('key', 'juros_atraso').single(),
-      supabase.from('banks').select('*'),
-      supabase.from('settings').select('value').eq('key', 'cooperative_discount').single()
-    ]);
-    
-    setConfig({
-      fipeRules: fipeRules.data || [],
-      jurosAtraso: Number(jurosAtraso.data?.value) || 0,
-      banks: banks.data || [],
-      cooperativeDiscount: Number(configData.data?.value) || 0
-    });
+    await fetchData();
   };
 
   return (

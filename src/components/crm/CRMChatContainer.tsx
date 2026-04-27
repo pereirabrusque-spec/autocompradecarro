@@ -93,12 +93,12 @@ export const CRMChatContainer = React.memo(({ role, onOpenLead, onCloneLead, set
 
         setConversations(sortedProfiles);
         
-        // Busca contadores APENAS para mensagens destinadas ao admin logado
+        // Busca contadores APENAS para mensagens destinadas ao admin logado ou sem destinatário específico
         if (uid) {
             const { data: unreadData, error: unreadError } = await supabase
               .from('internal_messages')
               .select('sender_id')
-              .eq('receiver_id', uid)
+              .or(`receiver_id.eq.${uid},receiver_id.is.null`)
               .eq('is_read', false);
 
             if (unreadError) console.error('[CRMChatContainer] Erro ao buscar não lidas:', unreadError);
@@ -189,7 +189,10 @@ export const CRMChatContainer = React.memo(({ role, onOpenLead, onCloneLead, set
         
         if (isForMe) {
             const senderId = payload.new.sender_id;
-                      // Incrementa contador se não for o chat aberto
+            console.log('[CRMChatContainer] Nova mensagem em tempo real para mim, atualizando...');
+            fetchConversations();
+            
+            // Tenta forçar o áudio de notificação ou foco se necessário
             if (selId !== senderId) {
                 setUnreadCounts(prev => ({
                     ...prev,

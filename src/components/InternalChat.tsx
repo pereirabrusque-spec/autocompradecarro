@@ -46,8 +46,8 @@ export default function InternalChat({ leadId, leadTitle, isOpen, onToggle, hide
 
   useEffect(() => {
     if (user) {
-      const channelName = `internal_messages_${user.id}`;
-      console.log(`[InternalChat] Inscrevendo no canal: ${channelName}`);
+      const channelName = `internal:chat:${user.id}`;
+      console.log(`[InternalChat] Inscrevendo no canal unificado: ${channelName}`);
       
       const subscription = supabase
         .channel(channelName)

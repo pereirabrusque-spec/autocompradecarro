@@ -248,11 +248,13 @@ export default function AdminDashboard() {
         if (activeLeadTab === 'proposta_enviada') return l.status === 'proposta_enviada' || l.status === 'novo' || l.status === 'em_contato';
         
         if (activeLeadTab === 'novos_precificacao') {
-          // Veículos com formulário mas SEM proposta de comprador completa
+          // Veículos com formulário (tem marca/modelo) mas SEM proposta de comprador COMPLETA (precisa das duas para ir pro estoque)
           const props = buyerProposals.filter(p => p.lead_id === l.id);
           const hasAsIs = props.some(p => p.type === 'as_is');
           const hasQuitado = props.some(p => p.type === 'quitado');
-          return (l.marca || l.modelo) && (!hasAsIs || !hasQuitado);
+          
+          const hasBasicForm = !!(l.marca && l.modelo && l.fotos?.length > 0);
+          return hasBasicForm && (!hasAsIs || !hasQuitado);
         }
 
         return l.status === activeLeadTab;

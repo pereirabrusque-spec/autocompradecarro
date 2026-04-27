@@ -508,10 +508,12 @@ export const BackgroundAIManager = () => {
             }
 
         const isGlobalEnabled = isAiEnabledRef.current;
-        console.log(`[BackgroundAIManager] handleInternalMessage check IA Global: ${isGlobalEnabled}`);
+        const isBuyerEnabled = isAiBuyerEnabledRef.current;
+        console.log(`[BackgroundAIManager] handleInternalMessage check IA status - Global: ${isGlobalEnabled}, Buyer: ${isBuyerEnabled}`);
 
-        if (!isGlobalEnabled) {
-            console.log('[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: IA Global desativada no Ref.');
+        // Se nenhuma IA estiver ligada, aborta globalmente
+        if (!isGlobalEnabled && !isBuyerEnabled) {
+            console.log('[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: Nenhuma IA (Global ou Comprador) ativa.');
             return;
         }
 
@@ -811,9 +813,13 @@ Seja amigável mas incisivo. Verifique se a conversa não foi finalizada antes d
 **MISSÃO DA IA (FORÇAR A VENDA):**
 - SEU ÚNICO OBJETIVO É VENDER E ENGAJAR O COMPRADOR/INVESTIDOR.
 - Mostre por que a compra deste veículo é uma oportunidade (baixo custo, margem de revenda alta, oportunidade rápida, tabela FIPE).
+- REGRAS DE PREÇO PARA COMPRADOR:
+  1. VALOR REPASSE "QUITADO": Este é o valor para o carro estar 100% em dia, quitado e pronto para transferência. Informe que este valor é negociável.
+  2. VALOR REPASSE "COMO ESTÁ": Este é o valor para o carro ser entregue EXATAMENTE como está no momento, com todos os problemas relatados (Dívidas, Renajud, Financiamento, defeitos). 
+  3. JUSTIFICATIVA: Sempre justifique o preço "COMO ESTÁ" citando os problemas relatados no formulário/checklist.
 - Nunca diga que não sabe de uma informação se ela está no contexto abaixo.
-- CONDUZINDO A VENDA: Termine 100% de suas respostas com uma PERGUNTA incisiva visando o fechamento do negócio (ex: "Podemos agendar a vistoria?", "Prefere pagamento à vista ou precisa de financiamento?", "Te envio os dados de pagamento da reserva?").
-- MÁXIMA PERSUASÃO E SENSO DE URGÊNCIA: Temos vários investidores de olho no estoque. Mostre isso sutilmente.
+- CONDUZINDO A VENDA: Termine 100% de suas respostas com uma PERGUNTA incisiva visando o fechamento do negócio (ex: "Podemos agendar a vistoria?", "Prefere pagamento à vista ou precisa de financiamento?").
+- MÁXIMA PERSUASÃO E SENSO DE URGÊNCIA: Temos vários investidores de olho no estoque.
 ` : '';
 
                 const systemPromptCRM = `
@@ -1375,11 +1381,15 @@ ${aiMemoryRef.current ? `\nMEMÓRIA APRENDIDA (CONSULTE ANTES DE RESPONDER):\n${
 REGRAS DE VALORES E PROPOSTAS:
 ${isBuyerRole ? `
 - VOCÊ É UM VENDEDOR DE REPASSE PARA INVESTIDORES.
-- Se o comprador perguntar o valor, verifique os campos acima:
-  1. VALOR REPASSE "QUITADO": Use este valor se o cliente quiser o carro em dia e pronto para transferência. Explique que é um valor negociável.
-  2. VALOR REPASSE "COMO ESTÁ": Use este valor se o cliente aceitar o carro com todos os problemas relatados (Dívidas, Renajud, Parcelas vencidas, Sinistro, Leilão, Defeitos mecânicos/estéticos). 
-     - AO FALAR DO VALOR "COMO ESTÁ", VOCÊ DEVE CITAR OS PROBLEMAS ENCONTRADOS NO CHECKLIST/FORMULÁRIO PARA JUSTIFICAR O PREÇO BAIXO.
-- Se não houver valores de repasse definidos (estiverem como "A calcular"), diga que o veículo acabou de entrar e está passando por perícia técnica antes da liberação do preço final de repasse.
+- Se o comprador perguntar o valor do veículo, você DEVE verificar e informar ambos os valores se disponíveis:
+  1. VALOR REPASSE "QUITADO": Este é o valor para o carro estar 100% em dia, quitado e pronto para transferência. Informe que este valor é negociável.
+  2. VALOR REPASSE "COMO ESTÁ": Este é o valor para o carro ser entregue EXATAMENTE como está no momento, com todos os problemas relatados (Dívidas, Renajud, Financiamento, defeitos). 
+- REGRAS MANDATÓRIAS DE RESPOSTA:
+  - SE AMBOS OS VALORES EXISTIREM: Informe os dois e PERGUNTE qual modalidade ele prefere (Como está ou Quitado).
+  - SE SÓ TIVER "QUITADO": Informe que o valor quitado é X e o carro está em dia para transferência imediata.
+  - SE SÓ TIVER "COMO ESTÁ": Informe o valor e explique que é para o comprador assumir débitos/financiamento relatados.
+  - JUSTIFICATIVA: Sempre que falar do valor "COMO ESTÁ", cite itens do checklist (ex: "O valor é reduzido pois o veículo tem parcelas vencidas e pneus carecas conforme relatado").
+- Se os valores estiverem como "A calcular", diga que o veículo entrou agora e a precificação técnica está sendo finalizada.
 ` : (autoProposalEnabledRef.current && !requiresManualAnalysis ? 
     "VOCÊ ESTÁ AUTORIZADO A ENVIAR A PROPOSTA FINAL. Use o valor 'PROPOSTA FINAL CALCULADA' mencionado acima se o cliente perguntar sobre valores ou propostas." : 
     (requiresManualAnalysis ? 

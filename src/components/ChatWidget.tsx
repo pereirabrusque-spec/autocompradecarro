@@ -122,7 +122,7 @@ export default function ChatWidget() {
 
     if (isBuyer) {
       const channel = supabase
-        .channel(`internal_chat:${user.id}`)
+        .channel(`internal:chat:${user.id}`)
         .on(
           'postgres_changes',
           {
@@ -361,6 +361,13 @@ export default function ChatWidget() {
           console.error('[ChatWidget] Erro ao enviar mensagem interna:', error);
           throw error;
         }
+
+        // Broadcast a notification to the internal chat channel
+        supabase.channel(`internal:chat:${user.id}`).send({
+          type: 'broadcast',
+          event: 'new_message',
+          payload: { message: messageText, sender_id: user.id }
+        });
       } else {
         const { error } = await supabase
           .from('mensagens')
