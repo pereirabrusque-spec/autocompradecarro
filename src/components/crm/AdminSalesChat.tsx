@@ -253,17 +253,24 @@ export const AdminSalesChat = React.memo(({
         schema: 'public', 
         table: 'internal_messages' 
       }, async (payload) => {
+        console.log('[AdminSalesChat] Payload recebido:', payload);
         // Relevante se: eu sou o remetente OU eu sou o destinatário OU (destinatário é nulo e eu sou admin)
         const isRelevant = payload.new.sender_id === conversationId || 
                           payload.new.receiver_id === conversationId ||
                           (payload.new.sender_id === conversationId && !payload.new.receiver_id);
         
+        console.log('[AdminSalesChat] Mensagem é relevante?', isRelevant, 'Sender:', payload.new.sender_id, 'ConversationID:', conversationId);
+        
         if (isRelevant) {
           console.log('[AdminSalesChat] Nova mensagem relevante recebida:', payload.new);
           
           setMessages(prev => {
-            if (prev.some(m => m.id === payload.new.id)) return prev;
-            return [payload.new, ...prev];
+            if (prev.some(m => m.id === payload.new.id)) {
+                console.log('[AdminSalesChat] Mensagem já existe no estado, ignorando');
+                return prev;
+            }
+            console.log('[AdminSalesChat] Adicionando nova mensagem ao estado');
+            return [...prev, payload.new];
           });
           
           // Se a mensagem tiver um lead_id, atualiza os leads
