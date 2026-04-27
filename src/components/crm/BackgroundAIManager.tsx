@@ -1354,7 +1354,7 @@ MEMÓRIA DO SISTEMA: ${aiMemoryRef.current}
 
                 const fullPrompt = `
 [SISTEMA DE CONTROLE DE AGENTES E MEMÓRIA — AUTOCOMPRA.ONLINE]
-IDENTIFICAÇÃO DO PERFIL: VENDEDOR (QUERENDO VENDER O CARRO DELE PARA NÓS)
+IDENTIFICAÇÃO DO PERFIL: ${isBuyerRole ? 'COMPRADOR / INVESTIDOR (INTERESSADO EM COMPRAR DO NOSSO ESTOQUE)' : 'VENDEDOR (QUERENDO VENDER O CARRO DELE PARA NÓS)'}
 NOME DO CLIENTE: ${clientName}
 EMAIL DO CLIENTE: ${clientEmail}
 ${followUpContext}
@@ -1368,16 +1368,23 @@ ${history}
 
 MENSAGEM ATUAL: ${payload.conteudo}
 
-[REGRAS E MEMÓRIA DO VENDEDOR - ORIGEM: MENU IA]
-${aiPromptRef.current}
+[REGRAS E MEMÓRIA DO ${isBuyerRole ? 'COMPRADOR' : 'VENDEDOR'} - ORIGEM: MENU IA]
+${isBuyerRole ? aiBuyerPromptRef.current : aiPromptRef.current}
 ${aiMemoryRef.current ? `\nMEMÓRIA APRENDIDA (CONSULTE ANTES DE RESPONDER):\n${aiMemoryRef.current}` : ''}
 
-REGRAS DE PROPOSTA:
-${autoProposalEnabledRef.current && !requiresManualAnalysis ? 
+REGRAS DE VALORES E PROPOSTAS:
+${isBuyerRole ? `
+- VOCÊ É UM VENDEDOR DE REPASSE PARA INVESTIDORES.
+- Se o comprador perguntar o valor, verifique os campos acima:
+  1. VALOR REPASSE "QUITADO": Use este valor se o cliente quiser o carro em dia e pronto para transferência. Explique que é um valor negociável.
+  2. VALOR REPASSE "COMO ESTÁ": Use este valor se o cliente aceitar o carro com todos os problemas relatados (Dívidas, Renajud, Parcelas vencidas, Sinistro, Leilão, Defeitos mecânicos/estéticos). 
+     - AO FALAR DO VALOR "COMO ESTÁ", VOCÊ DEVE CITAR OS PROBLEMAS ENCONTRADOS NO CHECKLIST/FORMULÁRIO PARA JUSTIFICAR O PREÇO BAIXO.
+- Se não houver valores de repasse definidos (estiverem como "A calcular"), diga que o veículo acabou de entrar e está passando por perícia técnica antes da liberação do preço final de repasse.
+` : (autoProposalEnabledRef.current && !requiresManualAnalysis ? 
     "VOCÊ ESTÁ AUTORIZADO A ENVIAR A PROPOSTA FINAL. Use o valor 'PROPOSTA FINAL CALCULADA' mencionado acima se o cliente perguntar sobre valores ou propostas." : 
     (requiresManualAnalysis ? 
         "VOCÊ NÃO ESTÁ AUTORIZADO A ENVIAR VALORES DE PROPOSTA. Diga que você e sua equipe de especialistas estão finalizando os cálculos técnicos para garantir a melhor oferta." :
-        "MODO MANUAL: Não envie valores de proposta agora. Foque em tirar dúvidas e manter o cliente engajado.")}
+        "MODO MANUAL: Não envie valores de proposta agora. Foque em tirar dúvidas e manter o cliente engajado."))}
 
 REGRAS DE ESTOQUE:
 - Se o usuário perguntar sobre "outros modelos", "o que tem no sistema" ou "meus carros", você DEVE confirmar os veículos listando explicitamente o **ANO e MODELO** de cada um.

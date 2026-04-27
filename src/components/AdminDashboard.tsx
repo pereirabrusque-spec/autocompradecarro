@@ -181,7 +181,7 @@ export default function AdminDashboard() {
   const [showApiKeyForm, setShowApiKeyForm] = useState(false);
   const [isSavingKey, setIsSavingKey] = useState(false);
 
-  const [activeLeadTab, setActiveLeadTab] = useState<'todos' | 'novo' | 'em_contato' | 'proposta_enviada' | 'fechado' | 'frio' | 'reservado' | 'perdido' | 'vendido' | 'negociar' | 'limpa_nome'>('todos');
+  const [activeLeadTab, setActiveLeadTab] = useState<'todos' | 'novo' | 'em_contato' | 'proposta_enviada' | 'fechado' | 'frio' | 'reservado' | 'perdido' | 'vendido' | 'negociar' | 'limpa_nome' | 'novos_precificacao'>('todos');
   const [leadsViewMode, setLeadsViewMode] = useState<'grid' | 'list'>('list');
   const [showBuyerPermissionsModal, setShowBuyerPermissionsModal] = useState(false);
   const [selectedBuyer, setSelectedBuyer] = useState<any>(null);
@@ -246,6 +246,15 @@ export default function AdminDashboard() {
         if (activeLeadTab === 'negociar') return l.status === 'negociar' || l.status === 'Negociar';
         if (activeLeadTab === 'limpa_nome') return l.status === 'limpa_nome' || l.status === 'Limpa Nome';
         if (activeLeadTab === 'proposta_enviada') return l.status === 'proposta_enviada' || l.status === 'novo' || l.status === 'em_contato';
+        
+        if (activeLeadTab === 'novos_precificacao') {
+          // Veículos com formulário mas SEM proposta de comprador completa
+          const props = buyerProposals.filter(p => p.lead_id === l.id);
+          const hasAsIs = props.some(p => p.type === 'as_is');
+          const hasQuitado = props.some(p => p.type === 'quitado');
+          return (l.marca || l.modelo) && (!hasAsIs || !hasQuitado);
+        }
+
         return l.status === activeLeadTab;
       })
       .filter(l => !searchCode || (l.vehicle_code && l.vehicle_code.includes(searchCode)))
@@ -4655,6 +4664,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-100 overflow-x-auto">
                     {[
                       { id: 'todos', label: 'Todos' },
+                      { id: 'novos_precificacao', label: 'Novos' },
                       { id: 'frio', label: 'Lead Frio' },
                       { id: 'proposta_enviada', label: 'Leads Morna' },
                       { id: 'negociar', label: 'Negociar' },
