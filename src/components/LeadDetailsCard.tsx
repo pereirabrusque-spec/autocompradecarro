@@ -760,36 +760,16 @@ export default function LeadDetailsCard({
           
           {showForm && (
             <div className="bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm space-y-4 mb-6">
-              <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest">Editar Lead</h3>
+              <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest">Editar Lead Completo</h3>
               <div className="grid grid-cols-2 gap-4">
-                <input 
-                  type="text" 
-                  value={currentLead.cliente_nome || ''} 
-                  onChange={(e) => setCurrentLead({...currentLead, cliente_nome: e.target.value})}
-                  className="p-3 rounded-xl border border-slate-200 text-sm"
-                  placeholder="Nome do Cliente"
-                />
-                <input 
-                  type="text" 
-                  value={currentLead.telefone || ''} 
-                  onChange={(e) => setCurrentLead({...currentLead, telefone: e.target.value})}
-                  className="p-3 rounded-xl border border-slate-200 text-sm"
-                  placeholder="Telefone"
-                />
-                <input 
-                  type="text" 
-                  value={currentLead.marca || ''} 
-                  onChange={(e) => setCurrentLead({...currentLead, marca: e.target.value})}
-                  className="p-3 rounded-xl border border-slate-200 text-sm"
-                  placeholder="Marca"
-                />
-                <input 
-                  type="text" 
-                  value={currentLead.modelo || ''} 
-                  onChange={(e) => setCurrentLead({...currentLead, modelo: e.target.value})}
-                  className="p-3 rounded-xl border border-slate-200 text-sm"
-                  placeholder="Modelo"
-                />
+                <input type="text" value={currentLead.cliente_nome || ''} onChange={(e) => setCurrentLead({...currentLead, cliente_nome: e.target.value})} className="p-3 rounded-xl border border-slate-200 text-sm" placeholder="Nome do Cliente" />
+                <input type="text" value={currentLead.telefone || ''} onChange={(e) => setCurrentLead({...currentLead, telefone: e.target.value})} className="p-3 rounded-xl border border-slate-200 text-sm" placeholder="Telefone" />
+                <input type="text" value={currentLead.marca || ''} onChange={(e) => setCurrentLead({...currentLead, marca: e.target.value})} className="p-3 rounded-xl border border-slate-200 text-sm" placeholder="Marca" />
+                <input type="text" value={currentLead.modelo || ''} onChange={(e) => setCurrentLead({...currentLead, modelo: e.target.value})} className="p-3 rounded-xl border border-slate-200 text-sm" placeholder="Modelo" />
+                <input type="text" value={currentLead.ano_fabricacao || ''} onChange={(e) => setCurrentLead({...currentLead, ano_fabricacao: e.target.value})} className="p-3 rounded-xl border border-slate-200 text-sm" placeholder="Ano Fabricação" />
+                <input type="text" value={currentLead.quilometragem || ''} onChange={(e) => setCurrentLead({...currentLead, quilometragem: e.target.value})} className="p-3 rounded-xl border border-slate-200 text-sm" placeholder="Quilometragem" />
+                <input type="text" value={currentLead.cor || ''} onChange={(e) => setCurrentLead({...currentLead, cor: e.target.value})} className="p-3 rounded-xl border border-slate-200 text-sm" placeholder="Cor" />
+                <input type="text" value={currentLead.placa || ''} onChange={(e) => setCurrentLead({...currentLead, placa: e.target.value})} className="p-3 rounded-xl border border-slate-200 text-sm" placeholder="Placa" />
               </div>
 
               <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest mt-4">Sinistros e Reparos</h3>
@@ -824,15 +804,28 @@ export default function LeadDetailsCard({
                     </label>
                 ))}
               </div>
-              <button onClick={() => { 
+              <button onClick={async () => { 
                 const preparedLead = { ...currentLead };
                 checkboxFields.forEach(field => {
                   if (preparedLead[field] !== undefined) {
                     preparedLead[field] = (preparedLead[field] === 'true' || preparedLead[field] === 'sim' || preparedLead[field] === true) ? 'sim' : 'nao';
                   }
                 });
-                onSave(preparedLead); 
-                setShowForm(false); 
+                
+                try {
+                  const { error } = await supabase
+                    .from('leads_veiculos')
+                    .update(preparedLead)
+                    .eq('id', preparedLead.id);
+                  if (error) throw error;
+                  
+                  onSave(preparedLead); 
+                  setShowForm(false);
+                  alert('Salvo com sucesso!');
+                } catch (e) {
+                  console.error(e);
+                  alert('Erro ao salvar alterações.');
+                }
               }} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-full text-sm font-bold text-white flex items-center gap-2">
                 <Save className="w-4 h-4" /> Salvar Alterações
               </button>
