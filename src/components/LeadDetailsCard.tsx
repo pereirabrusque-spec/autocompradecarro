@@ -237,12 +237,19 @@ export default function LeadDetailsCard({
   useEffect(() => {
     const fetchBuyerProposals = async () => {
         if (!currentLead.id) return;
-        const { data } = await supabase
+        console.log(`[LeadDetailsCard] Buscando propostas para Lead ID: ${currentLead.id}`);
+        const { data, error } = await supabase
             .from('buyer_proposals')
             .select('*')
             .eq('lead_id', currentLead.id)
             .order('created_at', { ascending: false });
-        if (data) setBuyerProposals(data);
+        
+        if (error) {
+          console.error('[LeadDetailsCard] Erro ao buscar propostas:', error);
+        } else if (data) {
+          console.log('[LeadDetailsCard] Propostas carregadas:', data);
+          setBuyerProposals(data);
+        }
     };
     fetchBuyerProposals();
   }, [currentLead.id]);
@@ -403,15 +410,27 @@ export default function LeadDetailsCard({
     }
   };
 
-  const openBuyerProposalModal = (type: 'as_is' | 'quitado') => {
+  const openBuyerProposalModal = (proposalType: 'as_is' | 'quitado') => {
     let suggestedPrice = 0;
-    if (type === 'as_is') {
-      suggestedPrice = calc.finalValue * 0.775; 
+    
+    // Primeiro, verifica se já existe uma proposta salva desse tipo
+    const existingP = buyerProposals.find(p => p.type === proposalType);
+    
+    if (existingP && existingP.proposta_final) {
+      suggestedPrice = existingP.proposta_final;
+      console.log(`[LeadDetailsCard] Usando valor existente para modal ${proposalType}: ${suggestedPrice}`);
     } else {
-      suggestedPrice = calc.fipe * 0.8;
+      // Sugestão padrão se não houver salva
+      if (proposalType === 'as_is') {
+        suggestedPrice = calc.finalValue * 0.775; 
+      } else {
+        suggestedPrice = calc.fipe * 0.8;
+      }
+      console.log(`[LeadDetailsCard] Usando sugestão padrão para modal ${proposalType}: ${suggestedPrice}`);
     }
-    setBuyerProposalValue(suggestedPrice.toFixed(2).replace('.', ','));
-    setShowBuyerProposalModal({isOpen: true, type});
+    
+    setBuyerProposalValue(suggestedPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
+    setShowBuyerProposalModal({isOpen: true, type: proposalType});
   };
 
   const generateBuyerProposal = async () => {
@@ -420,11 +439,11 @@ export default function LeadDetailsCard({
 
     const finalPrice = parseFloat(buyerProposalValue.replace(/\./g, '').replace(',', '.'));
     
-    console.log(`[LeadDetailsCard] Tentando salvar proposta: ${type}, ${finalPrice} para Lead ID: ${currentLead.id}`);
+    console.log(`[LeadDetailsCard] Tentando salvar proposta: type=${type}, price=${finalPrice}, lead_id=${currentLead.id}`);
     
     try {
       // Usamos upsert para atualizar se já existir ou inserir se for novo
-      // O Supabase usa os campos da constraint unique para identificar o conflito
+      // Importante: requer que a constraint unique_lead_type (lead_id, type) exista no banco
       const { error, data } = await supabase
         .from('buyer_proposals')
         .upsert({
@@ -441,9 +460,11 @@ export default function LeadDetailsCard({
         .select();
 
       if (error) {
-          console.error('[LeadDetailsCard] Erro banco ao salvar:', error);
-          // Se der erro de duplicidade mesmo com upsert, tentamos deletar e inserir (fallback radical)
+          console.error('[LeadDetailsCard] Erro banco ao salvar via upsert:', error);
+          
+          // Se for erro de duplicidade que o upsert não resolveu (23505)
           if (error.code === '23505') {
+            console.log('[LeadDetailsCard] Tentando fallback delete/insert...');
             await supabase.from('buyer_proposals').delete().match({ lead_id: currentLead.id, type: type });
             const retry = await supabase.from('buyer_proposals').insert({
               lead_id: currentLead.id,
@@ -452,21 +473,21 @@ export default function LeadDetailsCard({
               fipe_price: calc.fipe || 0,
               discount_percent: type === 'quitado' ? 20 : 0,
               proposta_final: finalPrice
-            });
+            }).select();
+            
             if (retry.error) throw retry.error;
+            console.log('[LeadDetailsCard] Fallback sucesso:', retry.data);
           } else {
-            alert(`Erro ao salvar no banco: ${error.message}`);
-            return;
+            throw error;
           }
+      } else {
+        console.log('[LeadDetailsCard] Upsert sucesso:', data);
       }
 
-      console.log('[LeadDetailsCard] Sucesso ao salvar:', data);
       alert(`Proposta "${type === 'as_is' ? 'Como Está' : 'Quitado'}" salva com sucesso!`);
-      
-      // Fecha o modal
       setShowBuyerProposalModal({isOpen: false, type: null});
       
-      // Atualiza a lista local de propostas para que o usuário veja logo que fechar o modal
+      // Refresh local data immediately
       const { data: freshProposals } = await supabase
           .from('buyer_proposals')
           .select('*')
@@ -475,12 +496,13 @@ export default function LeadDetailsCard({
       
       if (freshProposals) {
         setBuyerProposals(freshProposals);
-        // Notifica o dashboard para atualizar os valores na tabela principal
-        onRefresh(); 
+        console.log('[LeadDetailsCard] BuyerProposals atualizado após save:', freshProposals);
       }
+      
+      onRefresh(); 
     } catch (error: any) {
-      console.error('Error in save proposal workflow:', error);
-      alert('Erro crítico ao salvar proposta: ' + (error.message || 'Erro desconhecido'));
+      console.error('[LeadDetailsCard] Erro crítico no workflow de salvamento:', error);
+      alert('Erro ao salvar proposta: ' + (error.message || 'Erro desconhecido'));
     }
   };
 
