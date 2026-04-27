@@ -387,6 +387,36 @@ export default function LeadDetailsCard({
     }
   };
 
+  const generateBuyerProposal = async (type: 'as_is' | 'quitado') => {
+    try {
+      let finalPrice = 0;
+      if (type === 'as_is') {
+        // Regra: 70% a 85% do valor do veículo "como está" (ajuste pela calculadora atual)
+        finalPrice = calc.finalValue * 0.775; 
+      } else {
+        // Regra: 20% desconto sobre FIPE
+        finalPrice = calc.fipe * 0.8;
+      }
+
+      const { error } = await supabase
+        .from('buyer_proposals')
+        .insert([{
+          lead_id: currentLead.id,
+          type,
+          vehicle_price: calc.baseValue,
+          fipe_price: calc.fipe,
+          discount_percent: type === 'quitado' ? 20 : 0,
+          final_price: finalPrice
+        }]);
+
+      if (error) throw error;
+      alert(`Proposta "${type === 'as_is' ? 'Como Está' : 'Quitado'}" gerada com sucesso: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(finalPrice)}`);
+    } catch (error: any) {
+      console.error('Error generating proposal:', error);
+      alert('Erro ao gerar proposta: ' + (error.message || 'Erro desconhecido'));
+    }
+  };
+
   const handleSaveNovaProposta = async (valor: number) => {
     const novasPropostas = currentLead.detalhes_proposta?.novas_propostas || [];
     const novaProposta = {
@@ -529,6 +559,18 @@ export default function LeadDetailsCard({
                   className={`px-4 py-2 ${currentLead.status === 'reservado' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-amber-500 hover:bg-amber-600'} rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5 shadow-md`}
                 >
                   <ShieldCheck className="w-4 h-4" /> {currentLead.status === 'reservado' ? 'Reservado' : 'Reservar'}
+                </button>
+                <button 
+                  onClick={() => generateBuyerProposal('as_is')} 
+                  className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5 shadow-md"
+                >
+                  <DollarSign className="w-4 h-4" /> Proposta "Como Está"
+                </button>
+                <button 
+                  onClick={() => generateBuyerProposal('quitado')} 
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5 shadow-md"
+                >
+                  <DollarSign className="w-4 h-4" /> Proposta "Quitado"
                 </button>
                 <button 
                   onClick={() => {
