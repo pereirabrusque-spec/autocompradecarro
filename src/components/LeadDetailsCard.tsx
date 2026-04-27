@@ -792,6 +792,39 @@ export default function LeadDetailsCard({
                   placeholder="Modelo"
                 />
               </div>
+
+              <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest mt-4">Sinistros e Reparos</h3>
+              <div className="grid grid-cols-2 gap-4">
+                 {[
+                    { key: 'valor_ipva_multa', label: 'Valor IPVA/Multas' },
+                    { key: 'motor_reparo', label: 'Valor Reparo Motor' },
+                    { key: 'batido_reparo', label: 'Valor Reparo Batido' },
+                    { key: 'cambio_reparo', label: 'Valor Reparo Câmbio' },
+                 ].map(item => (
+                    <input 
+                      key={item.key}
+                      type="text" 
+                      value={currentLead[item.key] || ''} 
+                      onChange={(e) => setCurrentLead({...currentLead, [item.key]: e.target.value})}
+                      className="p-3 rounded-xl border border-slate-200 text-sm"
+                      placeholder={item.label}
+                    />
+                 ))}
+              </div>
+              
+              <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest mt-4">Checklist</h3>
+              <div className="grid grid-cols-2 gap-2">
+                {checkboxFields.map(field => (
+                    <label key={field} className="flex items-center gap-2 text-sm text-slate-700">
+                        <input 
+                            type="checkbox"
+                            checked={currentLead[field] === 'sim' || currentLead[field] === true}
+                            onChange={(e) => setCurrentLead({...currentLead, [field]: e.target.checked ? 'sim' : 'nao'})}
+                        />
+                        {field.replace(/_/g, ' ')}
+                    </label>
+                ))}
+              </div>
               <button onClick={() => { 
                 const preparedLead = { ...currentLead };
                 checkboxFields.forEach(field => {
