@@ -308,13 +308,19 @@ export default function AdminDashboard() {
   const [isLearning, setIsLearning] = useState(false);
   const [users, setUsers] = useState<any[]>([]);
 
+  // Realtime subscription for messages
   useEffect(() => {
     const channel = supabase
-      .channel('profiles_status_realtime')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, (payload) => {
-        setUsers(prev => prev.map(u => u.id === payload.new.id ? { ...u, ...payload.new } : u));
+      .channel('mensagens_realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensagens' }, (payload) => {
+        const newMsg = payload.new;
+        
+        // Update appropriate state based on message type (simplified logic here, needs careful implementation)
+        // For now, let's just trigger a data refresh when a message arrives
+        fetchData();
       })
       .subscribe();
+      
     return () => {
       supabase.removeChannel(channel);
     };

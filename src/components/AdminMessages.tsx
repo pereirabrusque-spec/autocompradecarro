@@ -715,8 +715,15 @@ export default function AdminMessages({
             >
             <AnimatePresence initial={false}>
               {(chatMessages || []).map((msg) => {
-                const isAgent = msg.remetente === 'bot' || msg.metadata?.from_ai || msg.metadata?.ai_handled || msg.metadata?.role === 'agent' || msg.metadata?.role === 'bot' || msg.metadata?.luiz_identity;
-                const isAdminUser = msg.remetente === 'admin';
+                const isAgent = msg.remetente === 'bot' || 
+                                msg.remetente === 'agent' || 
+                                msg.metadata?.from_ai || 
+                                msg.metadata?.ai_handled || 
+                                msg.metadata?.role === 'agent' || 
+                                msg.metadata?.role === 'bot' || 
+                                msg.metadata?.luiz_identity ||
+                                msg.metadata?.service_name === 'BackgroundAIManager';
+                const isAdminUser = msg.remetente === 'admin' || msg.metadata?.role === 'admin';
                 return (
                  <motion.div 
                    key={msg.id}
