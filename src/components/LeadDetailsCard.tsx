@@ -388,6 +388,7 @@ export default function LeadDetailsCard({
   };
 
   const generateBuyerProposal = async (type: 'as_is' | 'quitado') => {
+    console.log(`[LeadDetailsCard] Botão de proposta clicado: ${type}`);
     try {
       let finalPrice = 0;
       if (type === 'as_is') {
@@ -397,6 +398,8 @@ export default function LeadDetailsCard({
         // Regra: 20% desconto sobre FIPE
         finalPrice = calc.fipe * 0.8;
       }
+      
+      console.log(`[LeadDetailsCard] Calculado preço final: ${finalPrice} (base: ${calc.finalValue}, fipe: ${calc.fipe})`);
 
       const { error } = await supabase
         .from('buyer_proposals')
@@ -409,7 +412,10 @@ export default function LeadDetailsCard({
           final_price: finalPrice
         }]);
 
-      if (error) throw error;
+      if (error) {
+          console.error('[LeadDetailsCard] Erro banco:', error);
+          throw error;
+      }
       alert(`Proposta "${type === 'as_is' ? 'Como Está' : 'Quitado'}" gerada com sucesso: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(finalPrice)}`);
     } catch (error: any) {
       console.error('Error generating proposal:', error);
