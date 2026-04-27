@@ -227,6 +227,8 @@ export default function LeadDetailsCard({
   const [isUploadingCRLV, setIsUploadingCRLV] = useState(false);
   const [showProposalReview, setShowProposalReview] = useState(false);
   const [showNovaPropostaModal, setShowNovaPropostaModal] = useState(false);
+  const [showBuyerProposalModal, setShowBuyerProposalModal] = useState<{isOpen: boolean, type: 'as_is' | 'quitado' | null}>({isOpen: false, type: null});
+  const [buyerProposalValue, setBuyerProposalValue] = useState('');
   const [novaPropostaValor, setNovaPropostaValor] = useState(0);
   const [proposalMessage, setProposalMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<any[]>([]);
@@ -387,20 +389,25 @@ export default function LeadDetailsCard({
     }
   };
 
-  const generateBuyerProposal = async (type: 'as_is' | 'quitado') => {
-    console.log(`[LeadDetailsCard] Botão de proposta clicado: ${type}`);
-    try {
-      let finalPrice = 0;
-      if (type === 'as_is') {
-        // Regra: 70% a 85% do valor do veículo "como está" (ajuste pela calculadora atual)
-        finalPrice = calc.finalValue * 0.775; 
-      } else {
-        // Regra: 20% desconto sobre FIPE
-        finalPrice = calc.fipe * 0.8;
-      }
-      
-      console.log(`[LeadDetailsCard] Calculado preço final: ${finalPrice} (base: ${calc.finalValue}, fipe: ${calc.fipe})`);
+  const openBuyerProposalModal = (type: 'as_is' | 'quitado') => {
+    let suggestedPrice = 0;
+    if (type === 'as_is') {
+      suggestedPrice = calc.finalValue * 0.775; 
+    } else {
+      suggestedPrice = calc.fipe * 0.8;
+    }
+    setBuyerProposalValue(suggestedPrice.toFixed(2).replace('.', ','));
+    setShowBuyerProposalModal({isOpen: true, type});
+  };
 
+  const generateBuyerProposal = async () => {
+    const { type } = showBuyerProposalModal;
+    if (!type) return;
+
+    const finalPrice = parseFloat(buyerProposalValue.replace('.', '').replace(',', '.'));
+    
+    console.log(`[LeadDetailsCard] Salvando proposta: ${type}, ${finalPrice}`);
+    try {
       const { error } = await supabase
         .from('buyer_proposals')
         .insert([{
@@ -417,6 +424,7 @@ export default function LeadDetailsCard({
           throw error;
       }
       alert(`Proposta "${type === 'as_is' ? 'Como Está' : 'Quitado'}" gerada com sucesso: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(finalPrice)}`);
+      setShowBuyerProposalModal({isOpen: false, type: null});
     } catch (error: any) {
       console.error('Error generating proposal:', error);
       alert('Erro ao gerar proposta: ' + (error.message || 'Erro desconhecido'));
@@ -567,13 +575,13 @@ export default function LeadDetailsCard({
                   <ShieldCheck className="w-4 h-4" /> {currentLead.status === 'reservado' ? 'Reservado' : 'Reservar'}
                 </button>
                 <button 
-                  onClick={() => generateBuyerProposal('as_is')} 
+                  onClick={() => openBuyerProposalModal('as_is')} 
                   className="px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5 shadow-md"
                 >
                   <DollarSign className="w-4 h-4" /> Proposta "Como Está"
                 </button>
                 <button 
-                  onClick={() => generateBuyerProposal('quitado')} 
+                  onClick={() => openBuyerProposalModal('quitado')} 
                   className="px-4 py-2 bg-rose-600 hover:bg-rose-700 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-1.5 shadow-md"
                 >
                   <DollarSign className="w-4 h-4" /> Proposta "Quitado"
@@ -666,6 +674,25 @@ export default function LeadDetailsCard({
             )}
           </div>
 
+          {showBuyerProposalModal.isOpen && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                <div className="bg-white rounded-2xl p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+                    <h2 className="text-lg font-bold mb-4">Gerar Proposta {showBuyerProposalModal.type === 'as_is' ? '"Como Está"' : '"Quitado"'}</h2>
+                    <input 
+                        type="text" 
+                        value={buyerProposalValue}
+                        onChange={(e) => setBuyerProposalValue(e.target.value)}
+                        className="w-full p-3 border rounded-xl mb-4"
+                        placeholder="Valor"
+                    />
+                    <div className="flex gap-2">
+                        <button onClick={() => setShowBuyerProposalModal({isOpen: false, type: null})} className="flex-1 py-2 bg-slate-200 rounded-lg">Cancelar</button>
+                        <button onClick={generateBuyerProposal} className="flex-1 py-2 bg-emerald-600 text-white rounded-lg">Salvar Proposta</button>
+                    </div>
+                </div>
+            </div>
+          )}
+          
           {showForm && (
             <div className="bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm space-y-4 mb-6">
               <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest">Editar Lead</h3>
