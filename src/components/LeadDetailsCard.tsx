@@ -424,7 +424,7 @@ export default function LeadDetailsCard({
     
     try {
       // Usamos upsert para atualizar se já existir ou inserir se for novo
-      // Importante: requer que a constraint unique_lead_type (lead_id, type) exista no banco
+      // O Supabase usa os campos da constraint unique para identificar o conflito
       const { error, data } = await supabase
         .from('buyer_proposals')
         .upsert({
@@ -442,8 +442,22 @@ export default function LeadDetailsCard({
 
       if (error) {
           console.error('[LeadDetailsCard] Erro banco ao salvar:', error);
-          alert(`Erro ao salvar no banco: ${error.message}\nVerifique se as colunas 'type' e 'proposta_final' existem no Supabase.`);
-          return;
+          // Se der erro de duplicidade mesmo com upsert, tentamos deletar e inserir (fallback radical)
+          if (error.code === '23505') {
+            await supabase.from('buyer_proposals').delete().match({ lead_id: currentLead.id, type: type });
+            const retry = await supabase.from('buyer_proposals').insert({
+              lead_id: currentLead.id,
+              type: type,
+              vehicle_price: calc.baseValue || 0,
+              fipe_price: calc.fipe || 0,
+              discount_percent: type === 'quitado' ? 20 : 0,
+              proposta_final: finalPrice
+            });
+            if (retry.error) throw retry.error;
+          } else {
+            alert(`Erro ao salvar no banco: ${error.message}`);
+            return;
+          }
       }
 
       console.log('[LeadDetailsCard] Sucesso ao salvar:', data);
