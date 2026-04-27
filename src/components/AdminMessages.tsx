@@ -714,60 +714,64 @@ export default function AdminMessages({
               className="flex-1 overflow-y-auto min-h-0 p-4 md:p-6 space-y-4 scroll-smooth"
             >
             <AnimatePresence initial={false}>
-              {(chatMessages || []).map((msg) => (
-                <motion.div 
-                  key={msg.id}
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ duration: 0.2 }}
-                  className={`flex ${msg.remetente === 'admin' || msg.remetente === 'bot' ? 'justify-end' : 'justify-start'}`}
-                >
-                    <div className={`max-w-[80%] md:max-w-[70%] p-3.5 rounded-2xl text-[13px] shadow-sm ${
-                      msg.remetente === 'admin' 
-                        ? 'bg-slate-900 text-white rounded-tr-none' 
-                      : (msg.remetente === 'bot' || msg.metadata?.from_ai || msg.metadata?.ai_handled)
-                        ? 'bg-indigo-600 text-white rounded-tr-none shadow-indigo-100 shadow-md border border-indigo-400/30'
-                        : 'bg-white border border-slate-200 text-slate-900 rounded-tl-none'
-                    }`}>
-                      <div className="flex items-center gap-2 mb-1.5 border-b border-white/10 pb-1.5 last:border-0 last:pb-0">
-                        {(msg.remetente === 'bot' || msg.metadata?.from_ai || msg.metadata?.ai_handled) && <Bot className="w-3 h-3 text-white/80" />}
-                        <span className="text-[9px] font-black uppercase tracking-widest opacity-60">
-                          {msg.remetente === 'admin' ? 'Atendimento' : (msg.remetente === 'bot' || msg.metadata?.from_ai || msg.metadata?.ai_handled) ? 'Agente IA' : 'Cliente'}
-                        </span>
-                      </div>
-                    <div className="markdown-body prose prose-invert prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-li:my-0">
-                      <Markdown 
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          a: ({ node, ...props }) => (
-                            <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline font-bold" />
-                          ),
-                          img: ({ node, ...props }) => (
-                            <img {...props} className="max-w-full rounded-xl my-2 shadow-sm border border-white/10" referrerPolicy="no-referrer" />
-                          ),
-                          p: ({ children }) => <p className="mb-0 last:mb-0">{children}</p>
-                        }}
-                      >
-                        {msg.conteudo}
-                      </Markdown>
-                    </div>
-                    <div className="flex items-center justify-end gap-1.5 mt-2 pt-1.5 border-t border-white/5">
-                      <span className={`text-[9px] font-bold opacity-60`}>
-                        {msg.created_at ? format(new Date(msg.created_at), 'HH:mm', { locale: ptBR }) : ''}
-                      </span>
-                      {(msg.remetente === 'admin' || msg.remetente === 'bot') && (
-                        <div className="flex items-center">
-                          {msg.lida ? (
-                            <CheckCheck className="w-3 h-3 text-blue-400" />
-                          ) : (
-                            <Check className="w-3 h-3 text-white/40" />
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
+              {(chatMessages || []).map((msg) => {
+                const isAgent = msg.remetente === 'bot' || msg.metadata?.from_ai || msg.metadata?.ai_handled || msg.metadata?.role === 'agent' || msg.metadata?.role === 'bot' || msg.metadata?.luiz_identity;
+                const isAdminUser = msg.remetente === 'admin';
+                return (
+                 <motion.div 
+                   key={msg.id}
+                   initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                   animate={{ opacity: 1, y: 0, scale: 1 }}
+                   transition={{ duration: 0.2 }}
+                   className={`flex ${isAdminUser || isAgent ? 'justify-end' : 'justify-start'}`}
+                 >
+                     <div className={`max-w-[80%] md:max-w-[70%] p-3.5 rounded-2xl text-[13px] shadow-sm ${
+                       isAdminUser 
+                         ? 'bg-slate-900 text-white rounded-tr-none' 
+                       : isAgent
+                         ? 'bg-indigo-600 text-white rounded-tr-none shadow-indigo-100 shadow-md border border-indigo-400/30'
+                         : 'bg-white border border-slate-200 text-slate-900 rounded-tl-none'
+                     }`}>
+                       <div className="flex items-center gap-2 mb-1.5 border-b border-white/10 pb-1.5 last:border-0 last:pb-0">
+                         {isAgent && <Bot className="w-3 h-3 text-white/80" />}
+                         <span className="text-[9px] font-black uppercase tracking-widest opacity-60">
+                           {isAdminUser ? 'Atendimento' : isAgent ? 'Agente IA' : 'Cliente'}
+                         </span>
+                       </div>
+                     <div className="markdown-body prose prose-invert prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-li:my-0">
+                       <Markdown 
+                         remarkPlugins={[remarkGfm]}
+                         components={{
+                           a: ({ node, ...props }) => (
+                             <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline font-bold" />
+                           ),
+                           img: ({ node, ...props }) => (
+                             <img {...props} className="max-w-full rounded-xl my-2 shadow-sm border border-white/10" referrerPolicy="no-referrer" />
+                           ),
+                           p: ({ children }) => <p className="mb-0 last:mb-0">{children}</p>
+                         }}
+                       >
+                         {msg.conteudo}
+                       </Markdown>
+                     </div>
+                     <div className="flex items-center justify-end gap-1.5 mt-2 pt-1.5 border-t border-white/5">
+                       <span className={`text-[9px] font-bold opacity-60`}>
+                         {msg.created_at ? format(new Date(msg.created_at), 'HH:mm', { locale: ptBR }) : ''}
+                       </span>
+                       {(msg.remetente === 'admin' || msg.remetente === 'bot') && (
+                         <div className="flex items-center">
+                           {msg.lida ? (
+                             <CheckCheck className="w-3 h-3 text-blue-400" />
+                           ) : (
+                             <Check className="w-3 h-3 text-white/40" />
+                           )}
+                         </div>
+                       )}
+                     </div>
+                   </div>
+                 </motion.div>
+                );
+              })}
             </AnimatePresence>
             </div>
 
