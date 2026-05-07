@@ -313,19 +313,37 @@ export const BackgroundAIManager = () => {
             })
             .subscribe();
 
-        // Listen for other data changes
-        const dataSubscription = supabase
-            .channel('bg_ai_data')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'fipe_rules' }, () => loadProposalData())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'banks' }, () => loadProposalData())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'repair_costs' }, () => loadProposalData())
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'leads_veiculos' }, (payload) => {
-                console.log("[BackgroundAIManager] 🆕 Novo lead detectado via Realtime:", payload.new.id);
-                // Se a IA Global estiver ativa, vamos tentar iniciar um contato inicial se não for lead frio
-                if (isAiEnabledRef.current) {
-                    // Pequeno delay para garantir que o lead esteja totalmente processado se houver triggers de banco
-                    setTimeout(() => handleNewLeadResponse(payload.new), 2000);
+        // Listen for internal messages via broadcast for instant response
+        // IMPORTANTE: Nome do canal deve ser exatamente 'internal:chat:global' conforme ChatWidget.tsx
+        const broadcastChannel = supabase.channel('internal:chat:global');
+        broadcastChannel
+            .on('broadcast', { event: 'new_message' }, async (payload) => {
+                console.log("[BackgroundAIManager] 📡 Novo broadcast detectado (global-buyer):", payload);
+                // Prepara o objeto para handleInternalMessage
+                const msgPayload = {
+                    id: payload.payload.id || `broadcast_${Date.now()}`,
+                    sender_id: payload.payload.sender_id,
+                    receiver_id: payload.payload.receiver_id || '00000000-0000-0000-0000-000000000000',
+                    content: payload.payload.content || payload.payload.message || payload.payload.conteudo,
+                    lead_id: payload.payload.lead_id,
+                    metadata: payload.payload.metadata || {}
+                };
+                
+                if (msgPayload.content && msgPayload.sender_id) {
+                    // Pequena pausa para garantir que os dados de banco (perfil/lead) estejam estáveis
+                    setTimeout(() => handleInternalMessage(msgPayload), 1000);
                 }
+            })
+            .subscribe((status) => {
+                console.log(`[BackgroundAIManager] 📡 Status da subscrição broadcast AI: ${status}`);
+            });
+
+        // Listen for internal messages via Postgres changes (fallback/robustness)
+        const internalMessagesSubscription = supabase
+            .channel('bg_ai_internal_msgs')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'internal_messages' }, (payload) => {
+                console.log("[BackgroundAIManager] 📥 Nova mensagem interna via Postgres INSERT:", payload.new.id);
+                handleInternalMessage(payload.new);
             })
             .subscribe();
 
@@ -334,6 +352,8 @@ export const BackgroundAIManager = () => {
             supabase.removeChannel(settingsSubscription);
             supabase.removeChannel(apiKeysSubscription);
             supabase.removeChannel(dataSubscription);
+            supabase.removeChannel(broadcastChannel);
+            supabase.removeChannel(internalMessagesSubscription);
             authSubscription.unsubscribe();
         };
     }, []);
@@ -419,8 +439,9 @@ export const BackgroundAIManager = () => {
 
     const handleInternalMessage = async (payload: any, isFollowUp = false) => {
         const threadId = isFollowUp ? payload.receiver_id : payload.sender_id;
+        const messageId = payload.id || `broadcast_${payload.sender_id}_${payload.content?.substring(0, 20)}_${Date.now()}`;
 
-        if (processedMessagesRef.current.has(payload.id)) {
+        if (payload.id && processedMessagesRef.current.has(payload.id)) {
             console.log(`[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: mensagem já processada em memória (${payload.id}).`);
             return;
         }
@@ -431,11 +452,11 @@ export const BackgroundAIManager = () => {
         }
 
         processingThreadsRef.current.add(threadId);
-        processedMessagesRef.current.add(payload.id);
+        if (payload.id) processedMessagesRef.current.add(payload.id);
 
         try {
             console.log('[BackgroundAIManager] 📩 handleInternalMessage START:', { 
-                id: payload.id, 
+                id: messageId, 
                 content: payload.content, 
                 sender: payload.sender_id, 
                 receiver: payload.receiver_id, 
@@ -563,16 +584,17 @@ export const BackgroundAIManager = () => {
             const existingLead = userLeads?.[0] || null;
 
         // Regras estritas: Se for seller, NUNCA é comprador. Se for role buyer, É comprador.
-        const isAdminProfile = senderProfile?.role?.toLowerCase().includes('admin');
-        const isSellerRole = senderProfile?.role?.toLowerCase().includes('seller') || senderProfile?.role?.toLowerCase().includes('agent');
-        const isBuyerRole = senderProfile?.role?.toLowerCase().includes('buyer');
+        const roleLower = (senderProfile?.role || '').toLowerCase();
+        const isAdminProfile = roleLower.includes('admin');
+        const isSellerRole = roleLower.includes('seller') || roleLower.includes('agent') || roleLower.includes('vendedor');
+        const isBuyerRole = roleLower.includes('buyer') || roleLower.includes('comprador') || roleLower.includes('investidor');
         
         // Se a conversa é com um comprador, deve ter role de comprador.
-        // Se tiver lead_id, isso sozinho não define se a conversa é de compra ou venda.
         const isBuyer = isBuyerRole; 
         const isSeller = isSellerRole;
         
         const finalIsBuyer = isBuyer;
+        const finalIsAdmin = isAdminProfile;
         const finalIsSeller = isSeller || (!isBuyer && !isAdminProfile);
 
             console.log(`[BackgroundAIManager] 🔍 Processando mensagem interna (${messageId}). isBuyer: ${finalIsBuyer}, isSeller: ${finalIsSeller}, lead_id: ${payload.lead_id}`);
@@ -725,14 +747,18 @@ export const BackgroundAIManager = () => {
                     const propostaFinal = proposalResult.finalValue;
                     requiresManualAnalysis = proposalResult.requiresManualAnalysis;
                     
-                    // --- BUSCA PROPOSTAS PARA COMPRADOR (NOVO) ---
+                    // --- BUSCA PROPOSTAS PARA COMPRADOR (OTIMIZADO) ---
                     const { data: bProposals } = await supabase
                         .from('buyer_proposals')
-                        .select('*')
+                        .select('type, value, proposta_final, status')
                         .eq('lead_id', specificLead.id);
                     
+                    // Prioriza o campo 'value' (manual do comprador) sobre 'proposta_final' (automática)
                     const pAsIs = bProposals?.find(p => p.type === 'as_is');
                     const pQuitado = bProposals?.find(p => p.type === 'quitado');
+
+                    const valAsIs = pAsIs?.value || pAsIs?.proposta_final || 'A calcular';
+                    const valQuitado = pQuitado?.value || pQuitado?.proposta_final || 'A calcular';
 
                     specificVehicleInfo = `
 DETALHES COMPLETOS DO VEÍCULO EM FOCO:
@@ -743,15 +769,20 @@ DETALHES COMPLETOS DO VEÍCULO EM FOCO:
 ${!finalIsBuyer ? `- Preço Sugerido/Cliente: R$ ${specificLead.preco_cliente || 'A consultar'}` : ''}
 ${!finalIsBuyer ? `- PROPOSTA FINAL CALCULADA (Oferta ao Vendedor): R$ ${propostaFinal || 'A calcular'}` : ''}
 - VALOR TABELA FIPE: R$ ${proposalResult.fipe || 'N/A'}
-- VALOR REPASSE "COMO ESTÁ" (Para Investidor): R$ ${pAsIs?.proposta_final || 'A calcular'}
-- VALOR REPASSE "QUITADO" (Para Investidor): R$ ${pQuitado?.proposta_final || 'A calcular'}
+- VALOR REPASSE "COMO ESTÁ" (Comprador assume débitos): R$ ${valAsIs}
+- VALOR REPASSE "QUITADO" (Transferência Imediata): R$ ${valQuitado}
 - Cor: ${specificLead.cor || 'Não informada'}
 - KM: ${specificLead.quilometragem || specificLead.km || '0'}
-- SITUAÇÃO FINANCEIRA: ${specificLead.situacao_financeira || 'Não informada'}
+- SITUAÇÃO FINANCEIRA (DETALHES): ${specificLead.situacao_financeira || 'Não informada'}
+- CHECKLIST TÉCNICO (PROBLEMAS): ${specificLead.problemas_mecanicos || 'Sem problemas registrados'}
 - BANCO: ${specificLead.banco_financiamento || 'Nenhum'}
 - Sinistro/Leilão: ${specificLead.tem_sinistro === 'sim' ? 'Sim' : 'Não'} / ${specificLead.passagem_leilao === 'sim' ? 'Sim' : 'Não'}
 - Observações: ${specificLead.observacoes || 'N/A'}
 - Status do Lead: ${specificLead.status || 'N/A'}
+
+PROMPT DE DECISÃO DE VALORES (COMPRADOR):
+- SE valAsIs E valQuitado EXISTIREM E FOREM DIFERENTES DE "A calcular": VOCÊ DEVE INFORMAR AMBOS E PERGUNTAR QUAL ELE PREFERE.
+- SE APENAS UM EXISTIR: INFORME APENAS O QUE EXISTE.
 `;
                 }
 
@@ -1359,6 +1390,8 @@ REGRAS CRÍTICAS:
 MEMÓRIA DO SISTEMA: ${aiMemoryRef.current}
 `;
 
+                const currentContent = payload.content || payload.conteudo || "";
+
                 const fullPrompt = `
 [SISTEMA DE CONTROLE DE AGENTES E MEMÓRIA — AUTOCOMPRA.ONLINE]
 IDENTIFICAÇÃO DO PERFIL: ${isBuyerRole ? 'COMPRADOR / INVESTIDOR (INTERESSADO EM COMPRAR DO NOSSO ESTOQUE)' : 'VENDEDOR (QUERENDO VENDER O CARRO DELE PARA NÓS)'}
@@ -1367,13 +1400,13 @@ EMAIL DO CLIENTE: ${clientEmail}
 ${followUpContext}
 
 ${formStatusContext}
-${vehicleInfo}
+${specificVehicleInfo || vehicleInfo}
 ${inventoryContext}
 
 HISTÓRICO:
 ${history}
 
-MENSAGEM ATUAL: ${payload.conteudo}
+MENSAGEM ATUAL: ${currentContent}
 
 [REGRAS E MEMÓRIA DO ${isBuyerRole ? 'COMPRADOR' : 'VENDEDOR'} - ORIGEM: MENU IA]
 ${isBuyerRole ? aiCrmPromptRef.current : aiPromptRef.current}
@@ -1386,11 +1419,12 @@ ${isBuyerRole ? `
   1. VALOR REPASSE "QUITADO": Este é o valor para o carro estar 100% em dia, quitado e pronto para transferência. Informe que este valor é negociável.
   2. VALOR REPASSE "COMO ESTÁ": Este é o valor para o carro ser entregue EXATAMENTE como está no momento, com todos os problemas relatados (Dívidas, Renajud, Financiamento, defeitos). 
 - REGRAS MANDATÓRIAS DE RESPOSTA (VALORES):
-  - SE AMBOS OS VALORES EXISTIREM: Você DEVE informar os dois valores e PERGUNTAR expressamente: "Como você prefere o veículo: 'Como está' (assumindo os detalhes relatados) ou 'Quitado' (pronto para transferência)?"
-  - SE APENAS "QUITADO" EXISTIR: Informe apenas este valor e diga: "Este veículo está disponível para entrega quitado, por R$ X, já em dia para transferência imediata."
-  - SE APENAS "COMO ESTÁ" EXISTIR: Informe o valor e explique: "Temos uma condição para este veículo 'como está' por R$ X. Nesta modalidade, o comprador assume os débitos de financiamento e demais pendências relatadas no formulário."
-  - JUSTIFICATIVA OBRIGATÓRIA: Sempre que citar o valor "COMO ESTÁ", você DEVE citar pelo menos 2 problemas do checklist/formulário para justificar o preço baixo (ex: "O valor é menor pois o carro possui parcelas vencidas e pneus carecas conforme relatado").
-- Se os valores estiverem como "A calcular", informe que a perícia técnica está sendo finalizada e o preço será liberado em breve.
+  - VOCÊ DEVE ANALISAR SE EXISTEM OS DOIS VALORES ACIMA (QUITADO E COMO ESTÁ).
+  - SE AMBOS OS VALORES EXISTIREM: Você obrigatoriamente deve informar os dois e perguntar: "Como você prefere o veículo: 'Como está' (assumindo os detalhes relatados e débitos) ou deseja ele 'Quitado' (pronto para transferência)?"
+  - SE APENAS "QUITADO" EXISTIR: Informe este valor e diga que o carro está pronto para transferência imediata.
+  - SE APENAS "COMO ESTÁ" EXISTIR: Informe o valor e explique claramente: "Temos uma condição para este veículo 'como está' por R$ X. Nesta modalidade, o comprador assume os débitos e pendências relatadas."
+  - JUSTIFICATIVA TÉCNICA: Sempre que citar o valor "COMO ESTÁ", você deve citar itens do "CHECKLIST TÉCNICO (PROBLEMAS)" listado acima para valorizar o preço baixo.
+- Se os valores estiverem como "A calcular", informe que a equipe técnica está finalizando a precificação.
 ` : (autoProposalEnabledRef.current && !requiresManualAnalysis ? 
     "VOCÊ ESTÁ AUTORIZADO A ENVIAR A PROPOSTA FINAL. Use o valor 'PROPOSTA FINAL CALCULADA' mencionado acima se o cliente perguntar sobre valores ou propostas." : 
     (requiresManualAnalysis ? 

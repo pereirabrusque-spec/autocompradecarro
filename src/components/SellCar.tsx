@@ -702,6 +702,29 @@ export default function SellCar() {
 
   return (
     <div className="pt-24 pb-24 bg-slate-50 min-h-screen">
+      {/* Aviso Inicial Limpa Nome */}
+      <div className="max-w-4xl mx-auto px-4 mb-8">
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center shrink-0">
+              <ShieldCheck className="w-6 h-6 text-amber-600" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-amber-900 uppercase tracking-tight">Dificuldade com Crédito?</h3>
+              <p className="text-xs text-amber-700 font-medium leading-relaxed">
+                Se seu problema for somente restrição no seu nome, clique no botão ao lado para limpar seu nome primeiro.
+              </p>
+            </div>
+          </div>
+          <a 
+            href="/limpa-nome"
+            className="px-6 py-3 bg-amber-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-amber-700 transition-all shadow-lg shadow-amber-600/20 whitespace-nowrap"
+          >
+            FAZER CADASTRO LIMPA NOME
+          </a>
+        </div>
+      </div>
+
       {/* Modal IPVA/Multas */}
       {showIpvaModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">

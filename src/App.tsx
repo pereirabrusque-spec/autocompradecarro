@@ -37,11 +37,12 @@ import AuthModal from './components/AuthModal';
 import { GoogleTags } from './components/GoogleTags';
 import NotificationPermissionModal from './components/NotificationPermissionModal';
 import ThankYou from './components/ThankYou';
+import LimpaNome from './components/LimpaNome';
 import { AIService } from './services/aiService';
 import { authManager } from './lib/authManager';
 
 function AppContent() {
-  const [view, setView] = useState<'home' | 'admin' | 'buyer' | 'login' | 'forgot-password' | 'reset-password' | 'sell' | 'auth-callback' | 'thank-you'>('home');
+  const [view, setView] = useState<'home' | 'admin' | 'buyer' | 'login' | 'forgot-password' | 'reset-password' | 'sell' | 'auth-callback' | 'thank-you' | 'limpa-nome'>('home');
   const { user, profile, isAdmin, isBuyer, isLoading: authLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
 
@@ -197,6 +198,8 @@ function AppContent() {
         setView('sell');
       } else if (path === '/obrigado') {
         setView('thank-you');
+      } else if (path === '/limpa-nome') {
+        setView('limpa-nome');
       } else {
         if (isAdmin && (path === '/' || path === '')) {
           window.history.pushState({}, '', '/admin');
@@ -288,6 +291,8 @@ function AppContent() {
         return <SellCar />;
       case 'thank-you':
         return <ThankYou />;
+      case 'limpa-nome':
+        return <LimpaNome />;
       case 'auth-callback':
         return (
           <div className="min-h-screen flex items-center justify-center bg-slate-50">

@@ -215,6 +215,31 @@ export const CRMChatContainer = React.memo(({ role, onOpenLead, onCloneLead, set
     };
   }, [currentUserId]);
 
+  useEffect(() => {
+    if (selectedConversationId && currentUserId) {
+      // Limpa unread count localmente para resposta imediata na UI
+      setUnreadCounts(prev => {
+        const newCounts = { ...prev };
+        delete newCounts[selectedConversationId];
+        return newCounts;
+      });
+
+      // Marca como lido no Supabase
+      // Abrange mensagens onde o receptor é este admin OU mensagens globais (receiver_id is null) do remetente selecionado
+      supabase
+        .from('internal_messages')
+        .update({ is_read: true })
+        .eq('sender_id', selectedConversationId)
+        .or(`receiver_id.eq.${currentUserId},receiver_id.is.null`)
+        .eq('is_read', false)
+        .then(({ error }) => {
+          if (error) console.error('[CRMChatContainer] Erro ao marcar lido:', error);
+          // Opcional: Recarrega conversas silenciosamente para atualizar a lista total
+          fetchConversations(currentUserId, true);
+        });
+    }
+  }, [selectedConversationId, currentUserId]);
+
   const toggleGlobalAi = async () => {
     setIsUpdatingAi(true);
     const newValue = !isAiEnabled;

@@ -612,21 +612,20 @@ export default function LeadDetailsCard({
             <div className="flex flex-col">
               <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Ano</span>
               <span className="text-xs font-bold text-slate-700">
-                {console.log("[LeadDetailsCard] currentLead:", currentLead)}
-                {currentLead.ano_fabricacao || currentLead.ano_modelo || 'N/A'}
+                {currentLead.status === 'limpa_nome' ? 'N/A' : (currentLead.ano_fabricacao || currentLead.ano_modelo || 'N/A')}
               </span>
             </div>
             <div className="flex flex-col">
               <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">KM</span>
-              <span className="text-xs font-bold text-slate-700">{currentLead.quilometragem || 'N/A'}</span>
+              <span className="text-xs font-bold text-slate-700">{currentLead.status === 'limpa_nome' ? 'N/A' : (currentLead.quilometragem || 'N/A')}</span>
             </div>
             <div className="flex flex-col">
               <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Cor</span>
-              <span className="text-xs font-bold text-slate-700">{currentLead.cor || 'N/A'}</span>
+              <span className="text-xs font-bold text-slate-700">{currentLead.status === 'limpa_nome' ? 'N/A' : (currentLead.cor || 'N/A')}</span>
             </div>
             <div className="flex flex-col">
               <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Placa</span>
-              <span className="text-xs font-bold text-slate-700">{currentLead.placa || 'N/A'}</span>
+              <span className="text-xs font-bold text-slate-700">{currentLead.status === 'limpa_nome' ? 'N/A' : (currentLead.placa || 'N/A')}</span>
             </div>
             <div className="flex flex-col">
               <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Cliente</span>
@@ -635,6 +634,49 @@ export default function LeadDetailsCard({
             </span>
           </div>
           </div>
+
+          {currentLead.status === 'limpa_nome' && (
+            <div className="bg-indigo-50 border border-indigo-100 rounded-[32px] p-8 space-y-6">
+              <div className="flex items-center gap-3 mb-2">
+                <ShieldCheck className="w-6 h-6 text-indigo-600" />
+                <h3 className="text-xl font-black text-indigo-900 uppercase tracking-tight">Dados Solicitação Limpa Nome</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="p-4 bg-white rounded-2xl shadow-sm border border-indigo-100">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">CPF Informado</span>
+                  <p className="text-lg font-black text-slate-900">{currentLead.cpf || 'Não informado'}</p>
+                </div>
+                <div className="p-4 bg-white rounded-2xl shadow-sm border border-indigo-100">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Valor da Dívida</span>
+                  <p className="text-lg font-black text-red-600">R$ {currentLead.valor_divida || '0,00'}</p>
+                </div>
+                <div className="p-4 bg-white rounded-2xl shadow-sm border border-indigo-100">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">WhatsApp</span>
+                  <div className="flex items-center justify-between">
+                    <p className="text-lg font-black text-slate-900">{currentLead.telefone || 'Não informado'}</p>
+                    {currentLead.telefone && (
+                      <button 
+                        onClick={() => {
+                          const phone = currentLead.telefone?.replace(/\D/g, '');
+                          const formattedPhone = phone?.startsWith('55') ? phone : `55${phone}`;
+                          window.open(`https://wa.me/${formattedPhone}?text=Olá ${currentLead.cliente_nome}, aqui é da AutoCompra. Recebemos sua solicitação para Limpa Nome.`, '_blank');
+                        }}
+                        className="p-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="p-6 bg-white rounded-2xl shadow-sm border border-indigo-100">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Endereço Completo</span>
+                <p className="text-slate-700 font-bold leading-relaxed">
+                  {currentLead.observacoes?.split('ENDEREÇO: ')[1]?.split('. VALOR')[0] || 'Não informado'}
+                </p>
+              </div>
+            </div>
+          )}
           
           {/* Botões de Ação no Topo */}
           <div className="flex flex-wrap justify-end gap-2 pb-4 border-b border-slate-100">
@@ -973,29 +1015,31 @@ export default function LeadDetailsCard({
               </div>
 
               {/* Botão Avaliar Veículo */}
-              <div className="flex gap-2 w-full">
-                <button 
-                  onClick={() => {
-                    if (actualHideClientInfo) {
-                      alert('Acesso detalhado restrito para sua categoria.');
-                      return;
-                    }
-                    setShowDataModal(true);
-                  }} 
-                  className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-slate-800 transition-all shadow-lg transform hover:scale-[1.01] active:scale-[0.99]"
-                >
-                  <FileText className="w-5 h-5" /> {actualHideClientInfo ? 'Acesso Restrito' : 'Avaliar Veículo'}
-                </button>
-                {onClone && (
+              {currentLead.status !== 'limpa_nome' && (
+                <div className="flex gap-2 w-full">
                   <button 
-                    onClick={() => onClone(currentLead)} 
-                    className="px-6 py-4 bg-blue-600 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-all shadow-lg transform hover:scale-[1.01] active:scale-[0.99]"
-                    title="Clonar este veículo para uma nova negociação"
+                    onClick={() => {
+                      if (actualHideClientInfo) {
+                        alert('Acesso detalhado restrito para sua categoria.');
+                        return;
+                      }
+                      setShowDataModal(true);
+                    }} 
+                    className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-slate-800 transition-all shadow-lg transform hover:scale-[1.01] active:scale-[0.99]"
                   >
-                    <Copy className="w-5 h-5" /> Clonar
+                    <FileText className="w-5 h-5" /> {actualHideClientInfo ? 'Acesso Restrito' : 'Avaliar Veículo'}
                   </button>
-                )}
-              </div>
+                  {onClone && (
+                    <button 
+                      onClick={() => onClone(currentLead)} 
+                      className="px-6 py-4 bg-blue-600 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-all shadow-lg transform hover:scale-[1.01] active:scale-[0.99]"
+                      title="Clonar este veículo para uma nova negociação"
+                    >
+                      <Copy className="w-5 h-5" /> Clonar
+                    </button>
+                  )}
+                </div>
+              )}
               {/* Benefícios */}
               <div className="bg-white border border-slate-200 p-4 rounded-[24px] shadow-sm">
                 <h3 className="font-bold text-slate-900 uppercase text-[10px] tracking-widest mb-3 flex items-center gap-2">

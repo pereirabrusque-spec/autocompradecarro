@@ -4805,15 +4805,27 @@ Podemos prosseguir com o agendamento da vistoria?`;
                           <tr className="border-b border-slate-200">
                             <th className="px-2 pr-1 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Data</th>
                             <th className="px-2 pl-1 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Status</th>
-                            <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Veículo</th>
-                            <th className="px-2 pr-1 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Código</th>
-                            <th className="px-2 px-1 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Ano/Modelo</th>
-                            <th className="px-2 pl-1 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">FIPE</th>
-                            <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Desejado</th>
-                            <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Sugerido</th>
-                            <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Contato</th>
-                            <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Como Está</th>
-                            <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Quitado</th>
+                            {activeLeadTab === 'limpa_nome' ? (
+                              <>
+                                <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Nome do Cliente</th>
+                                <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">CPF</th>
+                                <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Valor da Dívida</th>
+                                <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Whatsapp</th>
+                                <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Localização</th>
+                              </>
+                            ) : (
+                              <>
+                                <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Veículo</th>
+                                <th className="px-2 pr-1 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Código</th>
+                                <th className="px-2 px-1 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Ano/Modelo</th>
+                                <th className="px-2 pl-1 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">FIPE</th>
+                                <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Desejado</th>
+                                <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Sugerido</th>
+                                <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Contato</th>
+                                <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Como Está</th>
+                                <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Quitado</th>
+                              </>
+                            )}
                             <th className="px-2 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 text-center">Ações</th>
                           </tr>
                         </thead>

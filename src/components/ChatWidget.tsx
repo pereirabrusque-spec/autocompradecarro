@@ -353,7 +353,7 @@ export default function ChatWidget() {
           .insert([{
             sender_id: user.id,
             receiver_id: null, // To be picked up by admin/AI
-            conteudo: messageText,
+            content: messageText,
             is_read: false,
             lead_id: activeLead.id !== user.id ? activeLead.id : null
           }]);
@@ -367,7 +367,7 @@ export default function ChatWidget() {
           type: 'broadcast',
           event: 'new_message',
           payload: { 
-            message: messageText, 
+            content: messageText, 
             sender_id: user.id,
             lead_id: activeLead.id
           }
