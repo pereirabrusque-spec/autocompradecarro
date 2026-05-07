@@ -425,8 +425,9 @@ export const BackgroundAIManager = () => {
 
     const isThreadLocked = (threadId: string) => {
         const lastProcessed = processedThreads.current.get(threadId);
-        if (lastProcessed && Date.now() - lastProcessed < 15000) { // 15 seconds lock
-            console.log(`[BackgroundAIManager] 🔒 Thread ${threadId} está bloqueado por atividade recente.`);
+        // Diminui o lock de 15s para 1s pra permitir que o bot responda a várias mensagens enviadas juntas (sem travar tudo)
+        if (lastProcessed && Date.now() - lastProcessed < 1500) { 
+            console.log(`[BackgroundAIManager] 🔒 Thread ${threadId} bloqueado por 1s (debounce).`);
             return true;
         }
         return false;
@@ -636,22 +637,6 @@ export const BackgroundAIManager = () => {
                     .or(`sender_id.eq.${senderId},receiver_id.eq.${senderId}`)
                     .order('created_at', { ascending: false })
                     .limit(50);
-
-                // -- NEW: Check if the VERY LAST message in history is from ANY admin/bot --
-                if (historyData && historyData.length > 0) {
-                    const lastMsgInHistory = historyData[0];
-                    const isLastMsgMe = lastMsgInHistory.sender_id === uid;
-                    const isLastMsgBot = lastMsgInHistory.metadata?.from_ai === true || 
-                                       lastMsgInHistory.metadata?.role === 'bot' || 
-                                       lastMsgInHistory.metadata?.role === 'agent' ||
-                                       lastMsgInHistory.metadata?.role === 'admin' ||
-                                       lastMsgInHistory.metadata?.role === 'seller';
-                    
-                    if (isLastMsgMe || isLastMsgBot) {
-                        console.log(`[BackgroundAIManager] 🛑 handleInternalMessage ABORT: A última mensagem (${lastMsgInHistory.id}) já foi enviada por sistema (Admin/BOT/Seller).`);
-                        return;
-                    }
-                }
 
                 const history = (historyData || []).reverse().map(m => {
                     const isSystem = m.sender_id === uid || 
@@ -1170,29 +1155,6 @@ RESPONDA DIRETAMENTE AO REMETENTE.
 
             const clienteNomeFromLead = leadData?.cliente_nome || "Cliente";
 
-            // -- REFORÇO: Check if the VERY LAST message in the thread is from admin/bot --
-            const { data: lastThreadMsg } = await supabase
-                .from('mensagens')
-                .select('id, remetente, metadata')
-                .eq('lead_id', leadId)
-                .order('created_at', { ascending: false })
-                .limit(1);
-            
-            if (lastThreadMsg && lastThreadMsg.length > 0) {
-                const last = lastThreadMsg[0];
-                // Verifica remetente e metadados de forma mais robusta
-                const isSystem = last.remetente === 'admin' || 
-                                 last.remetente === 'bot' || 
-                                 last.metadata?.from_ai === true || 
-                                 last.metadata?.role === 'agent' ||
-                                 last.metadata?.role === 'bot';
-                
-                if (isSystem) {
-                    console.log(`[BackgroundAIManager] 🛑 handlePublicMessage ABORT: A última mensagem do thread (${last.id}) já é do sistema/IA.`);
-                    return;
-                }
-            }
-            
             const delay = Math.floor(Math.random() * 800) + 700; // 0.7-1.5 segundos
             await new Promise(resolve => setTimeout(resolve, delay));
 

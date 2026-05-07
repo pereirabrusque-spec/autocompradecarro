@@ -348,18 +348,31 @@ export default function ChatWidget() {
       }
 
       if (isBuyer) {
-        const { error } = await supabase
+        const { data: insertedMsg, error } = await supabase
           .from('internal_messages')
           .insert([{
             sender_id: user.id,
-            receiver_id: null, // To be picked up by admin/AI
+            receiver_id: null,
             content: messageText,
             is_read: false,
-            lead_id: activeLead.id !== user.id ? activeLead.id : null
-          }]);
+            lead_id: currentLeadId !== user.id ? currentLeadId : null
+          }])
+          .select()
+          .single();
+
         if (error) {
           console.error('[ChatWidget] Erro ao enviar mensagem interna:', error);
           throw error;
+        }
+
+        // Troca o optimistic pelo real
+        if (insertedMsg) {
+          setMessages(prev => prev.map(m => m.id === tempId ? {
+            id: insertedMsg.id,
+            conteudo: insertedMsg.content,
+            remetente: 'cliente',
+            created_at: insertedMsg.created_at
+          } : m));
         }
 
         // Broadcast to a global channel so any active admin/AI sees it immediately
@@ -369,22 +382,43 @@ export default function ChatWidget() {
           payload: { 
             content: messageText, 
             sender_id: user.id,
-            lead_id: activeLead.id
+            lead_id: currentLeadId
           }
         });
       } else {
-        const { error } = await supabase
+        const { data: insertedMsg, error } = await supabase
           .from('mensagens')
           .insert([{
             lead_id: currentLeadId,
             remetente: 'cliente',
             conteudo: messageText,
             lida: false
-          }]);
+          }])
+          .select()
+          .single();
+
         if (error) {
           console.error('[ChatWidget] Erro ao enviar mensagem pública:', error);
           throw error;
         }
+
+        // Troca o optimistic pelo real
+        if (insertedMsg) {
+          setMessages(prev => prev.map(m => m.id === tempId ? {
+            ...insertedMsg,
+            conteudo: insertedMsg.conteudo,
+            remetente: 'cliente',
+            created_at: insertedMsg.created_at
+          } : m));
+        }
+      }
+      
+      // Safety check: Se recriamos o lead e possivelmente derrubamos a conexão realtime
+      // disparamos o fetchMessages um tempinho dps para ter certeza que pegamos iterações da IA.
+      if (!isBuyer && activeLead.is_placeholder) {
+        setTimeout(() => {
+          fetchMessages(currentLeadId);
+        }, 1500);
       }
     } catch (error) {
       console.error('Error sending message:', error);
