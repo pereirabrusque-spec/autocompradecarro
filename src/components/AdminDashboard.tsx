@@ -3400,98 +3400,101 @@ Podemos prosseguir com o agendamento da vistoria?`;
     <div className="h-screen bg-slate-50 flex flex-col overflow-hidden">
       {/* Top Navbar */}
       <header className="bg-slate-950 border-b border-white/5 shrink-0 z-[100] shadow-2xl backdrop-blur-xl bg-opacity-95 sticky top-0">
-        <div className="max-w-[1920px] mx-auto px-4 min-h-[72px] flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4 shrink-0 overflow-hidden">
+        <div className="max-w-[1920px] mx-auto px-4">
+          {/* Top Row: Brand and Actions */}
+          <div className="flex items-center justify-between min-h-[64px] gap-4">
+            <div className="flex items-center gap-4 shrink-0 overflow-hidden">
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="w-10 h-10 bg-accent rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(242,125,38,0.4)]">
+                  <ShieldCheck className="w-6 h-6 text-white" />
+                </div>
+                <div className="hidden sm:block">
+                  <h1 className="font-display text-lg font-black text-white leading-none tracking-tight">AUTO COMPRA</h1>
+                  <p className="text-[10px] text-accent font-bold uppercase tracking-[0.2em] mt-1">Admin Pro</p>
+                </div>
+              </div>
+              <div className="h-8 w-px bg-white/10 hidden lg:block mx-4 shadow-[1px_0_0_rgba(255,255,255,0.05)]"></div>
+            </div>
+
             <div className="flex items-center gap-3 shrink-0">
-              <div className="w-10 h-10 bg-accent rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(242,125,38,0.4)]">
-                <ShieldCheck className="w-6 h-6 text-white" />
+               {/* AI Status Indicator Lite */}
+               <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-xl border border-white/10">
+                <div className={`w-2 h-2 rounded-full ${isGlobalAiEnabled ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]' : 'bg-slate-500'}`} />
+                <span className="text-[10px] font-black text-slate-300 uppercase leading-none tracking-widest">
+                  IA {isGlobalAiEnabled ? 'ON' : 'OFF'}
+                </span>
               </div>
-              <div className="hidden sm:block">
-                <h1 className="font-display text-lg font-black text-white leading-none tracking-tight">AUTO COMPRA</h1>
-                <p className="text-[10px] text-accent font-bold uppercase tracking-[0.2em] mt-1">Admin Pro</p>
-              </div>
+
+              <button 
+                onClick={() => window.open('/', '_blank')}
+                className="p-2.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"
+                title="Abrir Site"
+              >
+                <Share2 className="w-5 h-5" />
+              </button>
+               <button 
+                onClick={handleLogout}
+                className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all shadow-sm"
+                title="Sair"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
             </div>
-
-            <div className="h-8 w-px bg-white/10 hidden lg:block mr-2 shadow-[1px_0_0_rgba(255,255,255,0.05)]"></div>
           </div>
-            
-            <nav className="flex-1 flex items-center justify-center px-4 overflow-hidden relative">
-              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-2 max-w-full lg:max-w-none scroll-smooth">
-                {[
-                  { id: 'dashboard', label: 'Início', icon: LayoutDashboard, roles: ['admin'] },
-                  { id: 'hero', label: 'Site', icon: ImageIcon, roles: ['admin'] },
-                  { id: 'assets', label: 'Fotos', icon: Maximize2, roles: ['admin'] },
-                  { id: 'footer', label: 'Rodapé', icon: Info, roles: ['admin'] },
-                  { id: 'leads', label: 'Leads', icon: Car, roles: ['admin', 'buyer', 'buyer_premium', 'buyer_master', 'user', 'seller'] },
-                  { id: 'crm', label: 'CRM Compradores', icon: UserPlus, roles: ['admin'] },
-                  { id: 'messages', label: 'Mensagens', icon: MessageCircle, badge: conversations.reduce((acc, curr) => acc + (curr.unread || 0), 0), roles: ['admin', 'user', 'seller', 'buyer', 'buyer_premium', 'buyer_master'] },
-                  { id: 'crm_chat', label: 'CRM Chat', icon: MessageCircle, roles: ['admin', 'buyer', 'buyer_premium', 'buyer_master'] },
-                  { id: 'users', label: 'Equipe & CRM', icon: Users, roles: ['admin'] },
-                  { id: 'settings', label: 'Regras', icon: Settings, roles: ['admin'] },
-                  { id: 'apis', label: 'APIs', icon: Key, roles: ['admin'] },
-                  { id: 'chat_settings', label: 'Chat Config', icon: MessageCircle, roles: ['admin'] },
-                  { id: 'ai', label: 'IA', icon: Bot, roles: ['admin'] },
-                  { id: 'cooperatives', label: 'Cooperativas', icon: Wallet, roles: ['admin'] },
-                  { id: 'tags', label: 'Marketing', icon: BarChart3, roles: ['admin'] },
-                  { id: 'logs', label: 'Logs', icon: Database, roles: ['admin'] },
-                ].filter(tab => {
-                  if (tab.id === 'ai') return userProfile?.role === 'admin' || currentUser?.email === 'pereira.brusque@gmail.com';
-                  if (!tab.roles) return true;
-                  const hasRole = tab.roles.includes(userProfile?.role);
-                  if (tab.id === 'leads' && userProfile?.role?.includes('buyer')) return userProfile.view_auth === true;
-                  return hasRole || currentUser?.email === 'pereira.brusque@gmail.com';
-                }).map((tab) => (
-                  <button 
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)} 
-                    className={`px-3 py-2 rounded-xl font-bold text-[10px] transition-all whitespace-nowrap flex items-center gap-2 relative group shrink-0 ${
-                      activeTab === tab.id 
-                        ? 'bg-accent text-white shadow-[0_0_20px_rgba(242,125,38,0.3)]' 
-                        : 'text-slate-400 hover:text-white hover:bg-white/5'
-                    }`}
-                  >
-                    <tab.icon className={`w-3.5 h-3.5 ${activeTab === tab.id ? 'text-white' : 'text-slate-500 group-hover:text-accent'}`} />
-                    <span className="uppercase tracking-wider">{tab.label}</span>
-                    {tab.badge !== undefined && tab.badge > 0 && (
-                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[8px] flex items-center justify-center rounded-full border-2 border-slate-950 font-black scale-110">
-                        {tab.badge}
-                      </span>
-                    )}
-                    {activeTab === tab.id && (
-                      <motion.div 
-                        layoutId="navTabIndicator"
-                        className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-white rounded-full"
-                      />
-                    )}
-                  </button>
-                ))}
-              </div>
-            </nav>
 
-          <div className="flex items-center gap-3 shrink-0">
-             {/* AI Status Indicator Lite */}
-             <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-xl border border-white/10">
-              <div className={`w-2 h-2 rounded-full ${isGlobalAiEnabled ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]' : 'bg-slate-500'}`} />
-              <span className="text-[10px] font-black text-slate-300 uppercase leading-none tracking-widest">
-                IA {isGlobalAiEnabled ? 'ON' : 'OFF'}
-              </span>
+          {/* Bottom Row: Navigation Tabs */}
+          <nav className="flex items-center justify-center pb-2 border-t border-white/5 overflow-hidden">
+            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-2 max-w-full lg:max-w-none scroll-smooth">
+              {[
+                { id: 'dashboard', label: 'Início', icon: LayoutDashboard, roles: ['admin'] },
+                { id: 'leads', label: 'Leads', icon: Car, roles: ['admin', 'buyer', 'buyer_premium', 'buyer_master', 'user', 'seller'] },
+                { id: 'messages', label: 'Mensagens', icon: MessageCircle, badge: conversations.reduce((acc, curr) => acc + (curr.unread || 0), 0), roles: ['admin', 'user', 'seller', 'buyer', 'buyer_premium', 'buyer_master'] },
+                { id: 'crm_chat', label: 'CRM Chat', icon: MessageCircle, roles: ['admin', 'buyer', 'buyer_premium', 'buyer_master'] },
+                { id: 'hero', label: 'Site', icon: ImageIcon, roles: ['admin'] },
+                { id: 'assets', label: 'Fotos', icon: Maximize2, roles: ['admin'] },
+                { id: 'footer', label: 'Rodapé', icon: Info, roles: ['admin'] },
+                { id: 'crm', label: 'CRM Compradores', icon: UserPlus, roles: ['admin'] },
+                { id: 'users', label: 'Equipe & CRM', icon: Users, roles: ['admin'] },
+                { id: 'settings', label: 'Regras', icon: Settings, roles: ['admin'] },
+                { id: 'apis', label: 'APIs', icon: Key, roles: ['admin'] },
+                { id: 'chat_settings', label: 'Chat Config', icon: MessageCircle, roles: ['admin'] },
+                { id: 'ai', label: 'IA', icon: Bot, roles: ['admin'] },
+                { id: 'cooperatives', label: 'Cooperativas', icon: Wallet, roles: ['admin'] },
+                { id: 'tags', label: 'Marketing', icon: BarChart3, roles: ['admin'] },
+                { id: 'logs', label: 'Logs', icon: Database, roles: ['admin'] },
+              ].filter(tab => {
+                if (tab.id === 'ai') return userProfile?.role === 'admin' || currentUser?.email === 'pereira.brusque@gmail.com';
+                if (!tab.roles) return true;
+                const hasRole = tab.roles.includes(userProfile?.role);
+                if (tab.id === 'leads' && userProfile?.role?.includes('buyer')) return userProfile.view_auth === true;
+                return hasRole || currentUser?.email === 'pereira.brusque@gmail.com';
+              }).map((tab) => (
+                <button 
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)} 
+                  className={`px-3 py-2 rounded-xl font-bold text-[10px] transition-all whitespace-nowrap flex items-center gap-2 relative group shrink-0 ${
+                    activeTab === tab.id 
+                      ? 'bg-accent text-white shadow-[0_0_20px_rgba(242,125,38,0.3)]' 
+                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <tab.icon className={`w-3.5 h-3.5 ${activeTab === tab.id ? 'text-white' : 'text-slate-500 group-hover:text-accent'}`} />
+                  <span className="uppercase tracking-wider">{tab.label}</span>
+                  {tab.badge !== undefined && tab.badge > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[8px] flex items-center justify-center rounded-full border-2 border-slate-950 font-black scale-110">
+                      {tab.badge}
+                    </span>
+                  )}
+                  {activeTab === tab.id && (
+                    <motion.div 
+                      layoutId="navTabIndicator"
+                      className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-white rounded-full"
+                    />
+                  )}
+                </button>
+              ))}
             </div>
-
-            <button 
-              onClick={() => window.open('/', '_blank')}
-              className="p-2.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"
-              title="Abrir Site"
-            >
-              <Share2 className="w-5 h-5" />
-            </button>
-             <button 
-              onClick={handleLogout}
-              className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all shadow-sm"
-              title="Sair"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
-          </div>
+          </nav>
         </div>
       </header>
 
@@ -4619,16 +4622,16 @@ Podemos prosseguir com o agendamento da vistoria?`;
               </div>
             )}
             {activeTab === 'leads' && (
-              <div className="flex flex-col gap-6 h-full pb-4">
-                <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 shrink-0">
+              <div className="flex flex-col gap-3 h-full pb-4">
+                <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-2 shrink-0">
                   {/* Abas de Status dos Leads */}
-                  <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto">
+                  <div className="flex flex-wrap items-center gap-1.5 w-full xl:w-auto">
                     <button 
                       onClick={handleExportCSV}
-                      className="p-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-all flex items-center gap-2 text-xs font-bold shadow-sm shrink-0"
+                      className="p-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-all flex items-center gap-2 text-[11px] font-bold shadow-sm shrink-0"
                       title="Exportar Leads para CSV"
                     >
-                      <Download className="w-4 h-4" />
+                      <Download className="w-3.5 h-3.5" />
                       <span className="hidden sm:inline">Exportar</span>
                     </button>
                     <div className="flex flex-wrap bg-white p-1 rounded-xl shadow-sm border border-slate-100 gap-1 overflow-x-auto no-scrollbar max-w-[95vw] sm:max-w-none">
@@ -4648,7 +4651,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       <button
                         key={tab.id}
                         onClick={() => setActiveLeadTab(tab.id as any)}
-                        className={`px-3 py-1.5 rounded-lg font-bold text-[11px] transition-all whitespace-nowrap ${
+                        className={`px-2.5 py-1.5 rounded-lg font-bold text-[10px] transition-all whitespace-nowrap ${
                           activeLeadTab === tab.id 
                             ? 'bg-slate-900 text-white shadow-md shadow-slate-900/20' 
                             : 'text-slate-500 hover:bg-slate-50'
@@ -4661,81 +4664,81 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   </div>
 
                   {/* Filtros de Data e Busca */}
-                  <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
-                    <div className="flex flex-wrap gap-2">
-                      <div className="flex items-center gap-1 border border-slate-200 rounded-xl bg-white px-3 py-1.5 shadow-sm">
-                        <span className="text-[9px] font-black text-slate-400 uppercase">De:</span>
-                        <input type="date" className="bg-transparent text-xs font-bold outline-none border-0 p-0 focus:ring-0 min-w-[120px]" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)} />
+                  <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto">
+                    <div className="flex flex-wrap gap-1.5">
+                      <div className="flex items-center gap-1 border border-slate-200 rounded-xl bg-white px-2 py-1 shadow-sm">
+                        <span className="text-[8px] font-black text-slate-400 uppercase">De:</span>
+                        <input type="date" className="bg-transparent text-[11px] font-bold outline-none border-0 p-0 focus:ring-0 min-w-[100px]" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)} />
                       </div>
-                      <div className="flex items-center gap-1 border border-slate-200 rounded-xl bg-white px-3 py-1.5 shadow-sm">
-                        <span className="text-[9px] font-black text-slate-400 uppercase">Até:</span>
-                        <input type="date" className="bg-transparent text-xs font-bold outline-none border-0 p-0 focus:ring-0 min-w-[120px]" value={filterEndDate} onChange={(e) => setFilterEndDate(e.target.value)} />
+                      <div className="flex items-center gap-1 border border-slate-200 rounded-xl bg-white px-2 py-1 shadow-sm">
+                        <span className="text-[8px] font-black text-slate-400 uppercase">Até:</span>
+                        <input type="date" className="bg-transparent text-[11px] font-bold outline-none border-0 p-0 focus:ring-0 min-w-[100px]" value={filterEndDate} onChange={(e) => setFilterEndDate(e.target.value)} />
                       </div>
                     </div>
 
-                    <div className="relative flex-1 min-w-[200px] xl:w-64 group shadow-sm">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-accent transition-colors" />
+                    <div className="relative flex-1 min-w-[150px] xl:w-56 group shadow-sm">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-accent transition-colors" />
                       <input 
                         type="text" 
                         placeholder="Buscar por Código..."
                         value={searchCode}
                         onChange={(e) => setSearchCode(e.target.value.toUpperCase())}
-                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-accent/20 transition-all"
+                        className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-[11px] font-bold outline-none focus:ring-2 focus:ring-accent/20 transition-all"
                       />
                     </div>
                   </div>
 
                   {/* Modos de Visualização e Refresh */}
-                  <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto">
+                  <div className="flex flex-wrap items-center gap-1.5 w-full xl:w-auto">
                     <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-100">
                       <button 
                         onClick={() => setLeadsViewMode('list')}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all ${leadsViewMode === 'list' ? 'bg-slate-900 text-white' : 'text-slate-400 hover:bg-slate-50'}`}
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all ${leadsViewMode === 'list' ? 'bg-slate-900 text-white' : 'text-slate-400 hover:bg-slate-50'}`}
                         title="Lista"
                       >
-                        <BarChart3 className="w-4 h-4" />
-                        <span className="text-[10px] font-bold uppercase hidden sm:inline">Lista</span>
+                        <BarChart3 className="w-3.5 h-3.5" />
+                        <span className="text-[9px] font-bold uppercase hidden sm:inline">Lista</span>
                       </button>
                       <button 
                         onClick={() => setLeadsViewMode('grid')}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all ${leadsViewMode === 'grid' ? 'bg-slate-900 text-white' : 'text-slate-400 hover:bg-slate-50'}`}
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all ${leadsViewMode === 'grid' ? 'bg-slate-900 text-white' : 'text-slate-400 hover:bg-slate-50'}`}
                         title="Cards"
                       >
-                        <LayoutDashboard className="w-4 h-4" />
-                        <span className="text-[10px] font-bold uppercase hidden sm:inline">Cards</span>
+                        <LayoutDashboard className="w-3.5 h-3.5" />
+                        <span className="text-[9px] font-bold uppercase hidden sm:inline">Cards</span>
                       </button>
                     </div>
 
                     <button 
                       onClick={handleCleanupDuplicates}
                       disabled={isCleaningDuplicates}
-                      className="flex items-center gap-2 px-4 py-2.5 bg-amber-500 text-white rounded-xl font-bold hover:bg-amber-600 transition-colors text-[11px] disabled:opacity-50 shadow-sm"
+                      className="flex items-center gap-1.5 px-3 py-2 bg-amber-500 text-white rounded-xl font-bold hover:bg-amber-600 transition-colors text-[10px] disabled:opacity-50 shadow-sm"
                     >
-                      {isCleaningDuplicates ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                      {isCleaningDuplicates ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
                       <span>Limpar Duplicados</span>
                     </button>
 
                     <button 
                       onClick={fetchData}
-                      className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-colors text-[11px] shadow-sm"
+                      className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-colors text-[10px] shadow-sm"
                     >
-                      <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                      <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
                       <span>Atualizar</span>
                     </button>
                   </div>
                 </div>
 
                 {/* Filtros Adicionais (Marca, Ano, Preço) */}
-                <div className="flex flex-wrap items-center gap-3 pb-2 border-b border-slate-100 mb-2 overflow-x-auto no-scrollbar">
-                  <select className="p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 focus:ring-accent/20 min-w-[150px]" value={filterBrand} onChange={(e) => setFilterBrand(e.target.value)}>
+                <div className="flex flex-wrap items-center gap-2 pb-1 border-b border-slate-100 mb-1 overflow-x-auto no-scrollbar">
+                  <select className="p-2 bg-white border border-slate-200 rounded-xl text-[11px] font-bold text-slate-600 focus:ring-accent/20 min-w-[120px]" value={filterBrand} onChange={(e) => setFilterBrand(e.target.value)}>
                     <option value="">Todas as Marcas</option>
                     {[...new Set(leads.map(l => l.marca).filter(Boolean))].map(brand => <option key={brand} value={brand}>{brand}</option>)}
                   </select>
-                  <input type="number" placeholder="Ano" className="p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold w-24 text-slate-600" value={filterYear} onChange={(e) => setFilterYear(e.target.value)} />
-                  <div className="flex items-center gap-2">
-                    <input type="number" placeholder="Min R$" className="p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold w-28 text-slate-600" value={filterMinPrice} onChange={(e) => setFilterMinPrice(e.target.value)} />
-                    <span className="text-slate-300 text-xs font-bold">até</span>
-                    <input type="number" placeholder="Max R$" className="p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold w-28 text-slate-600" value={filterMaxPrice} onChange={(e) => setFilterMaxPrice(e.target.value)} />
+                  <input type="number" placeholder="Ano" className="p-2 bg-white border border-slate-200 rounded-xl text-[11px] font-bold w-20 text-slate-600" value={filterYear} onChange={(e) => setFilterYear(e.target.value)} />
+                  <div className="flex items-center gap-1.5">
+                    <input type="number" placeholder="Min R$" className="p-2 bg-white border border-slate-200 rounded-xl text-[11px] font-bold w-24 text-slate-600" value={filterMinPrice} onChange={(e) => setFilterMinPrice(e.target.value)} />
+                    <span className="text-slate-300 text-[10px] font-bold text-center">até</span>
+                    <input type="number" placeholder="Max R$" className="p-2 bg-white border border-slate-200 rounded-xl text-[11px] font-bold w-24 text-slate-600" value={filterMaxPrice} onChange={(e) => setFilterMaxPrice(e.target.value)} />
                   </div>
                   <button 
                     onClick={() => {

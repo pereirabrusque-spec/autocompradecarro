@@ -56,6 +56,7 @@ export default function Footer() {
             <ul className="space-y-4 text-slate-400">
               <li><a href="/" className="hover:text-white transition-colors">Home</a></li>
               <li><a href="/vender" className="hover:text-white transition-colors">Vender Meu Carro</a></li>
+              <li><a href="/limpanome" className="hover:text-white transition-colors">Limpa Nome</a></li>
               <li><a href="/admin" className="hover:text-white transition-colors">Área Administrativa</a></li>
             </ul>
           </div>
