@@ -3396,99 +3396,145 @@ Podemos prosseguir com o agendamento da vistoria?`;
       })[0].id
     : null;
 
+  const filteredTabs = [
+    { id: 'dashboard', label: 'Início', icon: LayoutDashboard, roles: ['admin'] },
+    { id: 'leads', label: 'Leads', icon: Car, roles: ['admin', 'buyer', 'buyer_premium', 'buyer_master', 'user', 'seller'] },
+    { id: 'messages', label: 'Mensagens', icon: MessageCircle, badge: conversations.reduce((acc, curr) => acc + (curr.unread || 0), 0), roles: ['admin', 'user', 'seller', 'buyer', 'buyer_premium', 'buyer_master'] },
+    { id: 'crm_chat', label: 'CRM Chat', icon: MessageCircle, roles: ['admin', 'buyer', 'buyer_premium', 'buyer_master'] },
+    { id: 'hero', label: 'Site', icon: ImageIcon, roles: ['admin'] },
+    { id: 'assets', label: 'Fotos', icon: Maximize2, roles: ['admin'] },
+    { id: 'footer', label: 'Rodapé', icon: Info, roles: ['admin'] },
+    { id: 'crm', label: 'CRM Compradores', icon: UserPlus, roles: ['admin'] },
+    { id: 'users', label: 'Equipe & CRM', icon: Users, roles: ['admin'] },
+    { id: 'settings', label: 'Regras', icon: Settings, roles: ['admin'] },
+    { id: 'apis', label: 'APIs', icon: Key, roles: ['admin'] },
+    { id: 'chat_settings', label: 'Chat Config', icon: MessageCircle, roles: ['admin'] },
+    { id: 'ai', label: 'IA', icon: Bot, roles: ['admin'] },
+    { id: 'cooperatives', label: 'Cooperativas', icon: Wallet, roles: ['admin'] },
+    { id: 'tags', label: 'Marketing', icon: BarChart3, roles: ['admin'] },
+    { id: 'logs', label: 'Logs', icon: Database, roles: ['admin'] },
+  ].filter(tab => {
+    if (tab.id === 'ai') return userProfile?.role === 'admin' || currentUser?.email === 'pereira.brusque@gmail.com';
+    if (!tab.roles) return true;
+    const hasRole = tab.roles.includes(userProfile?.role);
+    if (tab.id === 'leads' && userProfile?.role?.includes('buyer')) return userProfile.view_auth === true;
+    return hasRole || currentUser?.email === 'pereira.brusque@gmail.com';
+  });
+
+  const row1Tabs = filteredTabs.slice(0, 8);
+  const row2Tabs = filteredTabs.slice(8);
+
   return (
     <div className="h-screen bg-slate-50 flex flex-col overflow-hidden">
       {/* Top Navbar */}
       <header className="bg-slate-950 border-b border-white/5 shrink-0 z-[100] shadow-2xl backdrop-blur-xl bg-opacity-95 sticky top-0">
         <div className="max-w-[1920px] mx-auto px-4">
           {/* Top Row: Brand and Actions */}
-          <div className="flex items-center justify-between min-h-[64px] gap-4">
+          <div className="flex items-center justify-between min-h-[48px] gap-4">
             <div className="flex items-center gap-4 shrink-0 overflow-hidden">
               <div className="flex items-center gap-3 shrink-0">
-                <div className="w-10 h-10 bg-accent rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(242,125,38,0.4)]">
-                  <ShieldCheck className="w-6 h-6 text-white" />
+                <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(242,125,38,0.4)]">
+                  <ShieldCheck className="w-5 h-5 text-white" />
                 </div>
-                <div className="hidden sm:block">
-                  <h1 className="font-display text-lg font-black text-white leading-none tracking-tight">AUTO COMPRA</h1>
-                  <p className="text-[10px] text-accent font-bold uppercase tracking-[0.2em] mt-1">Admin Pro</p>
+                <div className="hidden lg:block">
+                  <h1 className="font-display text-sm font-black text-white leading-none tracking-tight">AUTO COMPRA</h1>
+                  <p className="text-[8px] text-accent font-bold uppercase tracking-[0.2em] mt-0.5">Admin Pro</p>
                 </div>
               </div>
-              <div className="h-8 w-px bg-white/10 hidden lg:block mx-4 shadow-[1px_0_0_rgba(255,255,255,0.05)]"></div>
+              
+              <div className="h-6 w-px bg-white/10 hidden xl:block mx-2 shadow-[1px_0_0_rgba(255,255,255,0.05)]"></div>
+
+              {/* FIRST ROW TABS (Integrated into top bar) */}
+              <nav className="hidden xl:flex items-center gap-1">
+                {row1Tabs.map((tab) => (
+                  <button 
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)} 
+                    className={`px-2.5 py-1.5 rounded-lg font-bold text-[9px] transition-all whitespace-nowrap flex items-center gap-1.5 relative group shrink-0 ${
+                      activeTab === tab.id 
+                        ? 'bg-accent/20 text-accent border border-accent/20' 
+                        : 'text-slate-400 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <tab.icon className={`w-3 h-3 ${activeTab === tab.id ? 'text-accent' : 'text-slate-500 group-hover:text-accent'}`} />
+                    <span className="uppercase tracking-widest">{tab.label}</span>
+                    {tab.badge !== undefined && tab.badge > 0 && (
+                      <span className="w-3 h-3 bg-red-500 text-white text-[7px] flex items-center justify-center rounded-full font-black ml-0.5">
+                        {tab.badge}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </nav>
             </div>
 
-            <div className="flex items-center gap-3 shrink-0">
+            <div className="flex items-center gap-2 shrink-0">
                {/* AI Status Indicator Lite */}
-               <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-xl border border-white/10">
-                <div className={`w-2 h-2 rounded-full ${isGlobalAiEnabled ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]' : 'bg-slate-500'}`} />
-                <span className="text-[10px] font-black text-slate-300 uppercase leading-none tracking-widest">
+               <div className="hidden md:flex items-center gap-2 px-2 py-1 bg-white/5 rounded-lg border border-white/10">
+                <div className={`w-1.5 h-1.5 rounded-full ${isGlobalAiEnabled ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]' : 'bg-slate-500'}`} />
+                <span className="text-[8px] font-black text-slate-300 uppercase leading-none tracking-widest">
                   IA {isGlobalAiEnabled ? 'ON' : 'OFF'}
                 </span>
               </div>
 
               <button 
                 onClick={() => window.open('/', '_blank')}
-                className="p-2.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"
+                className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-all"
                 title="Abrir Site"
               >
-                <Share2 className="w-5 h-5" />
+                <Share2 className="w-4 h-4" />
               </button>
                <button 
                 onClick={handleLogout}
-                className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all shadow-sm"
+                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all shadow-sm"
                 title="Sair"
               >
-                <LogOut className="w-5 h-5" />
+                <LogOut className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          {/* Bottom Row: Navigation Tabs */}
+          {/* Bottom Row: Navigation Tabs (Secondary Row - Larger and Dynamic) */}
           <nav className="flex items-center justify-center pb-2 border-t border-white/5 overflow-visible">
-            <div className="flex flex-wrap items-center justify-center gap-1 py-2 max-w-full lg:max-w-none scroll-smooth">
-              {[
-                { id: 'dashboard', label: 'Início', icon: LayoutDashboard, roles: ['admin'] },
-                { id: 'leads', label: 'Leads', icon: Car, roles: ['admin', 'buyer', 'buyer_premium', 'buyer_master', 'user', 'seller'] },
-                { id: 'messages', label: 'Mensagens', icon: MessageCircle, badge: conversations.reduce((acc, curr) => acc + (curr.unread || 0), 0), roles: ['admin', 'user', 'seller', 'buyer', 'buyer_premium', 'buyer_master'] },
-                { id: 'crm_chat', label: 'CRM Chat', icon: MessageCircle, roles: ['admin', 'buyer', 'buyer_premium', 'buyer_master'] },
-                { id: 'hero', label: 'Site', icon: ImageIcon, roles: ['admin'] },
-                { id: 'assets', label: 'Fotos', icon: Maximize2, roles: ['admin'] },
-                { id: 'footer', label: 'Rodapé', icon: Info, roles: ['admin'] },
-                { id: 'crm', label: 'CRM Compradores', icon: UserPlus, roles: ['admin'] },
-                { id: 'users', label: 'Equipe & CRM', icon: Users, roles: ['admin'] },
-                { id: 'settings', label: 'Regras', icon: Settings, roles: ['admin'] },
-                { id: 'apis', label: 'APIs', icon: Key, roles: ['admin'] },
-                { id: 'chat_settings', label: 'Chat Config', icon: MessageCircle, roles: ['admin'] },
-                { id: 'ai', label: 'IA', icon: Bot, roles: ['admin'] },
-                { id: 'cooperatives', label: 'Cooperativas', icon: Wallet, roles: ['admin'] },
-                { id: 'tags', label: 'Marketing', icon: BarChart3, roles: ['admin'] },
-                { id: 'logs', label: 'Logs', icon: Database, roles: ['admin'] },
-              ].filter(tab => {
-                if (tab.id === 'ai') return userProfile?.role === 'admin' || currentUser?.email === 'pereira.brusque@gmail.com';
-                if (!tab.roles) return true;
-                const hasRole = tab.roles.includes(userProfile?.role);
-                if (tab.id === 'leads' && userProfile?.role?.includes('buyer')) return userProfile.view_auth === true;
-                return hasRole || currentUser?.email === 'pereira.brusque@gmail.com';
-              }).map((tab) => (
+            <div className="flex flex-wrap items-center justify-center gap-1.5 py-3 max-w-full lg:max-w-none scroll-smooth">
+              {/* On mobile/small screens, show all tabs here if row1 is hidden in top bar */}
+              <div className="xl:hidden flex flex-wrap justify-center gap-1">
+                {row1Tabs.map((tab) => (
+                  <button 
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)} 
+                    className={`px-3 py-2 rounded-xl font-bold text-[10px] transition-all whitespace-nowrap flex items-center gap-2 relative group shrink-0 ${
+                      activeTab === tab.id 
+                        ? 'bg-accent text-white shadow-[0_0_20px_rgba(242,125,38,0.3)]' 
+                        : 'text-slate-400 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <tab.icon className={`w-3.5 h-3.5 ${activeTab === tab.id ? 'text-white' : 'text-slate-500 group-hover:text-accent'}`} />
+                    <span className="uppercase tracking-wider">{tab.label}</span>
+                  </button>
+                ))}
+              </div>
+              
+              {/* Row 2 Tabs (Dynamic & Beautiful) */}
+              {row2Tabs.map((tab) => (
                 <button 
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)} 
-                  className={`px-3 py-2 rounded-xl font-bold text-[10px] transition-all whitespace-nowrap flex items-center gap-2 relative group shrink-0 ${
+                  className={`px-4 py-2.5 rounded-2xl font-black text-[11px] transition-all whitespace-nowrap flex items-center gap-2.5 relative group shrink-0 shadow-lg ${
                     activeTab === tab.id 
-                      ? 'bg-accent text-white shadow-[0_0_20px_rgba(242,125,38,0.3)]' 
-                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                      ? 'bg-gradient-to-br from-accent to-orange-600 text-white shadow-[0_0_25px_rgba(242,125,38,0.4)] scale-105 z-10' 
+                      : 'bg-white/5 text-slate-300 hover:text-white hover:bg-white/10 hover:scale-105 hover:shadow-xl border border-white/5'
                   }`}
                 >
-                  <tab.icon className={`w-3.5 h-3.5 ${activeTab === tab.id ? 'text-white' : 'text-slate-500 group-hover:text-accent'}`} />
-                  <span className="uppercase tracking-wider">{tab.label}</span>
-                  {tab.badge !== undefined && tab.badge > 0 && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[8px] flex items-center justify-center rounded-full border-2 border-slate-950 font-black scale-110">
-                      {tab.badge}
-                    </span>
-                  )}
+                  <div className={`p-1.5 rounded-lg ${activeTab === tab.id ? 'bg-white/20' : 'bg-slate-800 animate-pulse'}`}>
+                    <tab.icon className={`w-4 h-4 ${activeTab === tab.id ? 'text-white' : 'text-accent group-hover:scale-110 transition-transform'}`} />
+                  </div>
+                  <span className="uppercase tracking-widest">{tab.label}</span>
+                  
                   {activeTab === tab.id && (
                     <motion.div 
                       layoutId="navTabIndicator"
-                      className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-white rounded-full"
+                      className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-accent rounded-full shadow-[0_0_10px_rgba(242,125,38,1)]"
                     />
                   )}
                 </button>
@@ -4623,144 +4669,158 @@ Podemos prosseguir com o agendamento da vistoria?`;
             )}
             {activeTab === 'leads' && (
               <div className="flex flex-col gap-2 h-full pb-4">
-                {/* LINHA 1 (FOTO 3): TODOS OS CAMPOS UTITLITARIOS (90% LARGURA) */}
-                <div className="flex flex-wrap items-center gap-2 bg-white p-2 rounded-[24px] border border-slate-100 shadow-sm w-full mx-auto shrink-0 z-10 transition-all hover:shadow-md">
-                    {/* Exportar */}
+                {/* LINHA 1: TODOS OS CAMPOS UTITLITARIOS (8 ÍTENS - DINÂMICO) */}
+                <div className="flex flex-wrap items-center gap-1 bg-white p-2 rounded-[24px] border border-slate-100 shadow-sm w-full shrink-0 z-10 transition-all hover:shadow-md">
+                    {/* 1. Exportar */}
                     <button 
                       onClick={handleExportCSV}
-                      className="px-4 py-2 bg-slate-50 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-100 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-wider shadow-sm shrink-0"
+                      className="px-3 py-2 bg-slate-50 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-100 transition-all flex items-center gap-2 text-[9px] font-black uppercase tracking-wider shadow-sm shrink-0"
                       title="Exportar para CSV"
                     >
-                      <Download className="w-3.5 h-3.5" />
+                      <Download className="w-3 h-3" />
                       <span>Exportar</span>
                     </button>
 
-                    {/* Divisor */}
-                    <div className="h-6 w-px bg-slate-200 mx-1 hidden md:block" />
-
-                    {/* Filtros de Data */}
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <div className="flex items-center gap-1.5 border border-slate-200 rounded-xl bg-slate-50 px-3 py-2 shadow-inner">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">DE:</span>
-                        <input type="date" className="bg-transparent text-[10px] font-black outline-none border-0 p-0 focus:ring-0 min-w-[100px]" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)} />
+                    {/* 2 & 3. Filtros de Data */}
+                    <div className="flex items-center gap-1 shrink-0 bg-slate-50/50 p-1 rounded-xl border border-slate-100">
+                      <div className="flex items-center gap-1 px-2 py-1 bg-white rounded-lg border border-slate-200 shadow-sm">
+                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">DE</span>
+                        <input type="date" className="bg-transparent text-[9px] font-black outline-none border-0 p-0 focus:ring-0 min-w-[90px]" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)} />
                       </div>
-                      <div className="flex items-center gap-1.5 border border-slate-200 rounded-xl bg-slate-50 px-3 py-2 shadow-inner">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ATÉ:</span>
-                        <input type="date" className="bg-transparent text-[10px] font-black outline-none border-0 p-0 focus:ring-0 min-w-[100px]" value={filterEndDate} onChange={(e) => setFilterEndDate(e.target.value)} />
+                      <div className="flex items-center gap-1 px-2 py-1 bg-white rounded-lg border border-slate-200 shadow-sm">
+                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">ATÉ</span>
+                        <input type="date" className="bg-transparent text-[9px] font-black outline-none border-0 p-0 focus:ring-0 min-w-[90px]" value={filterEndDate} onChange={(e) => setFilterEndDate(e.target.value)} />
                       </div>
                     </div>
 
-                    {/* Busca */}
-                    <div className="relative flex-1 min-w-[180px]">
-                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    {/* 4. Busca */}
+                    <div className="relative flex-1 min-w-[150px]">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                       <input 
                         type="text" 
                         placeholder="Buscar por Código..."
                         value={searchCode}
                         onChange={(e) => setSearchCode(e.target.value.toUpperCase())}
-                        className="w-full pl-11 pr-5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-black outline-none focus:ring-2 focus:ring-accent/20 transition-all placeholder:text-slate-400"
+                        className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[10px] font-black outline-none focus:ring-2 focus:ring-accent/20 transition-all placeholder:text-slate-400"
                       />
                     </div>
 
-                    {/* Modos de Visualização */}
-                    <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0">
-                      <button 
-                        onClick={() => setLeadsViewMode('list')}
-                        className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg transition-all ${leadsViewMode === 'list' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
-                        title="Lista"
-                      >
-                        <BarChart3 className="w-3.5 h-3.5" />
-                        <span className="text-[10px] font-black uppercase tracking-wider">Lista</span>
-                      </button>
-                      <button 
-                        onClick={() => setLeadsViewMode('grid')}
-                        className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg transition-all ${leadsViewMode === 'grid' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
-                        title="Cards"
-                      >
-                        <LayoutDashboard className="w-3.5 h-3.5" />
-                        <span className="text-[10px] font-black uppercase tracking-wider">Cards</span>
-                      </button>
-                    </div>
+                    {/* 5. Modo de Visualização */}
+                    <button 
+                      onClick={() => setLeadsViewMode(leadsViewMode === 'list' ? 'grid' : 'list')}
+                      className="px-3 py-2 bg-slate-900 text-white rounded-xl flex items-center gap-2 text-[9px] font-black uppercase tracking-widest hover:bg-accent transition-all shadow-lg shrink-0"
+                    >
+                      {leadsViewMode === 'list' ? <LayoutDashboard className="w-3 h-3 text-accent" /> : <BarChart3 className="w-3 h-3 text-accent" />}
+                      <span>{leadsViewMode === 'list' ? 'Grade' : 'Lista'}</span>
+                    </button>
 
-                    {/* Ações */}
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button 
-                        onClick={handleCleanupDuplicates}
-                        disabled={isCleaningDuplicates}
-                        className="px-3 py-2 bg-accent text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-accent/90 transition-all flex items-center gap-2 shadow-lg shadow-accent/20 disabled:opacity-50"
-                      >
-                        {isCleaningDuplicates ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                        <span>Limpar Duplicados</span>
-                      </button>
-                      <button 
-                         onClick={fetchData}
-                         className="p-2.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all shadow-lg flex items-center justify-center"
-                         title="Atualizar"
-                      >
-                         <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                      </button>
-                    </div>
+                    {/* 6. Limpar Duplicados */}
+                    <button 
+                      onClick={handleCleanupDuplicates}
+                      disabled={isCleaningDuplicates}
+                      className="px-3 py-2 bg-accent/10 border border-accent/20 text-accent rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-accent hover:text-white transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-50 group shrink-0"
+                    >
+                      {isCleaningDuplicates ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3 group-hover:rotate-180 transition-transform duration-500" />}
+                      <span>Duplicados</span>
+                    </button>
+
+                    {/* 7. Limpar Filtros */}
+                    <button 
+                      onClick={() => {
+                        setFilterBrand('');
+                        setFilterYear('');
+                        setFilterMinPrice('');
+                        setFilterMaxPrice('');
+                        setFilterStartDate('');
+                        setFilterEndDate('');
+                        setSearchCode('');
+                      }}
+                      className="px-3 py-2 bg-slate-50 border border-slate-200 text-slate-400 rounded-xl hover:text-red-500 hover:bg-red-50 transition-all flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider shrink-0"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      <span>Limpar</span>
+                    </button>
+
+                    {/* 8. Atualizar */}
+                    <button 
+                       onClick={fetchData}
+                       className="w-10 h-10 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all shadow-lg flex items-center justify-center shrink-0 group"
+                       title="Atualizar Dados"
+                    >
+                       <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
+                    </button>
                 </div>
 
-                {/* LINHA 2 (FOTO 4): ABAS DE STATUS (MINIMO ESPACO) */}
-                <div className="flex items-center gap-1 bg-white p-1 rounded-xl shadow-sm border border-slate-100 w-fit mx-auto sm:mx-4 overflow-x-auto no-scrollbar shrink-0 mb-1">
+                {/* LINHA 2: ABAS DE STATUS (8 ÍTENS - DESIGN PREMIUM) */}
+                <div className="flex items-center gap-1.5 bg-slate-950/5 p-1.5 rounded-2xl w-fit mx-auto lg:mx-0 overflow-x-auto no-scrollbar shrink-0">
                   {[
-                    { id: 'todos', label: 'Todos' },
-                    { id: 'novos_precificacao', label: 'Novos' },
-                    { id: 'frio', label: 'Lead Frio' },
-                    { id: 'proposta_enviada', label: 'Leads Morna' },
-                    { id: 'negociar', label: 'Negociar' },
-                    { id: 'limpa_nome', label: 'Limpa Nome' },
-                    { id: 'contrato_enviado', label: 'Contrato Enviado' },
-                    { id: 'reservado', label: 'Reservados' },
-                    { id: 'fechado', label: 'Lead Quente' },
-                    { id: 'vendido', label: 'Vendido pelo Usuário' },
-                    { id: 'perdido', label: 'Perdidos' }
+                    { id: 'todos', label: 'Todos', color: 'slate' },
+                    { id: 'novos_precificacao', label: 'Novos', color: 'emerald' },
+                    { id: 'frio', label: 'Frio', color: 'blue' },
+                    { id: 'proposta_enviada', label: 'Morna', color: 'orange' },
+                    { id: 'negociar', label: 'Negociar', color: 'indigo' },
+                    { id: 'limpa_nome', label: 'Limpa Nome', color: 'rose' },
+                    { id: 'reservado', label: 'Reservados', color: 'amber' },
+                    { id: 'fechado', label: 'Quente', color: 'red' }
                   ].map((tab) => (
                     <button
                       key={tab.id}
                       onClick={() => setActiveLeadTab(tab.id as any)}
-                      className={`px-3 py-1 rounded-lg font-black text-[9px] uppercase tracking-wider transition-all whitespace-nowrap ${
+                      className={`px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 relative overflow-hidden group ${
                         activeLeadTab === tab.id 
-                          ? 'bg-slate-900 text-white shadow-md' 
-                          : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                          ? `bg-slate-900 text-white shadow-[0_5px_15px_rgba(0,0,0,0.2)] scale-105 z-10` 
+                          : 'text-slate-400 hover:text-slate-900 hover:bg-white transition-all duration-300'
                       }`}
                     >
-                      {tab.label}
+                      <div className={`w-1.5 h-1.5 rounded-full ${
+                        tab.color === 'emerald' ? 'bg-emerald-500' :
+                        tab.color === 'blue' ? 'bg-blue-500' :
+                        tab.color === 'orange' ? 'bg-orange-500' :
+                        tab.color === 'indigo' ? 'bg-indigo-500' :
+                        tab.color === 'rose' ? 'bg-rose-500' :
+                        tab.color === 'amber' ? 'bg-amber-500' :
+                        tab.color === 'red' ? 'bg-red-500' : 'bg-slate-400'
+                      } ${activeLeadTab === tab.id ? 'animate-pulse' : 'group-hover:scale-125 transition-transform'}`} />
+                      <span>{tab.label}</span>
+                      
+                      {activeLeadTab === tab.id && (
+                        <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/5 to-white/0 translate-x-[-100%] animate-[shimmer_2s_infinite] pointer-events-none" />
+                      )}
                     </button>
                   ))}
+
+                  {/* Dropdown for rare/extra status if needed, but keeping it to 8 as requested */}
+                  {leads.some(l => l.status === 'perdido' || l.status === 'vendido') && (
+                     <div className="relative group/more">
+                       <button className="px-3 py-2 bg-slate-200 text-slate-500 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-slate-300 transition-all">
+                         Mais +
+                       </button>
+                       <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-2xl border border-slate-100 p-2 opacity-0 invisible group-hover/more:opacity-100 group-hover/more:visible transition-all z-20 min-w-[120px]">
+                         <button onClick={() => setActiveLeadTab('vendido')} className="w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg text-[9px] font-black uppercase text-slate-600">Vendidos</button>
+                         <button onClick={() => setActiveLeadTab('perdido')} className="w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg text-[9px] font-black uppercase text-slate-600">Perdidos</button>
+                       </div>
+                     </div>
+                  )}
                 </div>
 
-                {/* Filtros Adicionais (Marca, Ano, Preço) */}
-                <div className="flex flex-wrap items-center gap-2 pb-1 border-b border-slate-100 mb-1 overflow-x-auto no-scrollbar">
-                  <select className="p-2 bg-white border border-slate-200 rounded-xl text-[11px] font-bold text-slate-600 focus:ring-accent/20 min-w-[120px]" value={filterBrand} onChange={(e) => setFilterBrand(e.target.value)}>
-                    <option value="">Todas as Marcas</option>
-                    {[...new Set(leads.map(l => l.marca).filter(Boolean))].map(brand => <option key={brand} value={brand}>{brand}</option>)}
-                  </select>
-                  <input type="number" placeholder="Ano" className="p-2 bg-white border border-slate-200 rounded-xl text-[11px] font-bold w-20 text-slate-600" value={filterYear} onChange={(e) => setFilterYear(e.target.value)} />
-                  <div className="flex items-center gap-1.5">
-                    <input type="number" placeholder="Min R$" className="p-2 bg-white border border-slate-200 rounded-xl text-[11px] font-bold w-24 text-slate-600" value={filterMinPrice} onChange={(e) => setFilterMinPrice(e.target.value)} />
-                    <span className="text-slate-300 text-[10px] font-bold text-center">até</span>
-                    <input type="number" placeholder="Max R$" className="p-2 bg-white border border-slate-200 rounded-xl text-[11px] font-bold w-24 text-slate-600" value={filterMaxPrice} onChange={(e) => setFilterMaxPrice(e.target.value)} />
+                {/* Filtros Adicionais (Marca, Ano, Preço) - Mais compactos */}
+                <div className="flex flex-wrap items-center gap-1.5 pb-1 border-b border-slate-100 mb-1 overflow-x-auto no-scrollbar">
+                  <div className="flex items-center gap-1.5 bg-slate-50 p-1 rounded-xl border border-slate-100 transition-all hover:border-accent/20">
+                    <select className="bg-transparent border-0 text-[10px] font-black text-slate-600 focus:ring-0 min-w-[110px] cursor-pointer" value={filterBrand} onChange={(e) => setFilterBrand(e.target.value)}>
+                      <option value="">Marcas</option>
+                      {[...new Set(leads.map(l => l.marca).filter(Boolean))].sort().map(brand => <option key={brand} value={brand}>{brand}</option>)}
+                    </select>
+                    <div className="w-px h-4 bg-slate-200" />
+                    <input type="number" placeholder="Ano" className="bg-transparent border-0 text-[10px] font-black w-14 text-slate-600 focus:ring-0 placeholder:text-slate-400" value={filterYear} onChange={(e) => setFilterYear(e.target.value)} />
                   </div>
-                  <button 
-                    onClick={() => {
-                      setFilterBrand('');
-                      setFilterYear('');
-                      setFilterMinPrice('');
-                      setFilterMaxPrice('');
-                      setFilterStartDate('');
-                      setFilterEndDate('');
-                      setSearchCode('');
-                    }}
-                    className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-500/5 rounded-xl transition-all ml-auto"
-                    title="Limpar todos os filtros"
-                  >
-                    <XCircle className="w-5 h-5" />
-                  </button>
+
+                  <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-100 transition-all hover:border-accent/20">
+                    <input type="number" placeholder="Min R$" className="bg-transparent border-0 text-[10px] font-black w-20 text-slate-600 focus:ring-0 placeholder:text-slate-400" value={filterMinPrice} onChange={(e) => setFilterMinPrice(e.target.value)} />
+                    <div className="w-1.5 h-px bg-slate-300" />
+                    <input type="number" placeholder="Max R$" className="bg-transparent border-0 text-[10px] font-black w-20 text-slate-600 focus:ring-0 placeholder:text-slate-400" value={filterMaxPrice} onChange={(e) => setFilterMaxPrice(e.target.value)} />
+                  </div>
                 </div>
 
-                {/* LeadDetailsCard moved to global position before </main> */}
                 <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm relative overflow-hidden flex-grow flex flex-col min-h-0">
                   {leadsViewMode === 'grid' ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6 overflow-y-auto flex-grow scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
