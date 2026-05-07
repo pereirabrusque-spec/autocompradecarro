@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { AIService } from '../services/aiService';
 import { createClient } from '@supabase/supabase-js';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
-import { Car, Phone, Calendar, DollarSign, AlertCircle, AlertTriangle, CheckCircle, Check, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw, Pencil, Users, Share2, MessageCircle, ChevronRight, ChevronLeft, Search, Filter, ShieldCheck, Wrench, Wallet, User, UserPlus, Mail, Bell, BellOff, Send, UserCheck, LayoutDashboard, Download, TrendingUp, BarChart3, PieChart as PieChartIcon, Info, X, Settings, Maximize2, Key, Bot, Database, Zap } from 'lucide-react';
+import { Car, Phone, Calendar, DollarSign, AlertCircle, AlertTriangle, CheckCircle, Check, Clock, Image as ImageIcon, Save, Loader2, LogOut, Plus, Trash2, Upload, RefreshCw, Pencil, Users, Share2, MessageCircle, ChevronRight, ChevronLeft, Search, Filter, ShieldCheck, Wrench, Wallet, User, UserPlus, Mail, Bell, BellOff, Send, UserCheck, LayoutDashboard, Download, TrendingUp, BarChart3, PieChart as PieChartIcon, Info, X, Settings, Maximize2, Key, Bot, Database, Zap, FileText, XCircle } from 'lucide-react';
 import ChatThemeSettings from './ChatThemeSettings';
 import { useAssets } from '../lib/assetsContext';
 import { supabase } from '../lib/supabase';
@@ -737,7 +737,7 @@ export default function AdminDashboard() {
 
   const fetchDataDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = async (force: boolean = false) => {
     if (isFetchingRef.current) return;
     
     // Debounce to avoid multiple calls in a short period
@@ -746,7 +746,7 @@ export default function AdminDashboard() {
     }
     
     fetchDataDebounceRef.current = setTimeout(async () => {
-      if (isFetchingRef.current || !currentUser || isSavingSettingsRef.current) return;
+      if ((isFetchingRef.current || !currentUser || isSavingSettingsRef.current) && !force) return;
       isFetchingRef.current = true;
       
       console.log("fetchData chamado (executando)");
@@ -2905,7 +2905,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
         throw upsertError;
       }
 
-      await fetchData();
+      console.log("[AdminDashboard] Configurações salvas. Forçando atualização de dados...");
+      await fetchData(true);
       await refreshAssets();
       alert('Configurações salvas com sucesso!');
     } catch (error) {
@@ -3398,140 +3399,94 @@ Podemos prosseguir com o agendamento da vistoria?`;
   return (
     <div className="h-screen bg-slate-50 flex flex-col overflow-hidden">
       {/* Top Navbar */}
-      <header className="bg-slate-950 border-b border-white/5 shrink-0 z-[100] shadow-2xl backdrop-blur-xl bg-opacity-90 py-2">
-        <div className="w-full px-4 sm:px-6 lg:px-8 min-h-[64px] flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-6 flex-1">
+      <header className="bg-slate-950 border-b border-white/5 shrink-0 z-[100] shadow-2xl backdrop-blur-xl bg-opacity-95 sticky top-0">
+        <div className="max-w-[1920px] mx-auto px-4 min-h-[72px] flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4 shrink-0 overflow-hidden">
             <div className="flex items-center gap-3 shrink-0">
               <div className="w-10 h-10 bg-accent rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(242,125,38,0.4)]">
                 <ShieldCheck className="w-6 h-6 text-white" />
               </div>
-              <div className="hidden xl:block">
+              <div className="hidden sm:block">
                 <h1 className="font-display text-lg font-black text-white leading-none tracking-tight">AUTO COMPRA</h1>
                 <p className="text-[10px] text-accent font-bold uppercase tracking-[0.2em] mt-1">Admin Pro</p>
               </div>
             </div>
 
-            <div className="h-8 w-px bg-white/10 hidden md:block"></div>
+            <div className="h-8 w-px bg-white/10 hidden lg:block mr-2 shadow-[1px_0_0_rgba(255,255,255,0.05)]"></div>
+          </div>
             
-            {/* AI Status Indicator */}
-            <div className="hidden lg:flex items-center gap-3 px-3 py-1.5 bg-white/5 rounded-xl border border-white/10">
-              <button 
-                onClick={toggleGlobalAi}
-                disabled={isUpdatingAi}
-                className="flex items-center gap-2 hover:opacity-80 transition-opacity disabled:opacity-50"
-              >
-                <div className={`w-2 h-2 rounded-full ${isGlobalAiEnabled ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-slate-500'}`} />
-                <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">
-                  IA {isGlobalAiEnabled ? 'Ativa' : 'Inativa'}
-                </span>
-              </button>
-              <div className="w-px h-4 bg-white/10"></div>
-              <button 
-                onClick={async () => {
-                  try {
-                    const { AIService } = await import('../services/aiService');
-                    await AIService.testConnections(true);
-                    await fetchData();
-                    alert('Varredura de APIs concluída!');
-                  } catch (err) {
-                    console.error('Erro na varredura:', err);
-                  }
-                }}
-                className="text-[9px] font-black text-amber-500 hover:text-amber-400 uppercase tracking-tighter flex items-center gap-1 transition-colors"
-                title="Forçar teste de todas as APIs agora"
-              >
-                <ShieldCheck className="w-3 h-3" />
-                Forçar Varredura
-              </button>
+            <nav className="flex-1 flex items-center justify-center px-4 overflow-hidden relative">
+              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-2 max-w-full lg:max-w-none scroll-smooth">
+                {[
+                  { id: 'dashboard', label: 'Início', icon: LayoutDashboard, roles: ['admin'] },
+                  { id: 'hero', label: 'Site', icon: ImageIcon, roles: ['admin'] },
+                  { id: 'assets', label: 'Fotos', icon: Maximize2, roles: ['admin'] },
+                  { id: 'footer', label: 'Rodapé', icon: Info, roles: ['admin'] },
+                  { id: 'leads', label: 'Leads', icon: Car, roles: ['admin', 'buyer', 'buyer_premium', 'buyer_master', 'user', 'seller'] },
+                  { id: 'crm', label: 'CRM Compradores', icon: UserPlus, roles: ['admin'] },
+                  { id: 'messages', label: 'Mensagens', icon: MessageCircle, badge: conversations.reduce((acc, curr) => acc + (curr.unread || 0), 0), roles: ['admin', 'user', 'seller', 'buyer', 'buyer_premium', 'buyer_master'] },
+                  { id: 'crm_chat', label: 'CRM Chat', icon: MessageCircle, roles: ['admin', 'buyer', 'buyer_premium', 'buyer_master'] },
+                  { id: 'users', label: 'Equipe & CRM', icon: Users, roles: ['admin'] },
+                  { id: 'settings', label: 'Regras', icon: Settings, roles: ['admin'] },
+                  { id: 'apis', label: 'APIs', icon: Key, roles: ['admin'] },
+                  { id: 'chat_settings', label: 'Chat Config', icon: MessageCircle, roles: ['admin'] },
+                  { id: 'ai', label: 'IA', icon: Bot, roles: ['admin'] },
+                  { id: 'cooperatives', label: 'Cooperativas', icon: Wallet, roles: ['admin'] },
+                  { id: 'tags', label: 'Marketing', icon: BarChart3, roles: ['admin'] },
+                  { id: 'logs', label: 'Logs', icon: Database, roles: ['admin'] },
+                ].filter(tab => {
+                  if (tab.id === 'ai') return userProfile?.role === 'admin' || currentUser?.email === 'pereira.brusque@gmail.com';
+                  if (!tab.roles) return true;
+                  const hasRole = tab.roles.includes(userProfile?.role);
+                  if (tab.id === 'leads' && userProfile?.role?.includes('buyer')) return userProfile.view_auth === true;
+                  return hasRole || currentUser?.email === 'pereira.brusque@gmail.com';
+                }).map((tab) => (
+                  <button 
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)} 
+                    className={`px-3 py-2 rounded-xl font-bold text-[10px] transition-all whitespace-nowrap flex items-center gap-2 relative group shrink-0 ${
+                      activeTab === tab.id 
+                        ? 'bg-accent text-white shadow-[0_0_20px_rgba(242,125,38,0.3)]' 
+                        : 'text-slate-400 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <tab.icon className={`w-3.5 h-3.5 ${activeTab === tab.id ? 'text-white' : 'text-slate-500 group-hover:text-accent'}`} />
+                    <span className="uppercase tracking-wider">{tab.label}</span>
+                    {tab.badge !== undefined && tab.badge > 0 && (
+                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[8px] flex items-center justify-center rounded-full border-2 border-slate-950 font-black scale-110">
+                        {tab.badge}
+                      </span>
+                    )}
+                    {activeTab === tab.id && (
+                      <motion.div 
+                        layoutId="navTabIndicator"
+                        className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-white rounded-full"
+                      />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </nav>
+
+          <div className="flex items-center gap-3 shrink-0">
+             {/* AI Status Indicator Lite */}
+             <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-xl border border-white/10">
+              <div className={`w-2 h-2 rounded-full ${isGlobalAiEnabled ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]' : 'bg-slate-500'}`} />
+              <span className="text-[10px] font-black text-slate-300 uppercase leading-none tracking-widest">
+                IA {isGlobalAiEnabled ? 'ON' : 'OFF'}
+              </span>
             </div>
 
-            <div className="h-8 w-px bg-white/10 hidden md:block"></div>
-            
-            {/* Navigation Menu */}
-            <nav className="flex items-center gap-x-1.5 overflow-x-auto no-scrollbar flex-1 pb-1">
-              {[
-                { id: 'dashboard', label: 'Início', icon: LayoutDashboard, roles: ['admin'] },
-                { id: 'hero', label: 'Site', icon: ImageIcon, roles: ['admin'] },
-                { id: 'assets', label: 'Fotos', icon: Maximize2, roles: ['admin'] },
-                { id: 'footer', label: 'Rodapé', icon: Info, roles: ['admin'] },
-                { id: 'leads', label: 'Leads', icon: Car, roles: ['admin', 'buyer', 'buyer_premium', 'buyer_master', 'user', 'seller'] },
-                { id: 'crm', label: 'CRM Compradores', icon: UserPlus, roles: ['admin'] },
-                { id: 'messages', label: 'Mensagens', icon: MessageCircle, badge: conversations.reduce((acc, curr) => acc + (curr.unread || 0), 0), roles: ['admin', 'user', 'seller', 'buyer', 'buyer_premium', 'buyer_master'] },
-                { id: 'crm_chat', label: 'CRM Chat', icon: MessageCircle, roles: ['admin', 'buyer', 'buyer_premium', 'buyer_master'] },
-                { id: 'users', label: 'Equipe & CRM', icon: Users, roles: ['admin'] },
-                { id: 'settings', label: 'Config', icon: Settings, roles: ['admin'] },
-                { id: 'apis', label: 'APIs', icon: Key, roles: ['admin'] },
-                { id: 'chat_settings', label: 'Chat Config', icon: MessageCircle, roles: ['admin'] },
-                { id: 'ai', label: 'IA', icon: Bot, roles: ['admin'] },
-                { id: 'cooperatives', label: 'Cooperativas', icon: Wallet, roles: ['admin'] },
-                { id: 'tags', label: 'Marketing', icon: BarChart3, roles: ['admin'] },
-                { id: 'logs', label: 'Logs', icon: Database, roles: ['admin'] },
-              ].filter(tab => {
-                // Permissões especiais para o menu IA
-                if (tab.id === 'ai') {
-                  return userProfile?.role === 'admin' || currentUser?.email === 'pereira.brusque@gmail.com';
-                }                
-                if (!tab.roles) return true;
-                const hasRole = tab.roles.includes(userProfile?.role);
-                if (tab.id === 'leads' && userProfile?.role?.includes('buyer')) {
-                  return userProfile.view_auth === true;
-                }
-                return hasRole || currentUser?.email === 'pereira.brusque@gmail.com';
-              }).map((tab) => (
-                <button 
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)} 
-                  className={`px-3 py-1.5 rounded-xl font-bold text-[10px] transition-all whitespace-nowrap flex items-center gap-2 relative group ${
-                    activeTab === tab.id 
-                      ? 'bg-accent text-white shadow-[0_0_20px_rgba(242,125,38,0.3)]' 
-                      : 'text-slate-400 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  <tab.icon className={`w-3 h-3 ${activeTab === tab.id ? 'text-white' : 'text-slate-500 group-hover:text-accent'}`} />
-                  <span className="uppercase tracking-wider">{tab.label}</span>
-                  {tab.badge !== undefined && tab.badge > 0 && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[8px] flex items-center justify-center rounded-full border-2 border-slate-950 font-black">
-                      {tab.badge}
-                    </span>
-                  )}
-                  {activeTab === tab.id && (
-                    <motion.div 
-                      layoutId="activeTab"
-                      className="absolute inset-0 border border-white/20 rounded-xl"
-                      transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                    />
-                  )}
-                </button>
-              ))}
-            </nav>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            {hasQuotaIssues && isAdmin && (
-              <motion.button
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                onClick={() => setActiveTab('apis')}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-lg ${
-                  !hasWorkingKeys 
-                    ? 'bg-red-500 text-white shadow-red-500/20 animate-pulse' 
-                    : 'bg-amber-500 text-white shadow-amber-500/20'
-                }`}
-              >
-                <AlertTriangle className="w-3.5 h-3.5" />
-                {!hasWorkingKeys ? 'IA Desativada (Quota)' : 'Quota Baixa'}
-              </motion.button>
-            )}
-             <button 
-              onClick={() => window.location.href = '/'}
+            <button 
+              onClick={() => window.open('/', '_blank')}
               className="p-2.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"
-              title="Ver Site"
+              title="Abrir Site"
             >
               <Share2 className="w-5 h-5" />
             </button>
              <button 
               onClick={handleLogout}
-              className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
+              className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all shadow-sm"
               title="Sair"
             >
               <LogOut className="w-5 h-5" />
@@ -4665,18 +4620,18 @@ Podemos prosseguir com o agendamento da vistoria?`;
             )}
             {activeTab === 'leads' && (
               <div className="flex flex-col gap-6 h-full pb-4">
-                <div className="flex flex-col md:flex-row justify-between items-center gap-2 shrink-0">
+                <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 shrink-0">
                   {/* Abas de Status dos Leads */}
-                  <div className="flex items-center gap-4 w-full md:w-auto">
+                  <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto">
                     <button 
                       onClick={handleExportCSV}
-                      className="p-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-all flex items-center gap-2 text-xs font-bold shadow-sm"
+                      className="p-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-all flex items-center gap-2 text-xs font-bold shadow-sm shrink-0"
                       title="Exportar Leads para CSV"
                     >
                       <Download className="w-4 h-4" />
                       <span className="hidden sm:inline">Exportar</span>
                     </button>
-                    <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-100 overflow-x-auto">
+                    <div className="flex flex-wrap bg-white p-1 rounded-xl shadow-sm border border-slate-100 gap-1 overflow-x-auto no-scrollbar max-w-[95vw] sm:max-w-none">
                     {[
                       { id: 'todos', label: 'Todos' },
                       { id: 'novos_precificacao', label: 'Novos' },
@@ -4693,9 +4648,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       <button
                         key={tab.id}
                         onClick={() => setActiveLeadTab(tab.id as any)}
-                        className={`px-4 py-2 rounded-xl font-bold text-xs transition-all whitespace-nowrap ${
+                        className={`px-3 py-1.5 rounded-lg font-bold text-[11px] transition-all whitespace-nowrap ${
                           activeLeadTab === tab.id 
-                            ? 'bg-slate-900 text-white' 
+                            ? 'bg-slate-900 text-white shadow-md shadow-slate-900/20' 
                             : 'text-slate-500 hover:bg-slate-50'
                         }`}
                       >
@@ -4705,82 +4660,98 @@ Podemos prosseguir com o agendamento da vistoria?`;
                   </div>
                   </div>
 
-                  {/* Filtros */}
-                  <div className="flex flex-col gap-2 w-full md:w-auto p-1">
-                    <div className="flex gap-2 overflow-x-auto">
-                      <div className="flex items-center gap-1 border border-slate-200 rounded-lg bg-white px-2">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">De:</span>
-                        <input type="date" className="p-1 bg-transparent text-xs font-bold outline-none" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)} />
+                  {/* Filtros de Data e Busca */}
+                  <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+                    <div className="flex flex-wrap gap-2">
+                      <div className="flex items-center gap-1 border border-slate-200 rounded-xl bg-white px-3 py-1.5 shadow-sm">
+                        <span className="text-[9px] font-black text-slate-400 uppercase">De:</span>
+                        <input type="date" className="bg-transparent text-xs font-bold outline-none border-0 p-0 focus:ring-0 min-w-[120px]" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)} />
                       </div>
-                      <div className="flex items-center gap-1 border border-slate-200 rounded-lg bg-white px-2">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">Até:</span>
-                        <input type="date" className="p-1 bg-transparent text-xs font-bold outline-none" value={filterEndDate} onChange={(e) => setFilterEndDate(e.target.value)} />
+                      <div className="flex items-center gap-1 border border-slate-200 rounded-xl bg-white px-3 py-1.5 shadow-sm">
+                        <span className="text-[9px] font-black text-slate-400 uppercase">Até:</span>
+                        <input type="date" className="bg-transparent text-xs font-bold outline-none border-0 p-0 focus:ring-0 min-w-[120px]" value={filterEndDate} onChange={(e) => setFilterEndDate(e.target.value)} />
                       </div>
                     </div>
-                    <div className="flex gap-2 overflow-x-auto">
-                      <select className="p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold" value={filterBrand} onChange={(e) => setFilterBrand(e.target.value)}>
-                        <option value="">Todas as Marcas</option>
-                        {[...new Set(leads.map(l => l.marca))].map(brand => <option key={brand} value={brand}>{brand}</option>)}
-                      </select>
-                      <input type="number" placeholder="Ano" className="p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold w-20" value={filterYear} onChange={(e) => setFilterYear(e.target.value)} />
-                      <input type="number" placeholder="Min R$" className="p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold w-24" value={filterMinPrice} onChange={(e) => setFilterMinPrice(e.target.value)} />
-                      <input type="number" placeholder="Max R$" className="p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold w-24" value={filterMaxPrice} onChange={(e) => setFilterMaxPrice(e.target.value)} />
+
+                    <div className="relative flex-1 min-w-[200px] xl:w-64 group shadow-sm">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-accent transition-colors" />
+                      <input 
+                        type="text" 
+                        placeholder="Buscar por Código..."
+                        value={searchCode}
+                        onChange={(e) => setSearchCode(e.target.value.toUpperCase())}
+                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-accent/20 transition-all"
+                      />
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 w-full md:w-auto">
-                    <div className="relative flex-grow md:w-64">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input 
-                        type="text" 
-                        placeholder="Buscar por Código (4 dígitos)..."
-                        value={searchCode}
-                        onChange={(e) => setSearchCode(e.target.value.toUpperCase())}
-                        className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent/20"
-                      />
-                    </div>
-                    
+                  {/* Modos de Visualização e Refresh */}
+                  <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto">
                     <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-100">
                       <button 
                         onClick={() => setLeadsViewMode('list')}
                         className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all ${leadsViewMode === 'list' ? 'bg-slate-900 text-white' : 'text-slate-400 hover:bg-slate-50'}`}
-                        title="Visualização em Lista"
+                        title="Lista"
                       >
                         <BarChart3 className="w-4 h-4" />
-                        <span className="text-[10px] font-bold uppercase">Lista</span>
+                        <span className="text-[10px] font-bold uppercase hidden sm:inline">Lista</span>
                       </button>
                       <button 
                         onClick={() => setLeadsViewMode('grid')}
                         className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all ${leadsViewMode === 'grid' ? 'bg-slate-900 text-white' : 'text-slate-400 hover:bg-slate-50'}`}
-                        title="Visualização em Cards"
+                        title="Cards"
                       >
                         <LayoutDashboard className="w-4 h-4" />
-                        <span className="text-[10px] font-bold uppercase">Cards</span>
+                        <span className="text-[10px] font-bold uppercase hidden sm:inline">Cards</span>
                       </button>
                     </div>
 
                     <button 
                       onClick={handleCleanupDuplicates}
                       disabled={isCleaningDuplicates}
-                      className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-xl font-bold hover:bg-amber-600 transition-colors text-sm disabled:opacity-50"
-                      title="Limpar leads duplicados sem formulário"
+                      className="flex items-center gap-2 px-4 py-2.5 bg-amber-500 text-white rounded-xl font-bold hover:bg-amber-600 transition-colors text-[11px] disabled:opacity-50 shadow-sm"
                     >
-                      {isCleaningDuplicates ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <RefreshCw className="w-4 h-4" />
-                      )}
-                      <span className="hidden sm:inline">Limpar Duplicados</span>
+                      {isCleaningDuplicates ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                      <span>Limpar Duplicados</span>
                     </button>
 
                     <button 
                       onClick={fetchData}
-                      className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-colors text-sm"
+                      className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-colors text-[11px] shadow-sm"
                     >
                       <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                      Atualizar
+                      <span>Atualizar</span>
                     </button>
                   </div>
+                </div>
+
+                {/* Filtros Adicionais (Marca, Ano, Preço) */}
+                <div className="flex flex-wrap items-center gap-3 pb-2 border-b border-slate-100 mb-2 overflow-x-auto no-scrollbar">
+                  <select className="p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 focus:ring-accent/20 min-w-[150px]" value={filterBrand} onChange={(e) => setFilterBrand(e.target.value)}>
+                    <option value="">Todas as Marcas</option>
+                    {[...new Set(leads.map(l => l.marca).filter(Boolean))].map(brand => <option key={brand} value={brand}>{brand}</option>)}
+                  </select>
+                  <input type="number" placeholder="Ano" className="p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold w-24 text-slate-600" value={filterYear} onChange={(e) => setFilterYear(e.target.value)} />
+                  <div className="flex items-center gap-2">
+                    <input type="number" placeholder="Min R$" className="p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold w-28 text-slate-600" value={filterMinPrice} onChange={(e) => setFilterMinPrice(e.target.value)} />
+                    <span className="text-slate-300 text-xs font-bold">até</span>
+                    <input type="number" placeholder="Max R$" className="p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold w-28 text-slate-600" value={filterMaxPrice} onChange={(e) => setFilterMaxPrice(e.target.value)} />
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setFilterBrand('');
+                      setFilterYear('');
+                      setFilterMinPrice('');
+                      setFilterMaxPrice('');
+                      setFilterStartDate('');
+                      setFilterEndDate('');
+                      setSearchCode('');
+                    }}
+                    className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-500/5 rounded-xl transition-all ml-auto"
+                    title="Limpar todos os filtros"
+                  >
+                    <XCircle className="w-5 h-5" />
+                  </button>
                 </div>
 
                 {/* LeadDetailsCard moved to global position before </main> */}

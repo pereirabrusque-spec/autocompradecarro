@@ -120,7 +120,13 @@ export default function LimpaNome() {
     setIsSubmitting(true);
 
     try {
-      // 1. Verificar se o CPF já existe
+      // 1. Validar CPF antes de qualquer ação no banco
+      const numericCPF = formData.cpf.replace(/\D/g, '');
+      if (numericCPF.length !== 11) {
+        throw new Error('O CPF deve conter exatamente 11 dígitos.');
+      }
+
+      // 2. Verificar se o CPF já existe
       const { data: existingLeads, error: searchError } = await supabase
         .from('leads_veiculos')
         .select('*')
@@ -146,23 +152,27 @@ export default function LimpaNome() {
       };
 
       if (existingLeads && existingLeads.length > 0) {
+        // Regra: Se o CPF for o mesmo, atualiza os dados e informa o usuário
         const existingLead = existingLeads[0];
         setIsUpdate(true);
 
-        // Atualiza o lead existente (Reativação ou Atualização) sem perguntar
         const { error: updateError } = await supabase
           .from('leads_veiculos')
           .update(payload)
           .eq('id', existingLead.id);
 
         if (updateError) throw updateError;
+        
+        console.log("[LimpaNome] Cadastro existente atualizado para CPF:", formData.cpf);
       } else {
-        // Se não existir, cria novo
+        // Regra: Se for outro CPF, mantém múltiplos (cria novo)
         const { error: insertError } = await supabase
           .from('leads_veiculos')
           .insert([{ ...payload, created_at: new Date().toISOString() }]);
 
         if (insertError) throw insertError;
+        
+        console.log("[LimpaNome] Novo cadastro criado para CPF:", formData.cpf);
       }
 
       setIsSuccess(true);
@@ -170,7 +180,9 @@ export default function LimpaNome() {
     } catch (error: any) {
       console.error('Erro ao processar cadastro Limpa Nome:', error);
       const errorMessage = error.message || (typeof error === 'string' ? error : JSON.stringify(error));
-      alert(`⚠️ Erro no Processamento\n\nO sistema encontrou o seguinte problema:\n${errorMessage}\n\nPor favor, tire um print deste erro e envie para o suporte.`);
+      
+      // Popup de erro personalizado e exato conforme solicitado
+      alert(`⚠️ ERRO EXATO DE CADASTRO\n\nPROBLEMA: ${errorMessage}\n\nPor favor, verifique os dados informados (CPF/Email) e tente novamente. Se o erro persistir, contate o suporte.`);
     } finally {
       setIsSubmitting(false);
     }
