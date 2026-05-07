@@ -17,9 +17,34 @@ export default function LimpaNome() {
     cpf: '',
     email: '',
     whatsapp: '',
+    cep: '',
     endereco: '',
+    cidade: '',
+    estado: '',
     valorDivida: ''
   });
+
+  const handleCEPChange = async (cep: string) => {
+    const numericCEP = cep.replace(/\D/g, '');
+    setFormData(prev => ({ ...prev, cep: numericCEP.replace(/(\d{5})(\d{3})/, '$1-$2') }));
+    
+    if (numericCEP.length === 8) {
+      try {
+        const response = await fetch(`https://viacep.com.br/ws/${numericCEP}/json/`);
+        const data = await response.json();
+        if (!data.erro) {
+          setFormData(prev => ({
+            ...prev,
+            endereco: `${data.logradouro}${data.bairro ? `, ${data.bairro}` : ''}`,
+            cidade: data.localidade,
+            estado: data.uf
+          }));
+        }
+      } catch (error) {
+        console.error('Erro ao buscar CEP:', error);
+      }
+    }
+  };
 
   const formatCPF = (v: string) => {
     v = v.replace(/\D/g, '');
@@ -64,7 +89,10 @@ export default function LimpaNome() {
         email: formData.email,
         telefone: formData.whatsapp,
         cpf: formData.cpf,
-        observacoes: `ENDEREÇO: ${formData.endereco}. VALOR DÍVIDA: R$ ${formData.valorDivida}`,
+        cep: formData.cep,
+        cidade: formData.cidade,
+        estado: formData.estado,
+        observacoes: `ENDEREÇO: ${formData.endereco}. CIDADE: ${formData.cidade}-${formData.estado}. VALOR DÍVIDA: R$ ${formData.valorDivida}`,
         valor_divida: formData.valorDivida,
         status: 'limpa_nome',
         classificacao: 'fria',
@@ -209,17 +237,64 @@ export default function LimpaNome() {
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Endereço Completo *</label>
-                <div className="relative group">
-                  <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-accent transition-colors" />
-                  <input 
-                    required
-                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-accent/10 focus:border-accent font-bold text-slate-700 transition-all"
-                    placeholder="Rua, Número, Bairro, Cidade - UF"
-                    value={formData.endereco}
-                    onChange={(e) => setFormData({...formData, endereco: e.target.value})}
-                  />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">CEP *</label>
+                  <div className="relative group">
+                    <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-accent transition-colors" />
+                    <input 
+                      required
+                      className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-accent/10 focus:border-accent font-bold text-slate-700 transition-all"
+                      placeholder="00000-000"
+                      value={formData.cep}
+                      onChange={(e) => handleCEPChange(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="md:col-span-2 space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Logradouro / Bairro *</label>
+                  <div className="relative group">
+                    <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-accent transition-colors" />
+                    <input 
+                      required
+                      className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-accent/10 focus:border-accent font-bold text-slate-700 transition-all"
+                      placeholder="Rua, Número, Bairro"
+                      value={formData.endereco}
+                      onChange={(e) => setFormData({...formData, endereco: e.target.value})}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Cidade *</label>
+                  <div className="relative group">
+                    <Bookmark className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-accent transition-colors" />
+                    <input 
+                      required
+                      className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-accent/10 focus:border-accent font-bold text-slate-700 transition-all"
+                      placeholder="Sua cidade"
+                      value={formData.cidade}
+                      onChange={(e) => setFormData({...formData, cidade: e.target.value})}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Estado (UF) *</label>
+                  <div className="relative group">
+                    <Bookmark className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-accent transition-colors" />
+                    <input 
+                      required
+                      maxLength={2}
+                      className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-accent/10 focus:border-accent font-bold text-slate-700 transition-all uppercase"
+                      placeholder="UF"
+                      value={formData.estado}
+                      onChange={(e) => setFormData({...formData, estado: e.target.value.toUpperCase()})}
+                    />
+                  </div>
                 </div>
               </div>
             </div>

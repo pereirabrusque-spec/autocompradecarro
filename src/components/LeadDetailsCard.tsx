@@ -669,11 +669,19 @@ export default function LeadDetailsCard({
                   </div>
                 </div>
               </div>
-              <div className="p-6 bg-white rounded-2xl shadow-sm border border-indigo-100">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Endereço Completo</span>
-                <p className="text-slate-700 font-bold leading-relaxed">
-                  {currentLead.observacoes?.split('ENDEREÇO: ')[1]?.split('. VALOR')[0] || 'Não informado'}
-                </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="p-4 bg-white rounded-2xl shadow-sm border border-indigo-100">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">CEP / Localização</span>
+                  <p className="text-lg font-black text-slate-900">
+                    {currentLead.cep || 'N/A'} - {currentLead.cidade || 'N/A'}/{currentLead.estado || 'N/A'}
+                  </p>
+                </div>
+                <div className="p-4 bg-white rounded-2xl shadow-sm border border-indigo-100">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Endereço / Logradouro</span>
+                  <p className="text-lg font-black text-slate-700 leading-tight">
+                    {currentLead.endereco || currentLead.observacoes?.split('ENDEREÇO: ')[1]?.split('. CIDADE')[0] || 'Não informado'}
+                  </p>
+                </div>
               </div>
             </div>
           )}

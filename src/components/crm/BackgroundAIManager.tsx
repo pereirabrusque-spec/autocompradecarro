@@ -351,7 +351,6 @@ export const BackgroundAIManager = () => {
             clearInterval(heartbeat);
             supabase.removeChannel(settingsSubscription);
             supabase.removeChannel(apiKeysSubscription);
-            supabase.removeChannel(dataSubscription);
             supabase.removeChannel(broadcastChannel);
             supabase.removeChannel(internalMessagesSubscription);
             authSubscription.unsubscribe();
@@ -464,7 +463,6 @@ export const BackgroundAIManager = () => {
                 timestamp: new Date().toISOString()
             });
             const uid = currentUserIdRef.current;
-            const threadId = isFollowUp ? payload.receiver_id : payload.sender_id;
 
             // -- NEW: Thread Activity Lock & Content Similarity Prevention --
             if (isThreadLocked(threadId)) return;
@@ -539,7 +537,6 @@ export const BackgroundAIManager = () => {
         }
 
         const senderId = isFollowUp ? payload.receiver_id : payload.sender_id;
-        const messageId = payload.id;
 
         if (!isFollowUp) {
             const isForMe = payload.receiver_id === uid || 
@@ -1400,7 +1397,7 @@ EMAIL DO CLIENTE: ${clientEmail}
 ${followUpContext}
 
 ${formStatusContext}
-${specificVehicleInfo || vehicleInfo}
+${vehicleInfo}
 ${inventoryContext}
 
 HISTÓRICO:
