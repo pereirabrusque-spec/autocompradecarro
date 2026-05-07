@@ -86,8 +86,34 @@ export default function LimpaNome() {
     setFormData(prev => ({ ...prev, [field]: formattedValue }));
   };
 
+  const [cpfError, setCpfError] = useState<string | null>(null);
+
+  const validateCPF = (cpf: string) => {
+    const s = cpf.replace(/[^\d]/g, '');
+    if (s.length !== 11 || !!s.match(/(\d)\1{10}/)) return false;
+    let s1 = 0;
+    for (let i = 0; i < 9; i++) s1 += parseInt(s[i]) * (10 - i);
+    let r1 = (s1 * 10) % 11;
+    if (r1 === 10 || r1 === 11) r1 = 0;
+    if (r1 !== parseInt(s[9])) return false;
+    let s2 = 0;
+    for (let i = 0; i < 10; i++) s2 += parseInt(s[i]) * (11 - i);
+    let r2 = (s2 * 10) % 11;
+    if (r2 === 10 || r2 === 11) r2 = 0;
+    if (r2 !== parseInt(s[10])) return false;
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setCpfError(null);
+    
+    if (!validateCPF(formData.cpf)) {
+      setCpfError('Este CPF não é válido. Verifique os números informados.');
+      alert('⚠️ CPF Inválido\n\nO CPF informado não é válido por favor verifique os números e tente novamente.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -146,9 +172,10 @@ export default function LimpaNome() {
 
       setIsSuccess(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao processar cadastro Limpa Nome:', error);
-      alert('Ocorreu um erro ao processar sua solicitação. Por favor, tente novamente.');
+      const errorMessage = error.message || (typeof error === 'string' ? error : JSON.stringify(error));
+      alert(`⚠️ Erro no Processamento\n\nO sistema encontrou o seguinte problema:\n${errorMessage}\n\nPor favor, tire um print deste erro e envie para o suporte.`);
     } finally {
       setIsSubmitting(false);
     }
@@ -229,12 +256,13 @@ export default function LimpaNome() {
                     <FileText className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-accent transition-colors" />
                     <input 
                       required
-                      className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-accent/10 focus:border-accent font-bold text-slate-700 transition-all"
+                      className={`w-full pl-12 pr-4 py-4 bg-slate-50 border ${cpfError ? 'border-red-500 ring-4 ring-red-50' : 'border-slate-200'} rounded-2xl outline-none focus:ring-4 focus:ring-accent/10 focus:border-accent font-bold text-slate-700 transition-all`}
                       placeholder="000.000.000-00"
                       value={formData.cpf}
                       onChange={(e) => handleInputChange('cpf', e.target.value)}
                     />
                   </div>
+                  {cpfError && <p className="text-red-500 text-[11px] mt-1 font-bold animate-bounce">{cpfError}</p>}
                 </div>
               </div>
             </div>

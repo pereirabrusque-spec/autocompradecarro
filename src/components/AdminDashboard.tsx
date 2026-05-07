@@ -182,7 +182,7 @@ export default function AdminDashboard() {
   const [showApiKeyForm, setShowApiKeyForm] = useState(false);
   const [isSavingKey, setIsSavingKey] = useState(false);
 
-  const [activeLeadTab, setActiveLeadTab] = useState<'todos' | 'novo' | 'em_contato' | 'proposta_enviada' | 'fechado' | 'frio' | 'reservado' | 'perdido' | 'vendido' | 'negociar' | 'limpa_nome' | 'novos_precificacao'>('todos');
+  const [activeLeadTab, setActiveLeadTab] = useState<'todos' | 'novo' | 'em_contato' | 'proposta_enviada' | 'contrato_enviado' | 'fechado' | 'frio' | 'reservado' | 'perdido' | 'vendido' | 'negociar' | 'limpa_nome' | 'novos_precificacao'>('todos');
   const [leadsViewMode, setLeadsViewMode] = useState<'grid' | 'list'>('list');
   const [showBuyerPermissionsModal, setShowBuyerPermissionsModal] = useState(false);
   const [selectedBuyer, setSelectedBuyer] = useState<any>(null);
@@ -245,6 +245,7 @@ export default function AdminDashboard() {
         if (activeLeadTab === 'reservado') return l.status === 'reservado';
         if (activeLeadTab === 'vendido') return l.status === 'vendido';
         if (activeLeadTab === 'negociar') return l.status === 'negociar' || l.status === 'Negociar';
+        if (activeLeadTab === 'contrato_enviado') return l.status === 'contrato_enviado';
         if (activeLeadTab === 'limpa_nome') return l.status === 'limpa_nome' || l.status === 'Limpa Nome';
         if (activeLeadTab === 'proposta_enviada') return l.status === 'proposta_enviada' || l.status === 'novo' || l.status === 'em_contato';
         
@@ -2895,11 +2896,14 @@ Podemos prosseguir com o agendamento da vistoria?`;
       ];
 
       console.log('Final settingsToSave:', settingsToSave);
-      const { data, error } = await supabase
+      const { data, error: upsertError } = await supabase
         .from('settings')
         .upsert(settingsToSave, { onConflict: 'key' });
 
-      if (error) throw error;
+      if (upsertError) {
+        console.error('Supabase Upsert Error:', upsertError);
+        throw upsertError;
+      }
 
       await refreshAssets();
       alert('Configurações salvas com sucesso!');
@@ -4679,6 +4683,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                       { id: 'proposta_enviada', label: 'Leads Morna' },
                       { id: 'negociar', label: 'Negociar' },
                       { id: 'limpa_nome', label: 'Limpa Nome' },
+                      { id: 'contrato_enviado', label: 'Contrato Enviado' },
                       { id: 'reservado', label: 'Reservados' },
                       { id: 'fechado', label: 'Lead Quente' },
                       { id: 'vendido', label: 'Vendido pelo Usuário' },
@@ -4882,6 +4887,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                       lead.status === 'em_contato' ? 'bg-amber-100 text-amber-700' :
                                       lead.status === 'negociar' ? 'bg-purple-100 text-purple-700' :
                                       lead.status === 'limpa_nome' ? 'bg-indigo-100 text-indigo-700' :
+                                      lead.status === 'contrato_enviado' ? 'bg-cyan-100 text-cyan-700' :
                                       'bg-slate-100 text-slate-600'
                                     }`}
                                   >
@@ -4889,6 +4895,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                     <option value="em_contato">EM CONTATO</option>
                                     <option value="proposta_enviada">PROPOSTA ENVIADA</option>
                                     <option value="negociar">NEGOCIAR</option>
+                                    <option value="contrato_enviado">CONTRATO ENVIADO</option>
                                     <option value="limpa_nome">LIMPA NOME</option>
                                     <option value="reservado">RESERVADO</option>
                                     <option value="fechado">FECHADO</option>
