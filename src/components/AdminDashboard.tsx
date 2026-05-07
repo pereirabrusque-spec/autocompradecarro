@@ -3426,14 +3426,14 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
   return (
     <div className="h-screen bg-slate-50 flex flex-col overflow-hidden">
-      {/* Top Navbar */}
-      <header className="bg-slate-950 border-b border-white/5 shrink-0 z-[100] shadow-2xl backdrop-blur-xl bg-opacity-95 sticky top-0">
+      {/* Top Navbar Optimized */}
+      <header className="bg-slate-950 shrink-0 z-50">
         <div className="max-w-[1920px] mx-auto px-4">
-          {/* Top Row: Brand and Actions */}
-          <div className="flex items-center justify-between min-h-[48px] gap-4">
-            <div className="flex items-center gap-4 shrink-0 overflow-hidden">
-              <div className="flex items-center gap-3 shrink-0">
-                <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(242,125,38,0.4)]">
+          {/* Main Row: Logo + Primary Menus + Actions */}
+          <div className="flex items-center justify-between min-h-[44px] gap-4">
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(242,125,38,0.3)]">
                   <ShieldCheck className="w-5 h-5 text-white" />
                 </div>
                 <div className="hidden lg:block">
@@ -3442,15 +3442,15 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 </div>
               </div>
               
-              <div className="h-6 w-px bg-white/10 hidden xl:block mx-2 shadow-[1px_0_0_rgba(255,255,255,0.05)]"></div>
+              <div className="h-6 w-px bg-white/10 hidden xl:block mx-1"></div>
 
-              {/* FIRST ROW TABS (Integrated into top bar) */}
+              {/* FIRST ROW TABS (Integrated) */}
               <nav className="hidden xl:flex items-center gap-1">
                 {row1Tabs.map((tab) => (
                   <button 
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as any)} 
-                    className={`px-2.5 py-1.5 rounded-lg font-bold text-[9px] transition-all whitespace-nowrap flex items-center gap-1.5 relative group shrink-0 ${
+                    className={`px-2.5 py-1.5 rounded-lg font-black text-[9px] transition-all whitespace-nowrap flex items-center gap-2 relative group shrink-0 ${
                       activeTab === tab.id 
                         ? 'bg-accent/20 text-accent border border-accent/20' 
                         : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -3471,12 +3471,12 @@ Podemos prosseguir com o agendamento da vistoria?`;
             <div className="flex items-center gap-2 shrink-0">
                {/* AI Status Indicator Lite */}
                <div className="hidden md:flex items-center gap-2 px-2 py-1 bg-white/5 rounded-lg border border-white/10">
-                <div className={`w-1.5 h-1.5 rounded-full ${isGlobalAiEnabled ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]' : 'bg-slate-500'}`} />
+                <div className={`w-1.5 h-1.5 rounded-full ${isGlobalAiEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'}`} />
                 <span className="text-[8px] font-black text-slate-300 uppercase leading-none tracking-widest">
                   IA {isGlobalAiEnabled ? 'ON' : 'OFF'}
                 </span>
               </div>
-
+              
               <button 
                 onClick={() => window.open('/', '_blank')}
                 className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-all"
@@ -3486,26 +3486,27 @@ Podemos prosseguir com o agendamento da vistoria?`;
               </button>
                <button 
                 onClick={handleLogout}
-                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all shadow-sm"
+                className="p-1.5 px-2.5 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest shadow-sm"
                 title="Sair"
               >
                 <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Sair</span>
               </button>
             </div>
           </div>
 
-          {/* Bottom Row: Navigation Tabs (Secondary Row - Larger and Dynamic) */}
+          {/* Dynamic Second Row (Same Format as Row 1 but centered) */}
           <nav className="flex items-center justify-center pb-2 border-t border-white/5 overflow-visible">
-            <div className="flex flex-wrap items-center justify-center gap-1.5 py-3 max-w-full lg:max-w-none scroll-smooth">
+            <div className="flex flex-wrap items-center justify-center gap-1.5 py-2 max-w-full lg:max-w-none">
               {/* On mobile/small screens, show all tabs here if row1 is hidden in top bar */}
               <div className="xl:hidden flex flex-wrap justify-center gap-1">
                 {row1Tabs.map((tab) => (
                   <button 
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as any)} 
-                    className={`px-3 py-2 rounded-xl font-bold text-[10px] transition-all whitespace-nowrap flex items-center gap-2 relative group shrink-0 ${
+                    className={`px-3 py-1.5 rounded-xl font-bold text-[10px] transition-all whitespace-nowrap flex items-center gap-2 relative group shrink-0 ${
                       activeTab === tab.id 
-                        ? 'bg-accent text-white shadow-[0_0_20px_rgba(242,125,38,0.3)]' 
+                        ? 'bg-accent text-white shadow-lg' 
                         : 'text-slate-400 hover:text-white hover:bg-white/5'
                     }`}
                   >
@@ -3515,26 +3516,24 @@ Podemos prosseguir com o agendamento da vistoria?`;
                 ))}
               </div>
               
-              {/* Row 2 Tabs (Dynamic & Beautiful) */}
+              {/* Row 2 Tabs (Same Compact Format) */}
               {row2Tabs.map((tab) => (
                 <button 
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)} 
-                  className={`px-4 py-2.5 rounded-2xl font-black text-[11px] transition-all whitespace-nowrap flex items-center gap-2.5 relative group shrink-0 shadow-lg ${
+                  className={`px-3 py-1.5 rounded-xl font-black text-[10px] transition-all whitespace-nowrap flex items-center gap-2 relative group shrink-0 ${
                     activeTab === tab.id 
-                      ? 'bg-gradient-to-br from-accent to-orange-600 text-white shadow-[0_0_25px_rgba(242,125,38,0.4)] scale-105 z-10' 
-                      : 'bg-white/5 text-slate-300 hover:text-white hover:bg-white/10 hover:scale-105 hover:shadow-xl border border-white/5'
+                      ? 'bg-white/10 text-accent border border-accent/30 shadow-[0_0_20px_rgba(242,125,38,0.15)] scale-105' 
+                      : 'text-slate-400 hover:text-white hover:bg-white/5'
                   }`}
                 >
-                  <div className={`p-1.5 rounded-lg ${activeTab === tab.id ? 'bg-white/20' : 'bg-slate-800 animate-pulse'}`}>
-                    <tab.icon className={`w-4 h-4 ${activeTab === tab.id ? 'text-white' : 'text-accent group-hover:scale-110 transition-transform'}`} />
-                  </div>
+                  <tab.icon className={`w-3.5 h-3.5 ${activeTab === tab.id ? 'text-accent' : 'text-slate-500 group-hover:text-accent'}`} />
                   <span className="uppercase tracking-widest">{tab.label}</span>
                   
                   {activeTab === tab.id && (
                     <motion.div 
                       layoutId="navTabIndicator"
-                      className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-accent rounded-full shadow-[0_0_10px_rgba(242,125,38,1)]"
+                      className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-accent rounded-full shadow-[0_0_10px_rgba(242,125,38,1)]"
                     />
                   )}
                 </button>
@@ -4751,24 +4750,27 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     </button>
                 </div>
 
-                {/* LINHA 2: ABAS DE STATUS (8 ÍTENS - DESIGN PREMIUM) */}
-                <div className="flex items-center gap-1.5 bg-slate-950/5 p-1.5 rounded-2xl w-fit mx-auto lg:mx-0 overflow-x-auto no-scrollbar shrink-0">
+                {/* LINHA 2: ABAS DE STATUS (DESIGN PREMIUM & COMPACTO) */}
+                <div className="flex items-center gap-1.5 bg-slate-950/5 p-1 rounded-xl w-fit mx-auto lg:mx-0 overflow-x-auto no-scrollbar shrink-0">
                   {[
                     { id: 'todos', label: 'Todos', color: 'slate' },
                     { id: 'novos_precificacao', label: 'Novos', color: 'emerald' },
                     { id: 'frio', label: 'Frio', color: 'blue' },
                     { id: 'proposta_enviada', label: 'Morna', color: 'orange' },
                     { id: 'negociar', label: 'Negociar', color: 'indigo' },
+                    { id: 'contrato_enviado', label: 'Contrato', color: 'cyan' },
                     { id: 'limpa_nome', label: 'Limpa Nome', color: 'rose' },
                     { id: 'reservado', label: 'Reservados', color: 'amber' },
-                    { id: 'fechado', label: 'Quente', color: 'red' }
+                    { id: 'fechado', label: 'Quente', color: 'red' },
+                    { id: 'vendido', label: 'Vendido', color: 'emerald' },
+                    { id: 'perdido', label: 'Perdido', color: 'slate' }
                   ].map((tab) => (
                     <button
                       key={tab.id}
                       onClick={() => setActiveLeadTab(tab.id as any)}
-                      className={`px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 relative overflow-hidden group ${
+                      className={`px-3 py-1.5 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-1.5 relative overflow-hidden group ${
                         activeLeadTab === tab.id 
-                          ? `bg-slate-900 text-white shadow-[0_5px_15px_rgba(0,0,0,0.2)] scale-105 z-10` 
+                          ? `bg-slate-900 text-white shadow-md scale-105 z-10` 
                           : 'text-slate-400 hover:text-slate-900 hover:bg-white transition-all duration-300'
                       }`}
                     >
@@ -4779,32 +4781,16 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         tab.color === 'indigo' ? 'bg-indigo-500' :
                         tab.color === 'rose' ? 'bg-rose-500' :
                         tab.color === 'amber' ? 'bg-amber-500' :
+                        tab.color === 'cyan' ? 'bg-cyan-500' :
                         tab.color === 'red' ? 'bg-red-500' : 'bg-slate-400'
                       } ${activeLeadTab === tab.id ? 'animate-pulse' : 'group-hover:scale-125 transition-transform'}`} />
                       <span>{tab.label}</span>
-                      
-                      {activeLeadTab === tab.id && (
-                        <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/5 to-white/0 translate-x-[-100%] animate-[shimmer_2s_infinite] pointer-events-none" />
-                      )}
                     </button>
                   ))}
-
-                  {/* Dropdown for rare/extra status if needed, but keeping it to 8 as requested */}
-                  {leads.some(l => l.status === 'perdido' || l.status === 'vendido') && (
-                     <div className="relative group/more">
-                       <button className="px-3 py-2 bg-slate-200 text-slate-500 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-slate-300 transition-all">
-                         Mais +
-                       </button>
-                       <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-2xl border border-slate-100 p-2 opacity-0 invisible group-hover/more:opacity-100 group-hover/more:visible transition-all z-20 min-w-[120px]">
-                         <button onClick={() => setActiveLeadTab('vendido')} className="w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg text-[9px] font-black uppercase text-slate-600">Vendidos</button>
-                         <button onClick={() => setActiveLeadTab('perdido')} className="w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg text-[9px] font-black uppercase text-slate-600">Perdidos</button>
-                       </div>
-                     </div>
-                  )}
                 </div>
 
                 {/* Filtros Adicionais (Marca, Ano, Preço) - Mais compactos */}
-                <div className="flex flex-wrap items-center gap-1.5 pb-1 border-b border-slate-100 mb-1 overflow-x-auto no-scrollbar">
+                <div className="flex flex-wrap items-center gap-1.5 pb-0.5 border-b border-slate-100 mb-0.5 overflow-x-auto no-scrollbar">
                   <div className="flex items-center gap-1.5 bg-slate-50 p-1 rounded-xl border border-slate-100 transition-all hover:border-accent/20">
                     <select className="bg-transparent border-0 text-[10px] font-black text-slate-600 focus:ring-0 min-w-[110px] cursor-pointer" value={filterBrand} onChange={(e) => setFilterBrand(e.target.value)}>
                       <option value="">Marcas</option>
