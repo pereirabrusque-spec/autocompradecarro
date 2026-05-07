@@ -1453,9 +1453,11 @@ REGRAS GERAIS:
                      
                      IDENTIDADE:
                      - Você NUNCA é o cliente.
-                     - Se as últimas 50 mensagens não permitirem uma resposta clara ou técnica, você DEVE perguntar: "Olá! Recebi sua mensagem, mas para que eu possa te ajudar da melhor forma, poderia me detalhar melhor o que precisa sobre esta negociação?"
+                     - As informações mais importantes para responder o cliente dependem do fluxo. Se ele estiver no fluxo Limpa Nome, a resposta estará contida nas [REGRAS E MEMÓRIA].
                      
-                     INSTRUÇÃO: Responda estritamente com base nos dados técnicos do veículo fornecidos no contexto. Se a informação não estiver nos dados, não invente. Seja direto, profissional e persuasivo.`,
+                     INSTRUÇÃO OBRIGATÓRIA: Leia atentamente a "MENSAGEM ATUAL" e responda DIRETO À PERGUNTA, utilizando prioritariamente as orientações fornecidas em [REGRAS E MEMÓRIA] e os dados do veículo, se houver.
+                     NÃO IGNORE PERGUNTAS SOBRE VALORES E CUSTOS SE ELES CONSTAREM NAS REGRAS A CIMA. NÃO DÊ DESCULPAS SE A INFORMAÇÃO EXISTE.
+                     SEJA PERSUASIVO, MAS VÁ DIRETO AO PONTO.`,
                     imageBase64 || undefined
                 );
                 
@@ -1463,14 +1465,17 @@ REGRAS GERAIS:
                     let rawBotText = response.text;
 
                     // Content consistency check against actual DB history (Public)
-                    const isDuplicateInPublicHistory = (historyData || []).some(m => 
-                        (m.conteudo || m.content) && rawBotText && 
-                        ((m.conteudo || m.content).trim().toLowerCase() === rawBotText.trim().toLowerCase() ||
-                         ((m.conteudo || m.content).length > 50 && rawBotText.includes((m.conteudo || m.content).substring(0, 50))))
-                    );
+                    // Filtro brando: só descarta se for a EXATA mesma mensagem ou 90% idêntica,
+                    // pois se for perguntas de fluxo (ex: "Mas qual o valor?" "X") a IA pode ser curta.
+                    const isDuplicateInPublicHistory = (historyData || []).some(m => {
+                         if (!m.conteudo && !m.content) return false;
+                         const hText = (m.conteudo || m.content).trim().toLowerCase();
+                         const rText = rawBotText.trim().toLowerCase();
+                         return hText === rText && rText.length > 10;
+                    });
 
                     if (isDuplicateInPublicHistory) {
-                        console.warn("[BackgroundAIManager] Resposta IA pública ignorada: conteúdo já existe no histórico.");
+                        console.warn("[BackgroundAIManager] Resposta IA pública ignorada: conteúdo já existe idêntico no histórico.");
                         return;
                     }
                     
