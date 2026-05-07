@@ -738,26 +738,29 @@ export default function AdminDashboard() {
   const fetchDataDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchData = async (force: boolean = false) => {
-    if (isFetchingRef.current) return;
-    
-    // Debounce to avoid multiple calls in a short period
-    if (fetchDataDebounceRef.current) {
+    // Se for forçado, cancelamos qualquer agendamento anterior e executamos imediatamente
+    if (force && fetchDataDebounceRef.current) {
       clearTimeout(fetchDataDebounceRef.current);
+      fetchDataDebounceRef.current = null;
     }
-    
-    fetchDataDebounceRef.current = setTimeout(async () => {
-      if ((isFetchingRef.current || !currentUser || isSavingSettingsRef.current) && !force) return;
-      isFetchingRef.current = true;
+
+    const runFetch = async () => {
+      // Se já estiver buscando e não for forçado, aborta
+      if (isFetchingRef.current && !force) return;
       
-      console.log("fetchData chamado (executando)");
+      // Se estiver salvando configurações, ignora o fetch automático (a menos que seja force)
+      if (isSavingSettingsRef.current && !force) return;
+
+      isFetchingRef.current = true;
+      console.log("fetchData executando... (Force: " + force + ")");
       setIsLoading(true);
       addLog('Iniciando busca de dados...', 'info');
       
       try {
-        console.log('Fetching critical user data...');
-        
+        if (!currentUser) return;
+
         // 1. Fetch User Profile first
-        const { data: profile_res, error: profile_error } = await supabase
+        const { data: profile_res } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', currentUser.id)
@@ -765,10 +768,8 @@ export default function AdminDashboard() {
         
         if (profile_res) {
           setUserProfile(profile_res);
-          userProfileRef.current = profile_res;
         }
 
-        console.log('Fetching all other data in parallel from Supabase...');
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -779,7 +780,7 @@ export default function AdminDashboard() {
           banksResult,
           repairResult,
           fipeResult,
-          buyerProposalsResult, // Adicionado
+          buyerProposalsResult,
           apiKeysResult,
           providersResult,
           buyersResult,
@@ -795,7 +796,7 @@ export default function AdminDashboard() {
           supabase.from('banks').select('*').order('name'),
           supabase.from('repair_costs').select('*').order('part_name'),
           supabase.from('fipe_rules').select('*').order('condition_name'),
-          supabase.from('buyer_proposals').select('*'), // Adicionado
+          supabase.from('buyer_proposals').select('*'),
           supabase.from('api_keys').select('*').order('created_at', { ascending: false }),
           supabase.from('providers').select('*').order('name'),
           supabase.from('interested_buyers').select('*').order('created_at', { ascending: false }),
@@ -806,14 +807,15 @@ export default function AdminDashboard() {
           supabase.from('settings').select('*')
         ]);
 
+        if (leadsResult.error) throw leadsResult.error;
+
         const leadsData = leadsResult.data;
-        const leadsError = leadsResult.error;
         const profilesData = profilesResult.data;
         const assetsData = assetsResult.data;
         const banksData = banksResult.data;
         const repairData = repairResult.data;
         const fipeData = fipeResult.data;
-        const buyerProposalsData = buyerProposalsResult.data; // Adicionado
+        const buyerProposalsData = buyerProposalsResult.data;
         const apiKeysData = apiKeysResult.data;
         const providersData = providersResult.data;
         const buyersData = buyersResult.data;
@@ -823,11 +825,7 @@ export default function AdminDashboard() {
         const internalMessagesData = internalMessagesResult.data;
         const settingsData = settingsResult.data;
 
-        if (leadsError) {
-          addLog('Erro ao buscar leads', 'error', leadsError);
-          console.error('Error fetching leads:', leadsError);
-          throw leadsError;
-        }
+        // Processamento de dados (originalmente estava fora do try em execuções anteriores devido a erro de edição)
 
       // Check for expired reservations
       const now = new Date();
@@ -1444,15 +1442,23 @@ export default function AdminDashboard() {
           }
         }
       }
-    } catch (error) {
-      console.error('Error fetching admin data:', error);
-    } finally {
-      setIsLoading(false);
-      isFetchingRef.current = false;
-      fetchDataDebounceRef.current = null;
+        addLog('Busca de dados concluída com sucesso.', 'info');
+      } catch (err) {
+        console.error('Erro em fetchData:', err);
+        addLog('Erro crítico ao buscar dados', 'error', err);
+      } finally {
+        setIsLoading(false);
+        isFetchingRef.current = false;
+      }
+    };
+
+    if (force) {
+      await runFetch();
+    } else {
+      if (fetchDataDebounceRef.current) clearTimeout(fetchDataDebounceRef.current);
+      fetchDataDebounceRef.current = setTimeout(runFetch, 1000);
     }
-  }, 500); // 500ms debounce
-};
+  };
 
   useEffect(() => {
     if (userProfile) {
@@ -4742,7 +4748,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
                     {/* 8. Atualizar */}
                     <button 
-                       onClick={fetchData}
+                       onClick={() => fetchData(true)}
                        className="w-10 h-10 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all shadow-lg flex items-center justify-center shrink-0 group"
                        title="Atualizar Dados"
                     >

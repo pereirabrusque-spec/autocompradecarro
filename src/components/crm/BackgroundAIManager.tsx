@@ -704,13 +704,13 @@ export const BackgroundAIManager = () => {
                     .neq('id', currentLeadId)
                     .limit(15);
 
+                const content = payload.content.toLowerCase();
                 let inventoryContext = "";
                 if (sellerInventory && sellerInventory.length > 0) {
                     inventoryContext = "\n\nESTOQUE COMPLETO DO VENDEDOR (OUTROS MODELOS DISPONÍVEIS NO SISTEMA):\n" + 
                         sellerInventory.map(l => `- ${l.marca} ${l.modelo} (${l.ano_modelo}) | Cor: ${l.cor || 'N/A'} | KM: ${l.quilometragem || '0'} | Preço: R$ ${l.preco_cliente || 'A consultar'} [${l.situacao_financeira || 'Disponível'}]`).join('\n');
                 }
 
-                const content = payload.content.toLowerCase();
                 if (!specificLead) {
                     const { data: searchLeads } = await supabase
                         .from('leads_veiculos')
@@ -838,7 +838,28 @@ Seja amigável mas incisivo. Verifique se a conversa não foi finalizada antes d
 **AÇÃO:** Informe ao cliente que para fornecer uma proposta de valor e fazer uma análise técnica, ele **PRECISA preencher o formulário completo**. Envie o link: https://autocompra.online/vender e incentive-o a preencher agora para agilizar a avaliação.`);
 
                 const clientName = senderProfile?.full_name || "Cliente";
-                const forceSaleInstructions = finalIsBuyer ? `
+                
+                // --- AJUSTE CRÍTICO: CONTEXTO LIMPA NOME ---
+                const isLimpaNome = specificLead?.status?.toLowerCase().includes('limpa_nome') || 
+                                    specificLead?.status?.toLowerCase().includes('limpa nome') ||
+                                    specificLead?.tags?.some((t: string) => t.toLowerCase().includes('limpa nome'));
+                
+                const limpaNomeInstructions = isLimpaNome ? `
+**FOCO ABSOLUTO EM LIMPA NOME:** 
+- O cliente está em um fluxo de RECUPERAÇÃO DE CRÉDITO (Limpa Nome).
+- IGNORE informações de veículos (Marca, Modelo, FIPE) a menos que o cliente pergunte especificamente sobre um carro que ele quer entregar como pagamento.
+- Seu objetivo é explicar como a AutoCompra ajuda a limpar o nome através da negociação de dívidas e quitação de veículos com débitos.
+- Não tente vender um carro novo agora. Foque na solução financeira.
+- Responda dúvidas sobre prazos, como funciona o processo de baixa de restrições e negociação bancária.
+` : '';
+
+                if (isLimpaNome) {
+                    inventoryContext = "";
+                    vehicleContext = "";
+                    specificVehicleInfo = specificLead ? `\n\nCONTEXTO DO CLIENTE (LIMPA NOME):\n- Nome: ${specificLead.cliente_nome}\n- Status: ${specificLead.status}\n- Dívida Relatada: ${specificLead.valor_divida || 'A consultar'}\n- Observações: ${specificLead.observacoes || 'N/A'}` : "";
+                }
+
+                const forceSaleInstructions = (finalIsBuyer && !isLimpaNome) ? `
 **MISSÃO DA IA (FORÇAR A VENDA):**
 - SEU ÚNICO OBJETIVO É VENDER E ENGAJAR O COMPRADOR/INVESTIDOR.
 - Mostre por que a compra deste veículo é uma oportunidade (baixo custo, margem de revenda alta, oportunidade rápida, tabela FIPE).
@@ -860,6 +881,7 @@ Seja amigável mas incisivo. Verifique se a conversa não foi finalizada antes d
                 Responder de forma técnica, persuasiva e prestativa.
                 Se o contexto das últimas 50 mensagens não permitir uma resposta clara, pergunte educadamente: "Olá! Recebi sua mensagem, mas para que eu possa te ajudar da melhor forma, poderia me detalhar melhor o que precisa sobre esta negociação?"
 
+                ${limpaNomeInstructions}
                 ${finalIsBuyer ? aiCrmPromptRef.current : aiPromptRef.current}
                 
                 VOCÊ É UM AGENTE DE VENDAS DE ELITE DA AUTO COMPRA ONLINE.
