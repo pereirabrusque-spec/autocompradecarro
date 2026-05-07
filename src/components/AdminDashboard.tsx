@@ -2905,6 +2905,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
         throw upsertError;
       }
 
+      await fetchData();
       await refreshAssets();
       alert('Configurações salvas com sucesso!');
     } catch (error) {
@@ -3397,8 +3398,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
   return (
     <div className="h-screen bg-slate-50 flex flex-col overflow-hidden">
       {/* Top Navbar */}
-      <header className="bg-slate-950 border-b border-white/5 shrink-0 z-[100] shadow-2xl backdrop-blur-xl bg-opacity-90">
-        <div className="w-full px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-6">
+      <header className="bg-slate-950 border-b border-white/5 shrink-0 z-[100] shadow-2xl backdrop-blur-xl bg-opacity-90 py-2">
+        <div className="w-full px-4 sm:px-6 lg:px-8 min-h-[64px] flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-6 flex-1">
             <div className="flex items-center gap-3 shrink-0">
               <div className="w-10 h-10 bg-accent rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(242,125,38,0.4)]">
@@ -3447,7 +3448,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
             <div className="h-8 w-px bg-white/10 hidden md:block"></div>
             
             {/* Navigation Menu */}
-            <nav className="flex flex-wrap items-center gap-x-1.5 gap-y-1 py-1 overflow-y-auto no-scrollbar max-h-[72px] flex-1">
+            <nav className="flex items-center gap-x-1.5 overflow-x-auto no-scrollbar flex-1 pb-1">
               {[
                 { id: 'dashboard', label: 'Início', icon: LayoutDashboard, roles: ['admin'] },
                 { id: 'hero', label: 'Site', icon: ImageIcon, roles: ['admin'] },

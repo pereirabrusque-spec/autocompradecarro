@@ -104,9 +104,12 @@ export default function LimpaNome() {
     return true;
   };
 
+  const [isUpdate, setIsUpdate] = useState(false);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setCpfError(null);
+    setIsUpdate(false);
     
     if (!validateCPF(formData.cpf)) {
       setCpfError('Este CPF não é válido. Verifique os números informados.');
@@ -144,17 +147,9 @@ export default function LimpaNome() {
 
       if (existingLeads && existingLeads.length > 0) {
         const existingLead = existingLeads[0];
-        
-        // Se já for limpa_nome, pergunta se deseja atualizar
-        if (existingLead.status === 'limpa_nome') {
-          const confirmUpdate = window.confirm('Este CPF já possui um cadastro em nosso programa Limpa Nome. Deseja atualizar seus dados e solicitar uma nova avaliação?');
-          if (!confirmUpdate) {
-            setIsSubmitting(false);
-            return;
-          }
-        }
+        setIsUpdate(true);
 
-        // Atualiza o lead existente (Reativação ou Atualização)
+        // Atualiza o lead existente (Reativação ou Atualização) sem perguntar
         const { error: updateError } = await supabase
           .from('leads_veiculos')
           .update(payload)
@@ -188,10 +183,14 @@ export default function LimpaNome() {
           <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto mb-8 animate-bounce-slow">
             <CheckCircle2 className="w-10 h-10" />
           </div>
-          <h2 className="text-3xl font-black text-slate-900 mb-4 tracking-tight uppercase">SOLICITAÇÃO RECEBIDA!</h2>
+          <h2 className="text-3xl font-black text-slate-900 mb-4 tracking-tight uppercase">
+            {isUpdate ? 'CADASTRO ATUALIZADO!' : 'SOLICITAÇÃO RECEBIDA!'}
+          </h2>
           <p className="text-slate-500 mb-10 leading-relaxed font-medium">
-            Sua solicitação para limpeza de nome foi recebida com sucesso. 
-            Nossa equipe técnica entrará em contato via WhatsApp em instantes.
+            {isUpdate 
+              ? 'Identificamos que você já possuía um cadastro. Seus novos dados foram atualizados e sua solicitação foi reencaminhada para nossa equipe técnica.'
+              : 'Sua solicitação para limpeza de nome foi recebida com sucesso. Nossa equipe técnica entrará em contato via WhatsApp em instantes.'
+            }
           </p>
           <button 
             onClick={() => window.location.href = '/'}
