@@ -3443,8 +3443,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
           </div>
 
           {/* Bottom Row: Navigation Tabs */}
-          <nav className="flex items-center justify-center pb-2 border-t border-white/5 overflow-hidden">
-            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-2 max-w-full lg:max-w-none scroll-smooth">
+          <nav className="flex items-center justify-center pb-2 border-t border-white/5 overflow-visible">
+            <div className="flex flex-wrap items-center justify-center gap-1 py-2 max-w-full lg:max-w-none scroll-smooth">
               {[
                 { id: 'dashboard', label: 'Início', icon: LayoutDashboard, roles: ['admin'] },
                 { id: 'leads', label: 'Leads', icon: Car, roles: ['admin', 'buyer', 'buyer_premium', 'buyer_master', 'user', 'seller'] },
@@ -4622,110 +4622,113 @@ Podemos prosseguir com o agendamento da vistoria?`;
               </div>
             )}
             {activeTab === 'leads' && (
-              <div className="flex flex-col gap-3 h-full pb-4">
-                <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-2 shrink-0">
-                  {/* Abas de Status dos Leads */}
-                  <div className="flex flex-wrap items-center gap-1.5 w-full xl:w-auto">
+              <div className="flex flex-col gap-2 h-full pb-4">
+                {/* LINHA 1 (FOTO 3): TODOS OS CAMPOS UTITLITARIOS (90% LARGURA) */}
+                <div className="flex flex-wrap items-center gap-2 bg-white p-2 rounded-[24px] border border-slate-100 shadow-sm w-full mx-auto shrink-0 z-10 transition-all hover:shadow-md">
+                    {/* Exportar */}
                     <button 
                       onClick={handleExportCSV}
-                      className="p-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-all flex items-center gap-2 text-[11px] font-bold shadow-sm shrink-0"
-                      title="Exportar Leads para CSV"
+                      className="px-4 py-2 bg-slate-50 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-100 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-wider shadow-sm shrink-0"
+                      title="Exportar para CSV"
                     >
                       <Download className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Exportar</span>
+                      <span>Exportar</span>
                     </button>
-                    <div className="flex flex-wrap bg-white p-1 rounded-xl shadow-sm border border-slate-100 gap-1 overflow-x-auto no-scrollbar max-w-[95vw] sm:max-w-none">
-                    {[
-                      { id: 'todos', label: 'Todos' },
-                      { id: 'novos_precificacao', label: 'Novos' },
-                      { id: 'frio', label: 'Lead Frio' },
-                      { id: 'proposta_enviada', label: 'Leads Morna' },
-                      { id: 'negociar', label: 'Negociar' },
-                      { id: 'limpa_nome', label: 'Limpa Nome' },
-                      { id: 'contrato_enviado', label: 'Contrato Enviado' },
-                      { id: 'reservado', label: 'Reservados' },
-                      { id: 'fechado', label: 'Lead Quente' },
-                      { id: 'vendido', label: 'Vendido pelo Usuário' },
-                      { id: 'perdido', label: 'Perdidos' }
-                    ].map((tab) => (
-                      <button
-                        key={tab.id}
-                        onClick={() => setActiveLeadTab(tab.id as any)}
-                        className={`px-2.5 py-1.5 rounded-lg font-bold text-[10px] transition-all whitespace-nowrap ${
-                          activeLeadTab === tab.id 
-                            ? 'bg-slate-900 text-white shadow-md shadow-slate-900/20' 
-                            : 'text-slate-500 hover:bg-slate-50'
-                        }`}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
-                  </div>
-                  </div>
 
-                  {/* Filtros de Data e Busca */}
-                  <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto">
-                    <div className="flex flex-wrap gap-1.5">
-                      <div className="flex items-center gap-1 border border-slate-200 rounded-xl bg-white px-2 py-1 shadow-sm">
-                        <span className="text-[8px] font-black text-slate-400 uppercase">De:</span>
-                        <input type="date" className="bg-transparent text-[11px] font-bold outline-none border-0 p-0 focus:ring-0 min-w-[100px]" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)} />
+                    {/* Divisor */}
+                    <div className="h-6 w-px bg-slate-200 mx-1 hidden md:block" />
+
+                    {/* Filtros de Data */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center gap-1.5 border border-slate-200 rounded-xl bg-slate-50 px-3 py-2 shadow-inner">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">DE:</span>
+                        <input type="date" className="bg-transparent text-[10px] font-black outline-none border-0 p-0 focus:ring-0 min-w-[100px]" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)} />
                       </div>
-                      <div className="flex items-center gap-1 border border-slate-200 rounded-xl bg-white px-2 py-1 shadow-sm">
-                        <span className="text-[8px] font-black text-slate-400 uppercase">Até:</span>
-                        <input type="date" className="bg-transparent text-[11px] font-bold outline-none border-0 p-0 focus:ring-0 min-w-[100px]" value={filterEndDate} onChange={(e) => setFilterEndDate(e.target.value)} />
+                      <div className="flex items-center gap-1.5 border border-slate-200 rounded-xl bg-slate-50 px-3 py-2 shadow-inner">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ATÉ:</span>
+                        <input type="date" className="bg-transparent text-[10px] font-black outline-none border-0 p-0 focus:ring-0 min-w-[100px]" value={filterEndDate} onChange={(e) => setFilterEndDate(e.target.value)} />
                       </div>
                     </div>
 
-                    <div className="relative flex-1 min-w-[150px] xl:w-56 group shadow-sm">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-accent transition-colors" />
+                    {/* Busca */}
+                    <div className="relative flex-1 min-w-[180px]">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input 
                         type="text" 
                         placeholder="Buscar por Código..."
                         value={searchCode}
                         onChange={(e) => setSearchCode(e.target.value.toUpperCase())}
-                        className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-[11px] font-bold outline-none focus:ring-2 focus:ring-accent/20 transition-all"
+                        className="w-full pl-11 pr-5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-black outline-none focus:ring-2 focus:ring-accent/20 transition-all placeholder:text-slate-400"
                       />
                     </div>
-                  </div>
 
-                  {/* Modos de Visualização e Refresh */}
-                  <div className="flex flex-wrap items-center gap-1.5 w-full xl:w-auto">
-                    <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-100">
+                    {/* Modos de Visualização */}
+                    <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0">
                       <button 
                         onClick={() => setLeadsViewMode('list')}
-                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all ${leadsViewMode === 'list' ? 'bg-slate-900 text-white' : 'text-slate-400 hover:bg-slate-50'}`}
+                        className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg transition-all ${leadsViewMode === 'list' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
                         title="Lista"
                       >
                         <BarChart3 className="w-3.5 h-3.5" />
-                        <span className="text-[9px] font-bold uppercase hidden sm:inline">Lista</span>
+                        <span className="text-[10px] font-black uppercase tracking-wider">Lista</span>
                       </button>
                       <button 
                         onClick={() => setLeadsViewMode('grid')}
-                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all ${leadsViewMode === 'grid' ? 'bg-slate-900 text-white' : 'text-slate-400 hover:bg-slate-50'}`}
+                        className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg transition-all ${leadsViewMode === 'grid' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
                         title="Cards"
                       >
                         <LayoutDashboard className="w-3.5 h-3.5" />
-                        <span className="text-[9px] font-bold uppercase hidden sm:inline">Cards</span>
+                        <span className="text-[10px] font-black uppercase tracking-wider">Cards</span>
                       </button>
                     </div>
 
-                    <button 
-                      onClick={handleCleanupDuplicates}
-                      disabled={isCleaningDuplicates}
-                      className="flex items-center gap-1.5 px-3 py-2 bg-amber-500 text-white rounded-xl font-bold hover:bg-amber-600 transition-colors text-[10px] disabled:opacity-50 shadow-sm"
-                    >
-                      {isCleaningDuplicates ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                      <span>Limpar Duplicados</span>
-                    </button>
+                    {/* Ações */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button 
+                        onClick={handleCleanupDuplicates}
+                        disabled={isCleaningDuplicates}
+                        className="px-3 py-2 bg-accent text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-accent/90 transition-all flex items-center gap-2 shadow-lg shadow-accent/20 disabled:opacity-50"
+                      >
+                        {isCleaningDuplicates ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                        <span>Limpar Duplicados</span>
+                      </button>
+                      <button 
+                         onClick={fetchData}
+                         className="p-2.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all shadow-lg flex items-center justify-center"
+                         title="Atualizar"
+                      >
+                         <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                      </button>
+                    </div>
+                </div>
 
-                    <button 
-                      onClick={fetchData}
-                      className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-colors text-[10px] shadow-sm"
+                {/* LINHA 2 (FOTO 4): ABAS DE STATUS (MINIMO ESPACO) */}
+                <div className="flex items-center gap-1 bg-white p-1 rounded-xl shadow-sm border border-slate-100 w-fit mx-auto sm:mx-4 overflow-x-auto no-scrollbar shrink-0 mb-1">
+                  {[
+                    { id: 'todos', label: 'Todos' },
+                    { id: 'novos_precificacao', label: 'Novos' },
+                    { id: 'frio', label: 'Lead Frio' },
+                    { id: 'proposta_enviada', label: 'Leads Morna' },
+                    { id: 'negociar', label: 'Negociar' },
+                    { id: 'limpa_nome', label: 'Limpa Nome' },
+                    { id: 'contrato_enviado', label: 'Contrato Enviado' },
+                    { id: 'reservado', label: 'Reservados' },
+                    { id: 'fechado', label: 'Lead Quente' },
+                    { id: 'vendido', label: 'Vendido pelo Usuário' },
+                    { id: 'perdido', label: 'Perdidos' }
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveLeadTab(tab.id as any)}
+                      className={`px-3 py-1 rounded-lg font-black text-[9px] uppercase tracking-wider transition-all whitespace-nowrap ${
+                        activeLeadTab === tab.id 
+                          ? 'bg-slate-900 text-white shadow-md' 
+                          : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                      }`}
                     >
-                      <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-                      <span>Atualizar</span>
+                      {tab.label}
                     </button>
-                  </div>
+                  ))}
                 </div>
 
                 {/* Filtros Adicionais (Marca, Ano, Preço) */}
