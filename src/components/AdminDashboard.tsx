@@ -171,6 +171,7 @@ export default function AdminDashboard() {
   const [bannerHeight, setBannerHeight] = useState('100vh');
   const [profitMarginPercentage, setProfitMarginPercentage] = useState(20);
   const [savingSettings, setSavingSettings] = useState(false);
+  const isSavingSettingsRef = useRef(false);
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const selectedLeadRef = useRef<any>(null);
   useEffect(() => {
@@ -744,7 +745,7 @@ export default function AdminDashboard() {
     }
     
     fetchDataDebounceRef.current = setTimeout(async () => {
-      if (isFetchingRef.current || !currentUser) return;
+      if (isFetchingRef.current || !currentUser || isSavingSettingsRef.current) return;
       isFetchingRef.current = true;
       
       console.log("fetchData chamado (executando)");
@@ -1476,7 +1477,7 @@ export default function AdminDashboard() {
           schema: 'public', 
           table: 'settings' 
         }, (payload) => {
-          if (payload.new && (payload.new as any).key) {
+          if (!isSavingSettingsRef.current && payload.new && (payload.new as any).key) {
             const { key, value } = payload.new as any;
             if (key === 'AI_CRM_ENABLED') {
               console.log('[AdminDashboard] AI Global status updated via Realtime:', value);
@@ -2844,6 +2845,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
   const handleSaveSettings = async () => {
     setSavingSettings(true);
+    isSavingSettingsRef.current = true;
     try {
       const settingsToSave = [
         { key: 'CHAT_ENABLED', value: chatEnabled ? 'true' : 'false' },
@@ -2869,6 +2871,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
         { key: 'SOCIAL_YOUTUBE', value: socialYoutube },
         { key: 'SOCIAL_TIKTOK', value: socialTiktok },
         { key: 'SOCIAL_LINKEDIN', value: socialLinkedin },
+        { key: 'GOOGLE_ANALYTICS_ID', value: googleAnalyticsId },
+        { key: 'GOOGLE_ADS_ID', value: googleAdsId },
+        { key: 'GOOGLE_ADS_CONVERSION_LABEL', value: googleAdsConversionLabel },
         { key: 'AI_MEMORY', value: aiMemory },
         { key: 'AI_SYSTEM_PROMPT', value: aiSystemPrompt },
         { key: 'AI_CRM_PROMPT', value: aiCrmPrompt },
@@ -2889,12 +2894,11 @@ Podemos prosseguir com o agendamento da vistoria?`;
         { key: 'WEBHOOK_URL', value: webhookUrl }
       ];
 
-      console.log('settingsToSave:', settingsToSave);
+      console.log('Final settingsToSave:', settingsToSave);
       const { data, error } = await supabase
         .from('settings')
         .upsert(settingsToSave, { onConflict: 'key' });
 
-      console.log('Supabase response:', { data, error });
       if (error) throw error;
 
       await refreshAssets();
@@ -2904,6 +2908,10 @@ Podemos prosseguir com o agendamento da vistoria?`;
       alert('Erro ao salvar configurações.');
     } finally {
       setSavingSettings(false);
+      // Mantemos o isSavingSettingsRef true por mais um pouco para ignorar o evento de snapshot imediato
+      setTimeout(() => {
+        isSavingSettingsRef.current = false;
+      }, 2000);
     }
   };
 
