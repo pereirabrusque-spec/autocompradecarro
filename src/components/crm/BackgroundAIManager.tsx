@@ -612,7 +612,7 @@ export const BackgroundAIManager = () => {
 
             lockThread(threadId); // Lock the thread before generating response
 
-            const delay = Math.floor(Math.random() * 2000) + 1000; // 1-3 segundos para ser mais ágil
+            const delay = Math.floor(Math.random() * 500) + 500; // 0.5-1.0 segundos para ser ultra ágil
             await new Promise(resolve => setTimeout(resolve, delay));
 
             const { data: recentAdminMsg } = await supabase
@@ -1130,7 +1130,7 @@ RESPONDA DIRETAMENTE AO REMETENTE.
             let leadData: any = null;
             const { data: leadFromTable, error: leadError } = await supabase
                 .from('leads_veiculos')
-                .select('detalhes_proposta, cliente_nome, email, user_id')
+                .select('detalhes_proposta, cliente_nome, email, user_id, status, tags, valor_divida, observacoes')
                 .eq('id', leadId)
                 .maybeSingle();
             
@@ -1193,7 +1193,7 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                 }
             }
             
-            const delay = Math.floor(Math.random() * 5000) + 2000; // 2-7 segundos
+            const delay = Math.floor(Math.random() * 800) + 700; // 0.7-1.5 segundos
             await new Promise(resolve => setTimeout(resolve, delay));
 
             // Verificação Refinada: Ignora mensagens de BOAS VINDAS ou FALHAS para decidir se deve responder
@@ -1248,7 +1248,27 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                 let othersData: any[] = [];
                 let requiresManualAnalysis = false;
                 
-                if (vehicle) {
+                // --- AJUSTE CRÍTICO: CONTEXTO LIMPA NOME NO CHAT PÚBLICO ---
+                const isLimpaNome = leadData?.status?.toLowerCase().includes('limpa_nome') || 
+                                    leadData?.status?.toLowerCase().includes('limpa nome') ||
+                                    leadData?.tags?.some((t: string) => t.toLowerCase().includes('limpa nome'));
+
+                const limpaNomeInstructions = isLimpaNome ? `
+**FOCO ABSOLUTO EM LIMPA NOME:** 
+- O cliente está em um fluxo de RECUPERAÇÃO DE CRÉDITO (Limpa Nome).
+- IGNORE informações de veículos (Marca, Modelo, FIPE) a menos que o cliente pergunte especificamente sobre um carro que ele quer entregar como pagamento.
+- Seu objetivo é explicar como a AutoCompra ajuda a limpar o nome através da negociação de dívidas e quitação de veículos com débitos.
+- Não tente vender um carro novo agora. Foque na solução financeira de restauração de crédito.
+- Responda dúvidas sobre prazos, como funciona o processo de baixa de restrições e negociação bancária.
+- Se o cliente perguntar o valor, diga que um especialista fará a análise do caso dele gratuitamente.
+` : '';
+
+                if (isLimpaNome) {
+                    inventoryContext = "";
+                    vehicleInfo = leadData ? `\n\nCONTEXTO DO CLIENTE (LIMPA NOME):\n- Nome: ${leadData.cliente_nome}\n- Status: ${leadData.status}\n- Dívida Relatada: ${leadData.valor_divida || 'A consultar'}\n- Observações: ${leadData.observacoes || 'N/A'}` : "";
+                }
+
+                if (vehicle && !isLimpaNome) {
                     const allPhotos = vehicle.fotos || [];
                     vehiclePhoto = allPhotos[0] || "";
                     
@@ -1370,6 +1390,8 @@ Seja amigável mas incisivo. Verifique se a conversa não foi finalizada antes d
 VOCÊ É O LUIZ — O ASSISTENTE INTELIGENTE DA AUTO COMPRA ONLINE.
 VOCÊ TEM ACESSO TOTAL AO SISTEMA E É AUTO-DIDATA. VOCÊ APRENDE COM O HISTÓRICO.
 
+[DIRETRIZ ESPECIAL]: ${limpaNomeInstructions || "Foco em negociação de veículos e auxílio ao cliente."}
+
 [SITUAÇÃO DO CLIENTE]: ${leadStatus}.
 NOME: ${clientName}.
 EMAIL: ${clientEmail}.
@@ -1417,6 +1439,8 @@ IDENTIFICAÇÃO DO PERFIL: ${isBuyerRole ? 'COMPRADOR / INVESTIDOR (INTERESSADO 
 NOME DO CLIENTE: ${clientName}
 EMAIL DO CLIENTE: ${clientEmail}
 ${followUpContext}
+
+${limpaNomeInstructions}
 
 ${formStatusContext}
 ${vehicleInfo}

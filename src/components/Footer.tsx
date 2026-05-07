@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CarFront, Instagram, Facebook, MessageCircle, Youtube, Linkedin, Video } from 'lucide-react';
+import { CarFront, Instagram, Facebook, MessageCircle, Youtube, Linkedin, Video, ShieldCheck } from 'lucide-react';
 import { useAssets } from '../lib/assetsContext';
 import { useAuth } from '../lib/authContext';
 import AuthModal from './AuthModal';
@@ -40,6 +40,41 @@ export default function Footer() {
   return (
     <footer className="bg-[#0b1b2b] text-white py-20 relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* NOVOS CTAS PROEMINENTES */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-20">
+          <a 
+            href="/vender" 
+            className="group relative overflow-hidden rounded-3xl bg-slate-900 border border-white/10 p-8 transition-all hover:bg-slate-800"
+          >
+            <div className="relative z-10 flex flex-col md:flex-row items-center gap-6">
+              <div className="w-20 h-20 bg-accent rounded-2xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-all shadow-[0_0_30px_rgba(242,125,38,0.3)]">
+                <CarFront className="w-10 h-10 text-white" />
+              </div>
+              <div className="text-center md:text-left">
+                <h3 className="text-2xl font-black text-white uppercase tracking-tight">Avaliar Carro</h3>
+                <p className="text-slate-400 text-sm mt-1">Descubra quanto vale seu veículo agora.</p>
+              </div>
+            </div>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-accent/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
+          </a>
+
+          <a 
+            href="/limpa-nome" 
+            className="group relative overflow-hidden rounded-3xl bg-slate-900 border border-white/10 p-8 transition-all hover:bg-slate-800"
+          >
+            <div className="relative z-10 flex flex-col md:flex-row items-center gap-6">
+              <div className="w-20 h-20 bg-emerald-500 rounded-2xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-all shadow-[0_0_30px_rgba(16,185,129,0.3)]">
+                <ShieldCheck className="w-10 h-10 text-white" />
+              </div>
+              <div className="text-center md:text-left">
+                <h3 className="text-2xl font-black text-white uppercase tracking-tight">Limpa Nome</h3>
+                <p className="text-slate-400 text-sm mt-1">Recupere seu crédito e volte a comprar.</p>
+              </div>
+            </div>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
+          </a>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-20">
           <div className="col-span-1 md:col-span-1">
             <div className="flex items-center gap-2 mb-6">

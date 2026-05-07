@@ -737,7 +737,7 @@ export default function AdminDashboard() {
 
   const fetchDataDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  const fetchData = async (force: boolean = false) => {
+  const fetchData = async (force: boolean = false, type: 'all' | 'critical' = 'all') => {
     // Se for forçado, cancelamos qualquer agendamento anterior e executamos imediatamente
     if (force && fetchDataDebounceRef.current) {
       clearTimeout(fetchDataDebounceRef.current);
@@ -752,14 +752,17 @@ export default function AdminDashboard() {
       if (isSavingSettingsRef.current && !force) return;
 
       isFetchingRef.current = true;
-      console.log("fetchData executando... (Force: " + force + ")");
-      setIsLoading(true);
-      addLog('Iniciando busca de dados...', 'info');
+      console.log(`fetchData (${type}) executando... (Force: ${force})`);
+      
+      // Apenas mostramos o carregamento global se for um fetch "all" ou o primeiro carregamento
+      if (type === 'all' || leads.length === 0) setIsLoading(true);
+      
+      addLog(`Iniciando busca de dados (${type})...`, 'info');
       
       try {
         if (!currentUser) return;
 
-        // 1. Fetch User Profile first
+        // 1. Fetch User Profile first (Critical)
         const { data: profile_res } = await supabase
           .from('profiles')
           .select('*')
@@ -773,57 +776,86 @@ export default function AdminDashboard() {
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
+        // Define o que é crítico: Mensagens, Leads e Conversas
         const [
           leadsResult,
-          profilesResult,
-          assetsResult,
-          banksResult,
-          repairResult,
-          fipeResult,
-          buyerProposalsResult,
-          apiKeysResult,
-          providersResult,
-          buyersResult,
-          authsResult,
-          sentResult,
           messagesResult,
           internalMessagesResult,
-          settingsResult
+          profilesResult
         ] = await Promise.all([
           supabase.from('leads_veiculos').select('*').order('created_at', { ascending: false }).limit(1000),
-          supabase.from('profiles').select('*').order('created_at', { ascending: false }),
-          supabase.from('banners').select('*').order('ordem', { ascending: true }),
-          supabase.from('banks').select('*').order('name'),
-          supabase.from('repair_costs').select('*').order('part_name'),
-          supabase.from('fipe_rules').select('*').order('condition_name'),
-          supabase.from('buyer_proposals').select('*'),
-          supabase.from('api_keys').select('*').order('created_at', { ascending: false }),
-          supabase.from('providers').select('*').order('name'),
-          supabase.from('interested_buyers').select('*').order('created_at', { ascending: false }),
-          supabase.from('buyer_crm_permissions').select('*'),
-          supabase.from('sent_leads').select('*'),
-          supabase.from('mensagens').select('*, leads_veiculos(*)').gte('created_at', thirtyDaysAgo.toISOString()).order('created_at', { ascending: false }).limit(500),
-          supabase.from('internal_messages').select('*').gte('created_at', thirtyDaysAgo.toISOString()).order('created_at', { ascending: false }).limit(500),
-          supabase.from('settings').select('*')
+          supabase.from('mensagens').select('*, leads_veiculos(*)').gte('created_at', thirtyDaysAgo.toISOString()).order('created_at', { ascending: false }).limit(1000),
+          supabase.from('internal_messages').select('*').gte('created_at', thirtyDaysAgo.toISOString()).order('created_at', { ascending: false }).limit(1000),
+          supabase.from('profiles').select('*').order('created_at', { ascending: false })
         ]);
 
         if (leadsResult.error) throw leadsResult.error;
 
-        const leadsData = leadsResult.data;
-        const profilesData = profilesResult.data;
-        const assetsData = assetsResult.data;
-        const banksData = banksResult.data;
-        const repairData = repairResult.data;
-        const fipeData = fipeResult.data;
-        const buyerProposalsData = buyerProposalsResult.data;
-        const apiKeysData = apiKeysResult.data;
-        const providersData = providersResult.data;
-        const buyersData = buyersResult.data;
-        const authsData = authsResult.data;
-        const sentData = sentResult.data;
-        const messagesData = messagesResult.data;
-        const internalMessagesData = internalMessagesResult.data;
-        const settingsData = settingsResult.data;
+        const leadsData = leadsResult.data || [];
+        const messagesData = messagesResult.data || [];
+        const internalMessagesData = internalMessagesResult.data || [];
+        const profilesData = profilesResult.data || [];
+
+        // 2. Fetch o resto opcionalmente
+        let settingsData: any[] | null = null;
+        let assetsData: any[] | null = null;
+        let banksData: any[] | null = null;
+        let apiKeysData: any[] | null = null;
+        let providersData: any[] | null = null;
+        let buyerProposalsData: any[] | null = null;
+        let authsData: any[] | null = null;
+        let sentData: any[] | null = null;
+        let repairData: any[] | null = null;
+        let fipeData: any[] | null = null;
+        let buyersResData: any[] | null = null;
+
+        if (type === 'all') {
+            const [
+              assetsRes,
+              banksRes,
+              repairRes,
+              fipeRes,
+              buyerProposalsRes,
+              apiKeysRes,
+              providersRes,
+              buyersRes,
+              authsRes,
+              sentRes,
+              settingsRes
+            ] = await Promise.all([
+              supabase.from('banners').select('*').order('ordem', { ascending: true }),
+              supabase.from('banks').select('*').order('name'),
+              supabase.from('repair_costs').select('*').order('part_name'),
+              supabase.from('fipe_rules').select('*').order('condition_name'),
+              supabase.from('buyer_proposals').select('*'),
+              supabase.from('api_keys').select('*').order('created_at', { ascending: false }),
+              supabase.from('providers').select('*').order('name'),
+              supabase.from('interested_buyers').select('*').order('created_at', { ascending: false }),
+              supabase.from('buyer_crm_permissions').select('*'),
+              supabase.from('sent_leads').select('*'),
+              supabase.from('settings').select('*')
+            ]);
+            
+            assetsData = assetsRes.data;
+            banksData = banksRes.data;
+            settingsData = settingsRes.data;
+            apiKeysData = apiKeysRes.data;
+            providersData = providersRes.data;
+            buyerProposalsData = buyerProposalsRes.data;
+            authsData = authsRes.data;
+            sentData = sentRes.data;
+            repairData = repairRes.data;
+            fipeData = fipeRes.data;
+            buyersResData = buyersRes.data;
+            if (repairRes.data) setRepairCosts(repairRes.data);
+            if (fipeRes.data) setFipeRules(fipeRes.data);
+            if (apiKeysRes.data) setApiKeys(apiKeysRes.data);
+            if (buyerProposalsRes.data) setBuyerProposals(buyerProposalsRes.data);
+            if (providersRes.data) setProviders(providersRes.data);
+            if (buyersRes.data) setInterestedBuyers(buyersRes.data);
+            if (authsRes.data) setBuyerAuthorizations(authsRes.data);
+            if (sentRes.data) setSentLeads(sentRes.data);
+        }
 
         // Processamento de dados (originalmente estava fora do try em execuções anteriores devido a erro de edição)
 
@@ -912,22 +944,8 @@ export default function AdminDashboard() {
 
       // Perform background cleanup of duplicates if any found
       if (duplicatesToDelete.length > 0) {
-        console.log(`[AdminDashboard] Encontrados ${duplicatesToDelete.length} leads frios duplicados. Limpando em lotes...`);
-        
-        const deleteInBatches = async () => {
-          const batchSize = 50;
-          for (let i = 0; i < duplicatesToDelete.length; i += batchSize) {
-            const batch = duplicatesToDelete.slice(i, i + batchSize);
-            const { error } = await supabase.from('leads_veiculos').delete().in('id', batch);
-            if (error) {
-              console.error(`[AdminDashboard] Erro ao limpar lote de duplicados (${i}-${i + batchSize}):`, error);
-              break; // Stop on error to avoid infinite loop if it's a persistent issue
-            }
-          }
-          console.log('[AdminDashboard] Limpeza de duplicados concluída.');
-        };
-        
-        deleteInBatches();
+        console.log(`[AdminDashboard] Encontrados ${duplicatesToDelete.length} leads frios duplicados. Sugerido limpeza manual para evitar orfandade de mensagens.`);
+        // REMOVED automatic deletion to prevent orphaned messages
       }
 
       // Combine leads and profiles
@@ -981,7 +999,7 @@ export default function AdminDashboard() {
       const { data: buyersDataResult, error: buyersError } = await supabase.from('interested_buyers').select('*').order('created_at', { ascending: false });
       if (buyersDataResult) console.log('Buyers buscados:', buyersDataResult);
       
-      const buyersDataMerged = buyersDataResult || [];
+      const buyersDataMerged = (type === 'all' ? buyersResData : interestedBuyers) || [];
       
       // Group messages by email or name+phone to create conversation list
       const groupedConversations: any[] = [];
@@ -2912,18 +2930,21 @@ Podemos prosseguir com o agendamento da vistoria?`;
       }
 
       console.log("[AdminDashboard] Configurações salvas. Forçando atualização de dados...");
-      await fetchData(true);
-      await refreshAssets();
-      alert('Configurações salvas com sucesso!');
+      // Não damos await aqui para não travar a UI enquanto recarrega tudo
+      fetchData(true);
+      refreshAssets();
+      
+      // Feedback visual ao invés de alert travante
+      addLog('Configurações salvas com sucesso!', 'info');
+      // Forçamos um pequeno delay antes de dizer que terminou
     } catch (error) {
       console.error('Error saving settings:', error);
-      alert('Erro ao salvar configurações.');
+      addLog('Erro ao salvar configurações.', 'error', error);
     } finally {
       setSavingSettings(false);
-      // Mantemos o isSavingSettingsRef true por mais um pouco para ignorar o evento de snapshot imediato
       setTimeout(() => {
         isSavingSettingsRef.current = false;
-      }, 2000);
+      }, 1000);
     }
   };
 
@@ -4675,47 +4696,47 @@ Podemos prosseguir com o agendamento da vistoria?`;
             {activeTab === 'leads' && (
               <div className="flex flex-col gap-2 h-full pb-4">
                 {/* LINHA 1: TODOS OS CAMPOS UTITLITARIOS (8 ÍTENS - DINÂMICO) */}
-                <div className="flex flex-wrap items-center gap-1 bg-white p-2 rounded-[24px] border border-slate-100 shadow-sm w-full shrink-0 z-10 transition-all hover:shadow-md">
+                <div className="flex flex-wrap items-center gap-0.5 bg-white p-1 rounded-[20px] border border-slate-100 shadow-sm w-full shrink-0 z-10 transition-all">
                     {/* 1. Exportar */}
                     <button 
                       onClick={handleExportCSV}
-                      className="px-3 py-2 bg-slate-50 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-100 transition-all flex items-center gap-2 text-[9px] font-black uppercase tracking-wider shadow-sm shrink-0"
+                      className="px-2 py-1.5 bg-slate-50 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-100 transition-all flex items-center gap-1 text-[8px] font-black uppercase tracking-wider shrink-0"
                       title="Exportar para CSV"
                     >
-                      <Download className="w-3 h-3" />
+                      <Download className="w-2.5 h-2.5" />
                       <span>Exportar</span>
                     </button>
 
                     {/* 2 & 3. Filtros de Data */}
-                    <div className="flex items-center gap-1 shrink-0 bg-slate-50/50 p-1 rounded-xl border border-slate-100">
-                      <div className="flex items-center gap-1 px-2 py-1 bg-white rounded-lg border border-slate-200 shadow-sm">
-                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">DE</span>
-                        <input type="date" className="bg-transparent text-[9px] font-black outline-none border-0 p-0 focus:ring-0 min-w-[90px]" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)} />
+                    <div className="flex items-center gap-0.5 shrink-0 bg-slate-50/30 p-0.5 rounded-lg border border-slate-100">
+                      <div className="flex items-center gap-1 px-1.5 py-1 bg-white rounded-md border border-slate-200 shadow-sm">
+                        <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">DE</span>
+                        <input type="date" className="bg-transparent text-[8px] font-black outline-none border-0 p-0 focus:ring-0 min-w-[70px]" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)} />
                       </div>
-                      <div className="flex items-center gap-1 px-2 py-1 bg-white rounded-lg border border-slate-200 shadow-sm">
-                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">ATÉ</span>
-                        <input type="date" className="bg-transparent text-[9px] font-black outline-none border-0 p-0 focus:ring-0 min-w-[90px]" value={filterEndDate} onChange={(e) => setFilterEndDate(e.target.value)} />
+                      <div className="flex items-center gap-1 px-1.5 py-1 bg-white rounded-md border border-slate-200 shadow-sm">
+                        <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">ATÉ</span>
+                        <input type="date" className="bg-transparent text-[8px] font-black outline-none border-0 p-0 focus:ring-0 min-w-[70px]" value={filterEndDate} onChange={(e) => setFilterEndDate(e.target.value)} />
                       </div>
                     </div>
 
                     {/* 4. Busca */}
-                    <div className="relative flex-1 min-w-[150px]">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                    <div className="relative flex-1 min-w-[120px]">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
                       <input 
                         type="text" 
-                        placeholder="Buscar por Código..."
+                        placeholder="Código..."
                         value={searchCode}
                         onChange={(e) => setSearchCode(e.target.value.toUpperCase())}
-                        className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[10px] font-black outline-none focus:ring-2 focus:ring-accent/20 transition-all placeholder:text-slate-400"
+                        className="w-full pl-7 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[9px] font-black outline-none focus:ring-2 focus:ring-accent/20 transition-all placeholder:text-slate-400"
                       />
                     </div>
 
                     {/* 5. Modo de Visualização */}
                     <button 
                       onClick={() => setLeadsViewMode(leadsViewMode === 'list' ? 'grid' : 'list')}
-                      className="px-3 py-2 bg-slate-900 text-white rounded-xl flex items-center gap-2 text-[9px] font-black uppercase tracking-widest hover:bg-accent transition-all shadow-lg shrink-0"
+                      className="px-2 py-1.5 bg-slate-900 text-white rounded-lg flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest hover:bg-accent transition-all shadow-sm shrink-0"
                     >
-                      {leadsViewMode === 'list' ? <LayoutDashboard className="w-3 h-3 text-accent" /> : <BarChart3 className="w-3 h-3 text-accent" />}
+                      {leadsViewMode === 'list' ? <LayoutDashboard className="w-2.5 h-2.5 text-accent" /> : <BarChart3 className="w-2.5 h-2.5 text-accent" />}
                       <span>{leadsViewMode === 'list' ? 'Grade' : 'Lista'}</span>
                     </button>
 
@@ -4723,9 +4744,9 @@ Podemos prosseguir com o agendamento da vistoria?`;
                     <button 
                       onClick={handleCleanupDuplicates}
                       disabled={isCleaningDuplicates}
-                      className="px-3 py-2 bg-accent/10 border border-accent/20 text-accent rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-accent hover:text-white transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-50 group shrink-0"
+                      className="px-2 py-1.5 bg-accent/5 border border-accent/10 text-accent rounded-lg font-black text-[8px] uppercase tracking-widest hover:bg-accent hover:text-white transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-50 group shrink-0"
                     >
-                      {isCleaningDuplicates ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3 group-hover:rotate-180 transition-transform duration-500" />}
+                      {isCleaningDuplicates ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <RefreshCw className="w-2.5 h-2.5 group-hover:rotate-180 transition-transform duration-500" />}
                       <span>Duplicados</span>
                     </button>
 
@@ -4740,19 +4761,19 @@ Podemos prosseguir com o agendamento da vistoria?`;
                         setFilterEndDate('');
                         setSearchCode('');
                       }}
-                      className="px-3 py-2 bg-slate-50 border border-slate-200 text-slate-400 rounded-xl hover:text-red-500 hover:bg-red-50 transition-all flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider shrink-0"
+                      className="px-2 py-1.5 bg-slate-50 border border-slate-200 text-slate-400 rounded-lg hover:text-red-500 hover:bg-red-50 transition-all flex items-center gap-1 text-[8px] font-black uppercase tracking-wider shrink-0"
                     >
-                      <Trash2 className="w-3 h-3" />
+                      <Trash2 className="w-2.5 h-2.5" />
                       <span>Limpar</span>
                     </button>
 
                     {/* 8. Atualizar */}
                     <button 
                        onClick={() => fetchData(true)}
-                       className="w-10 h-10 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all shadow-lg flex items-center justify-center shrink-0 group"
+                       className="w-8 h-8 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-all shadow-md flex items-center justify-center shrink-0 group"
                        title="Atualizar Dados"
                     >
-                       <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
+                       <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
                     </button>
                 </div>
 
