@@ -1222,7 +1222,7 @@ RESPONDA DIRETAMENTE AO REMETENTE.
 - Seu objetivo é explicar como a AutoCompra ajuda a limpar o nome através da negociação de dívidas e quitação de veículos com débitos.
 - Não tente vender um carro novo agora. Foque na solução financeira de restauração de crédito.
 - Responda dúvidas sobre prazos, como funciona o processo de baixa de restrições e negociação bancária.
-- Se o cliente perguntar o valor, diga que um especialista fará a análise do caso dele gratuitamente.
+- USE ESTRITAMENTE as "DIRETRIZES DA GERÊNCIA" e a "MEMÓRIA DO SISTEMA" abaixo (especialmente para informar valores, custos ou procedimentos).
 ` : '';
 
                 if (isLimpaNome) {

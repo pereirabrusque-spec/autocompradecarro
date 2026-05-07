@@ -365,14 +365,22 @@ export default function ChatWidget() {
           throw error;
         }
 
-        // Troca o optimistic pelo real
+        // Troca o optimistic pelo real ou remove se o realtime já inseriu
         if (insertedMsg) {
-          setMessages(prev => prev.map(m => m.id === tempId ? {
-            id: insertedMsg.id,
-            conteudo: insertedMsg.content,
-            remetente: 'cliente',
-            created_at: insertedMsg.created_at
-          } : m));
+          setMessages(prev => {
+            const alreadyExists = prev.some(m => m.id === insertedMsg.id && m.id !== tempId);
+            if (alreadyExists) {
+              // Removes tempId, since realtime already added the real one
+              return prev.filter(m => m.id !== tempId);
+            }
+            // Replace tempId with real msg
+            return prev.map(m => m.id === tempId ? {
+              id: insertedMsg.id,
+              conteudo: insertedMsg.content,
+              remetente: 'cliente',
+              created_at: insertedMsg.created_at
+            } : m);
+          });
         }
 
         // Broadcast to a global channel so any active admin/AI sees it immediately
@@ -402,23 +410,29 @@ export default function ChatWidget() {
           throw error;
         }
 
-        // Troca o optimistic pelo real
+        // Troca o optimistic pelo real ou remove se o realtime já inseriu
         if (insertedMsg) {
-          setMessages(prev => prev.map(m => m.id === tempId ? {
-            ...insertedMsg,
-            conteudo: insertedMsg.conteudo,
-            remetente: 'cliente',
-            created_at: insertedMsg.created_at
-          } : m));
+          setMessages(prev => {
+            const alreadyExists = prev.some(m => m.id === insertedMsg.id && m.id !== tempId);
+            if (alreadyExists) {
+              return prev.filter(m => m.id !== tempId);
+            }
+            return prev.map(m => m.id === tempId ? {
+              ...insertedMsg,
+              conteudo: insertedMsg.conteudo,
+              remetente: 'cliente',
+              created_at: insertedMsg.created_at
+            } : m);
+          });
         }
       }
       
       // Safety check: Se recriamos o lead e possivelmente derrubamos a conexão realtime
       // disparamos o fetchMessages um tempinho dps para ter certeza que pegamos iterações da IA.
       if (!isBuyer && activeLead.is_placeholder) {
-        setTimeout(() => {
-          fetchMessages(currentLeadId);
-        }, 1500);
+        setTimeout(() => fetchMessages(currentLeadId), 1500);
+        setTimeout(() => fetchMessages(currentLeadId), 4000);
+        setTimeout(() => fetchMessages(currentLeadId), 8000);
       }
     } catch (error) {
       console.error('Error sending message:', error);
