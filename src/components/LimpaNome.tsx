@@ -24,10 +24,23 @@ export default function LimpaNome() {
     valorDivida: ''
   });
 
+  const formatCPF = (v: string) => {
+    v = v.replace(/\D/g, '');
+    if (v.length > 11) v = v.substring(0, 11);
+    return v.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  };
+
+  const formatCEP = (v: string) => {
+    v = v.replace(/\D/g, '');
+    if (v.length > 8) v = v.substring(0, 8);
+    return v.replace(/(\d{5})(\d{3})/, '$1-$2');
+  };
+
   const handleCEPChange = async (cep: string) => {
-    const numericCEP = cep.replace(/\D/g, '');
-    setFormData(prev => ({ ...prev, cep: numericCEP.replace(/(\d{5})(\d{3})/, '$1-$2') }));
+    const formattedCEP = formatCEP(cep);
+    setFormData(prev => ({ ...prev, cep: formattedCEP }));
     
+    const numericCEP = formattedCEP.replace(/\D/g, '');
     if (numericCEP.length === 8) {
       try {
         const response = await fetch(`https://viacep.com.br/ws/${numericCEP}/json/`);
@@ -44,12 +57,6 @@ export default function LimpaNome() {
         console.error('Erro ao buscar CEP:', error);
       }
     }
-  };
-
-  const formatCPF = (v: string) => {
-    v = v.replace(/\D/g, '');
-    if (v.length > 11) v = v.substring(0, 11);
-    return v.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
   };
 
   const formatPhone = (v: string) => {
@@ -84,12 +91,21 @@ export default function LimpaNome() {
     setIsSubmitting(true);
 
     try {
+      // 1. Verificar se o CPF já existe
+      const { data: existingLeads, error: searchError } = await supabase
+        .from('leads_veiculos')
+        .select('*')
+        .eq('cpf', formData.cpf);
+
+      if (searchError) throw searchError;
+
       const payload = {
         cliente_nome: formData.nome,
         email: formData.email,
         telefone: formData.whatsapp,
         cpf: formData.cpf,
         cep: formData.cep,
+        endereco: formData.endereco,
         cidade: formData.cidade,
         estado: formData.estado,
         observacoes: `ENDEREÇO: ${formData.endereco}. CIDADE: ${formData.cidade}-${formData.estado}. VALOR DÍVIDA: R$ ${formData.valorDivida}`,
@@ -97,18 +113,42 @@ export default function LimpaNome() {
         status: 'limpa_nome',
         classificacao: 'fria',
         user_id: user?.id || null,
-        created_at: new Date().toISOString()
+        updated_at: new Date().toISOString()
       };
 
-      const { error } = await supabase.from('leads_veiculos').insert([payload]);
+      if (existingLeads && existingLeads.length > 0) {
+        const existingLead = existingLeads[0];
+        
+        // Se já for limpa_nome, pergunta se deseja atualizar
+        if (existingLead.status === 'limpa_nome') {
+          const confirmUpdate = window.confirm('Este CPF já possui um cadastro em nosso programa Limpa Nome. Deseja atualizar seus dados e solicitar uma nova avaliação?');
+          if (!confirmUpdate) {
+            setIsSubmitting(false);
+            return;
+          }
+        }
 
-      if (error) throw error;
+        // Atualiza o lead existente (Reativação ou Atualização)
+        const { error: updateError } = await supabase
+          .from('leads_veiculos')
+          .update(payload)
+          .eq('id', existingLead.id);
+
+        if (updateError) throw updateError;
+      } else {
+        // Se não existir, cria novo
+        const { error: insertError } = await supabase
+          .from('leads_veiculos')
+          .insert([{ ...payload, created_at: new Date().toISOString() }]);
+
+        if (insertError) throw insertError;
+      }
 
       setIsSuccess(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
-      console.error('Erro ao enviar cadastro Limpa Nome:', error);
-      alert('Ocorreu um erro ao enviar seu cadastro. Por favor, tente novamente.');
+      console.error('Erro ao processar cadastro Limpa Nome:', error);
+      alert('Ocorreu um erro ao processar sua solicitação. Por favor, tente novamente.');
     } finally {
       setIsSubmitting(false);
     }

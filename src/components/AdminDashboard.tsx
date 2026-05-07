@@ -4887,108 +4887,138 @@ Podemos prosseguir com o agendamento da vistoria?`;
                                     <option value="perdido">PERDIDO</option>
                                   </select>
                                 </td>
-                                <td className="px-2 py-1.5">
-                                  <div className="flex items-center gap-2.5">
-                                    <div className="w-8 h-8 rounded-lg bg-slate-100 overflow-hidden flex-shrink-0 border border-slate-200">
-                                      {shouldHidePhotos ? (
-                                        <div className="w-full h-full bg-slate-800 flex items-center justify-center text-[8px] text-white/40 font-bold uppercase tracking-tight">HIDDEN</div>
-                                      ) : lead.fotos && lead.fotos[0] ? (
-                                        <img src={lead.fotos[0]} alt="Veículo" className="w-full h-full object-cover" />
-                                      ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-slate-300">
-                                          <Car className="w-4 h-4" />
+                                
+                                {activeLeadTab === 'limpa_nome' ? (
+                                  <>
+                                    <td className="px-2 py-1.5">
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center">
+                                          <User className="w-3 h-3 text-indigo-600" />
                                         </div>
-                                      )}
-                                    </div>
-                                    
-                                    <div className="flex items-center gap-2 overflow-hidden">
-                                      <div className="flex-shrink-0">
-                                        {profile?.avatar_url ? (
-                                          <img src={profile.avatar_url} alt={profile.full_name} className="w-6 h-6 rounded-full object-cover shadow-sm border border-slate-200" referrerPolicy="no-referrer" />
-                                        ) : (
-                                          <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center shadow-sm border border-slate-200">
-                                            <User className="w-3 h-3 text-slate-400" />
+                                        <span className="text-[11px] font-black text-slate-900 truncate max-w-[150px]">
+                                          {actualHideClientInfo ? 'Cliente Oculto' : (profile?.full_name || lead.cliente_nome)}
+                                        </span>
+                                      </div>
+                                    </td>
+                                    <td className="px-2 py-1.5 text-[11px] font-bold text-slate-600 font-mono">
+                                      {lead.cpf || 'Não inf.'}
+                                    </td>
+                                    <td className="px-2 py-1.5 text-[11px] font-black text-indigo-600">
+                                      {lead.valor_divida ? `R$ ${lead.valor_divida}` : '-'}
+                                    </td>
+                                    <td className="px-2 py-1.5 text-[11px] font-bold text-slate-600">
+                                      {lead.telefone ? lead.telefone : '-'}
+                                    </td>
+                                    <td className="px-2 py-1.5 text-[10px] font-bold text-slate-500">
+                                      {(lead.cidade && lead.estado) ? `${lead.cidade}-${lead.estado}` : (lead.cep || '-')}
+                                    </td>
+                                  </>
+                                ) : (
+                                  <>
+                                    <td className="px-2 py-1.5">
+                                      <div className="flex items-center gap-2.5">
+                                        <div className="w-8 h-8 rounded-lg bg-slate-100 overflow-hidden flex-shrink-0 border border-slate-200">
+                                          {shouldHidePhotos ? (
+                                            <div className="w-full h-full bg-slate-800 flex items-center justify-center text-[8px] text-white/40 font-bold uppercase tracking-tight">HIDDEN</div>
+                                          ) : lead.fotos && lead.fotos[0] ? (
+                                            <img src={lead.fotos[0]} alt="Veículo" className="w-full h-full object-cover" />
+                                          ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                              <Car className="w-4 h-4" />
+                                            </div>
+                                          )}
+                                        </div>
+                                        
+                                        <div className="flex items-center gap-2 overflow-hidden">
+                                          <div className="flex-shrink-0">
+                                            {profile?.avatar_url ? (
+                                              <img src={profile.avatar_url} alt={profile.full_name} className="w-6 h-6 rounded-full object-cover shadow-sm border border-slate-200" referrerPolicy="no-referrer" />
+                                            ) : (
+                                              <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center shadow-sm border border-slate-200">
+                                                <User className="w-3 h-3 text-slate-400" />
+                                              </div>
+                                            )}
                                           </div>
+                                          <div className="overflow-hidden">
+                                            {(lead.marca || lead.modelo) && (
+                                              <p className="text-[11px] font-black text-slate-900 truncate leading-tight">{lead.marca} {lead.modelo}</p>
+                                            )}
+                                            <p className="text-[10px] text-slate-500 truncate">{actualHideClientInfo ? 'Cliente Oculto' : (profile?.full_name || lead.cliente_nome)}</p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </td>
+                                    <td className="px-2 pr-1 py-1.5">
+                                      <span className="px-1.5 py-0.5 bg-slate-100 text-slate-900 rounded text-[10px] font-mono font-bold">
+                                        {lead.vehicle_code || '----'}
+                                      </span>
+                                    </td>
+                                    <td className="px-2 px-1 py-1.5 text-[11px] font-bold text-slate-900">{lead.ano_modelo}</td>
+                                    <td className="px-2 pl-1 py-1.5 text-[11px] font-bold text-slate-900">
+                                      {shouldHidePrice ? 'R$ ??.???' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.valor_fipe || 0)}
+                                    </td>
+                                    <td className="px-2 py-1.5 text-[11px] font-black text-emerald-600">
+                                      {shouldHidePrice ? 'R$ ??.???' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.preco_cliente || 0)}
+                                    </td>
+                                    <td className="px-2 py-1.5">
+                                      <div className="flex flex-col">
+                                        <span className={`text-[11px] font-black ${getProposalClass(getProposalResult(lead)?.finalValue || 0, lead.tipo_veiculo) || 'text-accent'}`}>
+                                          {shouldHidePrice ? 'R$ ??.???' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(getProposalResult(lead)?.finalValue || 0)}
+                                        </span>
+                                        {getProposalResult(lead)?.previousProposalValue && (
+                                          <span className="text-[9px] text-slate-400 font-medium">
+                                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(getProposalResult(lead)?.previousProposalValue)}
+                                          </span>
+                                        )}
+                                        {getProposalResult(lead)?.requiresManualAnalysis && (
+                                          <span className="text-[9px] text-red-500 font-bold flex items-center gap-0.5 mt-0.5" title="Requer análise manual">
+                                            <AlertTriangle className="w-3 h-3" /> Análise
+                                          </span>
                                         )}
                                       </div>
-                                      <div className="overflow-hidden">
-                                        {(lead.marca || lead.modelo) && (
-                                          <p className="text-[11px] font-black text-slate-900 truncate leading-tight">{lead.marca} {lead.modelo}</p>
+                                    </td>
+                                    <td className="px-2 py-1.5">
+                                      <div className="flex items-center gap-1">
+                                        {lead.telefone && !actualHideClientInfo && (
+                                          <button 
+                                            onClick={(e) => { 
+                                              e.stopPropagation(); 
+                                              const phone = lead.telefone?.replace(/\D/g, '');
+                                              const basePhone = phone?.replace(/^0+/, '');
+                                              const formattedPhone = basePhone?.startsWith('55') ? basePhone : `55${basePhone}`;
+                                              const calc = getProposalResult(lead);
+                                              const encodedMessage = generateOwnerMessage(lead, calc);
+                                              window.open(`https://wa.me/${formattedPhone}?text=${encodedMessage}`, '_blank');
+                                            }} 
+                                            className="p-1.5 bg-green-50 hover:bg-green-100 rounded-lg transition-colors text-green-600 animate-pulse-soft" 
+                                            title="WhatsApp Proposta"
+                                          >
+                                            <MessageCircle className="w-3.5 h-3.5" />
+                                          </button>
                                         )}
-                                        <p className="text-[10px] text-slate-500 truncate">{actualHideClientInfo ? 'Cliente Oculto' : (profile?.full_name || lead.cliente_nome)}</p>
+                                        {lead.telefone && (
+                                          <button 
+                                            onClick={(e) => { 
+                                              e.stopPropagation(); 
+                                              setSelectedLead(lead);
+                                              setShowWhatsAppBuyerModal(true);
+                                            }} 
+                                            className="p-1.5 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors text-emerald-600 animate-pulse-soft" 
+                                            title="WhatsApp Comprador"
+                                          >
+                                            <MessageCircle className="w-3.5 h-3.5" />
+                                          </button>
+                                        )}
                                       </div>
-                                    </div>
-                                  </div>
-                                </td>
-                                <td className="px-2 pr-1 py-1.5">
-                                  <span className="px-1.5 py-0.5 bg-slate-100 text-slate-900 rounded text-[10px] font-mono font-bold">
-                                    {lead.vehicle_code || '----'}
-                                  </span>
-                                </td>
-                                <td className="px-2 px-1 py-1.5 text-[11px] font-bold text-slate-900">{lead.ano_modelo}</td>
-                                <td className="px-2 pl-1 py-1.5 text-[11px] font-bold text-slate-900">
-                                  {shouldHidePrice ? 'R$ ??.???' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.valor_fipe || 0)}
-                                </td>
-                                <td className="px-2 py-1.5 text-[11px] font-black text-emerald-600">
-                                  {shouldHidePrice ? 'R$ ??.???' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.preco_cliente || 0)}
-                                </td>
-                                <td className="px-2 py-1.5">
-                                  <div className="flex flex-col">
-                                    <span className={`text-[11px] font-black ${getProposalClass(getProposalResult(lead)?.finalValue || 0, lead.tipo_veiculo) || 'text-accent'}`}>
-                                      {shouldHidePrice ? 'R$ ??.???' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(getProposalResult(lead)?.finalValue || 0)}
-                                    </span>
-                                    {getProposalResult(lead)?.previousProposalValue && (
-                                      <span className="text-[9px] text-slate-400 font-medium">
-                                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(getProposalResult(lead)?.previousProposalValue)}
-                                      </span>
-                                    )}
-                                    {getProposalResult(lead)?.requiresManualAnalysis && (
-                                      <span className="text-[9px] text-red-500 font-bold flex items-center gap-0.5 mt-0.5" title="Requer análise manual">
-                                        <AlertTriangle className="w-3 h-3" /> Análise
-                                      </span>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="px-2 py-1.5">
-                                  <div className="flex items-center gap-1">
-                                    {lead.telefone && !actualHideClientInfo && (
-                                      <button 
-                                        onClick={(e) => { 
-                                          e.stopPropagation(); 
-                                          const phone = lead.telefone?.replace(/\D/g, '');
-                                          const basePhone = phone?.replace(/^0+/, '');
-                                          const formattedPhone = basePhone?.startsWith('55') ? basePhone : `55${basePhone}`;
-                                          const calc = getProposalResult(lead);
-                                          const encodedMessage = generateOwnerMessage(lead, calc);
-                                          window.open(`https://wa.me/${formattedPhone}?text=${encodedMessage}`, '_blank');
-                                        }} 
-                                        className="p-1.5 bg-green-50 hover:bg-green-100 rounded-lg transition-colors text-green-600 animate-pulse-soft" 
-                                        title="WhatsApp Proposta"
-                                      >
-                                        <MessageCircle className="w-3.5 h-3.5" />
-                                      </button>
-                                    )}
-                                    {lead.telefone && (
-                                      <button 
-                                        onClick={(e) => { 
-                                          e.stopPropagation(); 
-                                          setSelectedLead(lead);
-                                          setShowWhatsAppBuyerModal(true);
-                                        }} 
-                                        className="p-1.5 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors text-emerald-600 animate-pulse-soft" 
-                                        title="WhatsApp Comprador"
-                                      >
-                                        <MessageCircle className="w-3.5 h-3.5" />
-                                      </button>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="px-2 py-1.5 text-[11px] font-bold text-slate-900">
-                                  {buyerProposals.find(p => p.lead_id === lead.id && p.type === 'as_is')?.proposta_final ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(buyerProposals.find(p => p.lead_id === lead.id && p.type === 'as_is').proposta_final) : '-'}
-                                </td>
-                                <td className="px-2 py-1.5 text-[11px] font-bold text-slate-900">
-                                  {buyerProposals.find(p => p.lead_id === lead.id && p.type === 'quitado')?.proposta_final ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(buyerProposals.find(p => p.lead_id === lead.id && p.type === 'quitado').proposta_final) : '-'}
-                                </td>
+                                    </td>
+                                    <td className="px-2 py-1.5 text-[11px] font-bold text-slate-900">
+                                      {buyerProposals.find(p => p.lead_id === lead.id && p.type === 'as_is')?.proposta_final ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(buyerProposals.find(p => p.lead_id === lead.id && p.type === 'as_is').proposta_final) : '-'}
+                                    </td>
+                                    <td className="px-2 py-1.5 text-[11px] font-bold text-slate-900">
+                                      {buyerProposals.find(p => p.lead_id === lead.id && p.type === 'quitado')?.proposta_final ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(buyerProposals.find(p => p.lead_id === lead.id && p.type === 'quitado').proposta_final) : '-'}
+                                    </td>
+                                  </>
+                                )}
                                 <td className="px-2 py-1.5">
                                   <div className="flex items-center gap-1">
                                     <button 
