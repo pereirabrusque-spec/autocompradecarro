@@ -200,6 +200,9 @@ function AppContent() {
         setView('thank-you');
       } else if (path === '/limpa-nome') {
         setView('limpa-nome');
+      } else if (path === '/compramos') {
+        window.history.pushState({}, '', '/');
+        setView('home');
       } else {
         if (isAdmin && (path === '/' || path === '')) {
           window.history.pushState({}, '', '/admin');
