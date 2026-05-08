@@ -502,24 +502,22 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         return;
       }
 
-        const { error } = await supabase.from('mensagens').insert({
+        const insertPromise = supabase.from('mensagens').insert({
             lead_id: leadIdRef.current,
             remetente: 'cliente',
             conteudo: userText,
             lida: false,
             metadata: { from_chat_widget: true, timestamp: new Date().toISOString() }
         });
+
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT_SUPABASE')), 8000));
+        
+        const { error } = await Promise.race([insertPromise, timeoutPromise]) as any;
         if (error) {
             console.error("[ChatAssistant] Erro CRÍTICO ao salvar mensagem:", error);
-            console.error("[ChatAssistant] Detalhes do erro (JSON):", JSON.stringify(error));
-            console.error("[ChatAssistant] Dados que tentamos inserir:", {
-                lead_id: leadIdRef.current,
-                remetente: 'cliente',
-                conteudo: userText,
-                lida: false
-            });
             setMessages(prev => prev.filter(m => m.text !== userText)); // Remove optimistic message
-            alert(`Erro ao enviar mensagem: ${error.message || 'Erro desconhecido'}. Por favor, recarregue a página.`);
+            alert(`Erro ao enviar mensagem: ${error.message || 'Erro de conexão'}. Por favor, verifique sua rede.`);
+            setIsLoading(false); 
             return;
         } else {
             console.log("[ChatAssistant] Mensagem salva com sucesso no Supabase.");
