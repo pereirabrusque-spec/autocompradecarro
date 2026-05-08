@@ -617,8 +617,18 @@ async function startServer() {
 
         if (!response.ok) throw new Error(data.error?.message || 'Erro Gemini API');
 
+        // Check for safety blocks
+        if (data.promptFeedback?.blockReason || (data.candidates && data.candidates[0]?.finishReason === 'SAFETY')) {
+           console.warn(`[AI Proxy] Blocked by Gemini Safety Filter. Returning polite fallback.`);
+           return res.json({ text: "Entendi sua solicitação. Irei repassar esses dados para que um especialista humano analise e lhe de a resposta correta em instantes. Posso ajudar com mais alguma dúvida sobre o veículo?", provider: 'gemini', model: modelName });
+        }
+
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!text) throw new Error('Resposta vazia do Gemini');
+        
+        if (!text) {
+           console.warn('[AI Proxy] Resposta vazia do Gemini. Candidates:', JSON.stringify(data.candidates));
+           return res.json({ text: "Entendido. A nossa equipe irá visualizar as suas informações.", provider: 'gemini', model: modelName });
+        }
 
         res.json({ text, provider: 'gemini', model: modelName });
       } else {

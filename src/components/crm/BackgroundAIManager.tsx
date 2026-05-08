@@ -1093,20 +1093,29 @@ RESPONDA DIRETAMENTE AO REMETENTE.
         const uid = currentUserIdRef.current;
         const threadId = payload.lead_id;
 
-        // Check against entire recent history for duplication
+        // Check against recent history to avoid double-tap/accidental duplication
         const { data: recentPublicHistory } = await supabase
             .from('mensagens')
-            .select('conteudo, metadata, remetente')
+            .select('id, conteudo, metadata, remetente, created_at')
             .eq('lead_id', threadId)
             .order('created_at', { ascending: false })
-            .limit(5);
+            .limit(3);
 
-        if (recentPublicHistory && recentPublicHistory.some(m => 
-            m.conteudo && payload.conteudo && 
-            (m.conteudo.trim().toLowerCase() === payload.conteudo.trim().toLowerCase() ||
-             (m.conteudo.length > 50 && payload.conteudo.includes(m.conteudo.substring(0, 50))))
-        )) {
-            console.log(`[BackgroundAIManager] 🛑 handlePublicMessage ABORT: Conteúdo idêntico ou muito similar já existe no histórico recente do lead ${threadId}.`);
+        // Only abort if it's the exact same message AND it's a long message, OR it was created within the last 5 seconds (double submit)
+        if (recentPublicHistory && recentPublicHistory.some(m => {
+            if (m.id === payload.id || !m.conteudo || !payload.conteudo) return false;
+            
+            const isSame = m.conteudo.trim().toLowerCase() === payload.conteudo.trim().toLowerCase();
+            const timeDiff = Math.abs(new Date(m.created_at).getTime() - new Date(payload.created_at || Date.now()).getTime());
+            
+            // Abort if same message submitted under 5 secs (likely a double click)
+            if (isSame && timeDiff < 5000) return true;
+            // Abort if very long identical message
+            if (isSame && m.conteudo.length > 50) return true;
+            
+            return false;
+        })) {
+            console.log(`[BackgroundAIManager] 🛑 handlePublicMessage ABORT: Duplicate click or repetitive large message detected for lead ${threadId}.`);
             return;
         }
 

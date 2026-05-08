@@ -790,6 +790,8 @@ export default function AdminDashboard() {
         ]);
 
         if (leadsResult.error) throw leadsResult.error;
+        if (messagesResult.error) throw messagesResult.error;
+        if (internalMessagesResult.error) throw internalMessagesResult.error;
 
         const leadsData = leadsResult.data || [];
         const messagesData = messagesResult.data || [];
@@ -1262,6 +1264,10 @@ export default function AdminDashboard() {
         const updatedConv = groupedConversations.find(c => c.lead_id === selectedConversationRef.current.lead_id);
         if (updatedConv) {
           setSelectedConversation(updatedConv);
+          // Refetch chat messages to guarantee the UI is in sync with REAL-TIME incoming messages
+          if (updatedConv.lead_ids && updatedConv.lead_ids.length > 0) {
+            fetchChatMessages(updatedConv.lead_ids).catch(e => console.error(e));
+          }
         }
       }
 

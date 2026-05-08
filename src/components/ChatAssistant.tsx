@@ -41,6 +41,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitializingHistory, setIsInitializingHistory] = useState(true);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [videos, setVideos] = useState<File[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -157,7 +158,7 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
 
   useEffect(() => {
     const initializeChat = async () => {
-      if (!isOpen || isInitializingRef.current) return;
+      if (isInitializingRef.current) return;
       
       try {
         isInitializingRef.current = true;
@@ -291,11 +292,12 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         }
       } finally {
         isInitializingRef.current = false;
+        setIsInitializingHistory(false);
       }
     };
 
     initializeChat();
-  }, [user, isOpen]); // Only re-run when user changes or chat opens
+  }, [user]); // Re-run only when user changes
 
   useEffect(() => {
     const handleOpenChat = async (event: any) => {
@@ -567,13 +569,14 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
         - **CARRO QUITADO COM PROBLEMA:** Compra para reforma ou peças. Peça fotos detalhadas.
         - **LIMPA NOME:** Explique que limpamos o nome assumindo a dívida do veículo.
 
-        ### 3. PAGAMENTOS (MUITO IMPORTANTE)
-        - **Como pagamos:** Pagamento à vista via PIX ou Transferência Bancária IMEDIATA após a vistoria e assinatura do documento em cartório.
-        - **PERGUNTAS SOBRE PAGAMENTO / PIX:** Se o cliente perguntar "Tem PIX?", "Como é o pagamento?", você É OBRIGADO a responder: "Sim! O pagamento é feito à vista via PIX na sua conta imediatamente após a vistoria e assinatura digital do documento no cartório." (NUNCA recuse responder sobre PIX ou pagamento).
+        ### 3. FORMAS DE PAGAMENTO
+        - **Como pagamos:** Pagamento à vista via PIX ou Transferência Bancária após a vistoria.
+        - **Dúvidas sobre PIX:** Se o cliente perguntar "Tem PIX?" ou "Qual a conta do PIX?", explique APENAS que o pagamento é feito na conta dele. NUNCA gere ou solicite dados sensíveis como chaves PIX ou senhas. Apenas responda: "Sim, fazemos o pagamento via PIX diretamente na sua conta após a vistoria."
         
         ### 4. FLUXO DE ATENDIMENTO
         1. Responda diretamente à pergunta feita pelo cliente.
-        2. Diga que os especialistas entrarão em contato com a avaliação.
+        2. Se o cliente fizer MÚLTIPLAS PERGUNTAS (ex: preço e pagamento juntos), você é OBRIGADO a responder a TODAS elas detalhadamente. Não deixe nenhuma pergunta sem resposta.
+        3. Diga que os especialistas entrarão em contato com a avaliação de valor de mercado.
 
         ### 5. REGRAS DE SEGURANÇA E PERSONALIDADE
         - NUNCA diga "Desculpe, não posso ajudar com isso." ou "Sou apenas uma IA".
@@ -1147,14 +1150,14 @@ ${userText}`;
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                    placeholder={!leadId ? "Conectando..." : "Digite sua resposta..."}
-                    disabled={!leadId || isLoading}
+                    placeholder={(!leadId || isInitializingHistory) ? "Conectando..." : "Digite sua mensagem..."}
+                    disabled={!leadId || isLoading || isInitializingHistory}
                     className="w-full pl-4 pr-12 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all disabled:opacity-50"
                   />
                   <button
                     type="button"
                     onClick={() => handleSend()}
-                    disabled={(!input.trim() && !selectedImage) || isLoading || !leadId}
+                    disabled={(!input.trim() && !selectedImage) || isLoading || !leadId || isInitializingHistory}
                     style={{ backgroundColor: chatColor }}
                     className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 text-white rounded-xl hover:opacity-90 disabled:opacity-50 transition-all shadow-lg"
                   >
