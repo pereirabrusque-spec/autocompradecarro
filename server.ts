@@ -625,18 +625,11 @@ async function startServer() {
 
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
         
-        if (text) {
-           console.log(`[AI Proxy DEBUG] Text received from Gemini: "${text}"`);
-           const refusalPattern = /(desculpe|peço desculpas)(,| mas| eu)? (não )?posso ajudar com isso/i;
-           if (refusalPattern.test(text)) {
-              console.warn(`[AI Proxy] Modelo Gemini retornou recusa detectada via regex. Substituindo por fallback amigável.`);
-              return res.json({ text: "Entendido. Estou analisando sua solicitação e já lhe darei a resposta correta. Posso ajudar com mais alguma dúvida sobre o veículo?", provider: 'gemini', model: modelName });
-           }
-        }
-        
         if (!text) {
            console.warn('[AI Proxy] Resposta vazia do Gemini. Candidates:', JSON.stringify(data.candidates));
-           return res.json({ text: "Entendido. Estou processando suas informações.", provider: 'gemini', model: modelName });
+           // Let the model return empty text if it does (or throw an error) rather than hardcoding a response.
+           // For now, let's pass it through or return a generic error if the client expects a string.
+           throw new Error('Resposta vazia da API Gemini');
         }
 
         res.json({ text, provider: 'gemini', model: modelName });
@@ -681,13 +674,10 @@ async function startServer() {
           throw new Error(`Resposta vazia ou inválida de ${provider}`);
         }
 
-        // Detectar recusas comuns do modelo e substituir pelo fallback amigável
+        // Detectar recusas comuns do modelo
         console.log(`[AI Proxy DEBUG] Text received from AI: "${text}"`);
-        const refusalPattern = /(desculpe|peço desculpas)(,| mas| eu)? (não )?posso ajudar com isso/i;
-        if (refusalPattern.test(text)) {
-           console.warn(`[AI Proxy] Modelo retornou recusa detectada via regex. Substituindo por fallback amigável.`);
-           return res.json({ text: "Entendido. Estou analisando sua solicitação e já lhe darei a resposta correta. Posso ajudar com mais alguma dúvida sobre o veículo?", provider, model: modelName });
-        }
+        // O modelo agora é livre para responder, seguindo as diretrizes do prompt.
+        // Remoção da interceptação forçada que substituía o texto por fallback.
 
         res.json({ text, provider, model: modelName });
       }
