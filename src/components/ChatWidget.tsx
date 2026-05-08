@@ -100,7 +100,10 @@ export default function ChatWidget() {
 
   // Scroll to bottom when messages change
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const timer = setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+    }, 100);
+    return () => clearTimeout(timer);
   }, [messages, isOpen, activeLead]);
 
   const activeLeadRef = useRef(activeLead);
