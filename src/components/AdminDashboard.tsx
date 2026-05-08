@@ -2874,6 +2874,37 @@ Podemos prosseguir com o agendamento da vistoria?`;
     }
   };
 
+  const handleSaveAiSettings = async () => {
+    setSavingSettings(true);
+    addLog('Salvando configurações de IA...', 'info');
+    const aiSettings = [
+      { key: 'AI_MEMORY', value: aiMemory },
+      { key: 'AI_SYSTEM_PROMPT', value: aiSystemPrompt },
+      { key: 'AI_CRM_PROMPT', value: aiCrmPrompt },
+      { key: 'AI_CRM_MEMORY', value: aiCrmMemory },
+      { key: 'AI_CRM_ENABLED', value: isGlobalAiEnabled ? 'true' : 'false' },
+      { key: 'AI_BUYER_ENABLED', value: isBuyerAiEnabled ? 'true' : 'false' }
+    ];
+
+    try {
+      console.log('[AdminDashboard] Salvando apenas configurações de IA...');
+      const { error: upsertError } = await supabase
+        .from('settings')
+        .upsert(aiSettings, { onConflict: 'key' });
+
+      if (upsertError) throw upsertError;
+
+      addLog('Configurações de IA salvas com sucesso!', 'info');
+      // Forçamos uma atualização leve se necessário, mas evitamos o fetchData(true) completo se possível
+      // fetchData(true); // Opcional: remover se for muito pesado
+    } catch (error: any) {
+      console.error('[AdminDashboard] Erro ao salvar IA:', error);
+      addLog('Erro ao salvar IA: ' + error.message, 'error', error);
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
   const handleSaveSettings = async () => {
     setSavingSettings(true);
     isSavingSettingsRef.current = true;
@@ -4129,12 +4160,12 @@ Podemos prosseguir com o agendamento da vistoria?`;
 
                 <div className="flex justify-end pt-4">
                   <button 
-                    onClick={handleSaveSettings}
+                    onClick={handleSaveAiSettings}
                     disabled={savingSettings}
                     className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all flex items-center gap-2 shadow-lg shadow-slate-200 disabled:opacity-50"
                   >
                     {savingSettings ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                    Salvar Todas as Configurações de IA
+                    Salvar Configurações de IA
                   </button>
                 </div>
               </div>
