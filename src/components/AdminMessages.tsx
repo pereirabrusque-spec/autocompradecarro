@@ -713,6 +713,13 @@ export default function AdminMessages({
               ref={leadsScrollRef}
               className="flex-1 overflow-y-auto min-h-0 p-4 md:p-6 space-y-4 scroll-smooth"
             >
+            {(!chatMessages || chatMessages.length === 0) && (
+              <div className="h-full flex flex-col items-center justify-center p-8 text-center text-slate-500 min-h-[300px]">
+                <Bot className="w-12 h-12 text-slate-300 mb-4 opacity-50" />
+                <p className="font-bold text-slate-900 text-lg">Nenhuma mensagem ainda</p>
+                <p className="text-sm mt-2 max-w-xs leading-relaxed">Este atendimento ainda não começou ou o registro aconteceu de forma silenciosa via formulário.</p>
+              </div>
+            )}
             <AnimatePresence initial={false}>
               {(chatMessages || []).map((msg) => {
                 const isAgent = msg.remetente === 'bot' || 

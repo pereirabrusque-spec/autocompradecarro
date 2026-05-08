@@ -71,6 +71,26 @@ export function AssetsProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     fetchAssets();
+    
+    // Subscribe to realtime changes
+    const settingsSub = supabase
+      .channel('public:settings')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => {
+        fetchAssets();
+      })
+      .subscribe();
+
+    const bannersSub = supabase
+      .channel('public:banners')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'banners' }, () => {
+        fetchAssets();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(settingsSub);
+      supabase.removeChannel(bannersSub);
+    };
   }, []);
 
   return (

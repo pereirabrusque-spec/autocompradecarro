@@ -316,9 +316,12 @@ export class AIService {
         
         let newStatus: 'ok' | 'no_credit' | 'disconnected' | 'rate_limited' = 'disconnected';
         
-        if (errMsg.includes('failed to fetch') || errMsg.includes('err_name_not_resolved')) {
+        if (errMsg.includes('timeout')) {
+          console.warn(`[AIService] ⏳ Timeout na API, mantendo chave para próxima tentativa.`);
+          newStatus = 'ok'; // Do not blacklist on timeout
+        } else if (errMsg.includes('failed to fetch') || errMsg.includes('err_name_not_resolved')) {
           newStatus = 'disconnected';
-        } else if (errMsg.includes('429') || errMsg.includes('too many requests') || errMsg.includes('rate_limit')) {
+        } else if (errMsg.includes('429') || errMsg.includes('too many requests') || errMsg.includes('rate_limit') || errMsg.includes('overloaded')) {
           newStatus = 'rate_limited';
         } else if (errMsg.includes('quota') || errMsg.includes('credit') || errMsg.includes('balance') || errMsg.includes('insufficient') || errMsg.includes('billing')) {
           newStatus = 'no_credit';
@@ -330,6 +333,9 @@ export class AIService {
           newStatus = 'disconnected';
         } else if (errMsg.includes('key') || errMsg.includes('invalid') || errMsg.includes('unauthorized') || errMsg.includes('permission') || errMsg.includes('denied access') || errMsg.includes('suspended')) {
           newStatus = 'disconnected';
+        } else {
+          // Temporally unavailable should not brick the key completely locally forever
+          newStatus = 'ok';
         }
 
         console.warn(`[AIService] ⚠️ Marcando chave ${apiKey.id} como ${newStatus} e pulando para a próxima...`);
@@ -446,12 +452,13 @@ export class AIService {
         let newStatus: 'ok' | 'no_credit' | 'disconnected' | 'rate_limited' = 'disconnected';
         
         // Detecção mais robusta baseada nas mensagens de erro do servidor
-        if (errMsg.includes('quota') || errMsg.includes('limit') || errMsg.includes('429') || errMsg.includes('too many requests') || errMsg.includes('insufficient') || errMsg.includes('credit') || errMsg.includes('balance')) {
+        if (errMsg.includes('quota') || errMsg.includes('limit') || errMsg.includes('429') || errMsg.includes('too many requests') || errMsg.includes('insufficient') || errMsg.includes('credit') || errMsg.includes('balance') || errMsg.includes('overloaded')) {
           newStatus = 'no_credit'; // Marcamos como Amarelo (sem crédito/quota)
         } else if (errMsg.includes('access_denied') || errMsg.includes('invalid') || errMsg.includes('key') || errMsg.includes('unauthorized') || errMsg.includes('permission') || errMsg.includes('suspended') || errMsg.includes('disabled')) {
           newStatus = 'disconnected'; // Marcamos como Vermelho (corrompida/sem acesso)
         } else {
-          newStatus = 'disconnected';
+          // Temporally unavailable should not brick the key
+          newStatus = 'ok'; 
         }
         
         await this.updateKeyStatus(apiKey.id, newStatus, (apiKey.error_count || 0) + 1);
