@@ -2899,8 +2899,7 @@ Podemos prosseguir com o agendamento da vistoria?`;
       }
 
       addLog('Configurações de IA salvas com sucesso!', 'info');
-      // Forçamos uma atualização leve se necessário, mas evitamos o fetchData(true) completo se possível
-      // fetchData(true); // Opcional: remover se for muito pesado
+      fetchData(true);
     } catch (error: any) {
       console.error('[AdminDashboard] Erro ao salvar IA:', error);
       addLog('Erro ao salvar IA: ' + error.message, 'error', error);

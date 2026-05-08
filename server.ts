@@ -676,8 +676,15 @@ async function startServer() {
 
         // Detectar recusas comuns do modelo
         console.log(`[AI Proxy DEBUG] Text received from AI: "${text}"`);
-        // O modelo agora é livre para responder, seguindo as diretrizes do prompt.
-        // Remoção da interceptação forçada que substituía o texto por fallback.
+        // Regex mais genérico para capturar qualquer tentativa de recusa
+        const refusalPattern = /(desculpe|peço desculpas|sinto muito|não posso)/i;
+        if (refusalPattern.test(text)) {
+           console.warn(`[AI Proxy] Modelo retornou recusa detectada via regex. Substituindo por resposta conciliadora.`);
+           return res.json({ 
+             text: "Entendido. Estou analisando sua solicitação e precisamos garantir que você tenha a orientação correta. Sobre qual tipo específico de dívida ou negociação estamos falando? Assim posso te direcionar ao melhor especialista da equipe.", 
+             provider, model: modelName 
+           });
+        }
 
         res.json({ text, provider, model: modelName });
       }
