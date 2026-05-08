@@ -38,6 +38,9 @@ export const BackgroundAIManager = () => {
     const lastProcessedImage = useRef<{ url: string, base64: string } | null>(null);
     const processedMessagesRef = useRef(new Set<string>());
     const processingThreadsRef = useRef(new Set<string>()); // Thread-level locks
+    const publicDebounceRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+    const internalDebounceRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+    const publicDebounceResolveRef = useRef<Map<string, (value: void | PromiseLike<void>) => void>>(new Map());
 
     const fipeRulesRef = useRef<any[]>([]);
     const banksRef = useRef<any[]>([]);
@@ -423,31 +426,49 @@ export const BackgroundAIManager = () => {
 
     const processedThreads = useRef<Map<string, number>>(new Map()); // Thread ID -> Last processed timestamp
 
-    const isThreadLocked = (threadId: string) => {
-        const lastProcessed = processedThreads.current.get(threadId);
-        // Diminui o lock de 15s para 1s pra permitir que o bot responda a várias mensagens enviadas juntas (sem travar tudo)
-        if (lastProcessed && Date.now() - lastProcessed < 1500) { 
-            console.log(`[BackgroundAIManager] 🔒 Thread ${threadId} bloqueado por 1s (debounce).`);
-            return true;
-        }
-        return false;
+    const internalDebounceResolveRef = useRef<Map<string, (value: void | PromiseLike<void>) => void>>(new Map());
+
+    const handleInternalMessage = (payload: any, isFollowUp = false): Promise<void> => {
+        return new Promise<void>((resolve) => {
+            const threadId = isFollowUp ? payload.receiver_id : payload.sender_id;
+            
+            if (payload.id && processedMessagesRef.current.has(payload.id)) {
+                resolve();
+                return;
+            }
+
+            if (internalDebounceRef.current.has(threadId)) {
+                clearTimeout(internalDebounceRef.current.get(threadId));
+            }
+            if (internalDebounceResolveRef.current.has(threadId)) {
+                const prevResolve = internalDebounceResolveRef.current.get(threadId);
+                if (prevResolve) prevResolve();
+            }
+
+            internalDebounceResolveRef.current.set(threadId, resolve);
+
+            internalDebounceRef.current.set(threadId, setTimeout(async () => {
+                internalDebounceRef.current.delete(threadId);
+                const currentResolve = internalDebounceResolveRef.current.get(threadId);
+                internalDebounceResolveRef.current.delete(threadId);
+
+                await doHandleInternalMessage(payload, isFollowUp);
+                if (currentResolve) currentResolve();
+            }, 1000));
+        });
     };
 
-    const lockThread = (threadId: string) => {
-        processedThreads.current.set(threadId, Date.now());
-    };
-
-    const handleInternalMessage = async (payload: any, isFollowUp = false) => {
+    const doHandleInternalMessage = async (payload: any, isFollowUp = false) => {
         const threadId = isFollowUp ? payload.receiver_id : payload.sender_id;
         const messageId = payload.id || `broadcast_${payload.sender_id}_${payload.content?.substring(0, 20)}_${Date.now()}`;
 
         if (payload.id && processedMessagesRef.current.has(payload.id)) {
-            console.log(`[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: mensagem já processada em memória (${payload.id}).`);
+            console.log(`[BackgroundAIManager] ⚠️ doHandleInternalMessage ABORT: mensagem já processada em memória (${payload.id}).`);
             return;
         }
-        
+
         if (processingThreadsRef.current.has(threadId)) {
-             console.log(`[BackgroundAIManager] ⚠️ handleInternalMessage ABORT: Já processando thread ${threadId}.`);
+             console.log(`[BackgroundAIManager] ⚠️ doHandleInternalMessage ABORT: Já processando thread ${threadId}.`);
              return;
         }
 
@@ -455,7 +476,7 @@ export const BackgroundAIManager = () => {
         if (payload.id) processedMessagesRef.current.add(payload.id);
 
         try {
-            console.log('[BackgroundAIManager] 📩 handleInternalMessage START:', { 
+            console.log('[BackgroundAIManager] 📩 doHandleInternalMessage START:', { 
                 id: messageId, 
                 content: payload.content, 
                 sender: payload.sender_id, 
@@ -464,9 +485,6 @@ export const BackgroundAIManager = () => {
                 timestamp: new Date().toISOString()
             });
             const uid = currentUserIdRef.current;
-
-            // -- NEW: Thread Activity Lock & Content Similarity Prevention --
-            if (isThreadLocked(threadId)) return;
 
             // Check against entire recent history for duplication
             const { data: recentHistory } = await supabase
@@ -610,8 +628,6 @@ export const BackgroundAIManager = () => {
                 console.log(`[BackgroundAIManager] ⏭️ IA ignorando resposta para ${senderId} - Toggle de IA desativado para este fluxo.`);
                 return;
             }
-
-            lockThread(threadId); // Lock the thread before generating response
 
             const delay = Math.floor(Math.random() * 500) + 500; // 0.5-1.0 segundos para ser ultra ágil
             await new Promise(resolve => setTimeout(resolve, delay));
@@ -1018,20 +1034,64 @@ RESPONDA DIRETAMENTE AO REMETENTE.
     }
 };
 
-    const handlePublicMessage = async (payload: any, isFollowUp = false) => {
-        const messageId = payload.id;
-        console.log(`[BackgroundAIManager] 📩 handlePublicMessage START [ID: ${messageId}]:`, { 
-            content: payload.conteudo, 
-            remetente: payload.remetente, 
-            isFollowUp,
-            metadata: payload.metadata,
-            timestamp: new Date().toISOString()
+    const handlePublicMessage = (payload: any, isFollowUp = false): Promise<void> => {
+        return new Promise<void>((resolve) => {
+            const messageId = payload.id;
+            console.log(`[BackgroundAIManager] 📩 handlePublicMessage START [ID: ${messageId}]:`, { 
+                content: payload.conteudo, 
+                remetente: payload.remetente, 
+                isFollowUp,
+                metadata: payload.metadata,
+                timestamp: new Date().toISOString()
+            });
+            const uid = currentUserIdRef.current;
+            const threadId = payload.lead_id;
+
+            const isSelf = payload.sender_id === uid || 
+                          payload.remetente?.toLowerCase() === 'bot' || 
+                          payload.remetente?.toLowerCase() === 'admin' ||
+                          payload.metadata?.role === 'agent' ||
+                          payload.metadata?.role === 'bot' ||
+                          payload.metadata?.from_ai === true ||
+                          payload.metadata?.ai_handled === true ||
+                          payload.metadata?.system_handled === true;
+
+            const isBot = payload.metadata?.ai_processed === true || 
+                         payload.metadata?.from_ai === true || 
+                         payload.metadata?.processed_by_ai === true ||
+                         payload.metadata?.ai_handled === true ||
+                         payload.metadata?.system_handled === true;
+
+            if (isSelf || isBot || !uid || (payload.metadata?.ai_handled && !isFollowUp) || payload.metadata?.from_chat_widget) {
+                resolve();
+                return;
+            }
+
+            if (publicDebounceRef.current.has(threadId)) {
+                clearTimeout(publicDebounceRef.current.get(threadId));
+            }
+            if (publicDebounceResolveRef.current.has(threadId)) {
+                const prevResolve = publicDebounceResolveRef.current.get(threadId);
+                if (prevResolve) prevResolve();
+            }
+
+            publicDebounceResolveRef.current.set(threadId, resolve);
+
+            publicDebounceRef.current.set(threadId, setTimeout(async () => {
+                publicDebounceRef.current.delete(threadId);
+                const currentResolve = publicDebounceResolveRef.current.get(threadId);
+                publicDebounceResolveRef.current.delete(threadId);
+
+                await doHandlePublicMessage(payload, isFollowUp);
+                if (currentResolve) currentResolve();
+            }, 1000));
         });
+    };
+
+    const doHandlePublicMessage = async (payload: any, isFollowUp = false) => {
+        const messageId = payload.id;
         const uid = currentUserIdRef.current;
         const threadId = payload.lead_id;
-
-        // -- NEW: Thread Activity Lock & Content Similarity Prevention --
-        if (threadId && isThreadLocked(threadId)) return;
 
         // Check against entire recent history for duplication
         const { data: recentPublicHistory } = await supabase
@@ -1056,7 +1116,6 @@ RESPONDA DIRETAMENTE AO REMETENTE.
             return;
         }
         
-        // -- FIX: Ignore messages sent by this agent or already processed --
         const isSelf = payload.sender_id === uid || 
                       payload.remetente?.toLowerCase() === 'bot' || 
                       payload.remetente?.toLowerCase() === 'admin' ||
@@ -1067,33 +1126,7 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                       payload.metadata?.system_handled === true;
 
         if (isSelf) {
-            console.log("[BackgroundAIManager] ⚠️ handlePublicMessage ABORT: mensagem enviada pelo próprio agente, admin ou IA.");
-            return;
-        }
-
-        const isBot = payload.metadata?.ai_processed === true || 
-                     payload.metadata?.from_ai === true || 
-                     payload.metadata?.processed_by_ai === true ||
-                     payload.metadata?.ai_handled === true ||
-                     payload.metadata?.system_handled === true;
-
-        if (isBot) {
-            console.log("[BackgroundAIManager] ⚠️ handlePublicMessage ABORT: mensagem já processada ou vinda da IA.");
-            return;
-        }
-
-        if (!uid) {
-            console.log(`[BackgroundAIManager] ⚠️ handlePublicMessage ABORT [ID: ${messageId}]: UID nulo (currentUserIdRef é nulo).`);
-            return;
-        }
-
-        if (payload.metadata?.ai_handled && !isFollowUp) {
-            console.log(`[BackgroundAIManager] handlePublicMessage ABORT [ID: ${messageId}]: Já processada (ai_handled: true).`);
-            return;
-        }
-
-        if (payload.metadata?.from_chat_widget) {
-            console.log(`[BackgroundAIManager] 🛑 handlePublicMessage ABORT [ID: ${messageId}]: Mensagem originada do WIDGET frontend (from_chat_widget: true) - o ChatAssistant já está processando.`);
+            console.log("[BackgroundAIManager] ⚠️ doHandlePublicMessage ABORT: mensagem enviada pelo próprio agente, admin ou IA.");
             return;
         }
 
@@ -1155,7 +1188,7 @@ RESPONDA DIRETAMENTE AO REMETENTE.
 
             const clienteNomeFromLead = leadData?.cliente_nome || "Cliente";
 
-            const delay = Math.floor(Math.random() * 800) + 700; // 0.7-1.5 segundos
+            const delay = Math.floor(Math.random() * 500) + 100; // 0.1-0.6 segundos
             await new Promise(resolve => setTimeout(resolve, delay));
 
             // Verificação Refinada: Ignora mensagens de BOAS VINDAS ou FALHAS para decidir se deve responder
@@ -1174,8 +1207,6 @@ RESPONDA DIRETAMENTE AO REMETENTE.
                 console.log(`[BackgroundAIManager] 🛑 Já existe uma resposta posterior VÁLIDA para o lead [ID: ${messageId}] (${leadId}). Abortando.`);
                 return;
             }
-
-            if (threadId) lockThread(threadId); // Lock the thread before generating response
 
             try {
                 console.log(`[BackgroundAIManager] 🧠 Iniciando geração de resposta IA para [ID: ${messageId}]...`);
