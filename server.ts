@@ -625,6 +625,15 @@ async function startServer() {
 
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
         
+        if (text) {
+           console.log(`[AI Proxy DEBUG] Text received from Gemini: "${text}"`);
+           const refusalPattern = /(desculpe|peço desculpas)(,| mas| eu)? (não )?posso ajudar com isso/i;
+           if (refusalPattern.test(text)) {
+              console.warn(`[AI Proxy] Modelo Gemini retornou recusa detectada via regex. Substituindo por fallback amigável.`);
+              return res.json({ text: "Entendido. Estou analisando sua solicitação e já lhe darei a resposta correta. Posso ajudar com mais alguma dúvida sobre o veículo?", provider: 'gemini', model: modelName });
+           }
+        }
+        
         if (!text) {
            console.warn('[AI Proxy] Resposta vazia do Gemini. Candidates:', JSON.stringify(data.candidates));
            return res.json({ text: "Entendido. Estou processando suas informações.", provider: 'gemini', model: modelName });
@@ -670,6 +679,14 @@ async function startServer() {
         if (!text) {
           console.error(`[AI Proxy] Resposta inválida de ${provider}:`, JSON.stringify(data));
           throw new Error(`Resposta vazia ou inválida de ${provider}`);
+        }
+
+        // Detectar recusas comuns do modelo e substituir pelo fallback amigável
+        console.log(`[AI Proxy DEBUG] Text received from AI: "${text}"`);
+        const refusalPattern = /(desculpe|peço desculpas)(,| mas| eu)? (não )?posso ajudar com isso/i;
+        if (refusalPattern.test(text)) {
+           console.warn(`[AI Proxy] Modelo retornou recusa detectada via regex. Substituindo por fallback amigável.`);
+           return res.json({ text: "Entendido. Estou analisando sua solicitação e já lhe darei a resposta correta. Posso ajudar com mais alguma dúvida sobre o veículo?", provider, model: modelName });
         }
 
         res.json({ text, provider, model: modelName });
