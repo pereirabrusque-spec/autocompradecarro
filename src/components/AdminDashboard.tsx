@@ -2877,6 +2877,8 @@ Podemos prosseguir com o agendamento da vistoria?`;
   const handleSaveAiSettings = async () => {
     setSavingSettings(true);
     addLog('Salvando configurações de IA...', 'info');
+    console.log('[AdminDashboard] Preparando para salvar chaves de IA:', aiSystemPrompt, aiMemory);
+    
     const aiSettings = [
       { key: 'AI_MEMORY', value: aiMemory },
       { key: 'AI_SYSTEM_PROMPT', value: aiSystemPrompt },
@@ -2887,12 +2889,14 @@ Podemos prosseguir com o agendamento da vistoria?`;
     ];
 
     try {
-      console.log('[AdminDashboard] Salvando apenas configurações de IA...');
-      const { error: upsertError } = await supabase
-        .from('settings')
-        .upsert(aiSettings, { onConflict: 'key' });
+      console.log('[AdminDashboard] Executando upsert de configurações de IA...');
+      for (const setting of aiSettings) {
+        const { error: upsertError } = await supabase
+          .from('settings')
+          .upsert(setting, { onConflict: 'key' });
 
-      if (upsertError) throw upsertError;
+        if (upsertError) throw upsertError;
+      }
 
       addLog('Configurações de IA salvas com sucesso!', 'info');
       // Forçamos uma atualização leve se necessário, mas evitamos o fetchData(true) completo se possível
@@ -2900,8 +2904,10 @@ Podemos prosseguir com o agendamento da vistoria?`;
     } catch (error: any) {
       console.error('[AdminDashboard] Erro ao salvar IA:', error);
       addLog('Erro ao salvar IA: ' + error.message, 'error', error);
+      alert('Erro ao salvar IA. Verifique o console.');
     } finally {
       setSavingSettings(false);
+      console.log('[AdminDashboard] Finalizado salvamento de IA.');
     }
   };
 
