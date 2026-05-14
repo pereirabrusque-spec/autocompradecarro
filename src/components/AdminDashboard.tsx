@@ -2760,12 +2760,25 @@ REGRAS DE OURO:
 
   const handleUpdateAsset = async (id: string, url: string, legenda: string, tipo: string, button_text?: string, button_link?: string, title?: string, subtitle?: string, badge_text?: string, ativo?: boolean) => {
     setSavingAsset(id);
-    console.log('[AdminDashboard] Iniciando update do banner:', id);
+    console.log('[AdminDashboard] Iniciando update do banner:', id, { id, url, legenda, tipo, button_text, button_link, title, subtitle, badge_text, ativo });
     try {
-      console.log('Updating asset:', { id, url, legenda, tipo, button_text, button_link, title, subtitle, badge_text, ativo });
+      const updateData: any = { 
+        url, 
+        legenda, 
+        tipo, 
+        button_text: button_text || '', 
+        button_link: button_link || '', 
+        title: title || '', 
+        subtitle: subtitle || '', 
+        badge_text: badge_text || '', 
+        ativo: ativo ?? true 
+      };
+      
+      console.log('[AdminDashboard] Dados para update:', updateData);
+      
       const { data, error } = await supabase
         .from('banners')
-        .update({ url, legenda, tipo, button_text, button_link, title, subtitle, badge_text, ativo: ativo ?? true })
+        .update(updateData)
         .eq('id', id);
 
       console.log('Supabase update response:', { data, error });
