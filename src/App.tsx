@@ -38,6 +38,7 @@ import { GoogleTags } from './components/GoogleTags';
 import NotificationPermissionModal from './components/NotificationPermissionModal';
 import ThankYou from './components/ThankYou';
 import LimpaNome from './components/LimpaNome';
+import SEOContent from './components/SEOContent';
 import { AIService } from './services/aiService';
 import { authManager } from './lib/authManager';
 
@@ -313,6 +314,7 @@ function AppContent() {
             <Testimonials />
             <FipeSection />
             <FeaturesSection />
+            <SEOContent />
           </>
         );
     }
