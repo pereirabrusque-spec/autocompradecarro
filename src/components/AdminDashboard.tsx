@@ -2910,7 +2910,7 @@ REGRAS DE OURO:
       }
 
       addLog('Configurações de IA salvas com sucesso!', 'info');
-      fetchData(true);
+      await fetchData(true);
     } catch (error: any) {
       console.error('[AdminDashboard] Erro ao salvar IA:', error);
       addLog('Erro ao salvar IA: ' + error.message, 'error', error);

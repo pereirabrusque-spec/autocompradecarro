@@ -626,10 +626,9 @@ async function startServer() {
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
         
         if (!text) {
-           console.warn('[AI Proxy] Resposta vazia do Gemini. Candidates:', JSON.stringify(data.candidates));
-           // Let the model return empty text if it does (or throw an error) rather than hardcoding a response.
-           // For now, let's pass it through or return a generic error if the client expects a string.
-           throw new Error('Resposta vazia da API Gemini');
+           console.warn('[AI Proxy] Resposta vazia da API. Candidates:', JSON.stringify(data.candidates));
+           // Em vez de lançar erro, retorna uma resposta padrão indicando que está processando.
+           return res.json({ text: "Entendido, estou analisando sua solicitação com cuidado. Pode me dar um segundo?", provider: provider, model: modelName });
         }
 
         res.json({ text, provider: 'gemini', model: modelName });

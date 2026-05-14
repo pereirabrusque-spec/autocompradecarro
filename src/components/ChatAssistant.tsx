@@ -42,6 +42,37 @@ export default function ChatAssistant({ isOpen, onOpen, onClose }: ChatAssistant
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isInitializingHistory, setIsInitializingHistory] = useState(true);
+  const hasGreetingPerformed = useRef(false);
+
+  useEffect(() => {
+    if (!isInitializingHistory && !hasGreetingPerformed.current) {
+        hasGreetingPerformed.current = true;
+        
+        // 2 seconds delay
+        setTimeout(() => {
+            if (!isOpen) onOpen();
+            
+            // Check if user is returning
+            // If length > 1, it means we have more than the default bot greeting
+            const isReturningUser = messages.length > 1;
+
+            if (!isReturningUser) {
+                // New user
+                const newGreeting = "Olá! Seja bem-vindo à AutoCompra. Estou aqui para tirar suas dúvidas e ajudar você a realizar um ótimo negócio. Como posso te ajudar hoje?";
+                if (messages.length === 1 && messages[0].text.includes('Seja Bem Vindo')) {
+                     setMessages([{ role: 'bot', text: newGreeting }]);
+                } else {
+                     setMessages(prev => [...prev, { role: 'bot', text: newGreeting }]);
+                }
+            } else {
+                // Returning user - persuasive greeting
+                const lastUserMessage = messages.filter(m => m.role === 'user').pop();
+                const returningGreeting = `Olá novamente! Analisei nossas últimas conversas e vi que você tem interesse em fechar negócio conosco. Estou aqui para facilitar tudo e finalizarmos essa compra o quanto antes. O que falta para fecharmos?`;
+                setMessages(prev => [...prev, { role: 'bot', text: returningGreeting }]);
+            }
+        }, 2000);
+    }
+  }, [isInitializingHistory, isOpen, onOpen]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [videos, setVideos] = useState<File[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
