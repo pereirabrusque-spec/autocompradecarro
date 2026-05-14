@@ -2760,6 +2760,7 @@ REGRAS DE OURO:
 
   const handleUpdateAsset = async (id: string, url: string, legenda: string, tipo: string, button_text?: string, button_link?: string, title?: string, subtitle?: string, badge_text?: string, ativo?: boolean) => {
     setSavingAsset(id);
+    console.log('[AdminDashboard] Iniciando update do banner:', id);
     try {
       console.log('Updating asset:', { id, url, legenda, tipo, button_text, button_link, title, subtitle, badge_text, ativo });
       const { data, error } = await supabase
@@ -2770,7 +2771,9 @@ REGRAS DE OURO:
       console.log('Supabase update response:', { data, error });
       if (error) throw error;
 
+      console.log('[AdminDashboard] Update realizado. Chamando refreshAssets...');
       await refreshAssets();
+      console.log('[AdminDashboard] refreshAssets concluído.');
       // Update local state
       setDbAssets(prev => prev.map(a => a.id === id ? { ...a, url, legenda, tipo, button_text, button_link, title, subtitle, badge_text, ativo: ativo ?? true } : a));
       alert('Alteração salva com sucesso!');
@@ -2779,6 +2782,7 @@ REGRAS DE OURO:
       alert('Erro ao salvar banner.');
     } finally {
       setSavingAsset(null);
+      console.log('[AdminDashboard] Finalizado handleUpdateAsset.');
     }
   };
 
