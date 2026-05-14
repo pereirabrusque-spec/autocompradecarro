@@ -2758,20 +2758,23 @@ REGRAS DE OURO:
     }
   };
 
-  const handleUpdateAsset = async (id: string, url: string, legenda: string, tipo: string, button_text?: string, button_link?: string, title?: string, subtitle?: string, badge_text?: string, ativo?: boolean) => {
+  const handleUpdateAsset = async (id: string) => {
+    const asset = dbAssets.find(a => a.id === id);
+    if (!asset) return;
+
     setSavingAsset(id);
-    console.log('[AdminDashboard] Iniciando update do banner:', id, { id, url, legenda, tipo, button_text, button_link, title, subtitle, badge_text, ativo });
+    console.log('[AdminDashboard] Iniciando update do banner:', id);
     try {
       const updateData: any = { 
-        url, 
-        legenda, 
-        tipo, 
-        button_text: button_text || '', 
-        button_link: button_link || '', 
-        title: title || '', 
-        subtitle: subtitle || '', 
-        badge_text: badge_text || '', 
-        ativo: ativo ?? true 
+        url: asset.url, 
+        legenda: asset.legenda, 
+        tipo: asset.tipo, 
+        button_text: asset.button_text || '', 
+        button_link: asset.button_link || '', 
+        title: asset.title || '', 
+        subtitle: asset.subtitle || '', 
+        badge_text: asset.badge_text || '', 
+        ativo: asset.ativo ?? true 
       };
       
       console.log('[AdminDashboard] Dados para update:', updateData);
@@ -2787,8 +2790,7 @@ REGRAS DE OURO:
       console.log('[AdminDashboard] Update realizado. Chamando refreshAssets...');
       await refreshAssets();
       console.log('[AdminDashboard] refreshAssets concluído.');
-      // Update local state
-      setDbAssets(prev => prev.map(a => a.id === id ? { ...a, url, legenda, tipo, button_text, button_link, title, subtitle, badge_text, ativo: ativo ?? true } : a));
+      
       alert('Alteração salva com sucesso!');
     } catch (error) {
       console.error('Error updating banner:', error);
@@ -2880,17 +2882,7 @@ REGRAS DE OURO:
       
       const currentAsset = dbAssets.find(a => a.id === id);
       if (currentAsset) {
-        await handleUpdateAsset(
-          id, 
-          publicUrl, 
-          currentAsset.legenda, 
-          currentAsset.tipo, 
-          currentAsset.button_text, 
-          currentAsset.button_link, 
-          currentAsset.title, 
-          currentAsset.subtitle, 
-          currentAsset.badge_text
-        );
+        await handleUpdateAsset(id);
       }
 
     } catch (error) {
@@ -5965,7 +5957,7 @@ REGRAS DE OURO:
                       </button>
                     </div>
                     <button 
-                      onClick={() => handleUpdateAsset(asset.id, asset.url, asset.legenda, asset.tipo, asset.button_text, asset.button_link, asset.title, asset.subtitle, asset.badge_text, asset.ativo)}
+                      onClick={() => handleUpdateAsset(asset.id)}
                       disabled={savingAsset === asset.id}
                       className="mt-auto w-full py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-accent transition-all disabled:opacity-50 animate-pulse-soft"
                     >
@@ -6120,7 +6112,7 @@ REGRAS DE OURO:
                       </button>
                     </div>
                     <button 
-                      onClick={() => handleUpdateAsset(asset.id, asset.url, asset.legenda, asset.tipo, asset.button_text, asset.button_link, asset.title, asset.subtitle, asset.badge_text, asset.ativo)}
+                      onClick={() => handleUpdateAsset(asset.id)}
                       disabled={savingAsset === asset.id}
                       className="mt-auto w-full py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-accent transition-all disabled:opacity-50 animate-pulse-soft"
                     >
@@ -6528,7 +6520,7 @@ REGRAS DE OURO:
                       onChange={(e) => setDbAssets(prev => prev.map(a => a.id === asset.id ? { ...a, subtitle: e.target.value } : a))}
                     />
                     <button 
-                      onClick={() => handleUpdateAsset(asset.id, asset.url, asset.legenda, asset.tipo, asset.button_text, asset.button_link, asset.title, asset.subtitle, asset.badge_text)}
+                      onClick={() => handleUpdateAsset(asset.id)}
                       disabled={savingAsset === asset.id}
                       className="mt-auto w-full py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-accent transition-all disabled:opacity-50"
                     >
