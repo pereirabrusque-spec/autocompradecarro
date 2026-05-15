@@ -3030,11 +3030,20 @@ REGRAS DE OURO:
       console.log(`Attempting to delete lead ${id}...`);
       
       // 1. Delete associated records first
-      const { error: sentLeadsError } = await supabase.from('sent_leads').delete().eq('lead_id', id);
-      if (sentLeadsError) console.error('Error deleting sent_leads:', sentLeadsError);
+      console.log('Tentando excluir registros associados ao lead:', id);
+      const { data: sentLeadsData, error: sentLeadsError } = await supabase.from('sent_leads').delete().eq('lead_id', id).select();
+      if (sentLeadsError) {
+        console.error('Error deleting sent_leads:', sentLeadsError);
+      } else {
+        console.log('Resultados da exclusão de sent_leads:', sentLeadsData);
+      }
       
-      const { error: mensagensError } = await supabase.from('mensagens').delete().eq('lead_id', id);
-      if (mensagensError) console.error('Error deleting mensagens:', mensagensError);
+      const { data: mensagensData, error: mensagensError } = await supabase.from('mensagens').delete().eq('lead_id', id).select();
+      if (mensagensError) {
+        console.error('Error deleting mensagens:', mensagensError);
+      } else {
+        console.log('Resultados da exclusão de mensagens:', mensagensData);
+      }
       
       // 2. Delete the lead
       const { data, error } = await supabase
