@@ -3055,7 +3055,7 @@ REGRAS DE OURO:
       }
 
       console.log(`Lead ${id} deleted successfully from DB. Result:`, data);
-      await fetchData();
+      await fetchData(true);
       if (selectedLead?.id === id) setSelectedLead(null);
       setToast({ message: 'Lead excluído com sucesso!', type: 'success' });
       setTimeout(() => setToast(null), 3000);
