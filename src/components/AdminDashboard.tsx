@@ -3045,6 +3045,13 @@ REGRAS DE OURO:
         console.log('Resultados da exclusão de mensagens:', mensagensData);
       }
       
+      const { data: buyerProposalsData, error: buyerProposalsError } = await supabase.from('buyer_proposals').delete().eq('lead_id', id).select();
+      if (buyerProposalsError) {
+        console.error('Error deleting buyer_proposals:', buyerProposalsError);
+      } else {
+        console.log('Resultados da exclusão de buyer_proposals:', buyerProposalsData);
+      }
+      
       // 2. Delete the lead
       const { data, error } = await supabase
         .from('leads_veiculos')
