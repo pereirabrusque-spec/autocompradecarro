@@ -3030,19 +3030,13 @@ REGRAS DE OURO:
       console.log(`Attempting to delete lead ${id}...`);
       
       // 1. Delete associated records first
-      await supabase.from('sent_leads').delete().eq('lead_id', id);
-      await supabase.from('mensagens').delete().eq('lead_id', id);
+      const { error: sentLeadsError } = await supabase.from('sent_leads').delete().eq('lead_id', id);
+      if (sentLeadsError) console.error('Error deleting sent_leads:', sentLeadsError);
+      
+      const { error: mensagensError } = await supabase.from('mensagens').delete().eq('lead_id', id);
+      if (mensagensError) console.error('Error deleting mensagens:', mensagensError);
       
       // 2. Delete the lead
-      const { data: leadToDelete, error: fetchError } = await supabase
-        .from('leads_veiculos')
-        .select('*')
-        .eq('id', id)
-        .single();
-      
-      console.log('Lead to delete:', leadToDelete);
-      if (fetchError) console.error('Error fetching lead to delete:', fetchError);
-
       const { data, error } = await supabase
         .from('leads_veiculos')
         .delete()
@@ -3050,12 +3044,15 @@ REGRAS DE OURO:
         .select();
 
       if (error) {
-        console.error('Supabase delete error:', error);
+        console.error('Supabase delete error (leads_veiculos):', error);
         throw error;
       }
 
       console.log(`Lead ${id} deleted successfully from DB. Result:`, data);
-      await fetchData(true);
+      
+      // Update local state instead of full fetchData (prevents blinking)
+      setLeads(prev => prev.filter(l => l.id !== id));
+      
       if (selectedLead?.id === id) setSelectedLead(null);
       setToast({ message: 'Lead excluído com sucesso!', type: 'success' });
       setTimeout(() => setToast(null), 3000);
